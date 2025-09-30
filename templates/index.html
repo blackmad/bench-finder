@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bench Finder - High Confidence Benches</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .title {
+            color: white;
+            font-size: 2rem;
+            font-weight: 300;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 0.9rem;
+            backdrop-filter: blur(5px);
+        }
+        
+        .control-group input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .stats {
+            color: white;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .bench-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            opacity: 0;
+            animation: fadeInUp 0.6s ease forwards;
+        }
+        
+        .bench-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .image-container {
+            position: relative;
+            height: 200px;
+            overflow: hidden;
+            background: #f5f5f5;
+            cursor: pointer;
+        }
+        
+        .bench-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        
+        .bench-card:hover .bench-image {
+            transform: scale(1.05);
+        }
+        
+        .confidence-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .distance-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .detection-type-badge {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .detection-type-ultralytics {
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+        }
+        
+        .detection-type-roboflow {
+            background: rgba(33, 150, 243, 0.9);
+            color: white;
+        }
+        
+        .segmentation-available {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(255, 152, 0, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .card-content {
+            padding: 20px;
+        }
+        
+        .bench-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .bench-details {
+            display: grid;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .detail-label {
+            font-weight: 500;
+        }
+        
+        .coordinate {
+            font-family: 'Courier New', monospace;
+            color: #888;
+        }
+        
+        .tags {
+            margin-top: 15px;
+        }
+        
+        .tag {
+            display: inline-block;
+            background: #e9ecef;
+            color: #495057;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            margin: 2px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.1rem;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+        }
+        
+        .no-results h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .no-results p {
+            opacity: 0.7;
+        }
+        
+        .placeholder-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 3rem;
+        }
+        
+        /* Modal styles for enhanced image view */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        
+        .modal-content {
+            position: relative;
+            margin: 2% auto;
+            width: 90%;
+            max-width: 800px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+        
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        
+        .close-button:hover {
+            color: #333;
+        }
+        
+        .modal-image-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            background: #000;
+        }
+        
+        .modal-image {
+            max-width: 100%;
+            max-height: 60vh;
+            object-fit: contain;
+        }
+        
+        .segmentation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .segmentation-polygon {
+            fill: rgba(76, 175, 80, 0.3);
+            stroke: #4caf50;
+            stroke-width: 2;
+        }
+        
+        .modal-info {
+            padding: 20px;
+        }
+        
+        .detection-info {
+            display: grid;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .title {
+                font-size: 1.5rem;
+            }
+            
+            .controls {
+                justify-content: center;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .container {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1 class="title">🪑 Bench Finder</h1>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Starting Point</label>
+                    <select id="startPoint">
+                        <option value="custom">Custom Location</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Latitude</label>
+                    <input type="number" id="startLat" step="0.000001" placeholder="52.3613577">
+                </div>
+                <div class="control-group">
+                    <label>Longitude</label>
+                    <input type="number" id="startLng" step="0.000001" placeholder="4.8666322">
+                </div>
+                <div class="control-group">
+                    <label>Min Confidence</label>
+                    <input type="number" id="minConfidence" min="0" max="1" step="0.01" value="0.8">
+                </div>
+            </div>
+            <div class="stats" id="stats">
+                Loading...
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="grid" id="benchGrid"></div>
+        <div class="loading" id="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            Loading more benches...
+        </div>
+        <div class="no-results" id="noResults" style="display: none;">
+            <h3>No benches found</h3>
+            <p>Try adjusting your search parameters or starting location.</p>
+        </div>
+    </div>
+    
+    <!-- Modal for enhanced image view -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Bench Detection</h3>
+                <button class="close-button" onclick="closeImageModal()">&times;</button>
+            </div>
+            <div class="modal-image-container">
+                <img id="modalImage" class="modal-image" alt="Bench detection">
+                <svg id="segmentationOverlay" class="segmentation-overlay" style="display: none;">
+                    <!-- Segmentation polygons will be inserted here -->
+                </svg>
+            </div>
+            <div class="modal-info" id="modalInfo">
+                <div class="detection-info">
+                    <!-- Detection information will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        class BenchFinder {
+            constructor() {
+                this.currentPage = 0;
+                this.loading = false;
+                this.hasMore = true;
+                this.config = {};
+                this.benches = [];
+                
+                this.init();
+            }
+            
+            async init() {
+                await this.loadConfig();
+                await this.loadSearches();
+                this.setupEventListeners();
+                this.loadBenches();
+            }
+            
+            async loadConfig() {
+                try {
+                    const response = await fetch('/api/config');
+                    this.config = await response.json();
+                    
+                    document.getElementById('startLat').value = this.config.default_start_lat;
+                    document.getElementById('startLng').value = this.config.default_start_lng;
+                    document.getElementById('minConfidence').value = this.config.default_min_confidence;
+                } catch (error) {
+                    console.error('Error loading config:', error);
+                }
+            }
+            
+            async loadSearches() {
+                try {
+                    const response = await fetch('/api/searches');
+                    const data = await response.json();
+                    const select = document.getElementById('startPoint');
+                    
+                    data.searches.forEach(search => {
+                        const option = document.createElement('option');
+                        option.value = `${search.start_lat},${search.start_lng}`;
+                        option.textContent = `${search.query} (${search.bench_count} benches)`;
+                        select.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Error loading searches:', error);
+                }
+            }
+            
+            setupEventListeners() {
+                // Infinite scroll
+                window.addEventListener('scroll', () => {
+                    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
+                        if (!this.loading && this.hasMore) {
+                            this.loadBenches();
+                        }
+                    }
+                });
+                
+                // Controls
+                document.getElementById('startPoint').addEventListener('change', (e) => {
+                    if (e.target.value !== 'custom') {
+                        const [lat, lng] = e.target.value.split(',');
+                        document.getElementById('startLat').value = lat;
+                        document.getElementById('startLng').value = lng;
+                        this.resetAndReload();
+                    }
+                });
+                
+                ['startLat', 'startLng', 'minConfidence'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', () => {
+                        this.resetAndReload();
+                    });
+                });
+            }
+            
+            resetAndReload() {
+                this.currentPage = 0;
+                this.benches = [];
+                this.hasMore = true;
+                document.getElementById('benchGrid').innerHTML = '';
+                this.loadBenches();
+            }
+            
+            async loadBenches() {
+                if (this.loading || !this.hasMore) return;
+                
+                this.loading = true;
+                document.getElementById('loading').style.display = 'block';
+                
+                const startLat = parseFloat(document.getElementById('startLat').value) || this.config.default_start_lat;
+                const startLng = parseFloat(document.getElementById('startLng').value) || this.config.default_start_lng;
+                const minConfidence = parseFloat(document.getElementById('minConfidence').value) || this.config.default_min_confidence;
+                
+                const params = new URLSearchParams({
+                    page: this.currentPage,
+                    start_lat: startLat,
+                    start_lng: startLng,
+                    min_confidence: minConfidence
+                });
+                
+                try {
+                    const response = await fetch(`/api/benches?${params}`);
+                    const data = await response.json();
+                    
+                    if (data.benches.length === 0 && this.currentPage === 0) {
+                        document.getElementById('noResults').style.display = 'block';
+                    } else {
+                        document.getElementById('noResults').style.display = 'none';
+                    }
+                    
+                    this.benches.push(...data.benches);
+                    this.hasMore = data.pagination.has_next;
+                    this.currentPage++;
+                    
+                    this.renderBenches(data.benches);
+                    this.updateStats(data.pagination);
+                } catch (error) {
+                    console.error('Error loading benches:', error);
+                }
+                
+                this.loading = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+            
+            renderBenches(benches) {
+                const grid = document.getElementById('benchGrid');
+                
+                benches.forEach((bench, index) => {
+                    const card = this.createBenchCard(bench);
+                    card.style.animationDelay = `${index * 0.1}s`;
+                    grid.appendChild(card);
+                });
+            }
+            
+            createBenchCard(bench) {
+                const card = document.createElement('div');
+                card.className = 'bench-card';
+                
+                // Get the first available image or use placeholder
+                const imageFilename = bench.image_filenames[0];
+                const imageUrl = imageFilename ? `/images/${imageFilename}` : null;
+                
+                // Format tags
+                const tags = Object.entries(bench.tags)
+                    .filter(([key]) => !['amenity'].includes(key))
+                    .map(([key, value]) => `${key}: ${value}`);
+                
+                card.innerHTML = `
+                    <div class="image-container" onclick="openImageModal(${bench.id}, '${imageUrl}', ${bench.image_ids[0] || 'null'})">
+                        ${imageUrl ? 
+                            `<img class="bench-image" src="${imageUrl}" alt="Bench ${bench.id}" loading="lazy">` :
+                            `<div class="placeholder-image">🪑</div>`
+                        }
+                        <div class="confidence-badge">${(bench.best_confidence * 100).toFixed(0)}%</div>
+                        <div class="distance-badge">
+                            ${bench.distance_km < 1 ? 
+                                `${bench.distance_meters}m` : 
+                                `${bench.distance_km}km`
+                            }
+                        </div>
+                        <div class="detection-type-badge detection-type-${bench.detection_type}">${bench.detection_type}</div>
+                        ${bench.has_segmentation ? '<div class="segmentation-available">🎯 SEG</div>' : ''}
+                    </div>
+                    <div class="card-content">
+                        <h3 class="bench-title" onclick="openStreetView(${bench.lat}, ${bench.lng})" style="cursor: pointer; color: #007bff;">📍 Bench #${bench.id}</h3>
+                        <div class="bench-details">
+                            <div class="detail-row">
+                                <span class="detail-label">OSM ID:</span>
+                                <span>${bench.osm_type}/${bench.osm_id}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Best Confidence:</span>
+                                <span>${(bench.best_confidence * 100).toFixed(1)}% (${bench.detection_type})</span>
+                            </div>
+                            ${bench.roboflow_confidence > 0 && bench.ultralytics_confidence > 0 ? `
+                                <div class="detail-row">
+                                    <span class="detail-label">Roboflow:</span>
+                                    <span>${(bench.roboflow_confidence * 100).toFixed(1)}%</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Ultralytics:</span>
+                                    <span>${(bench.ultralytics_confidence * 100).toFixed(1)}%</span>
+                                </div>
+                            ` : ''}
+                            <div class="detail-row">
+                                <span class="detail-label">Images:</span>
+                                <span>${bench.image_count}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Location:</span>
+                                <span class="coordinate">${bench.lat.toFixed(6)}, ${bench.lng.toFixed(6)}</span>
+                            </div>
+                        </div>
+                        ${tags.length > 0 ? `
+                            <div class="tags">
+                                ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                return card;
+            }
+            
+            updateStats(pagination) {
+                const stats = document.getElementById('stats');
+                const totalShown = this.benches.length;
+                const totalAvailable = pagination.total_count;
+                
+                stats.textContent = `Showing ${totalShown} of ${totalAvailable} high-confidence benches`;
+            }
+        }
+        
+        // Modal functions
+        async function openImageModal(benchId, imageUrl, imageId) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalInfo = document.getElementById('modalInfo');
+            const segmentationOverlay = document.getElementById('segmentationOverlay');
+            
+            // Set basic info
+            modalTitle.textContent = `Bench #${benchId} - Detection Details`;
+            modalImage.src = imageUrl;
+            
+            // Clear previous segmentation
+            segmentationOverlay.innerHTML = '';
+            segmentationOverlay.style.display = 'none';
+            
+            // Clear previous info
+            modalInfo.innerHTML = '<div class="detection-info">Loading detection details...</div>';
+            
+            // Show modal
+            modal.style.display = 'block';
+            
+            // Load segmentation data if available
+            if (imageId && imageId !== 'null') {
+                try {
+                    const response = await fetch(`/api/image/${imageId}/segmentation`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        displaySegmentationData(data, modalImage, segmentationOverlay, modalInfo);
+                    } else {
+                        modalInfo.innerHTML = '<div class="detection-info"><p>No segmentation data available for this image.</p></div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading segmentation data:', error);
+                    modalInfo.innerHTML = '<div class="detection-info"><p>Error loading detection details.</p></div>';
+                }
+            }
+        }
+        
+        function displaySegmentationData(data, imageElement, overlayElement, infoElement) {
+            const { bench_detections, image_shape } = data;
+            
+            if (bench_detections && bench_detections.length > 0) {
+                // Wait for image to load to get dimensions
+                imageElement.onload = function() {
+                    const imageRect = imageElement.getBoundingClientRect();
+                    const imageNaturalWidth = imageElement.naturalWidth;
+                    const imageNaturalHeight = imageElement.naturalHeight;
+                    
+                    // Set overlay dimensions to match displayed image
+                    overlayElement.style.width = imageElement.clientWidth + 'px';
+                    overlayElement.style.height = imageElement.clientHeight + 'px';
+                    overlayElement.setAttribute('viewBox', `0 0 ${imageElement.clientWidth} ${imageElement.clientHeight}`);
+                    
+                    // Clear and populate segmentation polygons
+                    overlayElement.innerHTML = '';
+                    
+                    bench_detections.forEach((detection, index) => {
+                        if (detection.segments && detection.segments.x && detection.segments.y) {
+                            const points = [];
+                            const scaleX = imageElement.clientWidth / imageNaturalWidth;
+                            const scaleY = imageElement.clientHeight / imageNaturalHeight;
+                            
+                            // Convert coordinates to SVG polygon points
+                            for (let i = 0; i < detection.segments.x.length; i++) {
+                                const x = detection.segments.x[i] * scaleX;
+                                const y = detection.segments.y[i] * scaleY;
+                                points.push(`${x},${y}`);
+                            }
+                            
+                            // Create polygon element
+                            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                            polygon.setAttribute('points', points.join(' '));
+                            polygon.setAttribute('class', 'segmentation-polygon');
+                            polygon.style.fill = `rgba(76, 175, 80, ${0.3 + index * 0.1})`;
+                            
+                            overlayElement.appendChild(polygon);
+                        }
+                    });
+                    
+                    overlayElement.style.display = 'block';
+                };
+                
+                // Trigger onload if image is already loaded
+                if (imageElement.complete) {
+                    imageElement.onload();
+                }
+            }
+            
+            // Display detection information
+            let infoHTML = '<div class="detection-info">';
+            
+            bench_detections.forEach((detection, index) => {
+                infoHTML += `
+                    <div style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
+                        <h4 style="margin: 0 0 10px 0; color: #333;">Detection ${index + 1}</h4>
+                        <div class="info-row">
+                            <span class="info-label">Class:</span>
+                            <span>${detection.class || 'Unknown'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Confidence:</span>
+                            <span>${(detection.confidence * 100).toFixed(1)}%</span>
+                        </div>
+                        ${detection.segments && detection.segments.x ? `
+                            <div class="info-row">
+                                <span class="info-label">Segmentation Points:</span>
+                                <span>${detection.segments.x.length} coordinates</span>
+                            </div>
+                        ` : ''}
+                        ${detection.box ? `
+                            <div class="info-row">
+                                <span class="info-label">Bounding Box:</span>
+                                <span>x: ${detection.box.x1}-${detection.box.x2}, y: ${detection.box.y1}-${detection.box.y2}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+            
+            if (image_shape) {
+                infoHTML += `
+                    <div class="info-row">
+                        <span class="info-label">Image Dimensions:</span>
+                        <span>${image_shape[1]} × ${image_shape[0]} pixels</span>
+                    </div>
+                `;
+            }
+            
+            infoHTML += '</div>';
+            infoElement.innerHTML = infoHTML;
+        }
+        
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('imageModal');
+            if (event.target === modal) {
+                closeImageModal();
+            }
+        };
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new BenchFinder();
+        });
+    </script>
+</body>
+</html>
