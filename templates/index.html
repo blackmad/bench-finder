@@ -131,6 +131,47 @@
             cursor: pointer;
         }
         
+        .image-hover-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.9rem;
+            text-align: center;
+            pointer-events: none;
+        }
+        
+        .image-container:hover .image-hover-overlay {
+            opacity: 1;
+        }
+        
+        .hover-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .image-container:hover .hover-image {
+            opacity: 1;
+        }
+        
+        .image-container:hover .bench-image {
+            opacity: 0.3;
+        }
+        
         .bench-image {
             width: 100%;
             height: 100%;
@@ -348,6 +389,38 @@
             background: #000;
         }
         
+        .modal-nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            font-size: 2rem;
+            padding: 15px 20px;
+            cursor: pointer;
+            z-index: 10;
+            transition: background-color 0.3s ease;
+            border-radius: 8px;
+        }
+        
+        .modal-nav-arrow:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+        
+        .modal-nav-arrow.prev {
+            left: 20px;
+        }
+        
+        .modal-nav-arrow.next {
+            right: 20px;
+        }
+        
+        .modal-nav-arrow:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        
         .modal-image {
             max-width: 100%;
             max-height: 60vh;
@@ -465,6 +538,8 @@
                 <button class="close-button" onclick="closeImageModal()">&times;</button>
             </div>
             <div class="modal-image-container">
+                <button class="modal-nav-arrow prev" onclick="navigateModal(-1)" title="Previous bench (←)">‹</button>
+                <button class="modal-nav-arrow next" onclick="navigateModal(1)" title="Next bench (→)">›</button>
                 <img id="modalImage" class="modal-image" alt="Bench detection">
                 <svg id="segmentationOverlay" class="segmentation-overlay" style="display: none;">
                     <!-- Segmentation polygons will be inserted here -->
@@ -486,6 +561,9 @@
                 this.hasMore = true;
                 this.config = {};
                 this.benches = [];
+                
+                // Store reference globally for modal navigation
+                window.benchFinderInstance = this;
                 
                 this.init();
             }
@@ -627,11 +705,14 @@
                     .map(([key, value]) => `${key}: ${value}`);
                 
                 card.innerHTML = `
-                    <div class="image-container" onclick="openImageModal(${bench.id}, '${imageUrl}', ${bench.image_ids[0] || 'null'})">
+                    <div class="image-container" onmouseenter="loadHoverImage(this, ${bench.id})" onclick="openImageModal(${bench.id}, '${imageUrl}', ${bench.image_ids[0] || 'null'})">
                         ${imageUrl ? 
                             `<img class="bench-image" src="${imageUrl}" alt="Bench ${bench.id}" loading="lazy">` :
                             `<div class="placeholder-image">🪑</div>`
                         }
+                        <div class="image-hover-overlay">
+                            <div>View from bench<br><small>Loading...</small></div>
+                        </div>
                         <div class="confidence-badge">${(bench.best_confidence * 100).toFixed(0)}%</div>
                         <div class="distance-badge">
                             ${bench.distance_km < 1 ? 
@@ -692,16 +773,36 @@
             }
         }
         
+        // Modal navigation state
+        let currentModalBenchIndex = -1;
+        let modalBenchList = [];
+        
         // Modal functions
         async function openImageModal(benchId, imageUrl, imageId) {
+            // Find the current bench in the list
+            const benchFinder = window.benchFinderInstance;
+            if (benchFinder && benchFinder.benches) {
+                modalBenchList = benchFinder.benches;
+                currentModalBenchIndex = modalBenchList.findIndex(bench => bench.id === benchId);
+            }
+            
+            await loadBenchInModal(benchId, imageUrl, imageId);
+            
+            // Show modal
             const modal = document.getElementById('imageModal');
+            modal.style.display = 'block';
+        }
+        
+        async function loadBenchInModal(benchId, imageUrl, imageId) {
             const modalImage = document.getElementById('modalImage');
             const modalTitle = document.getElementById('modalTitle');
             const modalInfo = document.getElementById('modalInfo');
             const segmentationOverlay = document.getElementById('segmentationOverlay');
             
             // Set basic info
-            modalTitle.textContent = `Bench #${benchId} - Detection Details`;
+            const navInfo = modalBenchList.length > 0 ? 
+                ` (${currentModalBenchIndex + 1}/${modalBenchList.length})` : '';
+            modalTitle.textContent = `Bench #${benchId} - Detection Details${navInfo}`;
             modalImage.src = imageUrl;
             
             // Clear previous segmentation
@@ -710,9 +811,6 @@
             
             // Clear previous info
             modalInfo.innerHTML = '<div class="detection-info">Loading detection details...</div>';
-            
-            // Show modal
-            modal.style.display = 'block';
             
             // Load segmentation data if available
             if (imageId && imageId !== 'null') {
@@ -731,20 +829,69 @@
             }
         }
         
+        function navigateModal(direction) {
+            if (modalBenchList.length === 0 || currentModalBenchIndex === -1) {
+                return;
+            }
+            
+            let newIndex = currentModalBenchIndex + direction;
+            
+            // Wrap around
+            if (newIndex < 0) {
+                newIndex = modalBenchList.length - 1;
+            } else if (newIndex >= modalBenchList.length) {
+                newIndex = 0;
+            }
+            
+            currentModalBenchIndex = newIndex;
+            const bench = modalBenchList[currentModalBenchIndex];
+            
+            // Get the primary image for this bench
+            const imageUrl = bench.image_filenames && bench.image_filenames.length > 0 ? 
+                `/images/${bench.image_filenames[0]}` : null;
+            const imageId = bench.image_ids && bench.image_ids.length > 0 ? 
+                bench.image_ids[0] : null;
+            
+            loadBenchInModal(bench.id, imageUrl, imageId);
+        }
+        
         function displaySegmentationData(data, imageElement, overlayElement, infoElement) {
             const { bench_detections, image_shape } = data;
             
             if (bench_detections && bench_detections.length > 0) {
                 // Wait for image to load to get dimensions
                 imageElement.onload = function() {
+                    const containerRect = imageElement.parentElement.getBoundingClientRect();
                     const imageRect = imageElement.getBoundingClientRect();
                     const imageNaturalWidth = imageElement.naturalWidth;
                     const imageNaturalHeight = imageElement.naturalHeight;
                     
-                    // Set overlay dimensions to match displayed image
-                    overlayElement.style.width = imageElement.clientWidth + 'px';
-                    overlayElement.style.height = imageElement.clientHeight + 'px';
-                    overlayElement.setAttribute('viewBox', `0 0 ${imageElement.clientWidth} ${imageElement.clientHeight}`);
+                    // Calculate the actual displayed image dimensions (accounting for object-fit: contain)
+                    const containerAspect = containerRect.width / containerRect.height;
+                    const imageAspect = imageNaturalWidth / imageNaturalHeight;
+                    
+                    let displayWidth, displayHeight, offsetX, offsetY;
+                    
+                    if (imageAspect > containerAspect) {
+                        // Image is wider than container - limited by width
+                        displayWidth = containerRect.width;
+                        displayHeight = containerRect.width / imageAspect;
+                        offsetX = 0;
+                        offsetY = (containerRect.height - displayHeight) / 2;
+                    } else {
+                        // Image is taller than container - limited by height
+                        displayWidth = containerRect.height * imageAspect;
+                        displayHeight = containerRect.height;
+                        offsetX = (containerRect.width - displayWidth) / 2;
+                        offsetY = 0;
+                    }
+                    
+                    // Set overlay dimensions and position to match displayed image
+                    overlayElement.style.width = displayWidth + 'px';
+                    overlayElement.style.height = displayHeight + 'px';
+                    overlayElement.style.left = offsetX + 'px';
+                    overlayElement.style.top = offsetY + 'px';
+                    overlayElement.setAttribute('viewBox', `0 0 ${displayWidth} ${displayHeight}`);
                     
                     // Clear and populate segmentation polygons
                     overlayElement.innerHTML = '';
@@ -752,8 +899,8 @@
                     bench_detections.forEach((detection, index) => {
                         if (detection.segments && detection.segments.x && detection.segments.y) {
                             const points = [];
-                            const scaleX = imageElement.clientWidth / imageNaturalWidth;
-                            const scaleY = imageElement.clientHeight / imageNaturalHeight;
+                            const scaleX = displayWidth / imageNaturalWidth;
+                            const scaleY = displayHeight / imageNaturalHeight;
                             
                             // Convert coordinates to SVG polygon points
                             for (let i = 0; i < detection.segments.x.length; i++) {
@@ -767,6 +914,8 @@
                             polygon.setAttribute('points', points.join(' '));
                             polygon.setAttribute('class', 'segmentation-polygon');
                             polygon.style.fill = `rgba(76, 175, 80, ${0.3 + index * 0.1})`;
+                            polygon.style.stroke = '#4caf50';
+                            polygon.style.strokeWidth = '2';
                             
                             overlayElement.appendChild(polygon);
                         }
@@ -837,12 +986,119 @@
             }
         };
         
-        // Close modal with Escape key
+        // Enhanced keyboard navigation
         document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeImageModal();
+            const modal = document.getElementById('imageModal');
+            const isModalOpen = modal.style.display === 'block';
+            
+            if (isModalOpen) {
+                switch(event.key) {
+                    case 'Escape':
+                        closeImageModal();
+                        break;
+                    case 'ArrowLeft':
+                        event.preventDefault();
+                        navigateModal(-1);
+                        break;
+                    case 'ArrowRight':
+                        event.preventDefault();
+                        navigateModal(1);
+                        break;
+                }
             }
         });
+        
+        // Open Google Street View for a bench
+        function openStreetView(lat, lng) {
+            const streetViewUrl = `https://www.google.com/maps/@${lat},${lng},3a,75y,0h,90t/data=!3m7!1e1!3m5!1sAF1QipP6YQX8ZTQg_bZk6U4m7U0oF9e0Y0lDo5K9ZQ!2e10!3e11!7i13312!8i6656`;
+            window.open(streetViewUrl, '_blank');
+        }
+        
+        // Cache for loaded hover images
+        const hoverImageCache = new Map();
+        
+        // Load hover image (opposite heading view)
+        async function loadHoverImage(container, benchId) {
+            // Check if already loaded
+            if (container.dataset.hoverLoaded === 'true') {
+                return;
+            }
+            
+            // Check cache first
+            if (hoverImageCache.has(benchId)) {
+                const hoverImageData = hoverImageCache.get(benchId);
+                if (hoverImageData) {
+                    addHoverImage(container, hoverImageData.filename, hoverImageData.heading);
+                }
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/bench/${benchId}/images`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const images = data.images || [];
+                    
+                    if (images.length > 0) {
+                        // Find the primary image heading
+                        const primaryImage = container.querySelector('.bench-image');
+                        const primarySrc = primaryImage ? primaryImage.src : '';
+                        const primaryFilename = primarySrc.split('/').pop();
+                        
+                        // Find the primary image data
+                        const primaryImageData = images.find(img => img.filename === primaryFilename);
+                        
+                        if (primaryImageData) {
+                            // Calculate opposite heading (add 180 degrees, mod 360)
+                            const oppositeHeading = (primaryImageData.heading + 180) % 360;
+                            
+                            // Find image closest to opposite heading
+                            let closestImage = null;
+                            let smallestDiff = 360;
+                            
+                            for (const image of images) {
+                                const diff = Math.abs(image.heading - oppositeHeading);
+                                const wrappedDiff = Math.min(diff, 360 - diff);
+                                if (wrappedDiff < smallestDiff) {
+                                    smallestDiff = wrappedDiff;
+                                    closestImage = image;
+                                }
+                            }
+                            
+                            if (closestImage && closestImage.filename !== primaryFilename) {
+                                hoverImageCache.set(benchId, closestImage);
+                                addHoverImage(container, closestImage.filename, closestImage.heading);
+                            } else {
+                                hoverImageCache.set(benchId, null);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading hover image:', error);
+                hoverImageCache.set(benchId, null);
+            }
+        }
+        
+        function addHoverImage(container, filename, heading) {
+            const hoverOverlay = container.querySelector('.image-hover-overlay');
+            
+            // Create hover image element
+            const hoverImg = document.createElement('img');
+            hoverImg.className = 'hover-image';
+            hoverImg.src = `/images/${filename}`;
+            hoverImg.alt = 'View from bench';
+            hoverImg.loading = 'lazy';
+            
+            container.appendChild(hoverImg);
+            
+            // Update overlay text
+            if (hoverOverlay) {
+                hoverOverlay.innerHTML = `<div>View from bench<br><small>Heading: ${heading}°</small></div>`;
+            }
+            
+            container.dataset.hoverLoaded = 'true';
+        }
         
         // Initialize the application
         document.addEventListener('DOMContentLoaded', () => {
