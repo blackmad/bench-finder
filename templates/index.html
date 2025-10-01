@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bench Finder - High Confidence Benches</title>
+    <!-- Leaflet CSS for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
         * {
             margin: 0;
@@ -147,6 +149,52 @@
             font-size: 0.9rem;
             text-align: center;
             pointer-events: none;
+        }
+
+        /* Hover map overlay inside tile */
+        .hover-map-container {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            width: 120px;
+            height: 90px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+            opacity: 0;
+            transform: translateY(6px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            border: 2px solid rgba(255,255,255,0.85);
+            z-index: 2;
+            background: #eaeaea;
+        }
+        .image-container:hover .hover-map-container {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .hover-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Modal minimap styles */
+        .modal-map-wrapper {
+            padding: 16px;
+            border-top: 1px solid #dee2e6;
+            background: #f8f9fa;
+        }
+        .modal-map-title {
+            font-size: 0.95rem;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        #modalMap {
+            width: 100%;
+            height: 220px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
         }
         
         .image-container:hover .image-hover-overlay {
@@ -545,6 +593,10 @@
                     <!-- Segmentation polygons will be inserted here -->
                 </svg>
             </div>
+            <div class="modal-map-wrapper">
+                <div class="modal-map-title">Bench location</div>
+                <div id="modalMap"></div>
+            </div>
             <div class="modal-info" id="modalInfo">
                 <div class="detection-info">
                     <!-- Detection information will be inserted here -->
@@ -705,13 +757,16 @@
                     .map(([key, value]) => `${key}: ${value}`);
                 
                 card.innerHTML = `
-                    <div class="image-container" onmouseenter="loadHoverImage(this, ${bench.id})" onclick="openImageModal(${bench.id}, '${imageUrl}', ${bench.image_ids[0] || 'null'})">
+                    <div class="image-container" data-lat="${bench.lat}" data-lng="${bench.lng}" onmouseenter="loadHoverImage(this, ${bench.id}); loadHoverMap(this, ${bench.lat}, ${bench.lng});" onmouseleave="unloadHoverMap(this)" onclick="openImageModal(${bench.id}, '${imageUrl}', ${bench.image_ids[0] || 'null'})">
                         ${imageUrl ? 
                             `<img class="bench-image" src="${imageUrl}" alt="Bench ${bench.id}" loading="lazy">` :
                             `<div class="placeholder-image">🪑</div>`
                         }
                         <div class="image-hover-overlay">
                             <div>View from bench<br><small>Loading...</small></div>
+                        </div>
+                        <div class="hover-map-container" aria-hidden="true">
+                            <div class="hover-map" ></div>
                         </div>
                         <div class="confidence-badge">${(bench.best_confidence * 100).toFixed(0)}%</div>
                         <div class="distance-badge">
@@ -787,6 +842,13 @@
             }
             
             await loadBenchInModal(benchId, imageUrl, imageId);
+            // Initialize/refresh minimap after content set
+            try {
+                const bench = modalBenchList.find(b => b.id === benchId);
+                if (bench) {
+                    initOrUpdateModalMap(bench.lat, bench.lng);
+                }
+            } catch (e) { console.warn('Minimap init failed', e); }
             
             // Show modal
             const modal = document.getElementById('imageModal');
@@ -829,7 +891,7 @@
             }
         }
         
-        function navigateModal(direction) {
+        async function navigateModal(direction) {
             if (modalBenchList.length === 0 || currentModalBenchIndex === -1) {
                 return;
             }
@@ -852,7 +914,11 @@
             const imageId = bench.image_ids && bench.image_ids.length > 0 ? 
                 bench.image_ids[0] : null;
             
-            loadBenchInModal(bench.id, imageUrl, imageId);
+            await loadBenchInModal(bench.id, imageUrl, imageId);
+            // Update minimap for the new bench location
+            try {
+                initOrUpdateModalMap(bench.lat, bench.lng);
+            } catch (e) { console.warn('Minimap update failed during navigation', e); }
         }
         
         function displaySegmentationData(data, imageElement, overlayElement, infoElement) {
@@ -1100,6 +1166,65 @@
             container.dataset.hoverLoaded = 'true';
         }
         
+        // Map utilities (declared here to be available after Leaflet loads)
+        let modalMap = null;
+        let modalMapMarker = null;
+        function initOrUpdateModalMap(lat, lng) {
+            const mapEl = document.getElementById('modalMap');
+            if (!mapEl) return;
+            if (!modalMap) {
+                modalMap = L.map(mapEl, { zoomControl: false, attributionControl: true });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(modalMap);
+            }
+            // Ensure correct sizing when modal is shown
+            setTimeout(() => { modalMap.invalidateSize(); }, 50);
+            const latLng = [lat, lng];
+            modalMap.setView(latLng, 17);
+            if (!modalMapMarker) {
+                modalMapMarker = L.marker(latLng).addTo(modalMap);
+            } else {
+                modalMapMarker.setLatLng(latLng);
+            }
+        }
+
+        // Hover map per tile
+        const hoverMapInstances = new WeakMap(); // container -> {map, marker}
+        function loadHoverMap(container, lat, lng) {
+            const mapWrap = container.querySelector('.hover-map-container');
+            const mapEl = container.querySelector('.hover-map');
+            if (!mapWrap || !mapEl) return;
+            // Only initialize once
+            if (hoverMapInstances.has(container)) {
+                // Update position and refresh
+                const inst = hoverMapInstances.get(container);
+                inst.map.setView([lat, lng], 16);
+                inst.marker.setLatLng([lat, lng]);
+                setTimeout(() => inst.map.invalidateSize(), 10);
+                return;
+            }
+            const map = L.map(mapEl, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, tap: false, touchZoom: false });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: ''
+            }).addTo(map);
+            const marker = L.circleMarker([lat, lng], { radius: 6, color: '#e53935', weight: 2, fillColor: '#ffeb3b', fillOpacity: 0.9 }).addTo(map);
+            map.setView([lat, lng], 16);
+            // Save instance
+            hoverMapInstances.set(container, { map, marker });
+            // Ensure layout calculated
+            setTimeout(() => map.invalidateSize(), 10);
+        }
+        function unloadHoverMap(container) {
+            // Keep the map for faster re-hover, but you could destroy to save memory if needed
+            const inst = hoverMapInstances.get(container);
+            if (inst) {
+                // no-op; maps remain for perf. Optionally: inst.map.remove(); hoverMapInstances.delete(container);
+            }
+        }
+
         // Initialize the application
         document.addEventListener('DOMContentLoaded', () => {
             new BenchFinder();
