@@ -5,11 +5,14 @@ Web server for displaying bench finder results in an attractive infinite scrolli
 import os
 import math
 import json
-import sqlite3
 from flask import Flask, render_template, jsonify, request, send_from_directory
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional
 from database import BenchDatabase
 from config import DATABASE_PATH, IMAGES_DIR
+from schemas import (
+    BenchListResponse, WebBenchData, PaginationInfo, SegmentationData,
+    ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary
+)
 
 app = Flask(__name__)
 
@@ -42,7 +45,7 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
 def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE, 
                               min_confidence: float = DEFAULT_MIN_CONFIDENCE,
                               start_lat: float = DEFAULT_START_LAT, 
-                              start_lng: float = DEFAULT_START_LNG) -> Dict:
+                              start_lng: float = DEFAULT_START_LNG) -> BenchListResponse:
     """
     Get benches with high confidence detections, including distance calculations.
     Supports both Roboflow and Ultralytics detection data.
@@ -150,41 +153,43 @@ def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE,
                 else:
                     detection_type = 'roboflow' if roboflow_conf > ultralytics_conf else 'ultralytics'
                 
-                bench_data = {
-                    'id': row['id'],
-                    'osm_id': row['osm_id'],
-                    'osm_type': row['osm_type'],
-                    'lat': row['lat'],
-                    'lng': row['lng'],
-                    'tags': tags,
-                    'best_confidence': round(best_confidence, 3),
-                    'roboflow_confidence': round(roboflow_conf, 3),
-                    'ultralytics_confidence': round(ultralytics_conf, 3),
-                    'detection_type': detection_type,
-                    'has_segmentation': ultralytics_conf > 0,
-                    'image_count': row['image_count'],
-                    'image_filenames': image_filenames,
-                    'image_ids': image_ids,
-                    'distance_meters': round(distance),
-                    'distance_km': round(distance / 1000, 2)
-                }
+                bench_data = WebBenchData(
+                    id=row['id'],
+                    osm_id=row['osm_id'],
+                    osm_type=row['osm_type'],
+                    lat=row['lat'],
+                    lng=row['lng'],
+                    tags=tags,
+                    best_confidence=round(best_confidence, 3),
+                    roboflow_confidence=round(roboflow_conf, 3),
+                    ultralytics_confidence=round(ultralytics_conf, 3),
+                    detection_type=detection_type,
+                    has_segmentation=ultralytics_conf > 0,
+                    image_count=row['image_count'],
+                    image_filenames=image_filenames,
+                    image_ids=image_ids,
+                    distance_meters=round(distance),
+                    distance_km=round(distance / 1000, 2)
+                )
                 
                 benches.append(bench_data)
             
-            return {
-                'benches': benches,
-                'pagination': {
-                    'page': page,
-                    'page_size': page_size,
-                    'total_count': total_count,
-                    'total_pages': math.ceil(total_count / page_size),
-                    'has_next': (page + 1) * page_size < total_count
-                }
-            }
+            pagination = PaginationInfo(
+                page=page,
+                page_size=page_size,
+                total_count=total_count,
+                total_pages=math.ceil(total_count / page_size),
+                has_next=(page + 1) * page_size < total_count
+            )
+            
+            return BenchListResponse(benches=benches, pagination=pagination)
             
     except Exception as e:
         print(f"Error getting high confidence benches: {e}")
-        return {'benches': [], 'pagination': {'page': 0, 'total_count': 0, 'has_next': False}}
+        return BenchListResponse(
+            benches=[],
+            pagination=PaginationInfo(page=0, page_size=page_size, total_count=0, total_pages=0, has_next=False)
+        )
 
 
 @app.route('/')
@@ -205,8 +210,8 @@ def api_benches():
     # Limit page size to prevent abuse
     page_size = min(page_size, 50)
     
-    data = get_high_confidence_benches(page, page_size, min_confidence, start_lat, start_lng)
-    return jsonify(data)
+    result = get_high_confidence_benches(page, page_size, min_confidence, start_lat, start_lng)
+    return jsonify(result.model_dump())
 
 
 @app.route('/api/searches')
@@ -226,21 +231,23 @@ def api_searches():
             
             searches = []
             for row in rows:
-                searches.append({
-                    'id': row['id'],
-                    'query': row['query'],
-                    'start_lat': row['start_lat'],
-                    'start_lng': row['start_lng'],
-                    'search_radius': row['search_radius'],
-                    'bench_count': row['bench_count'],
-                    'created_at': row['created_at']
-                })
+                search = SearchSummary(
+                    id=row['id'],
+                    query=row['query'],
+                    start_lat=row['start_lat'],
+                    start_lng=row['start_lng'],
+                    search_radius=row['search_radius'],
+                    bench_count=row['bench_count'],
+                    created_at=row['created_at']
+                )
+                searches.append(search)
             
-            return jsonify({'searches': searches})
+            result = SearchListResponse(searches=searches)
+            return jsonify(result.model_dump())
             
     except Exception as e:
         print(f"Error getting searches: {e}")
-        return jsonify({'searches': []})
+        return jsonify(SearchListResponse(searches=[]).model_dump())
 
 
 @app.route('/images/<path:filename>')
@@ -280,12 +287,13 @@ def api_image_segmentation(image_id: int):
             if 'images' in full_response and len(full_response['images']) > 0:
                 image_shape = full_response['images'][0].get('shape', None)
             
-            return jsonify({
-                'filename': row['filename'],
-                'bench_detections': bench_detections,
-                'image_shape': image_shape,
-                'segmentation_available': len(bench_detections) > 0
-            })
+            result = SegmentationData(
+                filename=row['filename'],
+                bench_detections=bench_detections,
+                image_shape=image_shape,
+                segmentation_available=len(bench_detections) > 0
+            )
+            return jsonify(result.model_dump())
             
     except Exception as e:
         print(f"Error getting segmentation data: {e}")
@@ -299,7 +307,8 @@ def api_bench_images(bench_id: int):
         db = BenchDatabase()
         with db._get_connection() as conn:
             query = """
-                SELECT i.id, i.heading, i.filename, i.filepath
+                SELECT i.id, i.bench_id, i.heading, i.filename, i.filepath, i.file_size,
+                       i.capture_success, i.capture_error, i.created_at
                 FROM images i
                 WHERE i.bench_id = ? AND i.capture_success = 1
                 ORDER BY i.heading
@@ -309,14 +318,21 @@ def api_bench_images(bench_id: int):
             
             images = []
             for row in rows:
-                images.append({
-                    'id': row['id'],
-                    'heading': row['heading'],
-                    'filename': row['filename'],
-                    'filepath': row['filepath']
-                })
+                image = ImageResponse(
+                    id=row['id'],
+                    bench_id=row['bench_id'],
+                    heading=row['heading'],
+                    filepath=row['filepath'],
+                    filename=row['filename'],
+                    file_size=row['file_size'],
+                    capture_success=bool(row['capture_success']),
+                    capture_error=row['capture_error'],
+                    created_at=row['created_at']
+                )
+                images.append(image)
             
-            return jsonify({'images': images})
+            result = ImageListResponse(images=images)
+            return jsonify(result.model_dump())
             
     except Exception as e:
         print(f"Error getting bench images: {e}")
@@ -326,12 +342,13 @@ def api_bench_images(bench_id: int):
 @app.route('/api/config')
 def api_config():
     """Get application configuration for the frontend."""
-    return jsonify({
-        'default_start_lat': DEFAULT_START_LAT,
-        'default_start_lng': DEFAULT_START_LNG,
-        'default_min_confidence': DEFAULT_MIN_CONFIDENCE,
-        'page_size': PAGE_SIZE
-    })
+    config = ConfigResponse(
+        default_start_lat=DEFAULT_START_LAT,
+        default_start_lng=DEFAULT_START_LNG,
+        default_min_confidence=DEFAULT_MIN_CONFIDENCE,
+        page_size=PAGE_SIZE
+    )
+    return jsonify(config.model_dump())
 
 
 if __name__ == '__main__':
