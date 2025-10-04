@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 Roboflow Detection CLI Tool
-Takes an image and Roboflow model(s), runs inference, and displays results in terminal.
-Supports multiple models for comparison.
+Takes an image and runs bench detection using either local inference (default) or cloud API.
+Supports various YOLO models for local inference and displays results in terminal.
 """
 
 import argparse
@@ -15,16 +15,27 @@ from PIL import Image, ImageDraw, ImageFont
 from term_image.image import from_file
 import tempfile
 from roboflow_client import RoboflowClient
+from term_image.image import ITerm2Image
+from term_image.utils import get_terminal_name_version
+
+if get_terminal_name_version()[0] == "warp":
+    ITerm2Image.is_supported = lambda *_: True
 
 
-def setup_client() -> RoboflowClient:
-    """Initialize RoboflowClient."""
+def setup_client(use_local: bool = True, model_id: Optional[str] = None) -> RoboflowClient:
+    """Initialize RoboflowClient.
+    
+    Args:
+        use_local: Whether to use local inference (default: True)
+        model_id: Model ID to use (optional)
+    """
     try:
-        client = RoboflowClient()
+        client = RoboflowClient(use_local_inference=use_local, model_id=model_id)
         return client
     except ValueError as e:
         print(f"Error: {e}")
-        print("Please ensure ROBOFLOW_API_KEY is set in your config.py or environment.")
+        if not use_local:
+            print("Please ensure ROBOFLOW_API_KEY is set in your config.py or environment.")
         sys.exit(1)
 
 
@@ -72,8 +83,10 @@ def draw_detections(image_path: str, result: Dict[str, Any], output_path: str, m
     detections = result.get('detections', [])
     bench_count = result.get('bench_count', 0)
     max_confidence = result.get('max_confidence', 0)
+    inference_type = result.get('inference_type', 'unknown')
+    model_id = result.get('model_id', 'unknown')
     
-    print(f"\n[{model_name}] Found {bench_count} bench detection(s):")  
+    print(f"\n[{model_name}] Found {bench_count} bench detection(s) using {inference_type} inference ({model_id}):")  
     if bench_count > 0:
         print(f"  Max confidence: {max_confidence:.2f}")
     
@@ -159,6 +172,8 @@ def main():
     parser.add_argument("image_path", help="Path to the input image")
     parser.add_argument("--output-dir", help="Directory to save annotated images (default: temporary directory)")
     parser.add_argument("--no-display", action="store_true", help="Don't display images in terminal")
+    parser.add_argument("--cloud", action="store_true", help="Use cloud API instead of local inference")
+    parser.add_argument("-m", "--model-id", help="Specific model ID to use (e.g., 'yolov8n-640', 'yolov8s-640')")
     
     args = parser.parse_args()
     
@@ -168,10 +183,15 @@ def main():
         sys.exit(1)
     
     print(f"Loading image: {args.image_path}")
-    print("Using Roboflow bench detection model...")
+    
+    # Determine inference type
+    use_local = not args.cloud
+    inference_type = "local" if use_local else "cloud"
+    model_info = f" with model {args.model_id}" if args.model_id else ""
+    print(f"Using {inference_type} inference{model_info}...")
     
     # Setup RoboflowClient
-    client = setup_client()
+    client = setup_client(use_local=use_local, model_id=args.model_id)
     
     # Run inference
     print("Running bench detection...")

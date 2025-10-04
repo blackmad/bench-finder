@@ -1,32 +1,85 @@
 """
-Roboflow API integration for bench detection using computer vision.
+Roboflow integration for bench detection using computer vision.
+Supports both local inference (default) and cloud API as fallback.
 """
 import requests
 import base64
 import json
 import logging
-from typing import Dict, List, Optional
+import cv2
+import numpy as np
+from typing import Dict, List, Optional, Union
+from pathlib import Path
+
+# Import local inference dependencies
+try:
+    from inference import get_model
+    import supervision as sv
+    LOCAL_INFERENCE_AVAILABLE = True
+except ImportError as e:
+    LOCAL_INFERENCE_AVAILABLE = False
+    print(f"Local inference not available: {e}. Falling back to cloud API.")
+
 from config import ROBOFLOW_API_KEY, ROBOFLOW_MODEL_ID, ROBOFLOW_CONFIDENCE_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
 
 class RoboflowClient:
-    """Client for Roboflow inference API."""
+    """Client for Roboflow inference - supports both local and cloud inference."""
     
-    def __init__(self):
-        """Initialize the Roboflow client."""
-        if not ROBOFLOW_API_KEY:
-            raise ValueError("ROBOFLOW_API_KEY is required")
+    def __init__(self, use_local_inference: bool = True, model_id: Optional[str] = None):
+        """Initialize the Roboflow client.
         
-        self.api_key = ROBOFLOW_API_KEY
-        self.model_id = ROBOFLOW_MODEL_ID
+        Args:
+            use_local_inference: Whether to use local inference (default: True)
+            model_id: Model ID to use (defaults to config value or 'yolov8n-640' for local)
+        """
+        self.use_local_inference = use_local_inference and LOCAL_INFERENCE_AVAILABLE
         self.confidence_threshold = ROBOFLOW_CONFIDENCE_THRESHOLD
-        self.base_url = f"https://detect.roboflow.com/{self.model_id}"
+        self.local_model = None
+        
+        if self.use_local_inference:
+            # Setup local inference
+            self.model_id = model_id or "yolov8n-640"  # Default to YOLOv8n for local
+            logger.info(f"Initializing local inference with model: {self.model_id}")
+            try:
+                self.local_model = get_model(model_id=self.model_id)
+                logger.info("Local inference model loaded successfully")
+            except Exception as e:
+                logger.warning(f"Failed to load local model: {e}. Falling back to cloud API.")
+                self.use_local_inference = False
+        
+        if not self.use_local_inference:
+            # Setup cloud API
+            if not ROBOFLOW_API_KEY:
+                raise ValueError("ROBOFLOW_API_KEY is required for cloud inference")
+            
+            self.api_key = ROBOFLOW_API_KEY
+            self.model_id = model_id or ROBOFLOW_MODEL_ID
+            self.base_url = f"https://detect.roboflow.com/{self.model_id}"
+            logger.info(f"Using cloud API with model: {self.model_id}")
     
     def detect_benches_in_image(self, image_path: str) -> Dict:
         """
-        Detect benches in an image using Roboflow API.
+        Detect benches in an image using local inference or cloud API.
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            Dictionary with detection results
+        """
+        logger.debug(f"Analyzing image for benches: {image_path}")
+        
+        if self.use_local_inference:
+            return self._detect_benches_local(image_path)
+        else:
+            return self._detect_benches_cloud(image_path)
+    
+    def _detect_benches_local(self, image_path: str) -> Dict:
+        """
+        Detect benches using local inference.
         
         Args:
             image_path: Path to the image file
@@ -35,8 +88,42 @@ class RoboflowClient:
             Dictionary with detection results
         """
         try:
-            logger.debug(f"Analyzing image for benches: {image_path}")
+            # Load image using cv2
+            image = cv2.imread(image_path)
+            if image is None:
+                logger.error(f"Could not load image: {image_path}")
+                return self._create_error_result(image_path, "Could not load image")
             
+            # Run inference
+            results = self.local_model.infer(image)
+            
+            # Convert to standard format
+            if isinstance(results, list) and len(results) > 0:
+                result_dict = results[0].dict(by_alias=True, exclude_none=True)
+            else:
+                result_dict = results.dict(by_alias=True, exclude_none=True) if hasattr(results, 'dict') else {'predictions': []}
+            
+            # Process the detection results
+            return self._process_detection_result(image_path, result_dict, is_local=True)
+            
+        except FileNotFoundError:
+            logger.error(f"Image file not found: {image_path}")
+            return self._create_error_result(image_path, "File not found")
+        except Exception as e:
+            logger.error(f"Unexpected error in local inference for {image_path}: {e}")
+            return self._create_error_result(image_path, f"Local inference error: {e}")
+    
+    def _detect_benches_cloud(self, image_path: str) -> Dict:
+        """
+        Detect benches using cloud API.
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            Dictionary with detection results
+        """
+        try:
             # Read and encode the image
             with open(image_path, 'rb') as image_file:
                 image_data = image_file.read()
@@ -65,7 +152,7 @@ class RoboflowClient:
                 return self._create_error_result(image_path, f"JSON decode error: {e}")
             
             # Process the detection results
-            return self._process_detection_result(image_path, result)
+            return self._process_detection_result(image_path, result, is_local=False)
             
         except FileNotFoundError:
             logger.error(f"Image file not found: {image_path}")
@@ -74,16 +161,17 @@ class RoboflowClient:
             logger.error(f"Network error calling Roboflow API: {e}")
             return self._create_error_result(image_path, f"Network error: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error analyzing image {image_path}: {e}")
-            return self._create_error_result(image_path, f"Unexpected error: {e}")
+            logger.error(f"Unexpected error in cloud inference for {image_path}: {e}")
+            return self._create_error_result(image_path, f"Cloud inference error: {e}")
     
-    def _process_detection_result(self, image_path: str, api_result: Dict) -> Dict:
+    def _process_detection_result(self, image_path: str, api_result: Dict, is_local: bool = False) -> Dict:
         """
-        Process the raw Roboflow API result into a standardized format.
+        Process the raw inference result into a standardized format.
         
         Args:
             image_path: Path to the analyzed image
-            api_result: Raw API response dictionary
+            api_result: Raw inference response dictionary
+            is_local: Whether this is from local inference
             
         Returns:
             Processed detection result dictionary
@@ -98,7 +186,18 @@ class RoboflowClient:
                 class_name = prediction.get('class', '').lower()
                 confidence = prediction.get('confidence', 0)
                 
-                if 'bench' in class_name and confidence >= self.confidence_threshold:
+                # For local inference, look for relevant object classes that might be benches
+                # YOLOv8n detects 'person', 'chair', 'couch', etc. - we'll be flexible
+                is_bench_like = False
+                if is_local:
+                    # Accept various furniture/seating objects as potential benches
+                    bench_keywords = ['bench', 'chair', 'couch', 'sofa', 'seat']
+                    is_bench_like = any(keyword in class_name for keyword in bench_keywords)
+                else:
+                    # Cloud API should specifically detect benches
+                    is_bench_like = 'bench' in class_name
+                
+                if is_bench_like and confidence >= self.confidence_threshold:
                     bench_detections.append({
                         'class': prediction.get('class'),
                         'confidence': confidence,
@@ -120,11 +219,13 @@ class RoboflowClient:
                 'detections': bench_detections,
                 'raw_predictions': len(predictions),
                 'model_id': self.model_id,
-                'confidence_threshold': self.confidence_threshold
+                'confidence_threshold': self.confidence_threshold,
+                'inference_type': 'local' if is_local else 'cloud'
             }
             
             if has_bench:
-                logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
+                inference_type = 'local' if is_local else 'cloud'
+                logger.info(f"Bench detected in {image_path} ({inference_type}) - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
             else:
                 logger.debug(f"No bench detected in {image_path}")
             
