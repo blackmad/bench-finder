@@ -21,9 +21,31 @@ STREETVIEW_FOV = 90  # Field of view for street view images
 STREETVIEW_HEADINGS = [0, 90, 180, 270]  # Headings to capture images from
 
 # Roboflow model settings
-ROBOFLOW_MODEL_ID = "bench-annotater/1"
+ROBOFLOW_MODEL_ID = "bench-annotater/1"  # Legacy single model support
 ROBOFLOW_CONFIDENCE_THRESHOLD = 0.5
 ROBOFLOW_HIGH_CONFIDENCE_THRESHOLD = 0.90  # Stop capturing more images when this confidence is reached
+
+# Multiple Roboflow models for fallback detection
+ROBOFLOW_MODELS = [
+    {
+        'id': 'other2-csmve/3',
+        'name': 'other2-csmve',
+        'confidence_threshold': 0.4,
+        'priority': 10  # Higher priority = tried first
+    },
+    {
+        'id': 'bench-detector/1',
+        'name': 'bench-detector',
+        'confidence_threshold': 0.4,
+        'priority': 1  # Higher priority = tried first
+    },
+    {
+        'id': 'bench-annotater/1', 
+        'name': 'bench-annotator',
+        'confidence_threshold': 0.5,
+        'priority': 2
+    }
+]
 
 # Ultralytics model settings
 ULTRALYTICS_MODEL_URL = "https://hub.ultralytics.com/models/LANJV1QBekDh5wGntsli"
@@ -37,7 +59,7 @@ ULTRALYTICS_LOCAL_MODEL = os.getenv('ULTRALYTICS_LOCAL_MODEL', 'yolo11n-seg.pt')
 ULTRALYTICS_MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
 
 # Detection backend selection
-DETECTION_BACKEND = os.getenv('DETECTION_BACKEND', 'roboflow').lower()  # 'roboflow' or 'ultralytics'
+DETECTION_BACKEND = os.getenv('DETECTION_BACKEND', 'multi').lower()  # 'roboflow', 'ultralytics', or 'multi'
 
 # Database settings
 DATABASE_PATH = "data/benches.db"
@@ -63,15 +85,39 @@ def validate_config():
         errors.append("GOOGLE_MAPS_API_KEY environment variable is required")
     
     # Validate backend selection
-    if DETECTION_BACKEND not in ['roboflow', 'ultralytics']:
-        errors.append(f"DETECTION_BACKEND must be 'roboflow' or 'ultralytics', got: {DETECTION_BACKEND}")
+    valid_backends = ['roboflow', 'ultralytics', 'multi']
+    if DETECTION_BACKEND not in valid_backends:
+        errors.append(f"DETECTION_BACKEND must be one of {valid_backends}, got: {DETECTION_BACKEND}")
     
-    # Validate backend-specific API keys
+    # Validate API keys for backends that will be used
+    # For multi-model setup, we need at least one working backend
     if DETECTION_BACKEND == 'roboflow' and not ROBOFLOW_API_KEY:
         errors.append("ROBOFLOW_API_KEY environment variable is required when using Roboflow backend")
     
-    if DETECTION_BACKEND == 'ultralytics' and not ULTRALYTICS_API_KEY:
-        errors.append("ULTRALYTICS_API_KEY environment variable is required when using Ultralytics backend")
+    if DETECTION_BACKEND == 'ultralytics' and not ULTRALYTICS_API_KEY and not ULTRALYTICS_USE_LOCAL:
+        errors.append("ULTRALYTICS_API_KEY environment variable is required when using Ultralytics backend (or enable ULTRALYTICS_USE_LOCAL)")
+    
+    # For multi-model backend, warn if some backends are not available but don't error
+    if DETECTION_BACKEND == 'multi':
+        available_backends = []
+        
+        if ROBOFLOW_API_KEY:
+            available_backends.append('roboflow')
+        else:
+            import logging
+            logging.getLogger(__name__).warning("ROBOFLOW_API_KEY not set - Roboflow models will not be available for fallback")
+            
+        if ULTRALYTICS_API_KEY or ULTRALYTICS_USE_LOCAL:
+            available_backends.append('ultralytics')
+        else:
+            import logging
+            logging.getLogger(__name__).warning("ULTRALYTICS_API_KEY not set and local inference disabled - Ultralytics will not be available")
+        
+        if not available_backends:
+            errors.append("Multi-model backend requires at least one working detection backend (Roboflow or Ultralytics)")
+        else:
+            import logging
+            logging.getLogger(__name__).info(f"Multi-model detection will use: {', '.join(available_backends)}")
     
     # Mapillary validation (optional - only warn if not set)
     if not MAPILLARY_ACCESS_TOKEN:

@@ -19,6 +19,7 @@ from overpass_client import OverpassClient
 from streetview import StreetViewClient
 from roboflow_client import RoboflowClient
 from ultralytics_client import UltralyticsClient
+from multi_model_client import MultiModelDetectionClient
 from database import BenchDatabase
 from schemas import (
     SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
@@ -32,12 +33,13 @@ logger = logging.getLogger(__name__)
 class BenchFinder:
     """Main class that orchestrates the bench finding pipeline."""
     
-    def __init__(self, detection_backend: str | None = None):
+    def __init__(self, detection_backend: str | None = None, enable_fallback: bool = True):
         """Initialize all API clients and database.
         
         Args:
-            detection_backend: Detection backend to use ('roboflow' or 'ultralytics')
-                             If None, uses config.DETECTION_BACKEND
+            detection_backend: Detection backend to use ('roboflow', 'ultralytics', or 'multi')
+                             If None, uses config.DETECTION_BACKEND or defaults to 'multi'
+            enable_fallback: Whether to enable multi-model fallback detection (default: True)
         """
         self.geocoder = Geocoder()
         self.overpass_client = OverpassClient()
@@ -46,17 +48,27 @@ class BenchFinder:
         
         # Initialize detection client based on backend selection
         self.detection_backend = detection_backend or DETECTION_BACKEND
-
-        self.detection_client: RoboflowClient | UltralyticsClient
+        self.enable_fallback = enable_fallback
         
-        if self.detection_backend == 'ultralytics':
-            logger.info("Initializing Ultralytics detection backend")
+        # Default to multi-model detection if fallback is enabled
+        if enable_fallback and self.detection_backend != 'multi':
+            logger.info(f"Enabling multi-model detection with fallback (primary: {self.detection_backend})")
+            self.detection_backend = 'multi'
+
+        if self.detection_backend == 'multi':
+            logger.info("Initializing multi-model detection client with fallback")
+            self.detection_client = MultiModelDetectionClient(
+                enable_ultralytics=True,
+                enable_roboflow_fallback=True
+            )
+        elif self.detection_backend == 'ultralytics':
+            logger.info("Initializing Ultralytics detection backend (no fallback)")
             self.detection_client = UltralyticsClient()
         elif self.detection_backend == 'roboflow':
-            logger.info("Initializing Roboflow detection backend")
+            logger.info("Initializing Roboflow detection backend (no fallback)")
             self.detection_client = RoboflowClient()
         else:
-            raise ValueError(f"Unsupported detection backend: {self.detection_backend}")
+            raise ValueError(f"Unsupported detection backend: {self.detection_backend}. Use 'ultralytics', 'roboflow', or 'multi'")
         
         logger.info(f"BenchFinder initialized with {self.detection_backend} backend")
     
@@ -283,32 +295,52 @@ class BenchFinder:
                     image_result['filepath']
                 )
                 
-                # Add detection record to database based on backend
-                if self.detection_backend == 'ultralytics':
+                # Add detection record to database based on backend type and result
+                winning_backend = detection_result.get('winning_backend', 'unknown')
+                winning_model = detection_result.get('winning_model', 'unknown')
+                fallback_used = detection_result.get('fallback_used', False)
+                total_attempts = detection_result.get('total_attempts', 1)
+                
+                # Log detection success with model information
+                if detection_result['has_bench']:
+                    logger.info(f"✅ Detection success: {winning_model} (backend: {winning_backend}, attempts: {total_attempts}, fallback: {fallback_used})")
+                else:
+                    logger.debug(f"❌ No detection: tried {total_attempts} models")
+                
+                # Store detection based on winning backend or detection structure
+                if ('bench_detections' in detection_result and 'full_response' in detection_result) or winning_backend == 'ultralytics':
+                    # Ultralytics detection format
+                    model_url = winning_model if winning_backend == 'ultralytics' else getattr(self.detection_client, 'model_url', 'unknown')
                     self.database.add_ultralytics_detection(UltralyticsDetectionCreate(
                         image_id=image_id,
                         has_bench=detection_result['has_bench'],
                         bench_count=detection_result['bench_count'],
                         max_confidence=detection_result['max_confidence'],
-                        full_response=detection_result['full_response'],
-                        bench_detections=detection_result['bench_detections'],
+                        full_response=detection_result.get('full_response', {}),
+                        bench_detections=detection_result.get('bench_detections', []),
                         detection_success=True,
                         detection_error=None,
-                        model_url=getattr(self.detection_client, 'model_url', 'unknown'),
+                        model_url=model_url,
                         confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0),
                         iou_threshold=getattr(self.detection_client, 'iou_threshold', 0.0),
-                        image_size=getattr(self.detection_client, 'image_size', 640)
+                        image_size=getattr(self.detection_client, 'image_size', 640),
+                        # Enhanced metadata for multi-model tracking
+                        inference_time=detection_result.get('inference_time'),
+                        preprocess_time=detection_result.get('preprocess_time'),
+                        postprocess_time=detection_result.get('postprocess_time')
                     ))
-                else:  # roboflow
+                else:
+                    # Roboflow detection format
+                    model_id = detection_result.get('winning_model_id', getattr(self.detection_client, 'model_id', 'unknown'))
                     self.database.add_detection(DetectionCreate(
                         image_id=image_id,
                         has_bench=detection_result['has_bench'],
                         bench_count=detection_result['bench_count'],
                         max_confidence=detection_result['max_confidence'],
-                        detections=detection_result['detections'],
+                        detections=detection_result.get('detections', []),
                         detection_success=True,
                         detection_error=None,
-                        model_id=getattr(self.detection_client, 'model_id', 'unknown'),
+                        model_id=model_id,
                         confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
                     ))
                 
@@ -412,9 +444,14 @@ def main():
     )
     parser.add_argument(
         '--backend',
-        choices=['roboflow', 'ultralytics'],
+        choices=['roboflow', 'ultralytics', 'multi'],
         default=None,
-        help=f'Detection backend to use (default: {DETECTION_BACKEND})'
+        help=f'Detection backend to use: roboflow, ultralytics, or multi (default: multi with fallback)'
+    )
+    parser.add_argument(
+        '--disable-fallback',
+        action='store_true',
+        help='Disable multi-model fallback detection (use single backend only)'
     )
     
     args = parser.parse_args()
@@ -426,8 +463,9 @@ def main():
         # Validate configuration
         validate_config()
         
-        # Initialize bench finder with selected backend
-        bench_finder = BenchFinder(detection_backend=args.backend)
+        # Initialize bench finder with selected backend and fallback setting
+        enable_fallback = not args.disable_fallback
+        bench_finder = BenchFinder(detection_backend=args.backend, enable_fallback=enable_fallback)
         
         if args.results:
             # Show results for the most recent search (simplified for now)
@@ -456,6 +494,19 @@ def main():
             if 'processing_stats' in results:
                 stats = results['processing_stats']
                 logger.info(f"   • Processing stats: {stats['benches_detected']}/{stats['benches_processed']} benches detected")
+            
+            # Show multi-model detection statistics if available
+            if hasattr(bench_finder.detection_client, 'get_detection_stats'):
+                detection_stats = bench_finder.detection_client.get_detection_stats()
+                if not detection_stats.get('no_data', False):
+                    logger.info(f"🔍 Detection Statistics:")
+                    logger.info(f"   • Total model attempts: {detection_stats['total_attempts']}")
+                    if detection_stats.get('ultralytics_attempts', 0) > 0:
+                        success_rate = detection_stats.get('ultralytics_success_rate', 0) * 100
+                        logger.info(f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)")
+                    if detection_stats.get('roboflow_attempts', 0) > 0:
+                        success_rate = detection_stats.get('roboflow_success_rate', 0) * 100
+                        logger.info(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
         
         else:
             logger.error(f"❌ {results['error']}")
