@@ -74,10 +74,8 @@ class MultiModelRoboflowClient:
             
             try:
                 # Create a temporary RoboflowClient for this specific model
-                temp_client = RoboflowClient()
-                temp_client.model_id = model_id
+                temp_client = RoboflowClient(model_id=model_id)
                 temp_client.confidence_threshold = confidence_threshold
-                temp_client.base_url = f"https://detect.roboflow.com/{model_id}"
                 
                 # Attempt detection
                 result = temp_client.detect_benches_in_image(image_path)
@@ -108,7 +106,7 @@ class MultiModelRoboflowClient:
                     logger.debug(f"❌ {model_name} failed: {result.get('error', 'Unknown error')}")
                     
             except Exception as e:
-                logger.error(f"Error with Roboflow model {model_name}: {e}")
+                logger.error(f"Error with Roboflow model {model_name} - id {model_id}: {e}")
                 attempt = DetectionAttempt(
                     model_type='roboflow',
                     model_id=model_id,

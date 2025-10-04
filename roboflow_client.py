@@ -24,6 +24,9 @@ from config import ROBOFLOW_API_KEY, ROBOFLOW_MODEL_ID, ROBOFLOW_CONFIDENCE_THRE
 
 logger = logging.getLogger(__name__)
 
+# Global model cache to avoid reinitializing models
+_MODEL_CACHE = {}
+
 
 class RoboflowClient:
     """Client for Roboflow inference - supports both local and cloud inference."""
@@ -41,14 +44,25 @@ class RoboflowClient:
         
         if self.use_local_inference:
             # Setup local inference
-            self.model_id = model_id or "yolov8n-640"  # Default to YOLOv8n for local
-            logger.info(f"Initializing local inference with model: {self.model_id}")
-            try:
-                self.local_model = get_model(model_id=self.model_id)
-                logger.info("Local inference model loaded successfully")
-            except Exception as e:
-                logger.warning(f"Failed to load local model: {e}. Falling back to cloud API.")
-                self.use_local_inference = False
+            self.model_id = model_id # or "yolov8n-640"  # Default to YOLOv8n for local
+            if not self.model_id:
+                raise ValueError("model_id is required for local inference")
+            
+            # Check if model is already cached
+            cache_key = f"local_{self.model_id}"
+            if cache_key in _MODEL_CACHE:
+                logger.info(f"Using cached local model: {self.model_id}")
+                self.local_model = _MODEL_CACHE[cache_key]
+            else:
+                logger.info(f"Loading local inference model: {self.model_id}")
+                try:
+                    self.local_model = get_model(model_id=self.model_id)
+                    # Cache the model for future use
+                    _MODEL_CACHE[cache_key] = self.local_model
+                    logger.info(f"Local inference model loaded and cached successfully: {self.model_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to load local model: {e}. Falling back to cloud API.")
+                    self.use_local_inference = False
         
         if not self.use_local_inference:
             # Setup cloud API

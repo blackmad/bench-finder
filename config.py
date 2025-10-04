@@ -30,21 +30,21 @@ ROBOFLOW_MODELS = [
     {
         'id': 'other2-csmve/3',
         'name': 'other2-csmve',
-        'confidence_threshold': 0.4,
+        'confidence_threshold': 0.7,
         'priority': 10  # Higher priority = tried first
-    },
-    {
-        'id': 'bench-detector/1',
-        'name': 'bench-detector',
-        'confidence_threshold': 0.4,
-        'priority': 1  # Higher priority = tried first
-    },
-    {
-        'id': 'bench-annotater/1', 
-        'name': 'bench-annotator',
-        'confidence_threshold': 0.5,
-        'priority': 2
     }
+    # {
+    #     'id': 'bench-detector/1',
+    #     'name': 'bench-detector',
+    #     'confidence_threshold': 0.4,
+    #     'priority': 1  # Higher priority = tried first
+    # },
+    # {
+    #     'id': 'bench-annotater/1', 
+    #     'name': 'bench-annotator',
+    #     'confidence_threshold': 0.5,
+    #     'priority': 2
+    # }
 ]
 
 # Ultralytics model settings

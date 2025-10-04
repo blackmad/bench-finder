@@ -13,3 +13,4 @@ numpy>=1.24.0
 inference>=0.58.1
 sure>=0.26.1
 typer>=0.9.0
+ultralytics>=8.0.0
