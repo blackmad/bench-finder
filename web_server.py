@@ -60,7 +60,8 @@ def get_high_confidence_benches_filtered(page: int = 0, page_size: int = PAGE_SI
                                         min_confidence: float = DEFAULT_MIN_CONFIDENCE,
                                         start_lat: float = DEFAULT_START_LAT, 
                                         start_lng: float = DEFAULT_START_LNG,
-                                        source_filter: str = None) -> BenchListResponse:
+                                        source_filter: str = None,
+                                        sort_by: str = 'distance') -> BenchListResponse:
     """
     Get benches with high confidence detections, with optional source filtering.
     Supports both Roboflow, Ultralytics, and Mapillary detection data.
@@ -135,6 +136,17 @@ def get_high_confidence_benches_filtered(page: int = 0, page_size: int = PAGE_SI
             count_params = query_params + [min_confidence]
             total_count = conn.execute(count_query, count_params).fetchone()['total']
             
+            # Determine sorting clause
+            if sort_by == 'confidence':
+                order_clause = 'best_confidence DESC, b.id'
+            elif sort_by == 'images':
+                order_clause = 'image_count DESC, best_confidence DESC, b.id'
+            elif sort_by == 'recent':
+                order_clause = 'b.id DESC'  # Assuming higher IDs are more recent
+            else:  # distance (default)
+                # For distance sorting, we'll calculate distance in the query
+                order_clause = f'((b.lat - {start_lat}) * (b.lat - {start_lat}) + (b.lng - {start_lng}) * (b.lng - {start_lng})) ASC, best_confidence DESC'
+            
             # Get detailed bench data
             query = f"""
                 SELECT 
@@ -175,7 +187,7 @@ def get_high_confidence_benches_filtered(page: int = 0, page_size: int = PAGE_SI
                 WHERE b.id IN ({base_query}){source_condition}
                 GROUP BY b.id
                 HAVING best_confidence >= ?
-                ORDER BY best_confidence DESC, b.id
+                ORDER BY {order_clause}
                 LIMIT ? OFFSET ?
             """
             
@@ -487,11 +499,12 @@ def api_benches():
     min_confidence = request.args.get('min_confidence', DEFAULT_MIN_CONFIDENCE, type=float)
     start_lat = request.args.get('start_lat', DEFAULT_START_LAT, type=float)
     start_lng = request.args.get('start_lng', DEFAULT_START_LNG, type=float)
+    sort_by = request.args.get('sort_by', 'distance')
     
     # Limit page size to prevent abuse
     page_size = min(page_size, 50)
     
-    result = get_high_confidence_benches(page, page_size, min_confidence, start_lat, start_lng)
+    result = get_high_confidence_benches_filtered(page, page_size, min_confidence, start_lat, start_lng, None, sort_by)
     return jsonify(result.model_dump())
 
 
@@ -728,6 +741,7 @@ def api_benches_by_source(source: str):
         min_confidence = request.args.get('min_confidence', DEFAULT_MIN_CONFIDENCE, type=float)
         start_lat = request.args.get('start_lat', DEFAULT_START_LAT, type=float)
         start_lng = request.args.get('start_lng', DEFAULT_START_LNG, type=float)
+        sort_by = request.args.get('sort_by', 'distance')
         
         # Limit page size to prevent abuse
         page_size = min(page_size, 50)
@@ -754,7 +768,7 @@ def api_benches_by_source(source: str):
             return jsonify(result.model_dump())
         
         # For OSM, modify the query to filter by source
-        result = get_high_confidence_benches_filtered(page, page_size, min_confidence, start_lat, start_lng, source)
+        result = get_high_confidence_benches_filtered(page, page_size, min_confidence, start_lat, start_lng, source, sort_by)
         return jsonify(result.model_dump())
         
     except Exception as e:
@@ -899,6 +913,7 @@ def api_benches_in_bbox():
         # Filter parameters
         min_confidence = request.args.get('min_confidence', DEFAULT_MIN_CONFIDENCE, type=float)
         source_filter = request.args.get('source')
+        sort_by = request.args.get('sort_by', 'distance')
         limit = request.args.get('limit', 200, type=int)  # Reasonable limit for map display
         
         if None in [north, south, east, west]:
@@ -937,6 +952,20 @@ def api_benches_in_bbox():
             if source_filter:
                 source_condition = f" AND b.source = ?"
                 query_params.append(source_filter)
+            
+            # Determine sorting clause for bbox
+            center_lat = (north + south) / 2
+            center_lng = (east + west) / 2
+            
+            if sort_by == 'confidence':
+                bbox_order_clause = 'best_confidence DESC, b.id'
+            elif sort_by == 'images':
+                bbox_order_clause = 'image_count DESC, best_confidence DESC, b.id'
+            elif sort_by == 'recent':
+                bbox_order_clause = 'b.id DESC'  # Assuming higher IDs are more recent
+            else:  # distance (default)
+                # For distance sorting, we'll calculate distance from bbox center
+                bbox_order_clause = f'((b.lat - {center_lat}) * (b.lat - {center_lat}) + (b.lng - {center_lng}) * (b.lng - {center_lng})) ASC, best_confidence DESC'
             
             # Get detailed bench data within bbox
             query = f"""
@@ -978,7 +1007,7 @@ def api_benches_in_bbox():
                 WHERE b.id IN ({base_query}){source_condition}
                 GROUP BY b.id
                 HAVING best_confidence >= ?
-                ORDER BY best_confidence DESC
+                ORDER BY {bbox_order_clause}
                 LIMIT ?
             """
             
@@ -987,8 +1016,6 @@ def api_benches_in_bbox():
             
             # Process results similar to get_high_confidence_benches_filtered
             benches = []
-            center_lat = (north + south) / 2
-            center_lng = (east + west) / 2
             
             for row in rows:
                 # Parse tags if available

@@ -132,6 +132,62 @@
             font-size: 1rem;
         }
         
+        .debug-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        
+        .debug-toggle:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #475569;
+        }
+        
+        .debug-toggle.active {
+            background: #fef3c7;
+            border-color: #f59e0b;
+            color: #92400e;
+        }
+        
+        .debug-toggle .icon {
+            font-size: 0.875rem;
+        }
+        
+        /* Debug information visibility */
+        .debug-info {
+            display: none;
+        }
+        
+        .debug-mode .debug-info {
+            display: block;
+        }
+        
+        .debug-badge {
+            display: none;
+        }
+        
+        .debug-mode .debug-badge {
+            display: block;
+        }
+        
+        .debug-detail {
+            display: none;
+        }
+        
+        .debug-mode .debug-detail {
+            display: flex;
+        }
+        
         .control-group {
             display: flex;
             flex-direction: column;
@@ -270,7 +326,7 @@
             cursor: pointer;
             transition: background-color 0.2s;
             display: flex;
-            gap: 12px;
+            gap: 16px;
         }
         
         .map-bench-card:hover {
@@ -283,8 +339,8 @@
         }
         
         .map-card-image {
-            width: 80px;
-            height: 60px;
+            width: 120px;
+            height: 80px;
             border-radius: 8px;
             overflow: hidden;
             flex-shrink: 0;
@@ -894,6 +950,10 @@
                 display: none; /* Show only icon on mobile */
             }
             
+            .debug-toggle .label {
+                display: none; /* Show only icon on mobile */
+            }
+            
             .grid {
                 grid-template-columns: 1fr;
                 gap: 20px;
@@ -1022,9 +1082,22 @@
                         <option value="mapillary">Mapillary</option>
                     </select>
                 </div>
+                <div class="control-group">
+                    <label>Sort By</label>
+                    <select id="sortBy">
+                        <option value="distance">📍 Distance</option>
+                        <option value="confidence">🎯 Confidence</option>
+                        <option value="images">📷 Image Count</option>
+                        <option value="recent">🕒 Recently Added</option>
+                    </select>
+                </div>
                 <button class="lucky-btn" id="luckyBtn" title="Take me to a random bench!">
                     <span class="icon">🎲</span>
                     <span class="label">I'm Feeling Lucky</span>
+                </button>
+                <button class="debug-toggle" id="debugToggle" title="Show technical details">
+                    <span class="icon">🔧</span>
+                    <span class="label">Debug</span>
                 </button>
             </div>
             <div class="stats" id="stats">
@@ -1113,6 +1186,7 @@
                 this.mapBenches = [];
                 this.selectedBenchId = null;
                 this.mapSearchTimeout = null;
+                this.debugMode = false;
                 
                 // Store reference globally for modal navigation
                 window.benchFinderInstance = this;
@@ -1180,6 +1254,11 @@
                     this.feelingLucky();
                 });
                 
+                // Debug toggle
+                document.getElementById('debugToggle').addEventListener('click', () => {
+                    this.toggleDebugMode();
+                });
+                
                 // Infinite scroll (only for cards view)
                 window.addEventListener('scroll', () => {
                     if (this.currentView === 'cards' && window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
@@ -1201,7 +1280,7 @@
                     }
                 });
                 
-                ['startLat', 'startLng', 'minConfidence', 'sourceFilter'].forEach(id => {
+                ['startLat', 'startLng', 'minConfidence', 'sourceFilter', 'sortBy'].forEach(id => {
                     document.getElementById(id).addEventListener('change', () => {
                         this.resetAndReload();
                     });
@@ -1216,6 +1295,22 @@
                 this.loadBenches();
             }
             
+            toggleDebugMode() {
+                this.debugMode = !this.debugMode;
+                const debugBtn = document.getElementById('debugToggle');
+                const body = document.body;
+                
+                if (this.debugMode) {
+                    body.classList.add('debug-mode');
+                    debugBtn.classList.add('active');
+                    debugBtn.title = 'Hide technical details';
+                } else {
+                    body.classList.remove('debug-mode');
+                    debugBtn.classList.remove('active');
+                    debugBtn.title = 'Show technical details';
+                }
+            }
+            
             useCurrentLocation() {
                 const startPointSelect = document.getElementById('startPoint');
                 const originalText = startPointSelect.options[startPointSelect.selectedIndex].text;
@@ -1224,52 +1319,79 @@
                 startPointSelect.options[startPointSelect.selectedIndex].text = '🔍 Getting location...';
                 startPointSelect.disabled = true;
                 
+                this.getCurrentLocation(
+                    (lat, lng) => {
+                        // Update input fields
+                        document.getElementById('startLat').value = lat.toFixed(6);
+                        document.getElementById('startLng').value = lng.toFixed(6);
+                        
+                        // Update map if in map view
+                        if (this.currentView === 'map' && this.mainMap) {
+                            this.mainMap.setView([lat, lng], 15);
+                            this.searchMapArea();
+                        } else {
+                            // Reload benches with new location
+                            this.resetAndReload();
+                        }
+                        
+                        // Restore button state
+                        startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
+                        startPointSelect.disabled = false;
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        let errorMessage = 'Unable to get location';
+                        
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage = 'Location access denied';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage = 'Location unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage = 'Location request timeout';
+                                break;
+                        }
+                        
+                        alert(`${errorMessage}. Please enter coordinates manually or allow location access.`);
+                        
+                        // Reset to custom option
+                        startPointSelect.value = 'custom';
+                        startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
+                        startPointSelect.disabled = false;
+                    }
+                );
+            }
+            
+            useCurrentLocationSilent() {
+                this.getCurrentLocation(
+                    (lat, lng) => {
+                        // Update input fields
+                        document.getElementById('startLat').value = lat.toFixed(6);
+                        document.getElementById('startLng').value = lng.toFixed(6);
+                        
+                        // Load benches with new location
+                        this.loadBenches();
+                    },
+                    (error) => {
+                        console.warn('Silent geolocation failed, using default location:', error);
+                        // Fall back to default location without showing error to user
+                        document.getElementById('startPoint').value = 'custom';
+                        this.loadBenches();
+                    }
+                );
+            }
+            
+            getCurrentLocation(successCallback, errorCallback) {
                 if ('geolocation' in navigator) {
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
                             const lat = position.coords.latitude;
                             const lng = position.coords.longitude;
-                            
-                            // Update input fields
-                            document.getElementById('startLat').value = lat.toFixed(6);
-                            document.getElementById('startLng').value = lng.toFixed(6);
-                            
-                            // Update map if in map view
-                            if (this.currentView === 'map' && this.mainMap) {
-                                this.mainMap.setView([lat, lng], 15);
-                                this.searchMapArea();
-                            } else {
-                                // Reload benches with new location
-                                this.resetAndReload();
-                            }
-                            
-                            // Restore button state
-                            startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
-                            startPointSelect.disabled = false;
+                            successCallback(lat, lng);
                         },
-                        (error) => {
-                            console.error('Geolocation error:', error);
-                            let errorMessage = 'Unable to get location';
-                            
-                            switch(error.code) {
-                                case error.PERMISSION_DENIED:
-                                    errorMessage = 'Location access denied';
-                                    break;
-                                case error.POSITION_UNAVAILABLE:
-                                    errorMessage = 'Location unavailable';
-                                    break;
-                                case error.TIMEOUT:
-                                    errorMessage = 'Location request timeout';
-                                    break;
-                            }
-                            
-                            alert(`${errorMessage}. Please enter coordinates manually or allow location access.`);
-                            
-                            // Reset to custom option
-                            startPointSelect.value = 'custom';
-                            startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
-                            startPointSelect.disabled = false;
-                        },
+                        errorCallback,
                         {
                             enableHighAccuracy: true,
                             timeout: 10000,
@@ -1277,10 +1399,7 @@
                         }
                     );
                 } else {
-                    alert('Geolocation is not supported by this browser. Please enter coordinates manually.');
-                    startPointSelect.value = 'custom';
-                    startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
-                    startPointSelect.disabled = false;
+                    errorCallback({ code: 0, message: 'Geolocation not supported' });
                 }
             }
             
@@ -1294,6 +1413,7 @@
                 const startLng = parseFloat(document.getElementById('startLng').value) || this.config.default_start_lng;
                 const minConfidence = parseFloat(document.getElementById('minConfidence').value) || this.config.default_min_confidence;
                 const sourceFilter = document.getElementById('sourceFilter').value;
+                const sortBy = document.getElementById('sortBy').value || 'distance';
                 
                 let apiUrl = '/api/benches';
                 if (sourceFilter !== 'all') {
@@ -1304,7 +1424,8 @@
                     page: this.currentPage,
                     start_lat: startLat,
                     start_lng: startLng,
-                    min_confidence: minConfidence
+                    min_confidence: minConfidence,
+                    sort_by: sortBy
                 });
                 
                 try {
@@ -1366,16 +1487,16 @@
                         <div class="hover-map-container" aria-hidden="true">
                             <div class="hover-map" ></div>
                         </div>
-                        <div class="confidence-badge">${(bench.best_confidence * 100).toFixed(0)}%</div>
+                        <div class="confidence-badge debug-badge">${(bench.best_confidence * 100).toFixed(0)}%</div>
                         <div class="distance-badge">
                             ${bench.distance_km < 1 ? 
                                 `${bench.distance_meters}m` : 
                                 `${bench.distance_km}km`
                             }
                         </div>
-                        <div class="detection-type-badge detection-type-${bench.detection_type}">${bench.detection_type}</div>
-                        <div class="source-badge source-${bench.source}">${bench.source}</div>
-                        ${bench.has_segmentation ? '<div class="segmentation-available">🎯 SEG</div>' : ''}
+                        <div class="detection-type-badge detection-type-${bench.detection_type} debug-badge">${bench.detection_type}</div>
+                        <div class="source-badge source-${bench.source} debug-badge">${bench.source}</div>
+                        ${bench.has_segmentation ? '<div class="segmentation-available debug-badge">🎯 SEG</div>' : ''}
                     </div>
                     <div class="card-content">
                         <h3 class="bench-title" onclick="openStreetView(${bench.lat}, ${bench.lng})" style="cursor: pointer; color: #007bff;">📍 Bench #${bench.id}</h3>
@@ -1385,38 +1506,40 @@
                                 <span>${bench.osm_type}/${bench.osm_id}</span>
                             </div>
                             <div class="detail-row">
-                                <span class="detail-label">Source:</span>
-                                <span style="text-transform: uppercase; font-weight: 600; color: ${bench.source === 'mapillary' ? '#FF5722' : '#6C757D'}">${bench.source}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="detail-label">Best Confidence:</span>
-                                <span>${(bench.best_confidence * 100).toFixed(1)}% (${bench.detection_type})</span>
-                            </div>
-                            ${bench.roboflow_confidence > 0 ? `
-                                <div class="detail-row">
-                                    <span class="detail-label">Roboflow:</span>
-                                    <span>${(bench.roboflow_confidence * 100).toFixed(1)}%</span>
-                                </div>
-                            ` : ''}
-                            ${bench.ultralytics_confidence > 0 ? `
-                                <div class="detail-row">
-                                    <span class="detail-label">Ultralytics:</span>
-                                    <span>${(bench.ultralytics_confidence * 100).toFixed(1)}%</span>
-                                </div>
-                            ` : ''}
-                            ${bench.mapillary_confidence > 0 ? `
-                                <div class="detail-row">
-                                    <span class="detail-label">Mapillary:</span>
-                                    <span>${(bench.mapillary_confidence * 100).toFixed(1)}%</span>
-                                </div>
-                            ` : ''}
-                            <div class="detail-row">
-                                <span class="detail-label">Images:</span>
-                                <span>${bench.image_count}</span>
-                            </div>
-                            <div class="detail-row">
                                 <span class="detail-label">Location:</span>
                                 <span class="coordinate">${bench.lat.toFixed(6)}, ${bench.lng.toFixed(6)}</span>
+                            </div>
+                            <div class="debug-info">
+                                <div class="detail-row">
+                                    <span class="detail-label">Source:</span>
+                                    <span style="text-transform: uppercase; font-weight: 600; color: ${bench.source === 'mapillary' ? '#FF5722' : '#6C757D'}">${bench.source}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Best Confidence:</span>
+                                    <span>${(bench.best_confidence * 100).toFixed(1)}% (${bench.detection_type})</span>
+                                </div>
+                                ${bench.roboflow_confidence > 0 ? `
+                                    <div class="detail-row">
+                                        <span class="detail-label">Roboflow:</span>
+                                        <span>${(bench.roboflow_confidence * 100).toFixed(1)}%</span>
+                                    </div>
+                                ` : ''}
+                                ${bench.ultralytics_confidence > 0 ? `
+                                    <div class="detail-row">
+                                        <span class="detail-label">Ultralytics:</span>
+                                        <span>${(bench.ultralytics_confidence * 100).toFixed(1)}%</span>
+                                    </div>
+                                ` : ''}
+                                ${bench.mapillary_confidence > 0 ? `
+                                    <div class="detail-row">
+                                        <span class="detail-label">Mapillary:</span>
+                                        <span>${(bench.mapillary_confidence * 100).toFixed(1)}%</span>
+                                    </div>
+                                ` : ''}
+                                <div class="detail-row">
+                                    <span class="detail-label">Images:</span>
+                                    <span>${bench.image_count}</span>
+                                </div>
                             </div>
                         </div>
                         ${tags.length > 0 ? `
@@ -1477,9 +1600,11 @@
                 try {
                     const minConfidence = parseFloat(document.getElementById('minConfidence').value) || this.config.default_min_confidence;
                     const sourceFilter = document.getElementById('sourceFilter').value;
+                    const sortBy = document.getElementById('sortBy').value || 'distance';
                     
                     let params = new URLSearchParams({
-                        min_confidence: minConfidence
+                        min_confidence: minConfidence,
+                        sort_by: sortBy
                     });
                     
                     if (sourceFilter && sourceFilter !== 'all') {
@@ -1572,6 +1697,7 @@
                 const bounds = this.mainMap.getBounds();
                 const minConfidence = parseFloat(document.getElementById('minConfidence').value) || this.config.default_min_confidence;
                 const sourceFilter = document.getElementById('sourceFilter').value;
+                const sortBy = document.getElementById('sortBy').value || 'distance';
                 
                 // Show loading
                 document.getElementById('sidebarLoading').style.display = 'block';
@@ -1584,7 +1710,8 @@
                         east: bounds.getEast(),
                         west: bounds.getWest(),
                         min_confidence: minConfidence,
-                        limit: 200
+                        limit: 200,
+                        sort_by: sortBy
                     });
                     
                     if (sourceFilter && sourceFilter !== 'all') {
@@ -1755,11 +1882,9 @@
                             <div class="map-card-content">
                                 <div class="map-card-header">
                                     <div class="map-card-title">Bench #${bench.id}</div>
-                                    <div class="map-card-confidence">${(bench.best_confidence * 100).toFixed(0)}%</div>
+                                    <div class="map-card-confidence debug-badge">${(bench.best_confidence * 100).toFixed(0)}%</div>
                                 </div>
                                 <div class="map-card-meta">
-                                    <span>🏷️ ${bench.source.toUpperCase()}</span>
-                                    <span>📷 ${bench.image_count}</span>
                                     <span>📍 ${bench.distance_km < 1 ? bench.distance_meters + 'm' : bench.distance_km + 'km'}</span>
                                 </div>
                             </div>
