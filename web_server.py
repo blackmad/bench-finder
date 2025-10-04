@@ -11,7 +11,8 @@ from database import BenchDatabase
 from config import DATABASE_PATH, IMAGES_DIR
 from schemas import (
     BenchListResponse, WebBenchData, PaginationInfo, SegmentationData,
-    ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary
+    ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary,
+    SourceSearchRequest, SourceStatistics
 )
 
 app = Flask(__name__)
@@ -21,6 +22,19 @@ DEFAULT_START_LAT = 52.3613577  # Amsterdam, Netherlands (matches actual data)
 DEFAULT_START_LNG = 4.8666322
 DEFAULT_MIN_CONFIDENCE = 0.8
 PAGE_SIZE = 20
+
+# Try to initialize Mapillary service if token is available
+mapillary_service = None
+from config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
+if MAPILLARY_ACCESS_TOKEN:
+    try:
+        from mapillary_service import MapillaryBenchService
+        mapillary_service = MapillaryBenchService(DATABASE_PATH, MAPILLARY_ACCESS_TOKEN, IMAGES_DIR)
+        print(f"✅ Mapillary integration enabled (image downloading: {'ON' if MAPILLARY_DOWNLOAD_IMAGES else 'OFF'})")
+    except Exception as e:
+        print(f"⚠️ Mapillary integration failed: {e}")
+else:
+    print("ℹ️ Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
 
 
 def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -40,6 +54,206 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     # Earth's radius in meters
     r = 6371000
     return c * r
+
+
+def get_high_confidence_benches_filtered(page: int = 0, page_size: int = PAGE_SIZE, 
+                                        min_confidence: float = DEFAULT_MIN_CONFIDENCE,
+                                        start_lat: float = DEFAULT_START_LAT, 
+                                        start_lng: float = DEFAULT_START_LNG,
+                                        source_filter: str = None) -> BenchListResponse:
+    """
+    Get benches with high confidence detections, with optional source filtering.
+    Supports both Roboflow, Ultralytics, and Mapillary detection data.
+    """
+    try:
+        db = BenchDatabase()
+        with db._get_connection() as conn:
+            # Base query for benches that meet confidence requirements
+            base_query = """
+                SELECT DISTINCT b.id
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                JOIN detections d ON i.id = d.image_id
+                WHERE d.has_bench = 1 AND d.max_confidence >= ?
+                
+                UNION
+                
+                SELECT DISTINCT b.id
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                JOIN ultralytics_detections ud ON i.id = ud.image_id
+                WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+            """
+            
+            # Add source filter if specified
+            source_condition = ""
+            query_params = [min_confidence, min_confidence]
+            
+            if source_filter:
+                source_condition = f" AND b.source = ?"
+                query_params.append(source_filter)
+            
+            # Get total count with confidence filtering
+            count_query = f"""
+                SELECT COUNT(*) as total FROM (
+                    SELECT b.id,
+                           COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                           COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                           COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                           CASE 
+                               WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                               THEN COALESCE(rf_data.max_confidence, 0)
+                               WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                               THEN COALESCE(ul_data.max_confidence, 0)
+                               ELSE COALESCE(mp_data.max_confidence, 0)
+                           END as best_confidence
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM detections 
+                        WHERE has_bench = 1
+                        GROUP BY image_id
+                    ) rf_data ON i.id = rf_data.image_id
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM ultralytics_detections 
+                        WHERE has_bench = 1
+                        GROUP BY image_id
+                    ) ul_data ON i.id = ul_data.image_id
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM detections 
+                        WHERE has_bench = 1 AND source = 'mapillary'
+                        GROUP BY image_id
+                    ) mp_data ON i.id = mp_data.image_id
+                    WHERE b.id IN ({base_query}){source_condition}
+                    GROUP BY b.id
+                    HAVING best_confidence >= ?
+                ) as filtered_benches
+            """
+            count_params = query_params + [min_confidence]
+            total_count = conn.execute(count_query, count_params).fetchone()['total']
+            
+            # Get detailed bench data
+            query = f"""
+                SELECT 
+                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
+                    COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                    COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                    COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                    COUNT(DISTINCT i.id) as image_count,
+                    GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
+                    GROUP_CONCAT(DISTINCT i.id) as image_ids,
+                    CASE 
+                        WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                        THEN COALESCE(rf_data.max_confidence, 0)
+                        WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                        THEN COALESCE(ul_data.max_confidence, 0)
+                        ELSE COALESCE(mp_data.max_confidence, 0)
+                    END as best_confidence
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM detections 
+                    WHERE has_bench = 1
+                    GROUP BY image_id
+                ) rf_data ON i.id = rf_data.image_id
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM ultralytics_detections 
+                    WHERE has_bench = 1
+                    GROUP BY image_id
+                ) ul_data ON i.id = ul_data.image_id
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM detections 
+                    WHERE has_bench = 1 AND source = 'mapillary'
+                    GROUP BY image_id
+                ) mp_data ON i.id = mp_data.image_id
+                WHERE b.id IN ({base_query}){source_condition}
+                GROUP BY b.id
+                HAVING best_confidence >= ?
+                ORDER BY best_confidence DESC, b.id
+                LIMIT ? OFFSET ?
+            """
+            
+            offset = page * page_size
+            query_params_final = query_params + [min_confidence, page_size, offset]
+            rows = conn.execute(query, query_params_final).fetchall()
+            
+            # Process results (same logic as original function)
+            benches = []
+            for row in rows:
+                # Parse tags if available
+                tags = {}
+                if row['tags']:
+                    try:
+                        tags = json.loads(row['tags'])
+                    except json.JSONDecodeError:
+                        pass
+                
+                # Calculate distance
+                distance = calculate_distance(start_lat, start_lng, row['lat'], row['lng'])
+                
+                # Get image filenames and IDs
+                image_filenames = row['image_filenames'].split(',') if row['image_filenames'] else []
+                image_ids = [int(x) for x in row['image_ids'].split(',') if x] if row['image_ids'] else []
+                
+                # Determine best confidence and detection type
+                roboflow_conf = row['roboflow_confidence'] or 0
+                ultralytics_conf = row['ultralytics_confidence'] or 0
+                mapillary_conf = row['mapillary_confidence'] or 0
+                best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
+                
+                # Determine detection type based on source and confidence
+                if row['source'] == 'mapillary':
+                    detection_type = 'mapillary'
+                elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
+                    detection_type = 'ultralytics'
+                else:
+                    detection_type = 'roboflow' if roboflow_conf > ultralytics_conf else 'ultralytics'
+                
+                bench_data = WebBenchData(
+                    id=row['id'],
+                    provider_id=row['provider_id'],
+                    lat=row['lat'],
+                    lng=row['lng'],
+                    tags=tags,
+                    source=row['source'] or 'osm',
+                    external_id=row['external_id'],
+                    best_confidence=round(best_confidence, 3),
+                    roboflow_confidence=round(roboflow_conf, 3),
+                    ultralytics_confidence=round(ultralytics_conf, 3),
+                    mapillary_confidence=round(mapillary_conf, 3),
+                    detection_type=detection_type,
+                    has_segmentation=ultralytics_conf > 0 or mapillary_conf > 0,
+                    image_count=row['image_count'],
+                    image_filenames=image_filenames,
+                    image_ids=image_ids,
+                    distance_meters=round(distance),
+                    distance_km=round(distance / 1000, 2)
+                )
+                
+                benches.append(bench_data)
+            
+            pagination = PaginationInfo(
+                page=page,
+                page_size=page_size,
+                total_count=total_count,
+                total_pages=math.ceil(total_count / page_size),
+                has_next=(page + 1) * page_size < total_count
+            )
+            
+            return BenchListResponse(benches=benches, pagination=pagination)
+            
+    except Exception as e:
+        print(f"Error getting filtered benches: {e}")
+        return BenchListResponse(
+            benches=[],
+            pagination=PaginationInfo(page=0, page_size=page_size, total_count=0, total_pages=0, has_next=False)
+        )
 
 
 def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE, 
@@ -71,19 +285,78 @@ def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE,
                 WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
             """
             
-            # Get total count
-            count_query = f"SELECT COUNT(*) as total FROM ({base_query}) as combined"
-            total_count = conn.execute(count_query, (min_confidence, min_confidence)).fetchone()['total']
+            # Get total count with confidence filtering
+            count_query = """
+                SELECT COUNT(*) as total FROM (
+                    SELECT b.id,
+                           COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                           COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                           COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                           CASE 
+                               WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                               THEN COALESCE(rf_data.max_confidence, 0)
+                               WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                               THEN COALESCE(ul_data.max_confidence, 0)
+                               ELSE COALESCE(mp_data.max_confidence, 0)
+                           END as best_confidence
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM detections 
+                        WHERE has_bench = 1
+                        GROUP BY image_id
+                    ) rf_data ON i.id = rf_data.image_id
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM ultralytics_detections 
+                        WHERE has_bench = 1
+                        GROUP BY image_id
+                    ) ul_data ON i.id = ul_data.image_id
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM detections 
+                        WHERE has_bench = 1 AND source = 'mapillary'
+                        GROUP BY image_id
+                    ) mp_data ON i.id = mp_data.image_id
+                    WHERE b.id IN (
+                        SELECT DISTINCT b2.id
+                        FROM benches b2
+                        JOIN images i2 ON b2.id = i2.bench_id AND i2.capture_success = 1
+                        JOIN detections d2 ON i2.id = d2.image_id
+                        WHERE d2.has_bench = 1 AND d2.max_confidence >= ?
+                        
+                        UNION
+                        
+                        SELECT DISTINCT b2.id
+                        FROM benches b2
+                        JOIN images i2 ON b2.id = i2.bench_id AND i2.capture_success = 1
+                        JOIN ultralytics_detections ud2 ON i2.id = ud2.image_id
+                        WHERE ud2.has_bench = 1 AND ud2.max_confidence >= ?
+                    )
+                    GROUP BY b.id
+                    HAVING best_confidence >= ?
+                ) as filtered_benches
+            """
+            total_count = conn.execute(count_query, (min_confidence, min_confidence, min_confidence)).fetchone()['total']
             
             # Get detailed bench data
             query = """
                 SELECT 
-                    b.id, b.osm_id, b.osm_type, b.lat, b.lng, b.tags,
+                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
                     COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
                     COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                    COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
                     COUNT(DISTINCT i.id) as image_count,
                     GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                    GROUP_CONCAT(DISTINCT i.id) as image_ids
+                    GROUP_CONCAT(DISTINCT i.id) as image_ids,
+                    CASE 
+                        WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                        THEN COALESCE(rf_data.max_confidence, 0)
+                        WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                        THEN COALESCE(ul_data.max_confidence, 0)
+                        ELSE COALESCE(mp_data.max_confidence, 0)
+                    END as best_confidence
                 FROM benches b
                 JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
                 LEFT JOIN (
@@ -98,6 +371,12 @@ def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE,
                     WHERE has_bench = 1
                     GROUP BY image_id
                 ) ul_data ON i.id = ul_data.image_id
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM detections 
+                    WHERE has_bench = 1 AND source = 'mapillary'
+                    GROUP BY image_id
+                ) mp_data ON i.id = mp_data.image_id
                 WHERE b.id IN (
                     SELECT DISTINCT b2.id
                     FROM benches b2
@@ -114,16 +393,13 @@ def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE,
                     WHERE ud2.has_bench = 1 AND ud2.max_confidence >= ?
                 )
                 GROUP BY b.id
-                ORDER BY CASE 
-                    WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) 
-                    THEN COALESCE(rf_data.max_confidence, 0)
-                    ELSE COALESCE(ul_data.max_confidence, 0)
-                END DESC, b.id
+                HAVING best_confidence >= ?
+                ORDER BY best_confidence DESC, b.id
                 LIMIT ? OFFSET ?
             """
             
             offset = page * page_size
-            rows = conn.execute(query, (min_confidence, min_confidence, page_size, offset)).fetchall()
+            rows = conn.execute(query, (min_confidence, min_confidence, min_confidence, page_size, offset)).fetchall()
             
             benches = []
             for row in rows:
@@ -145,26 +421,31 @@ def get_high_confidence_benches(page: int = 0, page_size: int = PAGE_SIZE,
                 # Determine best confidence and detection type
                 roboflow_conf = row['roboflow_confidence'] or 0
                 ultralytics_conf = row['ultralytics_confidence'] or 0
-                best_confidence = max(roboflow_conf, ultralytics_conf)
+                mapillary_conf = row['mapillary_confidence'] or 0
+                best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
                 
-                # Prefer Ultralytics when confidence is close (within 5%) or better
-                if ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
+                # Determine detection type based on source and confidence
+                if row['source'] == 'mapillary':
+                    detection_type = 'mapillary'
+                elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
                     detection_type = 'ultralytics'
                 else:
                     detection_type = 'roboflow' if roboflow_conf > ultralytics_conf else 'ultralytics'
                 
                 bench_data = WebBenchData(
                     id=row['id'],
-                    osm_id=row['osm_id'],
-                    osm_type=row['osm_type'],
+                    provider_id=row['provider_id'],
                     lat=row['lat'],
                     lng=row['lng'],
                     tags=tags,
+                    source=row['source'] or 'osm',
+                    external_id=row['external_id'],
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
                     ultralytics_confidence=round(ultralytics_conf, 3),
+                    mapillary_confidence=round(mapillary_conf, 3),
                     detection_type=detection_type,
-                    has_segmentation=ultralytics_conf > 0,
+                    has_segmentation=ultralytics_conf > 0 or mapillary_conf > 0,
                     image_count=row['image_count'],
                     image_filenames=image_filenames,
                     image_ids=image_ids,
@@ -349,6 +630,117 @@ def api_config():
         page_size=PAGE_SIZE
     )
     return jsonify(config.model_dump())
+
+
+@app.route('/api/mapillary/search', methods=['POST'])
+def api_mapillary_search():
+    """Search for bench detections using Mapillary API and store in database."""
+    if not mapillary_service:
+        return jsonify({'error': 'Mapillary integration not available'}), 503
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'JSON body required'}), 400
+        
+        # Validate required fields
+        if 'center_lat' not in data or 'center_lng' not in data:
+            return jsonify({'error': 'center_lat and center_lng are required'}), 400
+        
+        search_request = SourceSearchRequest(
+            center_lat=data['center_lat'],
+            center_lng=data['center_lng'],
+            radius_meters=data.get('radius_meters', 1000),
+            limit=data.get('limit', 1000),
+            source='mapillary'
+        )
+        
+        # Search and store bench detections
+        result = mapillary_service.search_and_store_benches(
+            center_lat=search_request.center_lat,
+            center_lng=search_request.center_lng,
+            radius_meters=search_request.radius_meters,
+            limit=search_request.limit
+        )
+        
+        return jsonify(result.model_dump())
+        
+    except Exception as e:
+        return jsonify({'error': f'Search failed: {str(e)}'}), 500
+
+
+@app.route('/api/benches/source/<source>')
+def api_benches_by_source(source: str):
+    """Get benches filtered by source (osm or mapillary)."""
+    try:
+        page = request.args.get('page', 0, type=int)
+        page_size = request.args.get('page_size', PAGE_SIZE, type=int)
+        min_confidence = request.args.get('min_confidence', DEFAULT_MIN_CONFIDENCE, type=float)
+        start_lat = request.args.get('start_lat', DEFAULT_START_LAT, type=float)
+        start_lng = request.args.get('start_lng', DEFAULT_START_LNG, type=float)
+        
+        # Limit page size to prevent abuse
+        page_size = min(page_size, 50)
+        
+        # For Mapillary, use the service if available
+        if source == 'mapillary' and mapillary_service:
+            benches = mapillary_service.get_stored_benches(
+                center_lat=start_lat,
+                center_lng=start_lng,
+                radius_meters=2000,  # Larger radius for stored data
+                limit=page_size,
+                source='mapillary'
+            )
+            
+            pagination = PaginationInfo(
+                page=page,
+                page_size=len(benches),
+                total_count=len(benches),
+                total_pages=1,
+                has_next=False
+            )
+            
+            result = BenchListResponse(benches=benches, pagination=pagination)
+            return jsonify(result.model_dump())
+        
+        # For OSM, modify the query to filter by source
+        result = get_high_confidence_benches_filtered(page, page_size, min_confidence, start_lat, start_lng, source)
+        return jsonify(result.model_dump())
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get benches: {str(e)}'}), 500
+
+
+@app.route('/api/statistics/source/<source>')
+def api_statistics_by_source(source: str):
+    """Get statistics filtered by source."""
+    try:
+        center_lat = request.args.get('center_lat', type=float)
+        center_lng = request.args.get('center_lng', type=float)
+        radius_meters = request.args.get('radius_meters', type=int)
+        
+        if source == 'mapillary' and mapillary_service:
+            stats = mapillary_service.get_detection_statistics(
+                center_lat=center_lat,
+                center_lng=center_lng,
+                radius_meters=radius_meters,
+                source='mapillary'
+            )
+            return jsonify(stats.model_dump())
+        
+        # For OSM, we'd need to implement similar logic
+        # For now, return a basic response
+        return jsonify({
+            'source': source,
+            'total_benches': 0,
+            'total_detections': 0,
+            'avg_detections_per_bench': 0,
+            'unique_locations': 0,
+            'coverage_area_km2': 0
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get statistics: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

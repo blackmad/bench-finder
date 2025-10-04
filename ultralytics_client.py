@@ -503,7 +503,7 @@ class UltralyticsClient:
             logger.warning(f"Image validation failed for {image_path}: {e}")
             return False
 
-    def detect_benches_with_class_filter(self, image_path: str, target_classes: List[str] = None) -> Dict:
+    def detect_benches_with_class_filter(self, image_path: str, target_classes: List[str] | None = None) -> Dict:
         """
         Detect benches in an image with specific class filtering.
         

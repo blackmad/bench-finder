@@ -94,9 +94,13 @@ class OverpassClient:
             Parsed bench dictionary or None if invalid
         """
         try:
+            osm_id = element.get('id')
+            osm_type = element.get('type')
+            
             bench = {
-                'osm_id': element.get('id'),
-                'osm_type': element.get('type'),
+                'provider_id': f"{osm_id}_{osm_type}" if osm_id and osm_type else None,
+                'source': 'osm',
+                'external_id': str(osm_id) if osm_id else None,
                 'tags': element.get('tags', {})
             }
             
@@ -141,7 +145,7 @@ class OverpassClient:
                     interesting_tags.append(f"{tag_key}={bench['tags'][tag_key]}")
             
             if interesting_tags:
-                logger.debug(f"Bench {bench['osm_id']}: {', '.join(interesting_tags)}")
+                logger.debug(f"Bench {bench['provider_id']}: {', '.join(interesting_tags)}")
             
             return bench
             
@@ -150,18 +154,26 @@ class OverpassClient:
             logger.debug(f"Problematic element: {element}")
             return None
     
-    def get_bench_details(self, osm_id: int, osm_type: str = 'node') -> Dict:
+    def get_bench_details(self, provider_id: str) -> Dict:
         """
         Get detailed information about a specific bench.
         
         Args:
-            osm_id: OSM ID of the bench
-            osm_type: OSM element type ('node', 'way', or 'relation')
+            provider_id: Provider ID in format "osm_id_osm_type"
             
         Returns:
             Detailed bench information dictionary
         """
         try:
+            # Parse provider_id to extract osm_id and osm_type
+            parts = provider_id.split('_')
+            if len(parts) < 2:
+                logger.error(f"Invalid provider_id format: {provider_id}")
+                return {}
+            
+            osm_id = parts[0]
+            osm_type = parts[1]
+            
             logger.debug(f"Getting details for {osm_type} {osm_id}")
             
             query = f"""
@@ -186,5 +198,5 @@ class OverpassClient:
             return self._parse_bench_element(data['elements'][0]) or {}
             
         except Exception as e:
-            logger.error(f"Error getting bench details for {osm_type} {osm_id}: {e}")
+            logger.error(f"Error getting bench details for provider_id {provider_id}: {e}")
             return {}

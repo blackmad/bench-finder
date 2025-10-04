@@ -44,22 +44,23 @@ class SearchSummary(BaseModel):
 
 class BenchBase(BaseModel):
     """Base schema for bench data."""
-    osm_id: int
-    osm_type: str
+    provider_id: Optional[str] = None  # Unified ID from OSM or Mapillary
     lat: float
     lng: float
     tags: Dict[str, Any] = {}
+    source: str = 'osm'  # 'osm' or 'mapillary'
+    external_id: Optional[str] = None  # For Mapillary image IDs
 
 
 class BenchCreate(BenchBase):
     """Schema for creating a new bench."""
-    search_id: int
+    search_id: Optional[int] = None  # Nullable for Mapillary benches
 
 
 class BenchResponse(BenchBase):
     """Schema for bench response."""
     id: int
-    search_id: int
+    search_id: Optional[int] = None
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -99,6 +100,8 @@ class DetectionBase(BaseModel):
     detection_error: Optional[str] = None
     model_id: str
     confidence_threshold: float
+    source: str = 'roboflow'  # 'roboflow', 'ultralytics', 'mapillary'
+    external_detection_id: Optional[str] = None  # For Mapillary detection IDs
 
 
 class DetectionCreate(DetectionBase):
@@ -124,7 +127,7 @@ class UltralyticsDetectionBase(BaseModel):
     bench_detections: List[Dict[str, Any]] = []
     detection_success: bool
     detection_error: Optional[str] = None
-    model_url: str
+    model_url: Optional[str]= "unknown"
     confidence_threshold: float
     iou_threshold: float
     image_size: int
@@ -185,14 +188,16 @@ class SearchResults(BaseModel):
 class WebBenchData(BaseModel):
     """Schema for web UI bench data."""
     id: int
-    osm_id: int
-    osm_type: str
+    provider_id: Optional[str] = None  # Unified ID from OSM or Mapillary
     lat: float
     lng: float
     tags: Dict[str, Any] = {}
+    source: str  # 'osm' or 'mapillary'
+    external_id: Optional[str] = None
     best_confidence: float
-    roboflow_confidence: float
-    ultralytics_confidence: float
+    roboflow_confidence: float = 0.0
+    ultralytics_confidence: float = 0.0
+    mapillary_confidence: float = 0.0
     detection_type: str
     has_segmentation: bool
     image_count: int
@@ -241,3 +246,23 @@ class ConfigResponse(BaseModel):
 class SearchListResponse(BaseModel):
     """Schema for search list response."""
     searches: List[SearchSummary]
+
+
+# Source-specific request schemas
+class SourceSearchRequest(BaseModel):
+    """Schema for source-specific search request."""
+    center_lat: float
+    center_lng: float
+    radius_meters: int = 1000
+    limit: int = 1000
+    source: str  # 'osm', 'mapillary'
+
+
+class SourceStatistics(BaseModel):
+    """Schema for source-specific statistics."""
+    source: str
+    total_benches: int
+    total_detections: int
+    avg_detections_per_bench: float
+    unique_locations: int
+    coverage_area_km2: float

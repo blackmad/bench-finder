@@ -88,30 +88,32 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
-                # Check if bench already exists
-                existing_bench = session.query(Bench).filter(
-                    Bench.search_id == bench_data.search_id,
-                    Bench.osm_id == bench_data.osm_id,
-                    Bench.osm_type == bench_data.osm_type
-                ).first()
+                # Check if bench already exists by provider_id
+                existing_bench = None
+                if bench_data.provider_id:
+                    existing_bench = session.query(Bench).filter(
+                        Bench.provider_id == bench_data.provider_id,
+                        Bench.source == bench_data.source
+                    ).first()
                 
                 if existing_bench:
-                    logger.debug(f"Bench {bench_data.osm_id} already exists as record {existing_bench.id}")
+                    logger.debug(f"Bench {bench_data.provider_id} already exists as record {existing_bench.id}")
                     return existing_bench.id
                 
                 bench = Bench(
                     search_id=bench_data.search_id,
-                    osm_id=bench_data.osm_id,
-                    osm_type=bench_data.osm_type,
+                    provider_id=bench_data.provider_id,
                     lat=bench_data.lat,
                     lng=bench_data.lng,
-                    tags=bench_data.tags
+                    tags=bench_data.tags,
+                    source=bench_data.source,
+                    external_id=bench_data.external_id
                 )
                 session.add(bench)
                 session.commit()
                 session.refresh(bench)
                 
-                logger.debug(f"Added bench {bench_data.osm_id} as record {bench.id}")
+                logger.debug(f"Added bench {bench_data.provider_id} as record {bench.id}")
                 return bench.id
                 
         except Exception as e:
@@ -338,11 +340,12 @@ class BenchDatabase:
                     bench_with_detections = BenchWithDetections(
                         id=bench.id,
                         search_id=bench.search_id,
-                        osm_id=bench.osm_id,
-                        osm_type=bench.osm_type,
+                        provider_id=bench.provider_id,
                         lat=bench.lat,
                         lng=bench.lng,
                         tags=bench.tags or {},
+                        source=bench.source,
+                        external_id=bench.external_id,
                         created_at=bench.created_at,
                         images=images_with_detections
                     )

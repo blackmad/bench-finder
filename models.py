@@ -35,16 +35,17 @@ class Search(Base):
 
 
 class Bench(Base):
-    """Model for OSM bench data."""
+    """Model for bench data from various sources."""
     __tablename__ = 'benches'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    search_id = Column(Integer, ForeignKey('searches.id'), nullable=False)
-    osm_id = Column(Integer, nullable=False)
-    osm_type = Column(String, nullable=False)
+    search_id = Column(Integer, ForeignKey('searches.id'), nullable=True)  # Nullable for Mapillary benches
+    provider_id = Column(String, nullable=True)  # Unified ID from OSM or Mapillary
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
-    tags = Column(JSON)  # JSON column for OSM tags
+    tags = Column(JSON)  # JSON column for OSM tags or Mapillary metadata
+    source = Column(String, nullable=False, default='osm')  # 'osm' or 'mapillary'
+    external_id = Column(String, nullable=True)  # For Mapillary image IDs or other external IDs
     created_at = Column(DateTime, default=func.now())
     
     # Relationships
@@ -54,12 +55,14 @@ class Bench(Base):
     # Indexes
     __table_args__ = (
         Index('idx_benches_search_id', 'search_id'),
-        Index('idx_benches_osm', 'osm_id', 'osm_type'),
+        Index('idx_benches_provider_id', 'provider_id'),
         Index('idx_benches_location', 'lat', 'lng'),
+        Index('idx_benches_source', 'source'),
+        Index('idx_benches_external_id', 'external_id'),
     )
     
     def __repr__(self):
-        return f"<Bench(id={self.id}, osm_id={self.osm_id}, osm_type='{self.osm_type}')>"
+        return f"<Bench(id={self.id}, provider_id='{self.provider_id}', source='{self.source}')>"
 
 
 class Image(Base):
@@ -92,7 +95,7 @@ class Image(Base):
 
 
 class Detection(Base):
-    """Model for Roboflow detection results."""
+    """Model for detection results from various sources."""
     __tablename__ = 'detections'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -105,6 +108,8 @@ class Detection(Base):
     detection_error = Column(Text, nullable=True)
     model_id = Column(String, nullable=False)
     confidence_threshold = Column(Float, nullable=False)
+    source = Column(String, nullable=False, default='roboflow')  # 'roboflow', 'ultralytics', 'mapillary'
+    external_detection_id = Column(String, nullable=True)  # For Mapillary detection IDs
     created_at = Column(DateTime, default=func.now())
     
     # Relationships
@@ -115,6 +120,8 @@ class Detection(Base):
         Index('idx_detections_image_id', 'image_id'),
         Index('idx_detections_has_bench', 'has_bench'),
         Index('idx_detections_confidence', 'max_confidence'),
+        Index('idx_detections_source', 'source'),
+        Index('idx_detections_external_id', 'external_detection_id'),
     )
     
     def __repr__(self):
@@ -134,7 +141,7 @@ class UltralyticsDetection(Base):
     bench_detections = Column(JSON)  # JSON column for bench-specific detections with segmentation
     detection_success = Column(Boolean, nullable=False)
     detection_error = Column(Text, nullable=True)
-    model_url = Column(String, nullable=False)
+    model_url = Column(String, nullable=True)
     confidence_threshold = Column(Float, nullable=False)
     iou_threshold = Column(Float, nullable=False)
     image_size = Column(Integer, nullable=False)

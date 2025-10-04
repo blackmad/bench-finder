@@ -12,6 +12,7 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 ROBOFLOW_API_KEY = os.getenv('ROBOFLOW_API_KEY')
 ULTRALYTICS_API_KEY = os.getenv('ULTRALYTICS_API_KEY')
+MAPILLARY_ACCESS_TOKEN = os.getenv('MAPILLARY_ACCESS_TOKEN')
 
 # Application settings
 SEARCH_RADIUS_METERS = 500  # Radius to search for benches around the starting point
@@ -42,6 +43,10 @@ DETECTION_BACKEND = os.getenv('DETECTION_BACKEND', 'roboflow').lower()  # 'robof
 DATABASE_PATH = "data/benches.db"
 IMAGES_DIR = "images"
 
+# Mapillary settings
+MAPILLARY_IMAGE_SIZE = 2048  # Download high-resolution images
+MAPILLARY_DOWNLOAD_IMAGES = True  # Whether to download images when finding benches
+
 # Overpass API settings
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 OVERPASS_TIMEOUT = 25  # seconds
@@ -67,6 +72,11 @@ def validate_config():
     
     if DETECTION_BACKEND == 'ultralytics' and not ULTRALYTICS_API_KEY:
         errors.append("ULTRALYTICS_API_KEY environment variable is required when using Ultralytics backend")
+    
+    # Mapillary validation (optional - only warn if not set)
+    if not MAPILLARY_ACCESS_TOKEN:
+        import logging
+        logging.getLogger(__name__).warning("MAPILLARY_ACCESS_TOKEN not set - Mapillary integration will not be available")
     
     if errors:
         raise ValueError("Configuration errors:\n" + "\n".join(f"- {error}" for error in errors))

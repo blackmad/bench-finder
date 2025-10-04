@@ -20,6 +20,11 @@ from streetview import StreetViewClient
 from roboflow_client import RoboflowClient
 from ultralytics_client import UltralyticsClient
 from database import BenchDatabase
+from schemas import (
+    SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
+    SearchResults, BenchWithDetections
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +32,7 @@ logger = logging.getLogger(__name__)
 class BenchFinder:
     """Main class that orchestrates the bench finding pipeline."""
     
-    def __init__(self, detection_backend: str = None):
+    def __init__(self, detection_backend: str | None = None):
         """Initialize all API clients and database.
         
         Args:
@@ -41,6 +46,8 @@ class BenchFinder:
         
         # Initialize detection client based on backend selection
         self.detection_backend = detection_backend or DETECTION_BACKEND
+
+        self.detection_client: RoboflowClient | UltralyticsClient
         
         if self.detection_backend == 'ultralytics':
             logger.info("Initializing Ultralytics detection backend")
@@ -54,7 +61,7 @@ class BenchFinder:
         logger.info(f"BenchFinder initialized with {self.detection_backend} backend")
     
     @log_execution_time
-    def find_benches(self, query: str, radius: int = None) -> Dict:
+    def find_benches(self, query: str, radius: int | None = None) -> Dict:
         """
         Complete bench finding pipeline for a given query.
         
@@ -79,7 +86,12 @@ class BenchFinder:
             start_lat, start_lng = coordinates
             
             # Step 2: Create search record in database
-            search_id = self.database.create_search(query, start_lat, start_lng, radius)
+            search_id = self.database.create_search(SearchCreate(
+                query=query,
+                start_lat=start_lat,
+                start_lng=start_lng,
+                search_radius=radius
+            ))
             
             # Step 3: Find benches using OSM Overpass API
             benches = self._find_nearby_benches(start_lat, start_lng, radius)
@@ -160,7 +172,11 @@ class BenchFinder:
                 progress.update()
                 
             except Exception as e:
-                logger.error(f"Failed to process bench {bench.get('osm_id')}: {e}")
+                bench_id = bench.get('provider_id', 'unknown')
+                logger.error(f"Failed to process bench {bench_id}: {type(e).__name__}: {e}")
+                import traceback
+                logger.debug(f"Full traceback for bench {bench_id}:\n{traceback.format_exc()}")
+                logger.debug(f"Bench data that caused the error: {bench}")
                 progress.update()
                 continue
         
@@ -191,30 +207,71 @@ class BenchFinder:
             'best_confidence': 0.0
         }
         
+        # Validate required bench fields
+        required_fields = ['lat', 'lng', 'provider_id']
+        missing_fields = [field for field in required_fields if field not in bench or bench[field] is None]
+        if missing_fields:
+            raise ValueError(f"Bench missing required fields: {missing_fields}. Bench data: {bench}")
+        
+        # Validate coordinate types
+        try:
+            lat = float(bench['lat'])
+            lng = float(bench['lng'])
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Invalid coordinates in bench data: lat={bench.get('lat')}, lng={bench.get('lng')}. Error: {e}")
+        
         # Add bench to database
-        bench_id = self.database.add_bench(search_id, bench)
-        if bench_id:
-            result['bench_added'] = True
-            logger.debug(f"Added bench {bench['osm_id']} as DB record {bench_id}")
-        else:
-            logger.warning(f"Failed to add bench {bench['osm_id']} to database")
-            return result
+        try:
+            bench_data = BenchCreate(
+                search_id=search_id,
+                provider_id=bench['provider_id'],
+                lat=lat,  # Use validated coordinates
+                lng=lng,
+                tags=bench.get('tags', {}),
+                source=bench.get('source', 'osm'),
+                external_id=bench.get('external_id')
+            )
+            bench_id = self.database.add_bench(bench_data)
+            if bench_id:
+                result['bench_added'] = True
+                logger.debug(f"Added bench {bench['provider_id']} as DB record {bench_id}")
+            else:
+                logger.warning(f"Failed to add bench {bench['provider_id']} to database")
+                return result
+        except Exception as e:
+            raise RuntimeError(f"Failed to add bench {bench['provider_id']} to database: {e}") from e
         
         # Generate unique identifier for image filenames
-        bench_identifier = f"{bench['osm_type']}_{bench['osm_id']}"
+        bench_identifier = bench['provider_id'] or f"bench_{bench_id}"
         
         # Capture street view images
-        image_results = self.streetview_client.capture_bench_images(
-            bench['lat'], bench['lng'], bench_identifier
-        )
+        try:
+            image_results = self.streetview_client.capture_bench_images(
+                lat, lng, bench_identifier  # Use validated coordinates
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to capture images for bench {bench['provider_id']}: {e}") from e
         
         result['images_captured'] = len(image_results)
         result['images_successful'] = sum(1 for img in image_results if img['success'])
         
         # Process each image
         for image_result in image_results:
+            
             # Add image record to database
-            image_id = self.database.add_image(bench_id, image_result)
+            try:
+                image_id = self.database.add_image(ImageCreate(
+                    bench_id=bench_id,
+                    heading=image_result['heading'],
+                    filepath=image_result['filepath'],
+                    filename=image_result.get('filename'),
+                    file_size=image_result.get('file_size'),
+                    capture_success=image_result.get('success', False),
+                    capture_error=image_result.get('error')
+                ))
+            except Exception as e:
+                logger.error(f"Failed to add image record for bench {bench['provider_id']}, heading {image_result.get('heading')}: {e}, type: {type(e).__name__}")    
+                continue
             
             # Skip detection if image capture failed
             if not image_result['success'] or not image_result.get('filepath'):
@@ -228,9 +285,32 @@ class BenchFinder:
                 
                 # Add detection record to database based on backend
                 if self.detection_backend == 'ultralytics':
-                    self.database.add_ultralytics_detection(image_id, detection_result)
+                    self.database.add_ultralytics_detection(UltralyticsDetectionCreate(
+                        image_id=image_id,
+                        has_bench=detection_result['has_bench'],
+                        bench_count=detection_result['bench_count'],
+                        max_confidence=detection_result['max_confidence'],
+                        full_response=detection_result['full_response'],
+                        bench_detections=detection_result['bench_detections'],
+                        detection_success=True,
+                        detection_error=None,
+                        model_url=getattr(self.detection_client, 'model_url', 'unknown'),
+                        confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0),
+                        iou_threshold=getattr(self.detection_client, 'iou_threshold', 0.0),
+                        image_size=getattr(self.detection_client, 'image_size', 640)
+                    ))
                 else:  # roboflow
-                    self.database.add_detection(image_id, detection_result)
+                    self.database.add_detection(DetectionCreate(
+                        image_id=image_id,
+                        has_bench=detection_result['has_bench'],
+                        bench_count=detection_result['bench_count'],
+                        max_confidence=detection_result['max_confidence'],
+                        detections=detection_result['detections'],
+                        detection_success=True,
+                        detection_error=None,
+                        model_id=getattr(self.detection_client, 'model_id', 'unknown'),
+                        confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
+                    ))
                 
                 result['detections_performed'] += 1
                 
@@ -240,39 +320,48 @@ class BenchFinder:
                         result['best_confidence'] = detection_result['max_confidence']
                 
             except Exception as e:
-                logger.error(f"Detection failed for image {image_result.get('filepath')}: {e}")
+                logger.error(f"Detection failed for bench {bench['provider_id']}, image {image_result.get('filepath')}: {type(e).__name__}: {e}")
+                import traceback
+                logger.debug(f"Detection error traceback:\n{traceback.format_exc()}")
                 # Add failed detection record based on backend
                 if self.detection_backend == 'ultralytics':
-                    failed_detection = {
-                        'success': False,
-                        'has_bench': False,
-                        'bench_count': 0,
-                        'max_confidence': 0.0,
-                        'bench_detections': [],
-                        'full_response': {},
-                        'error': str(e),
-                        'model_url': getattr(self.detection_client, 'model_url', 'unknown'),
-                        'confidence_threshold': getattr(self.detection_client, 'confidence_threshold', 0.0),
-                        'iou_threshold': getattr(self.detection_client, 'iou_threshold', 0.0),
-                        'image_size': getattr(self.detection_client, 'image_size', 640)
-                    }
-                    self.database.add_ultralytics_detection(image_id, failed_detection)
+                    self.database.add_ultralytics_detection(UltralyticsDetectionCreate(
+                        image_id=image_id,
+                        has_bench=False,
+                        bench_count=0,
+                        max_confidence=0.0,
+                        bench_detections=[],
+                        detection_success=False,
+                        detection_error=str(e),
+                        model_url=getattr(self.detection_client, 'model_url', 'unknown'),
+                        confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0),
+                        iou_threshold=getattr(self.detection_client, 'iou_threshold', 0.0),
+                        image_size=getattr(self.detection_client, 'image_size', 640)
+                    ))
                 else:  # roboflow
-                    failed_detection = {
-                        'success': False,
-                        'has_bench': False,
-                        'bench_count': 0,
-                        'max_confidence': 0.0,
-                        'detections': [],
-                        'error': str(e),
-                        'model_id': getattr(self.detection_client, 'model_id', 'unknown'),
-                        'confidence_threshold': getattr(self.detection_client, 'confidence_threshold', 0.0)
-                    }
-                    self.database.add_detection(image_id, failed_detection)
+                    self.database.add_detection(DetectionCreate(
+                        image_id=image_id,
+                        has_bench=False,
+                        bench_count=0,
+                        max_confidence=0.0,
+                        detections=[],
+                        detection_success=False,
+                        detection_error=str(e),
+                        model_id=getattr(self.detection_client, 'model_id', 'unknown'),
+                        confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
+                    ))
         
+        # If no bench was detected, print image filepaths for manual debugging
+        if not result.get('bench_detected', False):
+            print("\n[DEBUG] No bench detected for this location.")
+            print("Captured image filepaths for manual inspection:")
+            for image_result in image_results:
+                print(f"  - {image_result.get('filepath')}")
+            print("You can manually review these images to check for benches or detection issues.\n")
+
         return result
     
-    def _create_result(self, search_id: int, message: str, details: Dict = None) -> Dict:
+    def _create_result(self, search_id: int, message: str, details: Dict  | None= None) -> Dict:
         """Create a standardized result dictionary."""
         result = {
             'success': True,
@@ -353,14 +442,17 @@ def main():
         if results['success']:
             logger.info(f"✅ {results['message']}")
             
-            search_results = results['search_results']
+            search_results: SearchResults = results['search_results']
             logger.info(f"📊 Summary:")
-            logger.info(f"   • Search ID: {search_results['search_id']}")
-            logger.info(f"   • Benches found: {search_results['bench_count']}")
-            logger.info(f"   • Images captured: {search_results['successful_images']}/{search_results['total_images']}")
-            logger.info(f"   • Images with benches detected: {search_results['images_with_benches']}")
-            logger.info(f"   • Best confidence: {search_results['best_confidence']:.2f}")
-            
+            logger.info(f"   • Search ID: {search_results.search.id}")
+            logger.info(f"   • Query: {search_results.search.query}")
+            logger.info(f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})")
+            logger.info(f"   • Search radius: {search_results.search.search_radius}m")
+            logger.info(f"   • Benches found: {search_results.bench_count}")
+            logger.info(f"   • Images captured: {search_results.successful_images}/{search_results.total_images}")
+            logger.info(f"   • Images with benches detected: {search_results.images_with_benches}")
+            logger.info(f"   • Best confidence: {search_results.best_confidence:.2f}")
+
             if 'processing_stats' in results:
                 stats = results['processing_stats']
                 logger.info(f"   • Processing stats: {stats['benches_detected']}/{stats['benches_processed']} benches detected")
