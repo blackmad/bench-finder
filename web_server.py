@@ -761,6 +761,304 @@ def api_benches_by_source(source: str):
         return jsonify({'error': f'Failed to get benches: {str(e)}'}), 500
 
 
+@app.route('/api/benches/random')
+def api_random_bench():
+    """Get a random high-confidence bench respecting current filters."""
+    try:
+        min_confidence = request.args.get('min_confidence', DEFAULT_MIN_CONFIDENCE, type=float)
+        source_filter = request.args.get('source')
+        
+        db = BenchDatabase()
+        with db._get_connection() as conn:
+            # Base query to get all qualifying bench IDs
+            base_query = """
+                SELECT DISTINCT b.id
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                JOIN detections d ON i.id = d.image_id
+                WHERE d.has_bench = 1 AND d.max_confidence >= ?
+                
+                UNION
+                
+                SELECT DISTINCT b.id
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                JOIN ultralytics_detections ud ON i.id = ud.image_id
+                WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+            """
+            
+            # Add source filter if specified
+            source_condition = ""
+            query_params = [min_confidence, min_confidence]
+            
+            if source_filter:
+                source_condition = f" AND b.source = ?"
+                query_params.append(source_filter)
+            
+            # Get random bench ID
+            random_query = f"""
+                SELECT b.id
+                FROM benches b
+                WHERE b.id IN ({base_query}){source_condition}
+                ORDER BY RANDOM()
+                LIMIT 1
+            """
+            
+            row = conn.execute(random_query, query_params).fetchone()
+            
+            if not row:
+                return jsonify({'error': 'No benches found matching criteria'}), 404
+            
+            bench_id = row['id']
+            
+            # Get detailed bench data for this random bench
+            result = get_high_confidence_benches_filtered(
+                page=0, 
+                page_size=1, 
+                min_confidence=min_confidence,
+                start_lat=DEFAULT_START_LAT,
+                start_lng=DEFAULT_START_LNG,
+                source_filter=source_filter
+            )
+            
+            # Filter the results to just this bench
+            random_bench = None
+            for bench in result.benches:
+                if bench.id == bench_id:
+                    random_bench = bench
+                    break
+            
+            if not random_bench:
+                # Fallback: get bench details directly
+                detail_query = """
+                    SELECT 
+                        b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
+                        COUNT(DISTINCT i.id) as image_count,
+                        GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
+                        GROUP_CONCAT(DISTINCT i.id) as image_ids
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    WHERE b.id = ?
+                    GROUP BY b.id
+                """
+                
+                bench_row = conn.execute(detail_query, (bench_id,)).fetchone()
+                
+                if bench_row:
+                    tags = {}
+                    if bench_row['tags']:
+                        try:
+                            tags = json.loads(bench_row['tags'])
+                        except json.JSONDecodeError:
+                            pass
+                    
+                    image_filenames = bench_row['image_filenames'].split(',') if bench_row['image_filenames'] else []
+                    image_ids = [int(x) for x in bench_row['image_ids'].split(',') if x] if bench_row['image_ids'] else []
+                    
+                    random_bench = WebBenchData(
+                        id=bench_row['id'],
+                        provider_id=bench_row['provider_id'],
+                        lat=bench_row['lat'],
+                        lng=bench_row['lng'],
+                        tags=tags,
+                        source=bench_row['source'] or 'osm',
+                        external_id=bench_row['external_id'],
+                        best_confidence=min_confidence,  # Approximate
+                        roboflow_confidence=0,
+                        ultralytics_confidence=0,
+                        mapillary_confidence=0,
+                        detection_type='unknown',
+                        has_segmentation=False,
+                        image_count=bench_row['image_count'],
+                        image_filenames=image_filenames,
+                        image_ids=image_ids,
+                        distance_meters=0,
+                        distance_km=0
+                    )
+            
+            if not random_bench:
+                return jsonify({'error': 'Failed to get random bench details'}), 500
+                
+            return jsonify({'bench': random_bench.model_dump()})
+        
+    except Exception as e:
+        print(f"Error getting random bench: {e}")
+        return jsonify({'error': 'Failed to get random bench'}), 500
+
+
+@app.route('/api/benches/bbox')
+def api_benches_in_bbox():
+    """Get benches within a bounding box for map view."""
+    try:
+        # Bounding box parameters
+        north = request.args.get('north', type=float)
+        south = request.args.get('south', type=float)
+        east = request.args.get('east', type=float)
+        west = request.args.get('west', type=float)
+        
+        # Filter parameters
+        min_confidence = request.args.get('min_confidence', DEFAULT_MIN_CONFIDENCE, type=float)
+        source_filter = request.args.get('source')
+        limit = request.args.get('limit', 200, type=int)  # Reasonable limit for map display
+        
+        if None in [north, south, east, west]:
+            return jsonify({'error': 'All bbox parameters (north, south, east, west) are required'}), 400
+        
+        # Limit to prevent abuse
+        limit = min(limit, 500)
+        
+        db = BenchDatabase()
+        with db._get_connection() as conn:
+            # Base query for benches within bounding box
+            base_query = """
+                SELECT DISTINCT b.id
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                JOIN detections d ON i.id = d.image_id
+                WHERE d.has_bench = 1 AND d.max_confidence >= ?
+                  AND b.lat BETWEEN ? AND ?
+                  AND b.lng BETWEEN ? AND ?
+                
+                UNION
+                
+                SELECT DISTINCT b.id
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                JOIN ultralytics_detections ud ON i.id = ud.image_id
+                WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+                  AND b.lat BETWEEN ? AND ?
+                  AND b.lng BETWEEN ? AND ?
+            """
+            
+            # Add source filter if specified
+            source_condition = ""
+            query_params = [min_confidence, south, north, west, east, min_confidence, south, north, west, east]
+            
+            if source_filter:
+                source_condition = f" AND b.source = ?"
+                query_params.append(source_filter)
+            
+            # Get detailed bench data within bbox
+            query = f"""
+                SELECT 
+                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
+                    COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                    COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                    COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                    COUNT(DISTINCT i.id) as image_count,
+                    GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
+                    GROUP_CONCAT(DISTINCT i.id) as image_ids,
+                    CASE 
+                        WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                        THEN COALESCE(rf_data.max_confidence, 0)
+                        WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                        THEN COALESCE(ul_data.max_confidence, 0)
+                        ELSE COALESCE(mp_data.max_confidence, 0)
+                    END as best_confidence
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM detections 
+                    WHERE has_bench = 1
+                    GROUP BY image_id
+                ) rf_data ON i.id = rf_data.image_id
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM ultralytics_detections 
+                    WHERE has_bench = 1
+                    GROUP BY image_id
+                ) ul_data ON i.id = ul_data.image_id
+                LEFT JOIN (
+                    SELECT image_id, MAX(max_confidence) as max_confidence
+                    FROM detections 
+                    WHERE has_bench = 1 AND source = 'mapillary'
+                    GROUP BY image_id
+                ) mp_data ON i.id = mp_data.image_id
+                WHERE b.id IN ({base_query}){source_condition}
+                GROUP BY b.id
+                HAVING best_confidence >= ?
+                ORDER BY best_confidence DESC
+                LIMIT ?
+            """
+            
+            final_params = query_params + [min_confidence, limit]
+            rows = conn.execute(query, final_params).fetchall()
+            
+            # Process results similar to get_high_confidence_benches_filtered
+            benches = []
+            center_lat = (north + south) / 2
+            center_lng = (east + west) / 2
+            
+            for row in rows:
+                # Parse tags if available
+                tags = {}
+                if row['tags']:
+                    try:
+                        tags = json.loads(row['tags'])
+                    except json.JSONDecodeError:
+                        pass
+                
+                # Calculate distance from center
+                distance = calculate_distance(center_lat, center_lng, row['lat'], row['lng'])
+                
+                # Get image filenames and IDs
+                image_filenames = row['image_filenames'].split(',') if row['image_filenames'] else []
+                image_ids = [int(x) for x in row['image_ids'].split(',') if x] if row['image_ids'] else []
+                
+                # Determine best confidence and detection type
+                roboflow_conf = row['roboflow_confidence'] or 0
+                ultralytics_conf = row['ultralytics_confidence'] or 0
+                mapillary_conf = row['mapillary_confidence'] or 0
+                best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
+                
+                # Determine detection type based on source and confidence
+                if row['source'] == 'mapillary':
+                    detection_type = 'mapillary'
+                elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
+                    detection_type = 'ultralytics'
+                else:
+                    detection_type = 'roboflow' if roboflow_conf > ultralytics_conf else 'ultralytics'
+                
+                bench_data = WebBenchData(
+                    id=row['id'],
+                    provider_id=row['provider_id'],
+                    lat=row['lat'],
+                    lng=row['lng'],
+                    tags=tags,
+                    source=row['source'] or 'osm',
+                    external_id=row['external_id'],
+                    best_confidence=round(best_confidence, 3),
+                    roboflow_confidence=round(roboflow_conf, 3),
+                    ultralytics_confidence=round(ultralytics_conf, 3),
+                    mapillary_confidence=round(mapillary_conf, 3),
+                    detection_type=detection_type,
+                    has_segmentation=ultralytics_conf > 0 or mapillary_conf > 0,
+                    image_count=row['image_count'],
+                    image_filenames=image_filenames,
+                    image_ids=image_ids,
+                    distance_meters=round(distance),
+                    distance_km=round(distance / 1000, 2)
+                )
+                
+                benches.append(bench_data)
+            
+            return jsonify({
+                'benches': [bench.model_dump() for bench in benches],
+                'total_count': len(benches),
+                'bbox': {
+                    'north': north,
+                    'south': south,
+                    'east': east,
+                    'west': west
+                }
+            })
+        
+    except Exception as e:
+        print(f"Error getting benches in bbox: {e}")
+        return jsonify({'error': 'Failed to get benches in bounding box'}), 500
+
+
 @app.route('/api/statistics/source/<source>')
 def api_statistics_by_source(source: str):
     """Get statistics filtered by source."""

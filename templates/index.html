@@ -18,24 +18,24 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+            background: #f8f9fb;
             min-height: 100vh;
-            color: #333;
+            color: #2c3e50;
         }
         
         .header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: #ffffff;
             padding: 20px 0;
             position: sticky;
             top: 0;
             z-index: 100;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 1px solid #e8ebf0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         
         .header-content {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             padding: 0 20px;
             display: flex;
@@ -45,10 +45,55 @@
             gap: 20px;
         }
         
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+        
         .title {
-            color: white;
-            font-size: 2rem;
-            font-weight: 300;
+            color: #2c3e50;
+            font-size: 1.8rem;
+            font-weight: 500;
+            letter-spacing: -0.02em;
+        }
+        
+        .view-toggle {
+            display: flex;
+            background: #f4f6f8;
+            border-radius: 10px;
+            padding: 4px;
+            gap: 2px;
+        }
+        
+        .view-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .view-btn:hover {
+            color: #475569;
+            background: #e2e8f0;
+        }
+        
+        .view-btn.active {
+            background: #ffffff;
+            color: #1e293b;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .view-btn .icon {
+            font-size: 1.1rem;
         }
         
         .controls {
@@ -58,6 +103,35 @@
             align-items: center;
         }
         
+        .lucky-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            font-size: 0.875rem;
+            box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+        }
+        
+        .lucky-btn:hover {
+            background: #2563eb;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+        }
+        
+        .lucky-btn:active {
+            transform: translateY(1px);
+        }
+        
+        .lucky-btn .icon {
+            font-size: 1rem;
+        }
+        
         .control-group {
             display: flex;
             flex-direction: column;
@@ -65,35 +139,279 @@
         }
         
         .control-group label {
-            color: white;
-            font-size: 0.85rem;
+            color: #4a5568;
+            font-size: 0.75rem;
             font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
         }
         
         .control-group input, .control-group select {
-            padding: 8px 12px;
-            border: none;
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
             border-radius: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            font-size: 0.9rem;
-            backdrop-filter: blur(5px);
+            background: #ffffff;
+            color: #374151;
+            font-size: 0.875rem;
         }
         
         .control-group input::placeholder {
-            color: rgba(255, 255, 255, 0.7);
+            color: #9ca3af;
+        }
+        
+        .control-group input:focus, .control-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
         .stats {
-            color: white;
-            font-size: 0.9rem;
-            opacity: 0.9;
+            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 500;
         }
         
+        /* View Management */
+        .view-container {
+            width: 100%;
+            min-height: calc(100vh - 140px);
+        }
+        
+        /* Cards View */
         .container {
             max-width: 1400px;
             margin: 0 auto;
+            padding: 32px 20px;
+            background: #f8f9fb;
+        }
+        
+        /* Map View */
+        .map-container {
+            display: flex;
+            height: calc(100vh - 140px);
+            position: relative;
+        }
+        
+        .main-map {
+            flex: 1;
+            height: 100%;
+            position: relative;
+        }
+        
+        .map-sidebar {
+            width: 400px;
+            background: white;
+            border-left: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #f8f9fa;
+        }
+        
+        .sidebar-header h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.2rem;
+        }
+        
+        .sidebar-stats {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+        
+        .sidebar-placeholder {
             padding: 40px 20px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .placeholder-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+        
+        .sidebar-placeholder p {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+        }
+        
+        .sidebar-placeholder small {
+            color: #999;
+            font-size: 0.85rem;
+        }
+        
+        .sidebar-loading {
+            padding: 30px;
+            text-align: center;
+            background: #f8f9fa;
+        }
+        
+        .sidebar-loading p {
+            margin: 15px 0 0 0;
+            color: #666;
+        }
+        
+        /* Map Bench Cards */
+        .map-bench-card {
+            border-bottom: 1px solid #f1f5f9;
+            padding: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            gap: 12px;
+        }
+        
+        .map-bench-card:hover {
+            background: #f8fafc;
+        }
+        
+        .map-bench-card.selected {
+            background: #eff6ff;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .map-card-image {
+            width: 80px;
+            height: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: #f1f5f9;
+        }
+        
+        .map-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .map-card-image .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #94a3b8;
+        }
+        
+        .map-card-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .map-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 6px;
+        }
+        
+        .map-card-title {
+            font-weight: 500;
+            color: #1e293b;
+            font-size: 0.875rem;
+            line-height: 1.25;
+        }
+        
+        .map-card-confidence {
+            background: #10b981;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        
+        .map-card-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        
+        .map-card-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Map Controls */
+        .map-search-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 250px;
+        }
+        
+        .map-search-controls h4 {
+            margin: 0 0 15px 0;
+            font-size: 1rem;
+            color: #333;
+        }
+        
+        .search-here-btn {
+            width: 100%;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .search-here-btn:hover {
+            background: #0056b3;
+        }
+        
+        /* Clustering styles */
+        .bench-cluster {
+            background: #007bff;
+            color: white;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .bench-cluster:hover {
+            transform: scale(1.1);
+        }
+        
+        .bench-cluster.large {
+            background: #dc3545;
+            width: 50px;
+            height: 50px;
+            font-size: 1.1rem;
         }
         
         .grid {
@@ -105,17 +423,18 @@
         
         .bench-card {
             background: white;
-            border-radius: 16px;
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #f1f5f9;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
             opacity: 0;
-            animation: fadeInUp 0.6s ease forwards;
+            animation: fadeInUp 0.4s ease forwards;
         }
         
         .bench-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
         
         @keyframes fadeInUp {
@@ -368,18 +687,18 @@
         .loading {
             text-align: center;
             padding: 40px;
-            color: white;
-            font-size: 1.1rem;
+            color: #64748b;
+            font-size: 1rem;
         }
         
         .loading-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e2e8f0;
             border-radius: 50%;
-            border-top-color: white;
+            border-top-color: #3b82f6;
             animation: spin 1s ease-in-out infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto 16px;
         }
         
         @keyframes spin {
@@ -389,17 +708,17 @@
         .no-results {
             text-align: center;
             padding: 60px 20px;
-            color: white;
+            color: #64748b;
         }
         
         .no-results h3 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-            opacity: 0.9;
+            font-size: 1.25rem;
+            margin-bottom: 8px;
+            color: #475569;
         }
         
         .no-results p {
-            opacity: 0.7;
+            color: #64748b;
         }
         
         .placeholder-image {
@@ -545,14 +864,34 @@
             .header-content {
                 flex-direction: column;
                 text-align: center;
+                gap: 15px;
+            }
+            
+            .header-left {
+                flex-direction: column;
+                gap: 15px;
+                width: 100%;
             }
             
             .title {
                 font-size: 1.5rem;
             }
             
+            .view-toggle {
+                align-self: center;
+            }
+            
             .controls {
                 justify-content: center;
+                gap: 10px;
+            }
+            
+            .coords-group {
+                display: none; /* Hide coordinate inputs on mobile */
+            }
+            
+            .lucky-btn .label {
+                display: none; /* Show only icon on mobile */
             }
             
             .grid {
@@ -563,25 +902,111 @@
             .container {
                 padding: 20px 15px;
             }
+            
+            /* Map view mobile adjustments */
+            .map-container {
+                flex-direction: column;
+                height: calc(100vh - 120px);
+            }
+            
+            .main-map {
+                height: 60%;
+                min-height: 300px;
+            }
+            
+            .map-sidebar {
+                width: 100%;
+                height: 40%;
+                border-left: none;
+                border-top: 1px solid #ddd;
+                overflow-y: auto;
+            }
+            
+            .map-search-controls {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+                padding: 10px;
+            }
+            
+            .sidebar-header {
+                padding: 15px;
+            }
+            
+            .map-bench-card {
+                padding: 12px 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header {
+                padding: 15px 0;
+            }
+            
+            .header-content {
+                padding: 0 15px;
+            }
+            
+            .view-btn {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+            
+            .view-btn .label {
+                display: none;
+            }
+            
+            .control-group input,
+            .control-group select {
+                padding: 6px 10px;
+                font-size: 0.85rem;
+            }
+            
+            .lucky-btn {
+                padding: 8px 12px;
+            }
+            
+            .main-map {
+                height: 50%;
+            }
+            
+            .map-sidebar {
+                height: 50%;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="header-content">
-            <h1 class="title">🪑 Bench Finder</h1>
+            <div class="header-left">
+                <h1 class="title">🪑 Bench Finder</h1>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="cardViewBtn" data-view="cards">
+                        <span class="icon">⊞</span>
+                        <span class="label">Cards</span>
+                    </button>
+                    <button class="view-btn" id="mapViewBtn" data-view="map">
+                        <span class="icon">🗺</span>
+                        <span class="label">Map</span>
+                    </button>
+                </div>
+            </div>
             <div class="controls">
                 <div class="control-group">
                     <label>Starting Point</label>
                     <select id="startPoint">
+                        <option value="current">📍 Current Location</option>
                         <option value="custom">Custom Location</option>
                     </select>
                 </div>
-                <div class="control-group">
+                <div class="control-group coords-group">
                     <label>Latitude</label>
                     <input type="number" id="startLat" step="0.000001" placeholder="52.3613577">
                 </div>
-                <div class="control-group">
+                <div class="control-group coords-group">
                     <label>Longitude</label>
                     <input type="number" id="startLng" step="0.000001" placeholder="4.8666322">
                 </div>
@@ -597,6 +1022,10 @@
                         <option value="mapillary">Mapillary</option>
                     </select>
                 </div>
+                <button class="lucky-btn" id="luckyBtn" title="Take me to a random bench!">
+                    <span class="icon">🎲</span>
+                    <span class="label">I'm Feeling Lucky</span>
+                </button>
             </div>
             <div class="stats" id="stats">
                 Loading...
@@ -604,15 +1033,42 @@
         </div>
     </div>
     
-    <div class="container">
-        <div class="grid" id="benchGrid"></div>
-        <div class="loading" id="loading" style="display: none;">
-            <div class="loading-spinner"></div>
-            Loading more benches...
+    <!-- Cards View -->
+    <div class="view-container" id="cardsView">
+        <div class="container">
+            <div class="grid" id="benchGrid"></div>
+            <div class="loading" id="loading" style="display: none;">
+                <div class="loading-spinner"></div>
+                Loading more benches...
+            </div>
+            <div class="no-results" id="noResults" style="display: none;">
+                <h3>No benches found</h3>
+                <p>Try adjusting your search parameters or starting location.</p>
+            </div>
         </div>
-        <div class="no-results" id="noResults" style="display: none;">
-            <h3>No benches found</h3>
-            <p>Try adjusting your search parameters or starting location.</p>
+    </div>
+    
+    <!-- Map View -->
+    <div class="view-container" id="mapView" style="display: none;">
+        <div class="map-container">
+            <div class="main-map" id="mainMap"></div>
+            <div class="map-sidebar" id="mapSidebar">
+                <div class="sidebar-header">
+                    <h3>Nearby Benches</h3>
+                    <div class="sidebar-stats" id="sidebarStats">Search the map to find benches</div>
+                </div>
+                <div class="sidebar-content" id="sidebarContent">
+                    <div class="sidebar-placeholder">
+                        <div class="placeholder-icon">🗺️</div>
+                        <p>Move around the map to discover benches in different areas</p>
+                        <small>Zoom and pan to search for benches in your area of interest</small>
+                    </div>
+                </div>
+                <div class="sidebar-loading" id="sidebarLoading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Searching for benches...</p>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -651,6 +1107,12 @@
                 this.hasMore = true;
                 this.config = {};
                 this.benches = [];
+                this.currentView = 'cards'; // 'cards' or 'map'
+                this.mainMap = null;
+                this.mapMarkers = [];
+                this.mapBenches = [];
+                this.selectedBenchId = null;
+                this.mapSearchTimeout = null;
                 
                 // Store reference globally for modal navigation
                 window.benchFinderInstance = this;
@@ -662,7 +1124,15 @@
                 await this.loadConfig();
                 await this.loadSearches();
                 this.setupEventListeners();
-                this.loadBenches();
+                
+                // Try to use current location if available, otherwise fall back to default
+                if ('geolocation' in navigator) {
+                    document.getElementById('startPoint').value = 'current';
+                    // Automatically get current location on first load
+                    this.useCurrentLocationSilent();
+                } else {
+                    this.loadBenches();
+                }
             }
             
             async loadConfig() {
@@ -696,9 +1166,23 @@
             }
             
             setupEventListeners() {
-                // Infinite scroll
+                // View toggle buttons
+                document.getElementById('cardViewBtn').addEventListener('click', () => {
+                    this.switchView('cards');
+                });
+                
+                document.getElementById('mapViewBtn').addEventListener('click', () => {
+                    this.switchView('map');
+                });
+                
+                // Lucky button
+                document.getElementById('luckyBtn').addEventListener('click', () => {
+                    this.feelingLucky();
+                });
+                
+                // Infinite scroll (only for cards view)
                 window.addEventListener('scroll', () => {
-                    if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
+                    if (this.currentView === 'cards' && window.innerHeight + window.scrollY >= document.body.offsetHeight - 1000) {
                         if (!this.loading && this.hasMore) {
                             this.loadBenches();
                         }
@@ -707,7 +1191,9 @@
                 
                 // Controls
                 document.getElementById('startPoint').addEventListener('change', (e) => {
-                    if (e.target.value !== 'custom') {
+                    if (e.target.value === 'current') {
+                        this.useCurrentLocation();
+                    } else if (e.target.value !== 'custom') {
                         const [lat, lng] = e.target.value.split(',');
                         document.getElementById('startLat').value = lat;
                         document.getElementById('startLng').value = lng;
@@ -728,6 +1214,74 @@
                 this.hasMore = true;
                 document.getElementById('benchGrid').innerHTML = '';
                 this.loadBenches();
+            }
+            
+            useCurrentLocation() {
+                const startPointSelect = document.getElementById('startPoint');
+                const originalText = startPointSelect.options[startPointSelect.selectedIndex].text;
+                
+                // Show loading state
+                startPointSelect.options[startPointSelect.selectedIndex].text = '🔍 Getting location...';
+                startPointSelect.disabled = true;
+                
+                if ('geolocation' in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lng = position.coords.longitude;
+                            
+                            // Update input fields
+                            document.getElementById('startLat').value = lat.toFixed(6);
+                            document.getElementById('startLng').value = lng.toFixed(6);
+                            
+                            // Update map if in map view
+                            if (this.currentView === 'map' && this.mainMap) {
+                                this.mainMap.setView([lat, lng], 15);
+                                this.searchMapArea();
+                            } else {
+                                // Reload benches with new location
+                                this.resetAndReload();
+                            }
+                            
+                            // Restore button state
+                            startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
+                            startPointSelect.disabled = false;
+                        },
+                        (error) => {
+                            console.error('Geolocation error:', error);
+                            let errorMessage = 'Unable to get location';
+                            
+                            switch(error.code) {
+                                case error.PERMISSION_DENIED:
+                                    errorMessage = 'Location access denied';
+                                    break;
+                                case error.POSITION_UNAVAILABLE:
+                                    errorMessage = 'Location unavailable';
+                                    break;
+                                case error.TIMEOUT:
+                                    errorMessage = 'Location request timeout';
+                                    break;
+                            }
+                            
+                            alert(`${errorMessage}. Please enter coordinates manually or allow location access.`);
+                            
+                            // Reset to custom option
+                            startPointSelect.value = 'custom';
+                            startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
+                            startPointSelect.disabled = false;
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 300000 // 5 minutes
+                        }
+                    );
+                } else {
+                    alert('Geolocation is not supported by this browser. Please enter coordinates manually.');
+                    startPointSelect.value = 'custom';
+                    startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
+                    startPointSelect.disabled = false;
+                }
             }
             
             async loadBenches() {
@@ -878,10 +1432,342 @@
             
             updateStats(pagination) {
                 const stats = document.getElementById('stats');
-                const totalShown = this.benches.length;
-                const totalAvailable = pagination.total_count;
+                if (this.currentView === 'cards') {
+                    const totalShown = this.benches.length;
+                    const totalAvailable = pagination.total_count;
+                    stats.textContent = `Showing ${totalShown} of ${totalAvailable} high-confidence benches`;
+                } else {
+                    const totalShown = this.mapBenches.length;
+                    stats.textContent = `${totalShown} benches visible in map area`;
+                }
+            }
+            
+            switchView(newView) {
+                if (this.currentView === newView) return;
                 
-                stats.textContent = `Showing ${totalShown} of ${totalAvailable} high-confidence benches`;
+                this.currentView = newView;
+                
+                // Update button states
+                document.querySelectorAll('.view-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.view === newView);
+                });
+                
+                // Show/hide views
+                document.getElementById('cardsView').style.display = newView === 'cards' ? 'block' : 'none';
+                document.getElementById('mapView').style.display = newView === 'map' ? 'block' : 'none';
+                
+                if (newView === 'map') {
+                    this.initializeMap();
+                } else {
+                    // If switching back to cards and no benches loaded, load them
+                    if (this.benches.length === 0) {
+                        this.resetAndReload();
+                    }
+                }
+            }
+            
+            async feelingLucky() {
+                const button = document.getElementById('luckyBtn');
+                const originalContent = button.innerHTML;
+                
+                // Show loading state
+                button.innerHTML = '<span class="icon">🔍</span><span class="label">Finding...</span>';
+                button.disabled = true;
+                
+                try {
+                    const minConfidence = parseFloat(document.getElementById('minConfidence').value) || this.config.default_min_confidence;
+                    const sourceFilter = document.getElementById('sourceFilter').value;
+                    
+                    let params = new URLSearchParams({
+                        min_confidence: minConfidence
+                    });
+                    
+                    if (sourceFilter && sourceFilter !== 'all') {
+                        params.append('source', sourceFilter);
+                    }
+                    
+                    const response = await fetch(`/api/benches/random?${params}`);
+                    const data = await response.json();
+                    
+                    if (response.ok && data.bench) {
+                        const bench = data.bench;
+                        
+                        // If in map view, center on the bench
+                        if (this.currentView === 'map' && this.mainMap) {
+                            this.mainMap.setView([bench.lat, bench.lng], 16);
+                            this.searchMapArea();
+                        } else {
+                            // If in cards view, open the bench modal directly
+                            const imageUrl = bench.image_filenames && bench.image_filenames.length > 0 ? 
+                                `/images/${bench.image_filenames[0]}` : null;
+                            const imageId = bench.image_ids && bench.image_ids.length > 0 ? 
+                                bench.image_ids[0] : null;
+                            
+                            if (imageUrl) {
+                                openImageModal(bench.id, imageUrl, imageId);
+                            } else {
+                                // Fallback: show bench location in street view
+                                openStreetView(bench.lat, bench.lng);
+                            }
+                        }
+                    } else {
+                        alert(data.error || 'No benches found matching your criteria. Try adjusting the filters.');
+                    }
+                } catch (error) {
+                    console.error('Lucky search failed:', error);
+                    alert('Failed to find a random bench. Please try again.');
+                } finally {
+                    // Restore button
+                    button.innerHTML = originalContent;
+                    button.disabled = false;
+                }
+            }
+            
+            initializeMap() {
+                if (this.mainMap) {
+                    this.mainMap.invalidateSize();
+                    return;
+                }
+                
+                const mapElement = document.getElementById('mainMap');
+                if (!mapElement) return;
+                
+                const startLat = parseFloat(document.getElementById('startLat').value) || this.config.default_start_lat;
+                const startLng = parseFloat(document.getElementById('startLng').value) || this.config.default_start_lng;
+                
+                this.mainMap = L.map(mapElement).setView([startLat, startLng], 13);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(this.mainMap);
+                
+                // Add search controls
+                const searchControl = L.control({ position: 'topright' });
+                searchControl.onAdd = () => {
+                    const div = L.DomUtil.create('div', 'map-search-controls');
+                    div.innerHTML = `
+                        <h4>Search This Area</h4>
+                        <button class="search-here-btn" onclick="window.benchFinderInstance.searchMapArea()">🔍 Search Here</button>
+                    `;
+                    return div;
+                };
+                searchControl.addTo(this.mainMap);
+                
+                // Auto-search when map movement ends
+                this.mainMap.on('moveend', () => {
+                    clearTimeout(this.mapSearchTimeout);
+                    this.mapSearchTimeout = setTimeout(() => {
+                        this.searchMapArea();
+                    }, 500);
+                });
+                
+                // Initial search
+                this.searchMapArea();
+            }
+            
+            async searchMapArea() {
+                if (!this.mainMap) return;
+                
+                const bounds = this.mainMap.getBounds();
+                const minConfidence = parseFloat(document.getElementById('minConfidence').value) || this.config.default_min_confidence;
+                const sourceFilter = document.getElementById('sourceFilter').value;
+                
+                // Show loading
+                document.getElementById('sidebarLoading').style.display = 'block';
+                document.getElementById('sidebarContent').style.display = 'none';
+                
+                try {
+                    let params = new URLSearchParams({
+                        north: bounds.getNorth(),
+                        south: bounds.getSouth(),
+                        east: bounds.getEast(),
+                        west: bounds.getWest(),
+                        min_confidence: minConfidence,
+                        limit: 200
+                    });
+                    
+                    if (sourceFilter && sourceFilter !== 'all') {
+                        params.append('source', sourceFilter);
+                    }
+                    
+                    const response = await fetch(`/api/benches/bbox?${params}`);
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        this.mapBenches = data.benches;
+                        this.updateMapMarkers();
+                        this.updateSidebar();
+                        this.updateStats({ total_count: data.total_count });
+                    } else {
+                        console.error('Map search error:', data.error);
+                    }
+                } catch (error) {
+                    console.error('Map search failed:', error);
+                } finally {
+                    document.getElementById('sidebarLoading').style.display = 'none';
+                    document.getElementById('sidebarContent').style.display = 'block';
+                }
+            }
+            
+            updateMapMarkers() {
+                // Clear existing markers
+                this.mapMarkers.forEach(marker => {
+                    this.mainMap.removeLayer(marker);
+                });
+                this.mapMarkers = [];
+                
+                // Add new markers with basic clustering
+                const clusters = this.clusterBenches(this.mapBenches);
+                
+                clusters.forEach(cluster => {
+                    let marker;
+                    
+                    if (cluster.benches.length === 1) {
+                        // Single bench marker
+                        const bench = cluster.benches[0];
+                        marker = L.circleMarker([bench.lat, bench.lng], {
+                            radius: 8,
+                            fillColor: this.getConfidenceColor(bench.best_confidence),
+                            color: '#fff',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        });
+                        
+                        marker.on('click', () => {
+                            this.selectBench(bench.id);
+                        });
+                        
+                    } else {
+                        // Cluster marker
+                        const centerLat = cluster.benches.reduce((sum, b) => sum + b.lat, 0) / cluster.benches.length;
+                        const centerLng = cluster.benches.reduce((sum, b) => sum + b.lng, 0) / cluster.benches.length;
+                        
+                        const clusterIcon = L.divIcon({
+                            className: `bench-cluster ${cluster.benches.length > 10 ? 'large' : ''}`,
+                            html: cluster.benches.length,
+                            iconSize: cluster.benches.length > 10 ? [50, 50] : [40, 40]
+                        });
+                        
+                        marker = L.marker([centerLat, centerLng], { icon: clusterIcon });
+                        
+                        marker.on('click', () => {
+                            const bounds = L.latLngBounds(cluster.benches.map(b => [b.lat, b.lng]));
+                            this.mainMap.fitBounds(bounds, { padding: [20, 20] });
+                        });
+                    }
+                    
+                    marker.addTo(this.mainMap);
+                    this.mapMarkers.push(marker);
+                });
+            }
+            
+            clusterBenches(benches) {
+                // Improved distance-based clustering with tighter threshold for duplicates
+                const clusters = [];
+                const processed = new Set();
+                const duplicateThreshold = 0.00001; // ~1 meter - for exact duplicates
+                const clusterDistance = 0.0001; // ~10 meters - for nearby benches
+                
+                benches.forEach((bench, index) => {
+                    if (processed.has(index)) return;
+                    
+                    const cluster = { benches: [bench] };
+                    processed.add(index);
+                    
+                    // First pass: find exact duplicates or very close benches
+                    benches.forEach((otherBench, otherIndex) => {
+                        if (processed.has(otherIndex)) return;
+                        
+                        const latDiff = Math.abs(bench.lat - otherBench.lat);
+                        const lngDiff = Math.abs(bench.lng - otherBench.lng);
+                        const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+                        
+                        // Group very close benches (likely duplicates) or nearby ones
+                        if (distance < duplicateThreshold || 
+                            (distance < clusterDistance && cluster.benches.length < 5)) {
+                            cluster.benches.push(otherBench);
+                            processed.add(otherIndex);
+                        }
+                    });
+                    
+                    clusters.push(cluster);
+                });
+                
+                return clusters;
+            }
+            
+            getConfidenceColor(confidence) {
+                if (confidence >= 0.9) return '#28a745'; // Green
+                if (confidence >= 0.8) return '#ffc107'; // Yellow
+                return '#dc3545'; // Red
+            }
+            
+            selectBench(benchId) {
+                this.selectedBenchId = benchId;
+                
+                // Update sidebar selection
+                document.querySelectorAll('.map-bench-card').forEach(card => {
+                    card.classList.toggle('selected', parseInt(card.dataset.benchId) === benchId);
+                });
+                
+                // Scroll to bench in sidebar
+                const selectedCard = document.querySelector(`.map-bench-card[data-bench-id="${benchId}"]`);
+                if (selectedCard) {
+                    selectedCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+            
+            updateSidebar() {
+                const sidebarContent = document.getElementById('sidebarContent');
+                const sidebarStats = document.getElementById('sidebarStats');
+                
+                if (this.mapBenches.length === 0) {
+                    sidebarContent.innerHTML = `
+                        <div class="sidebar-placeholder">
+                            <div class="placeholder-icon">🔍</div>
+                            <p>No benches found in this area</p>
+                            <small>Try zooming out or adjusting your filters</small>
+                        </div>
+                    `;
+                    sidebarStats.textContent = 'No benches in view';
+                    return;
+                }
+                
+                sidebarStats.textContent = `${this.mapBenches.length} benches in view`;
+                
+                const cardsHtml = this.mapBenches.map(bench => {
+                    const imageUrl = bench.image_filenames && bench.image_filenames.length > 0 ? 
+                        `/images/${bench.image_filenames[0]}` : null;
+                    const imageId = bench.image_ids && bench.image_ids.length > 0 ? 
+                        bench.image_ids[0] : null;
+                    
+                    return `
+                        <div class="map-bench-card" data-bench-id="${bench.id}" 
+                             onclick="window.benchFinderInstance.selectBench(${bench.id}); ${imageUrl ? `openImageModal(${bench.id}, '${imageUrl}', ${imageId});` : `openStreetView(${bench.lat}, ${bench.lng});`}">
+                            <div class="map-card-image">
+                                ${imageUrl ? 
+                                    `<img src="${imageUrl}" alt="Bench ${bench.id}" loading="lazy">` :
+                                    `<div class="placeholder">🪑</div>`
+                                }
+                            </div>
+                            <div class="map-card-content">
+                                <div class="map-card-header">
+                                    <div class="map-card-title">Bench #${bench.id}</div>
+                                    <div class="map-card-confidence">${(bench.best_confidence * 100).toFixed(0)}%</div>
+                                </div>
+                                <div class="map-card-meta">
+                                    <span>🏷️ ${bench.source.toUpperCase()}</span>
+                                    <span>📷 ${bench.image_count}</span>
+                                    <span>📍 ${bench.distance_km < 1 ? bench.distance_meters + 'm' : bench.distance_km + 'km'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                sidebarContent.innerHTML = cardsHtml;
             }
         }
         
