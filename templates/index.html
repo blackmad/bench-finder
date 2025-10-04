@@ -986,8 +986,8 @@
             const hasBoundingBoxes = roboflow_detections && roboflow_detections.length > 0;
             
             if (hasSegmentation || hasBoundingBoxes) {
-                // Wait for image to load to get dimensions
-                imageElement.onload = function() {
+                // Function to render overlays once image dimensions are available
+                const renderOverlays = function() {
                     const containerRect = imageElement.parentElement.getBoundingClientRect();
                     const imageRect = imageElement.getBoundingClientRect();
                     const imageNaturalWidth = imageElement.naturalWidth;
@@ -1102,9 +1102,16 @@
                     overlayElement.style.display = 'block';
                 };
                 
-                // Trigger onload if image is already loaded
-                if (imageElement.complete) {
-                    imageElement.onload();
+                // Set up onload handler for new images  
+                imageElement.onload = function() {
+                    // Small delay to ensure modal layout has settled
+                    setTimeout(renderOverlays, 100);
+                };
+                
+                // If image is already loaded (cached), render with delay
+                if (imageElement.complete && imageElement.naturalWidth > 0) {
+                    // Wait for modal layout to settle before rendering
+                    setTimeout(renderOverlays, 100);
                 }
             }
             
