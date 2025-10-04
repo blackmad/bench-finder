@@ -223,11 +223,22 @@ class BenchListResponse(BaseModel):
 
 
 class SegmentationData(BaseModel):
-    """Schema for segmentation data response."""
+    """Schema for detection visualization data response (both segmentation and bounding boxes)."""
     filename: str
-    bench_detections: List[Dict[str, Any]]
+    detection_type: str  # 'segmentation' or 'bounding_box' or 'both'
+    
+    # Ultralytics segmentation data
+    bench_detections: List[Dict[str, Any]] = []  # Segmentation polygons
     image_shape: Optional[List[int]] = None
-    segmentation_available: bool
+    segmentation_available: bool = False
+    
+    # Roboflow bounding box data
+    roboflow_detections: List[Dict[str, Any]] = []  # Bounding box coordinates
+    bounding_box_available: bool = False
+    
+    # Common metadata
+    confidence_score: float = 0.0
+    source: str = 'unknown'  # 'roboflow', 'ultralytics'
 
 
 class ImageListResponse(BaseModel):

@@ -540,45 +540,95 @@ def serve_image(filename):
 
 @app.route('/api/image/<int:image_id>/segmentation')
 def api_image_segmentation(image_id: int):
-    """Get segmentation data for a specific image."""
+    """Get detection visualization data for a specific image (both segmentation and bounding boxes)."""
     try:
         db = BenchDatabase()
         with db._get_connection() as conn:
-            # Get Ultralytics detection data for this image
-            query = """
-                SELECT ud.bench_detections, ud.full_response, i.filename
+            # Get image filename first
+            image_query = "SELECT filename FROM images WHERE id = ?"
+            image_row = conn.execute(image_query, (image_id,)).fetchone()
+            
+            if not image_row:
+                return jsonify({'error': 'Image not found'}), 404
+            
+            filename = image_row['filename']
+            
+            # Initialize result data
+            bench_detections = []
+            roboflow_detections = []
+            image_shape = None
+            max_confidence = 0.0
+            detection_sources = []
+            
+            # Try to get Ultralytics segmentation data
+            ultralytics_query = """
+                SELECT ud.bench_detections, ud.full_response, ud.max_confidence
                 FROM ultralytics_detections ud
-                JOIN images i ON ud.image_id = i.id
                 WHERE ud.image_id = ? AND ud.has_bench = 1
                 ORDER BY ud.max_confidence DESC
                 LIMIT 1
             """
             
-            row = conn.execute(query, (image_id,)).fetchone()
+            ultralytics_row = conn.execute(ultralytics_query, (image_id,)).fetchone()
             
-            if not row:
-                return jsonify({'error': 'No segmentation data found for this image'}), 404
+            if ultralytics_row:
+                bench_detections = json.loads(ultralytics_row['bench_detections']) if ultralytics_row['bench_detections'] else []
+                full_response = json.loads(ultralytics_row['full_response']) if ultralytics_row['full_response'] else {}
+                
+                # Extract image dimensions from full response if available
+                if 'images' in full_response and len(full_response['images']) > 0:
+                    image_shape = full_response['images'][0].get('shape', None)
+                
+                max_confidence = max(max_confidence, ultralytics_row['max_confidence'] or 0.0)
+                detection_sources.append('ultralytics')
             
-            # Parse JSON data
-            bench_detections = json.loads(row['bench_detections']) if row['bench_detections'] else []
-            full_response = json.loads(row['full_response']) if row['full_response'] else {}
+            # Try to get Roboflow bounding box data
+            roboflow_query = """
+                SELECT d.detections, d.max_confidence
+                FROM detections d
+                WHERE d.image_id = ? AND d.has_bench = 1
+                ORDER BY d.max_confidence DESC
+                LIMIT 1
+            """
             
-            # Extract image dimensions from full response if available
-            image_shape = None
-            if 'images' in full_response and len(full_response['images']) > 0:
-                image_shape = full_response['images'][0].get('shape', None)
+            roboflow_row = conn.execute(roboflow_query, (image_id,)).fetchone()
+            
+            if roboflow_row:
+                roboflow_detections = json.loads(roboflow_row['detections']) if roboflow_row['detections'] else []
+                max_confidence = max(max_confidence, roboflow_row['max_confidence'] or 0.0)
+                detection_sources.append('roboflow')
+            
+            # Check if we have any detection data
+            if not bench_detections and not roboflow_detections:
+                return jsonify({'error': 'No detection data found for this image'}), 404
+            
+            # Determine detection type
+            if bench_detections and roboflow_detections:
+                detection_type = 'both'
+                source = 'both'
+            elif bench_detections:
+                detection_type = 'segmentation'
+                source = 'ultralytics'
+            else:
+                detection_type = 'bounding_box'
+                source = 'roboflow'
             
             result = SegmentationData(
-                filename=row['filename'],
+                filename=filename,
+                detection_type=detection_type,
                 bench_detections=bench_detections,
                 image_shape=image_shape,
-                segmentation_available=len(bench_detections) > 0
+                segmentation_available=len(bench_detections) > 0,
+                roboflow_detections=roboflow_detections,
+                bounding_box_available=len(roboflow_detections) > 0,
+                confidence_score=max_confidence,
+                source=source
             )
             return jsonify(result.model_dump())
             
     except Exception as e:
-        print(f"Error getting segmentation data: {e}")
-        return jsonify({'error': 'Failed to retrieve segmentation data'}), 500
+        print(f"Error getting detection data: {e}")
+        return jsonify({'error': 'Failed to retrieve detection data'}), 500
 
 
 @app.route('/api/bench/<int:bench_id>/images')

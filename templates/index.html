@@ -979,9 +979,13 @@
         }
         
         function displaySegmentationData(data, imageElement, overlayElement, infoElement) {
-            const { bench_detections, image_shape } = data;
+            const { bench_detections, roboflow_detections, image_shape, detection_type, source, confidence_score } = data;
             
-            if (bench_detections && bench_detections.length > 0) {
+            // Handle both segmentation and bounding box data
+            const hasSegmentation = bench_detections && bench_detections.length > 0;
+            const hasBoundingBoxes = roboflow_detections && roboflow_detections.length > 0;
+            
+            if (hasSegmentation || hasBoundingBoxes) {
                 // Wait for image to load to get dimensions
                 imageElement.onload = function() {
                     const containerRect = imageElement.parentElement.getBoundingClientRect();
@@ -1016,33 +1020,84 @@
                     overlayElement.style.top = offsetY + 'px';
                     overlayElement.setAttribute('viewBox', `0 0 ${displayWidth} ${displayHeight}`);
                     
-                    // Clear and populate segmentation polygons
+                    // Clear and populate detection overlays
                     overlayElement.innerHTML = '';
                     
-                    bench_detections.forEach((detection, index) => {
-                        if (detection.segments && detection.segments.x && detection.segments.y) {
-                            const points = [];
-                            const scaleX = displayWidth / imageNaturalWidth;
-                            const scaleY = displayHeight / imageNaturalHeight;
-                            
-                            // Convert coordinates to SVG polygon points
-                            for (let i = 0; i < detection.segments.x.length; i++) {
-                                const x = detection.segments.x[i] * scaleX;
-                                const y = detection.segments.y[i] * scaleY;
-                                points.push(`${x},${y}`);
+                    // Render segmentation polygons (Ultralytics)
+                    if (hasSegmentation) {
+                        bench_detections.forEach((detection, index) => {
+                            if (detection.segments && detection.segments.x && detection.segments.y) {
+                                const points = [];
+                                const scaleX = displayWidth / imageNaturalWidth;
+                                const scaleY = displayHeight / imageNaturalHeight;
+                                
+                                // Convert coordinates to SVG polygon points
+                                for (let i = 0; i < detection.segments.x.length; i++) {
+                                    const x = detection.segments.x[i] * scaleX;
+                                    const y = detection.segments.y[i] * scaleY;
+                                    points.push(`${x},${y}`);
+                                }
+                                
+                                // Create polygon element
+                                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                                polygon.setAttribute('points', points.join(' '));
+                                polygon.setAttribute('class', 'segmentation-polygon');
+                                polygon.style.fill = `rgba(76, 175, 80, ${0.3 + index * 0.1})`;
+                                polygon.style.stroke = '#4caf50';
+                                polygon.style.strokeWidth = '2';
+                                
+                                overlayElement.appendChild(polygon);
                             }
-                            
-                            // Create polygon element
-                            const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                            polygon.setAttribute('points', points.join(' '));
-                            polygon.setAttribute('class', 'segmentation-polygon');
-                            polygon.style.fill = `rgba(76, 175, 80, ${0.3 + index * 0.1})`;
-                            polygon.style.stroke = '#4caf50';
-                            polygon.style.strokeWidth = '2';
-                            
-                            overlayElement.appendChild(polygon);
-                        }
-                    });
+                        });
+                    }
+                    
+                    // Render bounding boxes (Roboflow)
+                    if (hasBoundingBoxes) {
+                        roboflow_detections.forEach((detection, index) => {
+                            if (detection.x !== undefined && detection.y !== undefined && 
+                                detection.width !== undefined && detection.height !== undefined) {
+                                const scaleX = displayWidth / imageNaturalWidth;
+                                const scaleY = displayHeight / imageNaturalHeight;
+                                
+                                // Convert center coordinates to top-left coordinates
+                                const centerX = detection.x * scaleX;
+                                const centerY = detection.y * scaleY;
+                                const width = detection.width * scaleX;
+                                const height = detection.height * scaleY;
+                                const x = centerX - width / 2;
+                                const y = centerY - height / 2;
+                                
+                                // Create rectangle element
+                                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                                rect.setAttribute('x', x);
+                                rect.setAttribute('y', y);
+                                rect.setAttribute('width', width);
+                                rect.setAttribute('height', height);
+                                rect.setAttribute('class', 'bounding-box');
+                                rect.style.fill = `rgba(255, 193, 7, ${0.2 + index * 0.1})`; // Amber with transparency
+                                rect.style.stroke = '#ff9800'; // Orange stroke
+                                rect.style.strokeWidth = '3';
+                                rect.style.strokeDasharray = '5,5';
+                                
+                                overlayElement.appendChild(rect);
+                                
+                                // Add confidence label
+                                if (detection.confidence) {
+                                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                                    text.setAttribute('x', x + 5);
+                                    text.setAttribute('y', y - 5);
+                                    text.setAttribute('class', 'detection-label');
+                                    text.style.fill = '#ff9800';
+                                    text.style.fontSize = '14px';
+                                    text.style.fontWeight = 'bold';
+                                    text.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
+                                    text.textContent = `${(detection.confidence * 100).toFixed(1)}%`;
+                                    
+                                    overlayElement.appendChild(text);
+                                }
+                            }
+                        });
+                    }
                     
                     overlayElement.style.display = 'block';
                 };
@@ -1056,33 +1111,86 @@
             // Display detection information
             let infoHTML = '<div class="detection-info">';
             
-            bench_detections.forEach((detection, index) => {
-                infoHTML += `
-                    <div style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 10px;">
-                        <h4 style="margin: 0 0 10px 0; color: #333;">Detection ${index + 1}</h4>
-                        <div class="info-row">
-                            <span class="info-label">Class:</span>
-                            <span>${detection.class || 'Unknown'}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Confidence:</span>
-                            <span>${(detection.confidence * 100).toFixed(1)}%</span>
-                        </div>
-                        ${detection.segments && detection.segments.x ? `
-                            <div class="info-row">
-                                <span class="info-label">Segmentation Points:</span>
-                                <span>${detection.segments.x.length} coordinates</span>
-                            </div>
-                        ` : ''}
-                        ${detection.box ? `
-                            <div class="info-row">
-                                <span class="info-label">Bounding Box:</span>
-                                <span>x: ${detection.box.x1}-${detection.box.x2}, y: ${detection.box.y1}-${detection.box.y2}</span>
-                            </div>
-                        ` : ''}
+            // Add header with detection type information
+            infoHTML += `
+                <div style="border-bottom: 2px solid #007bff; padding-bottom: 12px; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #007bff;">Detection Details</h3>
+                    <div class="info-row" style="margin-top: 8px;">
+                        <span class="info-label">Detection Type:</span>
+                        <span style="text-transform: capitalize; font-weight: 600;">${detection_type}</span>
                     </div>
-                `;
-            });
+                    <div class="info-row">
+                        <span class="info-label">Source:</span>
+                        <span style="text-transform: capitalize; font-weight: 600;">${source}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Max Confidence:</span>
+                        <span style="font-weight: 600;">${(confidence_score * 100).toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+            
+            // Display Ultralytics segmentation detections
+            if (hasSegmentation) {
+                infoHTML += `<h4 style="margin: 20px 0 10px 0; color: #4caf50;">🎯 Segmentation Detections (Ultralytics)</h4>`;
+                
+                bench_detections.forEach((detection, index) => {
+                    infoHTML += `
+                        <div style="border: 1px solid #4caf50; border-radius: 6px; padding: 12px; margin-bottom: 12px; background: rgba(76, 175, 80, 0.05);">
+                            <h5 style="margin: 0 0 8px 0; color: #388e3c;">Segmentation ${index + 1}</h5>
+                            <div class="info-row">
+                                <span class="info-label">Class:</span>
+                                <span>${detection.class || 'Unknown'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Confidence:</span>
+                                <span>${(detection.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                            ${detection.segments && detection.segments.x ? `
+                                <div class="info-row">
+                                    <span class="info-label">Segmentation Points:</span>
+                                    <span>${detection.segments.x.length} coordinates</span>
+                                </div>
+                            ` : ''}
+                            ${detection.box ? `
+                                <div class="info-row">
+                                    <span class="info-label">Bounding Box:</span>
+                                    <span>x: ${detection.box.x1}-${detection.box.x2}, y: ${detection.box.y1}-${detection.box.y2}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+            }
+            
+            // Display Roboflow bounding box detections
+            if (hasBoundingBoxes) {
+                infoHTML += `<h4 style="margin: 20px 0 10px 0; color: #ff9800;">📦 Bounding Box Detections (Roboflow)</h4>`;
+                
+                roboflow_detections.forEach((detection, index) => {
+                    infoHTML += `
+                        <div style="border: 1px solid #ff9800; border-radius: 6px; padding: 12px; margin-bottom: 12px; background: rgba(255, 152, 0, 0.05);">
+                            <h5 style="margin: 0 0 8px 0; color: #f57c00;">Bounding Box ${index + 1}</h5>
+                            <div class="info-row">
+                                <span class="info-label">Class:</span>
+                                <span>${detection.class || 'bench'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Confidence:</span>
+                                <span>${(detection.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Center:</span>
+                                <span>x: ${detection.x.toFixed(1)}, y: ${detection.y.toFixed(1)}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Size:</span>
+                                <span>w: ${detection.width.toFixed(1)}, h: ${detection.height.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
             
             if (image_shape) {
                 infoHTML += `
