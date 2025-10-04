@@ -277,3 +277,72 @@ class SourceStatistics(BaseModel):
     avg_detections_per_bench: float
     unique_locations: int
     coverage_area_km2: float
+
+
+# New models for type-safe dictionary replacements
+class ModelCacheInfo(BaseModel):
+    """Schema for model cache information."""
+    cached_models: List[str]
+    cache_size: int
+
+
+class RoboflowDetectionResult(BaseModel):
+    """Schema for Roboflow detection results."""
+    image_path: str
+    success: bool
+    has_bench: bool
+    bench_count: int
+    max_confidence: float
+    detections: List[Dict[str, Any]]
+    raw_predictions: int
+    model_id: str
+    confidence_threshold: float
+    inference_type: Optional[str] = None
+    error: Optional[str] = None
+
+
+class RoboflowModelInfo(BaseModel):
+    """Schema for Roboflow model information."""
+    model_id: str
+    confidence_threshold: float
+    classes: List[str]
+
+
+class CacheStatus(BaseModel):
+    """Schema for cache status information."""
+    use_local_inference: bool
+    model_id: str
+    model_cached: bool
+    cache_key: Optional[str]
+    total_cached_models: int
+    all_cached_models: List[str]
+
+
+class BenchProcessingResult(BaseModel):
+    """Schema for bench processing results."""
+    bench_added: bool
+    images_captured: int
+    images_successful: int
+    detections_performed: int
+    bench_detected: bool
+    best_confidence: float
+
+
+class ProcessingStats(BaseModel):
+    """Schema for overall processing statistics."""
+    benches_processed: int
+    benches_added: int
+    images_captured: int
+    images_successful: int
+    detections_performed: int
+    benches_detected: int
+    best_confidence: float
+
+
+class PipelineResult(BaseModel):
+    """Schema for pipeline execution results."""
+    success: bool
+    search_id: Optional[int] = None
+    message: str
+    stats: Optional[ProcessingStats] = None
+    error: Optional[str] = None

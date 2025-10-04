@@ -23,7 +23,7 @@ from multi_model_client import MultiModelDetectionClient
 from database import BenchDatabase
 from schemas import (
     SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
-    SearchResults, BenchWithDetections
+    SearchResults, BenchWithDetections, BenchProcessingResult, ProcessingStats, PipelineResult
 )
 from term_image.image import AutoImage
 from PIL import Image as PILImage
@@ -181,7 +181,7 @@ class BenchFinder:
             return None
     
     @log_execution_time
-    def find_benches(self, query: str, radius: int | None = None) -> Dict:
+    def find_benches(self, query: str, radius: int | None = None) -> PipelineResult:
         """
         Complete bench finding pipeline for a given query.
         
@@ -190,7 +190,7 @@ class BenchFinder:
             radius: Search radius in meters (defaults to config value)
             
         Returns:
-            Dictionary with results and statistics
+            PipelineResult with results and statistics
         """
         if radius is None:
             radius = SEARCH_RADIUS_METERS
@@ -248,7 +248,7 @@ class BenchFinder:
         logger.info(f"Searching for benches within {radius}m of {lat}, {lng}")
         return self.overpass_client.find_benches_near_point(lat, lng, radius)
     
-    def _process_benches(self, search_id: int, benches: List[Dict]) -> Dict:
+    def _process_benches(self, search_id: int, benches: List[Dict]) -> ProcessingStats:
         """
         Process each bench: capture images and run detection.
         
@@ -257,37 +257,37 @@ class BenchFinder:
             benches: List of bench dictionaries from OSM
             
         Returns:
-            Processing results summary
+            ProcessingStats with processing results summary
         """
         progress = ProgressTracker(len(benches), "Processing benches")
         
-        stats = {
-            'benches_processed': 0,
-            'benches_added': 0,
-            'images_captured': 0,
-            'images_successful': 0,
-            'detections_performed': 0,
-            'benches_detected': 0,
-            'best_confidence': 0.0
-        }
+        stats = ProcessingStats(
+            benches_processed=0,
+            benches_added=0,
+            images_captured=0,
+            images_successful=0,
+            detections_performed=0,
+            benches_detected=0,
+            best_confidence=0.0
+        )
         
         for bench in benches:
             try:
                 result = self._process_single_bench(search_id, bench)
                 
-                stats['benches_processed'] += 1
-                if result['bench_added']:
-                    stats['benches_added'] += 1
+                stats.benches_processed += 1
+                if result.bench_added:
+                    stats.benches_added += 1
                 
-                stats['images_captured'] += result['images_captured']
-                stats['images_successful'] += result['images_successful']
-                stats['detections_performed'] += result['detections_performed']
+                stats.images_captured += result.images_captured
+                stats.images_successful += result.images_successful
+                stats.detections_performed += result.detections_performed
                 
-                if result['bench_detected']:
-                    stats['benches_detected'] += 1
+                if result.bench_detected:
+                    stats.benches_detected += 1
                 
-                if result['best_confidence'] > stats['best_confidence']:
-                    stats['best_confidence'] = result['best_confidence']
+                if result.best_confidence > stats.best_confidence:
+                    stats.best_confidence = result.best_confidence
                 
                 progress.update()
                 
@@ -302,12 +302,12 @@ class BenchFinder:
         
         progress.finish()
         
-        logger.info(f"Processing complete - {stats['benches_detected']}/{stats['benches_processed']} "
-                   f"benches detected with best confidence: {stats['best_confidence']:.2f}")
+        logger.info(f"Processing complete - {stats.benches_detected}/{stats.benches_processed} "
+                   f"benches detected with best confidence: {stats.best_confidence:.2f}")
         
         return stats
     
-    def _process_single_bench(self, search_id: int, bench: Dict) -> Dict:
+    def _process_single_bench(self, search_id: int, bench: Dict) -> BenchProcessingResult:
         """
         Process a single bench: add to DB, capture images, run detection.
         
@@ -316,16 +316,16 @@ class BenchFinder:
             bench: Bench dictionary from OSM
             
         Returns:
-            Processing results for this bench
+            BenchProcessingResult for this bench
         """
-        result = {
-            'bench_added': False,
-            'images_captured': 0,
-            'images_successful': 0,
-            'detections_performed': 0,
-            'bench_detected': False,
-            'best_confidence': 0.0
-        }
+        result = BenchProcessingResult(
+            bench_added=False,
+            images_captured=0,
+            images_successful=0,
+            detections_performed=0,
+            bench_detected=False,
+            best_confidence=0.0
+        )
         
         # Validate required bench fields
         required_fields = ['lat', 'lng', 'provider_id']
@@ -353,7 +353,7 @@ class BenchFinder:
             )
             bench_id = self.database.add_bench(bench_data)
             if bench_id:
-                result['bench_added'] = True
+                result.bench_added = True
                 logger.debug(f"Added bench {bench['provider_id']} as DB record {bench_id}")
             else:
                 logger.warning(f"Failed to add bench {bench['provider_id']} to database")
@@ -372,8 +372,8 @@ class BenchFinder:
         except Exception as e:
             raise RuntimeError(f"Failed to capture images for bench {bench['provider_id']}: {e}") from e
         
-        result['images_captured'] = len(image_results)
-        result['images_successful'] = sum(1 for img in image_results if img['success'])
+        result.images_captured = len(image_results)
+        result.images_successful = sum(1 for img in image_results if img['success'])
         
         # Process each image
         for image_result in image_results:
@@ -452,12 +452,12 @@ class BenchFinder:
                         confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
                     ))
                 
-                result['detections_performed'] += 1
+                result.detections_performed += 1
                 
                 if detection_result['has_bench']:
-                    result['bench_detected'] = True
-                    if detection_result['max_confidence'] > result['best_confidence']:
-                        result['best_confidence'] = detection_result['max_confidence']
+                    result.bench_detected = True
+                    if detection_result['max_confidence'] > result.best_confidence:
+                        result.best_confidence = detection_result['max_confidence']
                     
                     # Copy the image with detected bench
                     copied_path = self._copy_bench_image(
