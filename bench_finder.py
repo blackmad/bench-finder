@@ -28,6 +28,7 @@ from schemas import (
 from term_image.image import AutoImage
 from PIL import Image as PILImage
 import os
+import shutil
 from roboflow_detector import render_detections
 
 logger = logging.getLogger(__name__)
@@ -98,13 +99,14 @@ def create_combined_image_display(image_results: List[Dict], target_width: int =
 class BenchFinder:
     """Main class that orchestrates the bench finding pipeline."""
     
-    def __init__(self, detection_backend: str | None = None, enable_fallback: bool = True):
+    def __init__(self, detection_backend: str | None = None, enable_fallback: bool = True, copy_bench_images: bool = True):
         """Initialize all API clients and database.
         
         Args:
             detection_backend: Detection backend to use ('roboflow', 'ultralytics', or 'multi')
                              If None, uses config.DETECTION_BACKEND or defaults to 'multi'
             enable_fallback: Whether to enable multi-model fallback detection (default: True)
+            copy_bench_images: Whether to copy images with detected benches to bench_images/{model_name}/ (default: True)
         """
         self.geocoder = Geocoder()
         self.overpass_client = OverpassClient()
@@ -114,6 +116,7 @@ class BenchFinder:
         # Initialize detection client based on backend selection
         self.detection_backend = detection_backend or DETECTION_BACKEND
         self.enable_fallback = enable_fallback
+        self.copy_bench_images = copy_bench_images
         
         # Default to multi-model detection if fallback is enabled
         if enable_fallback and self.detection_backend != 'multi':
@@ -136,6 +139,46 @@ class BenchFinder:
             raise ValueError(f"Unsupported detection backend: {self.detection_backend}. Use 'ultralytics', 'roboflow', or 'multi'")
         
         logger.info(f"BenchFinder initialized with {self.detection_backend} backend")
+        if self.copy_bench_images:
+            logger.info("Bench image copying enabled - detected bench images will be copied to bench_images/{model_name}/")
+        else:
+            logger.info("Bench image copying disabled")
+    
+    def _copy_bench_image(self, image_path: str, model_name: str, bench_id: str, heading: int) -> Optional[str]:
+        """
+        Copy an image with detected bench to the bench_images directory.
+        
+        Args:
+            image_path: Source image file path
+            model_name: Name of the model that detected the bench
+            bench_id: Bench identifier for organizing files
+            heading: Image heading for unique naming
+            
+        Returns:
+            Path to copied image, or None if copy failed
+        """
+        if not self.copy_bench_images or not os.path.exists(image_path):
+            return None
+        
+        try:
+            # Create directory structure: bench_images/{model_name}/
+            output_dir = os.path.join('bench_images', model_name)
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Generate unique filename
+            base_filename = os.path.basename(image_path)
+            name, ext = os.path.splitext(base_filename)
+            new_filename = f"{bench_id}_heading_{heading}_{name}{ext}"
+            output_path = os.path.join(output_dir, new_filename)
+            
+            # Copy the file
+            shutil.copy2(image_path, output_path)
+            logger.debug(f"Copied bench image to: {output_path}")
+            return output_path
+            
+        except Exception as e:
+            logger.warning(f"Failed to copy bench image {image_path}: {e}")
+            return None
     
     @log_execution_time
     def find_benches(self, query: str, radius: int | None = None) -> Dict:
@@ -415,7 +458,17 @@ class BenchFinder:
                     result['bench_detected'] = True
                     if detection_result['max_confidence'] > result['best_confidence']:
                         result['best_confidence'] = detection_result['max_confidence']
-                    print(f"- Bench found in {image_result['filepath']} with confidence {detection_result['max_confidence']:.2f} using {winning_model}")
+                    
+                    # Copy the image with detected bench
+                    copied_path = self._copy_bench_image(
+                        image_result['filepath'], 
+                        winning_model, 
+                        bench_identifier, 
+                        image_result['heading']
+                    )
+                    copy_info = f" (copied to {copied_path})" if copied_path else ""
+                    
+                    print(f"- Bench found in {image_result['filepath']} with confidence {detection_result['max_confidence']:.2f} using {winning_model}{copy_info}")
                     print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
                 
             except Exception as e:
@@ -456,7 +509,11 @@ class BenchFinder:
             print("Captured image filepaths for manual inspection:")
             
             # Create combined image display
-            print(AutoImage(create_combined_image_display(image_results)))
+            combined_img = create_combined_image_display(image_results)
+            if combined_img:
+                print(AutoImage(combined_img))
+            else:
+                print("(Combined image display unavailable - check individual files below)")
             
             # Also print the file paths
             for image_result in image_results:
@@ -525,6 +582,11 @@ def main():
         action='store_true',
         help='Disable multi-model fallback detection (use single backend only)'
     )
+    parser.add_argument(
+        '--no-copy-bench-images',
+        action='store_true',
+        help='Disable copying images with detected benches to bench_images/{model_name}/ directory'
+    )
     
     args = parser.parse_args()
     
@@ -537,7 +599,12 @@ def main():
         
         # Initialize bench finder with selected backend and fallback setting
         enable_fallback = not args.disable_fallback
-        bench_finder = BenchFinder(detection_backend=args.backend, enable_fallback=enable_fallback)
+        copy_bench_images = not args.no_copy_bench_images
+        bench_finder = BenchFinder(
+            detection_backend=args.backend, 
+            enable_fallback=enable_fallback,
+            copy_bench_images=copy_bench_images
+        )
         
         if args.results:
             # Show results for the most recent search (simplified for now)

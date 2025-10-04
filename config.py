@@ -35,11 +35,17 @@ ROBOFLOW_HIGH_CONFIDENCE_THRESHOLD = 0.90  # Stop capturing more images when thi
 # Multiple Roboflow models for fallback detection
 ROBOFLOW_MODELS = [
     {
-        'id': 'other2-csmve/3',
-        'name': 'other2-csmve',
-        'confidence_threshold': 0.7,
-        'priority': 10  # Higher priority = tried first
+        'id': 'streetview-benches-m4bc5/1', 
+        'name': 'streetview-benches-m4bc5',
+        'confidence_threshold': 0.5,      
+        'priority': 5  # Higher priority = tried first
     }
+    # {
+    #     'id': 'other2-csmve/3',
+    #     'name': 'other2-csmve',
+    #     'confidence_threshold': 0.7,
+    #     'priority': 10  # Higher priority = tried first
+    # }
     # {
     #     'id': 'bench-detector/1',
     #     'name': 'bench-detector',
