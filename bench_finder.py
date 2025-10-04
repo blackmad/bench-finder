@@ -25,9 +25,74 @@ from schemas import (
     SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
     SearchResults, BenchWithDetections
 )
-
+from term_image.image import AutoImage
+from PIL import Image as PILImage
+import os
+from roboflow_detector import render_detections
 
 logger = logging.getLogger(__name__)
+
+
+def create_combined_image_display(image_results: List[Dict], target_width: int = 400) -> Optional[PILImage.Image]:
+    """
+    Create a combined PIL Image from multiple image results.
+    
+    Args:
+        image_results: List of image result dictionaries with 'filepath' keys
+        target_width: Target width for each individual image in the combined result
+        
+    Returns:
+        Combined PIL Image, or None if failed
+    """
+    try:
+        # Filter valid image paths
+        valid_images = []
+        for result in image_results:
+            filepath = result.get('filepath')
+            if filepath and os.path.exists(filepath):
+                valid_images.append(filepath)
+        
+        if not valid_images:
+            return None
+        
+        # Load and resize images
+        pil_images = []
+        max_height = 0
+        
+        for img_path in valid_images:
+            try:
+                img = PILImage.open(img_path)
+                # Calculate height to maintain aspect ratio
+                aspect_ratio = img.height / img.width
+                new_height = int(target_width * aspect_ratio)
+                img_resized = img.resize((target_width, new_height), PILImage.Resampling.LANCZOS)
+                pil_images.append(img_resized)
+                max_height = max(max_height, new_height)
+            except Exception as e:
+                logger.warning(f"Failed to process image {img_path}: {e}")
+                continue
+        
+        if not pil_images:
+            return None
+        
+        # Create combined image
+        total_width = target_width * len(pil_images)
+        combined = PILImage.new('RGB', (total_width, max_height), (255, 255, 255))
+        
+        # Paste images side by side
+        x_offset = 0
+        for img in pil_images:
+            # Center vertically if image is shorter than max_height
+            y_offset = (max_height - img.height) // 2
+            combined.paste(img, (x_offset, y_offset))
+            x_offset += target_width
+        
+        # Return the PIL Image directly
+        return combined
+        
+    except Exception as e:
+        logger.error(f"Failed to create combined image: {e}")
+        return None
 
 
 class BenchFinder:
@@ -350,6 +415,8 @@ class BenchFinder:
                     result['bench_detected'] = True
                     if detection_result['max_confidence'] > result['best_confidence']:
                         result['best_confidence'] = detection_result['max_confidence']
+                    print(f"- Bench found in {image_result['filepath']} with confidence {detection_result['max_confidence']:.2f} using {winning_model}")
+                    print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
                 
             except Exception as e:
                 logger.error(f"Detection failed for bench {bench['provider_id']}, image {image_result.get('filepath')}: {type(e).__name__}: {e}")
@@ -387,6 +454,11 @@ class BenchFinder:
         if not result.get('bench_detected', False):
             print("\n[DEBUG] No bench detected for this location.")
             print("Captured image filepaths for manual inspection:")
+            
+            # Create combined image display
+            print(AutoImage(create_combined_image_display(image_results)))
+            
+            # Also print the file paths
             for image_result in image_results:
                 print(f"  - {image_result.get('filepath')}")
             print("You can manually review these images to check for benches or detection issues.\n")

@@ -52,7 +52,7 @@ def run_inference(client: RoboflowClient, image_path: str) -> Dict[str, Any]:
         sys.exit(1)
 
 
-def draw_detections(image_path: str, result: Dict[str, Any], output_path: str, model_name: str = "Model") -> None:
+def render_detections(image_path: str, result: Dict[str, Any], model_name: str = "Model") -> Image.Image:
     """Draw bounding boxes on the image based on RoboflowClient results."""
     # Load the original image
     image = cv2.imread(image_path)
@@ -143,11 +143,13 @@ def draw_detections(image_path: str, result: Dict[str, Any], output_path: str, m
                     bbox = draw.textbbox((cx-50, cy-10), label, font=font)
                     draw.rectangle([bbox[0]-2, bbox[1]-2, bbox[2]+2, bbox[3]+2], fill=color)
                     draw.text((cx-50, cy-10), label, fill=(255, 255, 255), font=font)
-    
+    return pil_image
+
+def draw_detections(image_path: str, result: Dict[str, Any], output_path: str, model_name: str = "Model") -> None:
+    pil_image = render_detections(image_path, result, model_name)
     # Save the annotated image
     pil_image.save(output_path)
     print(f"\nAnnotated image saved to: {output_path}")
-
 
 def display_image_in_terminal(image_path: str, model_name: str = "Model") -> None:
     """Display the image directly in the terminal using term-image."""
@@ -174,6 +176,7 @@ def main():
     parser.add_argument("--no-display", action="store_true", help="Don't display images in terminal")
     parser.add_argument("--cloud", action="store_true", help="Use cloud API instead of local inference")
     parser.add_argument("-m", "--model-id", help="Specific model ID to use (e.g., 'yolov8n-640', 'yolov8s-640')")
+    parser.add_argument("--cache-info", action="store_true", help="Show model cache information")
     
     args = parser.parse_args()
     

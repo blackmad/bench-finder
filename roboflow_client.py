@@ -28,6 +28,22 @@ logger = logging.getLogger(__name__)
 _MODEL_CACHE = {}
 
 
+def get_cache_info() -> Dict:
+    """Get information about the current model cache."""
+    return {
+        'cached_models': list(_MODEL_CACHE.keys()),
+        'cache_size': len(_MODEL_CACHE)
+    }
+
+
+def clear_model_cache() -> None:
+    """Clear the global model cache to free up memory."""
+    global _MODEL_CACHE
+    cached_count = len(_MODEL_CACHE)
+    _MODEL_CACHE.clear()
+    logger.info(f"Cleared model cache ({cached_count} models removed)")
+
+
 class RoboflowClient:
     """Client for Roboflow inference - supports both local and cloud inference."""
     
@@ -51,7 +67,7 @@ class RoboflowClient:
             # Check if model is already cached
             cache_key = f"local_{self.model_id}"
             if cache_key in _MODEL_CACHE:
-                logger.info(f"Using cached local model: {self.model_id}")
+                logger.debug(f"Using cached local model: {self.model_id}")
                 self.local_model = _MODEL_CACHE[cache_key]
             else:
                 logger.info(f"Loading local inference model: {self.model_id}")
@@ -346,3 +362,17 @@ class RoboflowClient:
         except Exception as e:
             logger.warning(f"Image validation failed for {image_path}: {e}")
             return False
+    
+    def get_cache_status(self) -> Dict:
+        """Get cache status information for this client."""
+        cache_info = get_cache_info()
+        cache_key = f"local_{self.model_id}" if self.use_local_inference else None
+        
+        return {
+            'use_local_inference': self.use_local_inference,
+            'model_id': self.model_id,
+            'model_cached': cache_key in _MODEL_CACHE if cache_key else False,
+            'cache_key': cache_key,
+            'total_cached_models': cache_info['cache_size'],
+            'all_cached_models': cache_info['cached_models']
+        }
