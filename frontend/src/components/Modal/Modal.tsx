@@ -458,6 +458,8 @@ const Modal: React.FC<ModalProps> = ({
 
   // Handle keyboard navigation and modal controls
   useEffect(() => {
+    let lastKeyTime = 0
+    
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isOpen) return
       
@@ -469,6 +471,11 @@ const Modal: React.FC<ModalProps> = ({
           break
         case "ArrowLeft":
           event.preventDefault()
+          // Simple debounce to prevent rapid-fire navigation
+          const now = Date.now()
+          if (now - lastKeyTime < 100) return
+          lastKeyTime = now
+          
           console.log('Left arrow - can navigate prev:', currentIndex > 0)
           if (onNavigate && currentIndex > 0) {
             console.log('Navigating to previous bench')
@@ -477,6 +484,11 @@ const Modal: React.FC<ModalProps> = ({
           break
         case "ArrowRight":
           event.preventDefault()
+          // Simple debounce to prevent rapid-fire navigation  
+          const nowRight = Date.now()
+          if (nowRight - lastKeyTime < 100) return
+          lastKeyTime = nowRight
+          
           console.log('Right arrow - can navigate next:', currentIndex < allBenches.length - 1)
           if (onNavigate && currentIndex < allBenches.length - 1) {
             console.log('Navigating to next bench')
