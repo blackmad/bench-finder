@@ -62,7 +62,7 @@ export class BenchApiService {
     } = {}
   ): Promise<BenchListResponse> {
     return benchFinderApi.benches.getBenchesBySourceApiBenchesSourceSourceGet({
-      source: source as SourceEnum,
+      source: source,
       page: params.page ?? 0,
       pageSize: params.pageSize ?? 20,
       minConfidence: params.minConfidence ?? 0.8,
