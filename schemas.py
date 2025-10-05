@@ -205,6 +205,34 @@ class WebBenchData(BaseModel):
     image_ids: List[int]
     distance_meters: int
     distance_km: float
+    # Clustering information (optional, only present when serving clustered data)
+    cluster_id: Optional[int] = None
+    cluster_center_lat: Optional[float] = None
+    cluster_center_lng: Optional[float] = None
+    cluster_bench_count: Optional[int] = None
+    cluster_max_distance_meters: Optional[float] = None
+    is_cluster_representative: Optional[bool] = None
+
+
+class ClusterInfo(BaseModel):
+    """Schema for cluster metadata."""
+    cluster_id: int
+    center_lat: float
+    center_lng: float
+    bench_count: int
+    max_distance_meters: float
+    avg_confidence: float
+    sources: List[str]  # List of data sources in cluster
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ClusteredBenchData(BaseModel):
+    """Schema for clustered bench data showing both cluster and individual bench info."""
+    cluster: ClusterInfo
+    representative_bench: WebBenchData  # The "best" bench in the cluster
+    all_benches: List[WebBenchData]  # All benches in the cluster
+    distance_to_cluster_center: float  # Distance from query point to cluster center
 
 
 class PaginationInfo(BaseModel):
@@ -220,6 +248,13 @@ class BenchListResponse(BaseModel):
     """Schema for paginated bench list response."""
     benches: List[WebBenchData]
     pagination: PaginationInfo
+
+
+class ClusteredBenchListResponse(BaseModel):
+    """Schema for paginated clustered bench list response."""
+    clustered_benches: List[ClusteredBenchData]
+    pagination: PaginationInfo
+    clustering_info: Dict[str, Any] = {}  # Metadata about clustering configuration
 
 
 class SegmentationData(BaseModel):

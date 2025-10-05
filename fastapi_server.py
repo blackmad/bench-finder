@@ -19,10 +19,11 @@ import uvicorn
 
 from database import BenchDatabase
 from config import DATABASE_PATH, IMAGES_DIR
+from clustered_bench_service import ClusteredBenchService
 from schemas import (
     BenchListResponse, WebBenchData, PaginationInfo, SegmentationData,
     ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary,
-    SourceSearchRequest, SourceStatistics
+    SourceSearchRequest, SourceStatistics, ClusteredBenchListResponse
 )
 
 # Configuration constants
@@ -493,7 +494,7 @@ def get_high_confidence_benches_filtered(page: int = 0, page_size: int = PAGE_SI
 @app.get("/api/benches",
          summary="List Benches",
          description="Get paginated list of benches with high confidence detections, sorted by various criteria",
-         response_model=BenchListResponse,
+         response_model=Union[BenchListResponse, ClusteredBenchListResponse],
          responses={
              400: {"model": EnhancedErrorResponse, "description": "Invalid query parameters"},
              500: {"model": EnhancedErrorResponse, "description": "Internal server error"}
@@ -506,7 +507,8 @@ async def get_benches(
     start_lat: float = Query(DEFAULT_START_LAT, ge=-90.0, le=90.0, description="Starting latitude for distance sorting"),
     start_lng: float = Query(DEFAULT_START_LNG, ge=-180.0, le=180.0, description="Starting longitude for distance sorting"),
     sort_by: str = Query("distance", pattern="^(distance|confidence|images|recent)$", description="Sort criteria"),
-    source: Optional[str] = Query(None, pattern="^(osm|mapillary)$", description="Filter by data source")
+    source: Optional[str] = Query(None, pattern="^(osm|mapillary)$", description="Filter by data source"),
+    clustered: bool = Query(True, description="Return clustered results when available (default: True)")
 ):
     """
     Retrieve a paginated list of benches with high confidence detections.
@@ -515,10 +517,15 @@ async def get_benches(
     Results can be filtered by data source and sorted by various criteria including distance from a reference point,
     detection confidence, number of images, or creation date.
     
+    **Clustering:**
+    When `clustered=True` (default), returns clustered bench data that groups nearby benches together.
+    Each cluster includes a representative bench and the list of all benches in the cluster.
+    When `clustered=False`, returns individual benches as before.
+    
     **Sorting Options:**
     - `distance`: Sort by distance from start_lat/start_lng (default)
     - `confidence`: Sort by highest detection confidence first
-    - `images`: Sort by number of images per bench
+    - `images`: Sort by number of images per bench (or benches per cluster when clustered)
     - `recent`: Sort by most recently added benches
     
     **Data Sources:**
@@ -526,6 +533,22 @@ async def get_benches(
     - `mapillary`: Street-level imagery from Mapillary with AI detections
     """
     try:
+        # Check if clustering is requested and available
+        if clustered:
+            clustered_service = ClusteredBenchService()
+            if clustered_service.is_clustering_available():
+                # Return clustered results
+                return clustered_service.get_clustered_benches_filtered(
+                    page=page,
+                    page_size=page_size,
+                    min_confidence=min_confidence,
+                    start_lat=start_lat,
+                    start_lng=start_lng,
+                    source_filter=source,
+                    sort_by=sort_by
+                )
+        
+        # Fall back to individual bench results
         result = get_high_confidence_benches_filtered(
             page=page,
             page_size=page_size,
@@ -772,7 +795,7 @@ async def get_random_bench(
 @app.get("/api/benches/bbox",
          summary="Get Benches in Bounding Box",
          description="Get benches within a geographic bounding box for map applications",
-         response_model=BboxBenchResponse,
+         response_model=Union[BboxBenchResponse, ClusteredBenchListResponse],
          responses={
              400: {"model": EnhancedErrorResponse, "description": "Invalid bounding box parameters"},
              500: {"model": EnhancedErrorResponse, "description": "Internal server error"}
@@ -786,7 +809,8 @@ async def get_benches_in_bbox(
     min_confidence: float = Query(DEFAULT_MIN_CONFIDENCE, ge=0.0, le=1.0, description="Minimum detection confidence"),
     source: Optional[str] = Query(None, pattern="^(osm|mapillary)$", description="Filter by data source"),
     sort_by: str = Query("distance", pattern="^(distance|confidence|images|recent)$", description="Sort criteria"),
-    limit: int = Query(200, ge=1, le=500, description="Maximum number of results")
+    limit: int = Query(200, ge=1, le=500, description="Maximum number of results"),
+    clustered: bool = Query(True, description="Return clustered results when available (default: True)")
 ):
     """
     Get benches within a geographic bounding box.
@@ -794,6 +818,10 @@ async def get_benches_in_bbox(
     This endpoint is optimized for map applications that need to display benches
     within a specific viewport. The bounding box is defined by north/south latitude
     boundaries and east/west longitude boundaries.
+    
+    **Clustering:**
+    When `clustered=True` (default), returns clustered bench data for map display.
+    This reduces visual clutter by grouping nearby benches together.
     
     **Geographic Validation:**
     - North must be greater than South
@@ -805,7 +833,7 @@ async def get_benches_in_bbox(
     - Distance sorting uses the bounding box center as reference point
     """
     try:
-        # Validate bounding box
+        # Validate bounding box first
         if north <= south:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -817,6 +845,24 @@ async def get_benches_in_bbox(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="East boundary must be greater than west boundary"
             )
+        
+        # Check if clustering is requested and available
+        if clustered:
+            clustered_service = ClusteredBenchService()
+            if clustered_service.is_clustering_available():
+                # Return clustered results for bbox
+                return clustered_service.get_clustered_benches_in_bbox(
+                    north=north,
+                    south=south,
+                    east=east,
+                    west=west,
+                    min_confidence=min_confidence,
+                    source_filter=source,
+                    sort_by=sort_by,
+                    limit=limit
+                )
+        
+        # Fall back to individual bench results
         
         db = BenchDatabase()
         with db._get_connection() as conn:
