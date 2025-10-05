@@ -7,20 +7,41 @@ import React, {
 } from "react"
 import { benchApi } from "../services/api"
 import type {
-  AppFilters,
-  AppState,
-  Bench,
   BenchListResponse,
   ConfigResponse,
   SearchSummary,
-  ViewMode,
-} from "../types"
+  WebBenchData,
+} from "../api"
+
+// App-specific types (not in API)
+export interface AppFilters {
+  minConfidence: number
+  sourceFilter: "all" | "osm" | "mapillary"
+  sortBy: "distance" | "confidence" | "images" | "recent"
+  startLat: number
+  startLng: number
+}
+
+export type ViewMode = "cards" | "map"
+
+export interface AppState {
+  benches: WebBenchData[]
+  filters: AppFilters
+  viewMode: ViewMode
+  currentPage: number
+  loading: boolean
+  hasMore: boolean
+  selectedBenchId: number | null
+  debugMode: boolean
+  config: ConfigResponse | null
+  searches: SearchSummary[]
+}
 
 // Action types
 type AppAction =
   | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_BENCHES"; payload: Bench[] }
-  | { type: "ADD_BENCHES"; payload: Bench[] }
+  | { type: "SET_BENCHES"; payload: WebBenchData[] }
+  | { type: "ADD_BENCHES"; payload: WebBenchData[] }
   | { type: "SET_FILTERS"; payload: Partial<AppFilters> }
   | { type: "SET_VIEW_MODE"; payload: ViewMode }
   | { type: "SET_CURRENT_PAGE"; payload: number }
@@ -61,14 +82,14 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case "SET_BENCHES":
       return {
         ...state,
-        benches: action.payload,
+        benches: Array.isArray(action.payload) ? action.payload : [],
         currentPage: 0,
       }
 
     case "ADD_BENCHES":
       return {
         ...state,
-        benches: [...state.benches, ...action.payload],
+        benches: [...(state.benches || []), ...(Array.isArray(action.payload) ? action.payload : [])],
       }
 
     case "SET_FILTERS":
@@ -139,7 +160,7 @@ interface AppContextType {
   resetAndReload: () => Promise<void>
   loadMoreBenches: () => Promise<void>
   setUserLocation: (lat: number, lng: number) => void
-  feelingLucky: () => Promise<Bench | null>
+  feelingLucky: () => Promise<WebBenchData | null>
 }
 
 // Create context
@@ -151,7 +172,10 @@ interface AppProviderProps {
 }
 
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
-  const [state, dispatch] = useReducer(appReducer, initialState)
+  const [state, dispatch] = useReducer(appReducer, {
+    ...initialState,
+    benches: initialState.benches || [], // Extra safeguard
+  })
 
   // Initialize app data
   useEffect(() => {
@@ -244,10 +268,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         )
       }
 
+      // Ensure we have a valid benches array
+      const benches = Array.isArray(response.benches) ? response.benches : []
+      
       if (state.currentPage === 0) {
-        dispatch({ type: "SET_BENCHES", payload: response.benches })
+        dispatch({ type: "SET_BENCHES", payload: benches })
       } else {
-        dispatch({ type: "ADD_BENCHES", payload: response.benches })
+        dispatch({ type: "ADD_BENCHES", payload: benches })
       }
 
       dispatch({ type: "SET_CURRENT_PAGE", payload: state.currentPage + 1 })
@@ -263,7 +290,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "UPDATE_LOCATION", payload: { lat, lng } })
   }
 
-  const feelingLucky = async (): Promise<Bench | null> => {
+  const feelingLucky = async (): Promise<WebBenchData | null> => {
     try {
       const params: any = {
         min_confidence: state.filters.minConfidence,

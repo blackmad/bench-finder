@@ -361,7 +361,7 @@ export const Header: React.FC = () => {
       await resetAndReload()
     }
   }
-  const totalShown = state.benches.length
+  const totalShown = state.benches?.length || 0
   const statsText =
     currentViewMode === "cards"
       ? `Showing ${totalShown} high-confidence benches`

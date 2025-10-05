@@ -25,7 +25,7 @@ def run_clustering():
         clusterer = BenchClusterer(cluster_distance_meters=5.0)
         
         # Run clustering with minimum confidence of 0.5
-        cluster_count = clusterer.cluster_all_benches(min_confidence=0.5)
+        cluster_count = clusterer.cluster_all_benches(min_confidence=0.0)
         
         print(f"✅ Clustering completed successfully!")
         print(f"   Created {cluster_count} clusters")

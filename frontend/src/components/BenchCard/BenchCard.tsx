@@ -5,7 +5,7 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components"
 import { useApp } from "../../contexts/AppContext"
-import type { Bench } from "../../types"
+import type { WebBenchData } from "../../api"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 
@@ -312,8 +312,8 @@ const GlobalMiniMapStyles = styled.div`
 `
 
 interface BenchCardProps {
-  bench: Bench
-  onImageClick?: (bench: Bench, imageUrl: string, imageId: number) => void
+  bench: WebBenchData
+  onImageClick?: (bench: WebBenchData, imageUrl: string, imageId: number) => void
   onStreetViewClick?: (lat: number, lng: number) => void
   animationDelay?: number
 }

@@ -83,7 +83,8 @@ export class BenchApiService {
     source?: "osm" | "mapillary" | null
     sortBy?: "distance" | "confidence" | "images" | "recent"
     limit?: number
-  }): Promise<BboxBenchResponse> {
+    clustered?: boolean
+  }): Promise<any> {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
       south: params.south,
@@ -93,6 +94,7 @@ export class BenchApiService {
       source: params.source ?? null,
       sortBy: params.sortBy ?? "distance",
       limit: params.limit ?? 200,
+      clustered: params.clustered ?? true, // Default to clustered
     })
   }
 

@@ -3,9 +3,8 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import styled from "styled-components"
-import type { SegmentationData } from "../../api"
+import type { SegmentationData, WebBenchData } from "../../api"
 import { benchApi } from "../../services/api"
-import type { Bench } from "../../types"
 
 const Overlay = styled(motion.div)`
   position: fixed;
@@ -225,11 +224,11 @@ const InfoValue = styled.span`
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
-  bench: Bench | null
+  bench: WebBenchData | null
   imageUrl: string | null
   imageId: number | null
   // Navigation props
-  allBenches?: Bench[]
+  allBenches?: WebBenchData[]
   currentIndex?: number
   onNavigate?: (direction: "prev" | "next") => void
 }

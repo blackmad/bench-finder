@@ -1,4 +1,4 @@
-import type { AppFilters } from "../types"
+import type { AppFilters } from "../contexts/AppContext"
 
 // Serialize filters to URL search parameters
 export const filtersToSearchParams = (filters: AppFilters): URLSearchParams => {

@@ -108,7 +108,8 @@ export const benchApi = {
     source?: string
     sort_by?: string
     limit?: number
-  }): Promise<BboxBenchResponse> => {
+    clustered?: boolean
+  }): Promise<any> => {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
       south: params.south,
@@ -118,6 +119,7 @@ export const benchApi = {
       source: params.source,
       sortBy: params.sort_by,
       limit: params.limit,
+      clustered: params.clustered ?? true, // Default to clustered
     })
   },
 
