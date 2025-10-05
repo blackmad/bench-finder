@@ -255,7 +255,7 @@ export const Header: React.FC = () => {
   const location = useLocation()
   const [locationLoading, setLocationLoading] = useState(false)
   const [luckyLoading, setLuckyLoading] = useState(false)
-  
+
   const currentViewMode = location.pathname === "/map" ? "map" : "cards"
 
   const handleViewChange = (viewMode: "cards" | "map") => {

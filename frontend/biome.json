@@ -14,7 +14,8 @@
       },
       "correctness": {
         "recommended": true,
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "error"
       },
       "performance": {
         "recommended": true
@@ -31,6 +32,9 @@
         "recommended": true,
         "noExplicitAny": "warn",
         "noArrayIndexKey": "warn"
+      },
+      "nursery": {
+        "useReactFunctionComponents": "warn"
       }
     }
   },

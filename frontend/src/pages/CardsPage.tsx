@@ -7,7 +7,7 @@ import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
 import { useApp } from "../contexts/AppContext"
-import type { Bench, AppFilters } from "../types"
+import type { AppFilters, Bench } from "../types"
 import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
 const PageContainer = styled.div`
@@ -134,12 +134,12 @@ const CardsPage: React.FC = () => {
   useEffect(() => {
     if (state.config) {
       const urlFilters = searchParamsToFilters(searchParams, state.filters)
-      
+
       // Only update if filters actually differ from current state
       const hasChanges = Object.entries(urlFilters).some(([key, value]) => {
         return state.filters[key as keyof AppFilters] !== value
       })
-      
+
       if (hasChanges) {
         updateFilters(urlFilters)
       }
@@ -177,7 +177,7 @@ const CardsPage: React.FC = () => {
 
   const handleImageClick = useCallback(
     (bench: Bench, imageUrl: string, imageId: number) => {
-      const benchIndex = state.benches.findIndex(b => b.id === bench.id)
+      const benchIndex = state.benches.findIndex((b) => b.id === bench.id)
       setSelectedBench(bench)
       setSelectedImageUrl(imageUrl)
       setSelectedImageId(imageId)
@@ -200,25 +200,36 @@ const CardsPage: React.FC = () => {
     setCurrentModalIndex(0)
   }, [])
 
-  const handleModalNavigate = useCallback((direction: 'prev' | 'next') => {
-    let newIndex = direction === 'prev' ? currentModalIndex - 1 : currentModalIndex + 1
-    
-    // Clamp to valid range
-    newIndex = Math.max(0, Math.min(state.benches.length - 1, newIndex))
-    
-    console.log('Modal navigation:', { direction, currentIndex: currentModalIndex, newIndex, totalBenches: state.benches.length })
-    
-    const newBench = state.benches[newIndex]
-    if (newBench && newBench.images && newBench.images.length > 0) {
-      const firstImage = newBench.images[0]
-      console.log('Navigating to bench:', { id: newBench.id, imageUrl: firstImage.image_url })
-      setSelectedBench(newBench)
-      setSelectedImageUrl(firstImage.image_url)
-      setSelectedImageId(firstImage.id)
-      setCurrentModalIndex(newIndex)
-    }
-  }, [currentModalIndex, state.benches])
+  const handleModalNavigate = useCallback(
+    (direction: "prev" | "next") => {
+      let newIndex =
+        direction === "prev" ? currentModalIndex - 1 : currentModalIndex + 1
 
+      // Clamp to valid range
+      newIndex = Math.max(0, Math.min(state.benches.length - 1, newIndex))
+
+      console.log("Modal navigation:", {
+        direction,
+        currentIndex: currentModalIndex,
+        newIndex,
+        totalBenches: state.benches.length,
+      })
+
+      const newBench = state.benches[newIndex]
+      if (newBench && newBench.images && newBench.images.length > 0) {
+        const firstImage = newBench.images[0]
+        console.log("Navigating to bench:", {
+          id: newBench.id,
+          imageUrl: firstImage.image_url,
+        })
+        setSelectedBench(newBench)
+        setSelectedImageUrl(firstImage.image_url)
+        setSelectedImageId(firstImage.id)
+        setCurrentModalIndex(newIndex)
+      }
+    },
+    [currentModalIndex, state.benches]
+  )
 
   const showNoResults =
     state.benches.length === 0 && !state.loading && state.currentPage > 0

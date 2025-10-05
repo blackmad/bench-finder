@@ -2,13 +2,19 @@
  * Modern API service using auto-generated OpenAPI client
  * This replaces the old manual API service with type-safe, auto-generated methods
  */
-import { BenchFinderApi, OpenAPI, type BenchListResponse, type BboxBenchResponse, type RandomBenchResponse } from '../api'
-import type { AppFilters } from '../types/index'
+import {
+  type BboxBenchResponse,
+  BenchFinderApi,
+  type BenchListResponse,
+  OpenAPI,
+  type RandomBenchResponse,
+} from "../api"
+import type { AppFilters } from "../types/index"
 
 // Configure the OpenAPI client
-OpenAPI.BASE = ''  // Use relative URLs for Vite proxy in development
+OpenAPI.BASE = "" // Use relative URLs for Vite proxy in development
 OpenAPI.WITH_CREDENTIALS = false
-OpenAPI.CREDENTIALS = 'same-origin'
+OpenAPI.CREDENTIALS = "same-origin"
 
 // Create the main API client instance
 export const benchFinderApi = new BenchFinderApi()
@@ -18,23 +24,25 @@ export class BenchApiService {
   /**
    * Get paginated list of benches with filtering and sorting
    */
-  async getBenches(params: {
-    page?: number
-    pageSize?: number
-    minConfidence?: number
-    startLat?: number
-    startLng?: number
-    sortBy?: 'distance' | 'confidence' | 'images' | 'recent'
-    source?: 'osm' | 'mapillary' | null
-  } = {}): Promise<BenchListResponse> {
+  async getBenches(
+    params: {
+      page?: number
+      pageSize?: number
+      minConfidence?: number
+      startLat?: number
+      startLng?: number
+      sortBy?: "distance" | "confidence" | "images" | "recent"
+      source?: "osm" | "mapillary" | null
+    } = {}
+  ): Promise<BenchListResponse> {
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page ?? 0,
       pageSize: params.pageSize ?? 20,
       minConfidence: params.minConfidence ?? 0.8,
       startLat: params.startLat ?? 52.3613577,
       startLng: params.startLng ?? 4.8666322,
-      sortBy: params.sortBy ?? 'distance',
-      source: params.source ?? null
+      sortBy: params.sortBy ?? "distance",
+      source: params.source ?? null,
     })
   }
 
@@ -42,14 +50,14 @@ export class BenchApiService {
    * Get benches filtered by specific data source
    */
   async getBenchesBySource(
-    source: 'osm' | 'mapillary',
+    source: "osm" | "mapillary",
     params: {
       page?: number
       pageSize?: number
       minConfidence?: number
       startLat?: number
       startLng?: number
-      sortBy?: 'distance' | 'confidence' | 'images' | 'recent'
+      sortBy?: "distance" | "confidence" | "images" | "recent"
     } = {}
   ): Promise<BenchListResponse> {
     return benchFinderApi.benches.getBenchesBySourceApiBenchesSourceSourceGet({
@@ -59,7 +67,7 @@ export class BenchApiService {
       minConfidence: params.minConfidence ?? 0.8,
       startLat: params.startLat ?? 52.3613577,
       startLng: params.startLng ?? 4.8666322,
-      sortBy: params.sortBy ?? 'distance'
+      sortBy: params.sortBy ?? "distance",
     })
   }
 
@@ -72,8 +80,8 @@ export class BenchApiService {
     east: number
     west: number
     minConfidence?: number
-    source?: 'osm' | 'mapillary' | null
-    sortBy?: 'distance' | 'confidence' | 'images' | 'recent'
+    source?: "osm" | "mapillary" | null
+    sortBy?: "distance" | "confidence" | "images" | "recent"
     limit?: number
   }): Promise<BboxBenchResponse> {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
@@ -83,21 +91,20 @@ export class BenchApiService {
       west: params.west,
       minConfidence: params.minConfidence ?? 0.8,
       source: params.source ?? null,
-      sortBy: params.sortBy ?? 'distance',
-      limit: params.limit ?? 200
+      sortBy: params.sortBy ?? "distance",
+      limit: params.limit ?? 200,
     })
   }
 
   /**
    * Get a randomly selected bench
    */
-  async getRandomBench(params: {
-    minConfidence?: number
-    source?: 'osm' | 'mapillary' | null
-  } = {}): Promise<RandomBenchResponse> {
+  async getRandomBench(
+    params: { minConfidence?: number; source?: "osm" | "mapillary" | null } = {}
+  ): Promise<RandomBenchResponse> {
     return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
       minConfidence: params.minConfidence ?? 0.8,
-      source: params.source ?? null
+      source: params.source ?? null,
     })
   }
 
@@ -105,9 +112,11 @@ export class BenchApiService {
    * Get image segmentation data for visualization
    */
   async getImageSegmentation(imageId: number) {
-    return benchFinderApi.images.getImageSegmentationApiImageImageIdSegmentationGet({
-      imageId
-    })
+    return benchFinderApi.images.getImageSegmentationApiImageImageIdSegmentationGet(
+      {
+        imageId,
+      }
+    )
   }
 
   /**
@@ -115,7 +124,7 @@ export class BenchApiService {
    */
   async getBenchImages(benchId: number) {
     return benchFinderApi.images.getBenchImagesApiBenchBenchIdImagesGet({
-      benchId
+      benchId,
     })
   }
 
@@ -154,8 +163,8 @@ export class BenchApiService {
         center_lat: params.centerLat,
         center_lng: params.centerLng,
         radius_meters: params.radiusMeters ?? 1000,
-        limit: params.limit ?? 1000
-      }
+        limit: params.limit ?? 1000,
+      },
     })
   }
 
@@ -172,42 +181,48 @@ export class BenchApiService {
       centerLat: params.centerLat,
       centerLng: params.centerLng,
       radiusMeters: params.radiusMeters ?? 1000,
-      limit: params.limit ?? 1000
+      limit: params.limit ?? 1000,
     })
   }
 
   /**
    * Get Mapillary statistics
    */
-  async getMapillaryStatistics(params: {
-    centerLat?: number
-    centerLng?: number
-    radiusMeters?: number
-  } = {}) {
-    return benchFinderApi.mapillary.getMapillaryStatisticsApiMapillaryStatisticsGet({
-      centerLat: params.centerLat,
-      centerLng: params.centerLng,
-      radiusMeters: params.radiusMeters
-    })
-  }
-
-  /**
-   * Get statistics filtered by data source
-   */
-  async getStatisticsBySource(
-    source: 'osm' | 'mapillary',
+  async getMapillaryStatistics(
     params: {
       centerLat?: number
       centerLng?: number
       radiusMeters?: number
     } = {}
   ) {
-    return benchFinderApi.statistics.getStatisticsBySourceApiStatisticsSourceSourceGet({
-      source,
-      centerLat: params.centerLat,
-      centerLng: params.centerLng,
-      radiusMeters: params.radiusMeters
-    })
+    return benchFinderApi.mapillary.getMapillaryStatisticsApiMapillaryStatisticsGet(
+      {
+        centerLat: params.centerLat,
+        centerLng: params.centerLng,
+        radiusMeters: params.radiusMeters,
+      }
+    )
+  }
+
+  /**
+   * Get statistics filtered by data source
+   */
+  async getStatisticsBySource(
+    source: "osm" | "mapillary",
+    params: {
+      centerLat?: number
+      centerLng?: number
+      radiusMeters?: number
+    } = {}
+  ) {
+    return benchFinderApi.statistics.getStatisticsBySourceApiStatisticsSourceSourceGet(
+      {
+        source,
+        centerLat: params.centerLat,
+        centerLng: params.centerLng,
+        radiusMeters: params.radiusMeters,
+      }
+    )
   }
 }
 
@@ -225,13 +240,13 @@ export const buildApiParamsFromFilters = (
   minConfidence: filters.minConfidence,
   startLat: filters.startLat,
   startLng: filters.startLng,
-  sortBy: filters.sortBy as 'distance' | 'confidence' | 'images' | 'recent'
+  sortBy: filters.sortBy as "distance" | "confidence" | "images" | "recent",
 })
 
 // Utility function for health check
 export const checkApiHealth = async (): Promise<Record<string, string>> => {
   try {
-    const response = await fetch('/health')
+    const response = await fetch("/health")
     return await response.json()
   } catch (error) {
     throw new Error(`Health check failed: ${error}`)

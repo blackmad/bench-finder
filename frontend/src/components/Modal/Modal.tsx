@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { X, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import type React from "react"
-import { useCallback, useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import styled from "styled-components"
-import type { Bench } from "../../types"
-import { benchApi } from "../../services/api"
 import type { SegmentationData } from "../../api"
+import { benchApi } from "../../services/api"
+import type { Bench } from "../../types"
 
 const Overlay = styled(motion.div)`
   position: fixed;
@@ -102,15 +102,15 @@ const SegmentationOverlay = styled.svg`
   z-index: 2;
 `
 
-const NavigationArrow = styled.button<{ direction: 'prev' | 'next' }>`
+const NavigationArrow = styled.button<{ direction: "prev" | "next" }>`
   position: absolute;
   top: 50%;
-  ${({ direction }) => direction === 'prev' ? 'left: 20px;' : 'right: 20px;'}
+  ${({ direction }) => (direction === "prev" ? "left: 20px;" : "right: 20px;")}
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.8);
   color: white;
   border: none;
-  font-size: ${({ theme }) => theme.typography.sizes['2xl']};
+  font-size: ${({ theme }) => theme.typography.sizes["2xl"]};
   padding: ${({ theme }) => theme.spacing[3]} ${({ theme }) => theme.spacing[4]};
   cursor: pointer;
   z-index: 1000; /* Increased z-index to ensure visibility above overlay */
@@ -231,7 +231,7 @@ interface ModalProps {
   // Navigation props
   allBenches?: Bench[]
   currentIndex?: number
-  onNavigate?: (direction: 'prev' | 'next') => void
+  onNavigate?: (direction: "prev" | "next") => void
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -244,7 +244,8 @@ const Modal: React.FC<ModalProps> = ({
   currentIndex = 0,
   onNavigate,
 }) => {
-  const [segmentationData, setSegmentationData] = useState<SegmentationData | null>(null)
+  const [segmentationData, setSegmentationData] =
+    useState<SegmentationData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const imageRef = useRef<HTMLImageElement>(null)
@@ -257,8 +258,8 @@ const Modal: React.FC<ModalProps> = ({
         setSegmentationData(null)
         // Hide overlay when no data
         if (overlayRef.current) {
-          overlayRef.current.style.display = 'none'
-          overlayRef.current.innerHTML = ''
+          overlayRef.current.style.display = "none"
+          overlayRef.current.innerHTML = ""
         }
         return
       }
@@ -270,13 +271,13 @@ const Modal: React.FC<ModalProps> = ({
         const data = await benchApi.getImageSegmentation(imageId)
         setSegmentationData(data)
       } catch (err) {
-        console.warn('No segmentation data available for image:', imageId)
-        setError('No segmentation data available for this image')
+        console.warn("No segmentation data available for image:", imageId)
+        setError("No segmentation data available for this image")
         setSegmentationData(null)
         // Hide overlay when no data
         if (overlayRef.current) {
-          overlayRef.current.style.display = 'none'
-          overlayRef.current.innerHTML = ''
+          overlayRef.current.style.display = "none"
+          overlayRef.current.innerHTML = ""
         }
       } finally {
         setLoading(false)
@@ -301,12 +302,16 @@ const Modal: React.FC<ModalProps> = ({
     }
 
     // Check if image is loaded
-    if (!image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) {
+    if (
+      !image.complete ||
+      image.naturalWidth === 0 ||
+      image.naturalHeight === 0
+    ) {
       return
     }
 
     // Clear previous overlays
-    overlay.innerHTML = ''
+    overlay.innerHTML = ""
 
     // Calculate image display dimensions accounting for object-fit: contain
     const containerRect = container.getBoundingClientRect()
@@ -334,13 +339,12 @@ const Modal: React.FC<ModalProps> = ({
       offsetY = 0
     }
 
-
     // Set overlay dimensions and position
-    overlay.style.width = displayWidth + 'px'
-    overlay.style.height = displayHeight + 'px'
-    overlay.style.left = offsetX + 'px'
-    overlay.style.top = offsetY + 'px'
-    overlay.setAttribute('viewBox', `0 0 ${displayWidth} ${displayHeight}`)
+    overlay.style.width = displayWidth + "px"
+    overlay.style.height = displayHeight + "px"
+    overlay.style.left = offsetX + "px"
+    overlay.style.top = offsetY + "px"
+    overlay.setAttribute("viewBox", `0 0 ${displayWidth} ${displayHeight}`)
 
     // Render segmentation polygons (Ultralytics)
     if (segmentationData.bench_detections?.length) {
@@ -356,12 +360,15 @@ const Modal: React.FC<ModalProps> = ({
             points.push(`${x},${y}`)
           }
 
-          const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon')
-          polygon.setAttribute('points', points.join(' '))
-          polygon.setAttribute('class', 'segmentation-polygon')
+          const polygon = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "polygon"
+          )
+          polygon.setAttribute("points", points.join(" "))
+          polygon.setAttribute("class", "segmentation-polygon")
           polygon.style.fill = `rgba(76, 175, 80, ${0.3 + index * 0.1})`
-          polygon.style.stroke = '#4caf50'
-          polygon.style.strokeWidth = '2'
+          polygon.style.stroke = "#4caf50"
+          polygon.style.strokeWidth = "2"
 
           overlay.appendChild(polygon)
         }
@@ -371,8 +378,12 @@ const Modal: React.FC<ModalProps> = ({
     // Render bounding boxes (Roboflow)
     if (segmentationData.roboflow_detections?.length) {
       segmentationData.roboflow_detections.forEach((detection, index) => {
-        if (detection.x !== undefined && detection.y !== undefined && 
-            detection.width !== undefined && detection.height !== undefined) {
+        if (
+          detection.x !== undefined &&
+          detection.y !== undefined &&
+          detection.width !== undefined &&
+          detection.height !== undefined
+        ) {
           const scaleX = displayWidth / imageNaturalWidth
           const scaleY = displayHeight / imageNaturalHeight
 
@@ -383,29 +394,35 @@ const Modal: React.FC<ModalProps> = ({
           const x = centerX - width / 2
           const y = centerY - height / 2
 
-          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-          rect.setAttribute('x', x.toString())
-          rect.setAttribute('y', y.toString())
-          rect.setAttribute('width', width.toString())
-          rect.setAttribute('height', height.toString())
-          rect.setAttribute('class', 'bounding-box')
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          )
+          rect.setAttribute("x", x.toString())
+          rect.setAttribute("y", y.toString())
+          rect.setAttribute("width", width.toString())
+          rect.setAttribute("height", height.toString())
+          rect.setAttribute("class", "bounding-box")
           rect.style.fill = `rgba(255, 193, 7, ${0.2 + index * 0.1})`
-          rect.style.stroke = '#ff9800'
-          rect.style.strokeWidth = '3'
-          rect.style.strokeDasharray = '5,5'
+          rect.style.stroke = "#ff9800"
+          rect.style.strokeWidth = "3"
+          rect.style.strokeDasharray = "5,5"
 
           overlay.appendChild(rect)
 
           // Add confidence label
           if (detection.confidence) {
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-            text.setAttribute('x', (x + 5).toString())
-            text.setAttribute('y', (y - 5).toString())
-            text.setAttribute('class', 'detection-label')
-            text.style.fill = '#ff9800'
-            text.style.fontSize = '14px'
-            text.style.fontWeight = 'bold'
-            text.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)'
+            const text = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "text"
+            )
+            text.setAttribute("x", (x + 5).toString())
+            text.setAttribute("y", (y - 5).toString())
+            text.setAttribute("class", "detection-label")
+            text.style.fill = "#ff9800"
+            text.style.fontSize = "14px"
+            text.style.fontWeight = "bold"
+            text.style.textShadow = "1px 1px 2px rgba(0,0,0,0.8)"
             text.textContent = `${(detection.confidence * 100).toFixed(1)}%`
 
             overlay.appendChild(text)
@@ -415,7 +432,7 @@ const Modal: React.FC<ModalProps> = ({
     }
 
     // Show the overlay
-    overlay.style.display = 'block'
+    overlay.style.display = "block"
   }, [segmentationData])
 
   // Handle image load to render overlays
@@ -450,51 +467,60 @@ const Modal: React.FC<ModalProps> = ({
       }
     }
 
-    window.addEventListener('resize', handleResize)
+    window.addEventListener("resize", handleResize)
     return () => {
-      window.removeEventListener('resize', handleResize)
+      window.removeEventListener("resize", handleResize)
     }
   }, [isOpen, segmentationData, renderSegmentationOverlays])
 
   // Handle keyboard navigation and modal controls
   useEffect(() => {
     let lastKeyTime = 0
-    
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isOpen) return
-      
-      console.log('Modal key pressed:', event.key, { onNavigate: !!onNavigate, currentIndex, totalBenches: allBenches.length })
-      
+
+      console.log("Modal key pressed:", event.key, {
+        onNavigate: !!onNavigate,
+        currentIndex,
+        totalBenches: allBenches.length,
+      })
+
       switch (event.key) {
         case "Escape":
           onClose()
           break
-        case "ArrowLeft":
+        case "ArrowLeft": {
           event.preventDefault()
           // Simple debounce to prevent rapid-fire navigation
           const now = Date.now()
           if (now - lastKeyTime < 100) return
           lastKeyTime = now
-          
-          console.log('Left arrow - can navigate prev:', currentIndex > 0)
+
+          console.log("Left arrow - can navigate prev:", currentIndex > 0)
           if (onNavigate && currentIndex > 0) {
-            console.log('Navigating to previous bench')
-            onNavigate('prev')
+            console.log("Navigating to previous bench")
+            onNavigate("prev")
           }
           break
-        case "ArrowRight":
+        }
+        case "ArrowRight": {
           event.preventDefault()
-          // Simple debounce to prevent rapid-fire navigation  
+          // Simple debounce to prevent rapid-fire navigation
           const nowRight = Date.now()
           if (nowRight - lastKeyTime < 100) return
           lastKeyTime = nowRight
-          
-          console.log('Right arrow - can navigate next:', currentIndex < allBenches.length - 1)
+
+          console.log(
+            "Right arrow - can navigate next:",
+            currentIndex < allBenches.length - 1
+          )
           if (onNavigate && currentIndex < allBenches.length - 1) {
-            console.log('Navigating to next bench')
-            onNavigate('next')
+            console.log("Navigating to next bench")
+            onNavigate("next")
           }
           break
+        }
       }
     }
 
@@ -512,7 +538,6 @@ const Modal: React.FC<ModalProps> = ({
   if (!bench) {
     return null
   }
-
 
   const overlayVariants = {
     hidden: { opacity: 0 },
@@ -563,7 +588,14 @@ const Modal: React.FC<ModalProps> = ({
               <ModalTitle>
                 Bench #{bench.id} - Detection Details
                 {allBenches.length > 1 && (
-                  <span style={{ fontSize: '0.8em', fontWeight: 'normal', marginLeft: '12px', color: '#64748b' }}>
+                  <span
+                    style={{
+                      fontSize: "0.8em",
+                      fontWeight: "normal",
+                      marginLeft: "12px",
+                      color: "#64748b",
+                    }}
+                  >
                     ({currentIndex + 1} of {allBenches.length})
                   </span>
                 )}
@@ -582,8 +614,8 @@ const Modal: React.FC<ModalProps> = ({
                       <NavigationArrow
                         direction="prev"
                         onClick={() => {
-                          console.log('Previous arrow clicked')
-                          onNavigate('prev')
+                          console.log("Previous arrow clicked")
+                          onNavigate("prev")
                         }}
                         disabled={currentIndex <= 0}
                         title="Previous bench (←)"
@@ -593,8 +625,8 @@ const Modal: React.FC<ModalProps> = ({
                       <NavigationArrow
                         direction="next"
                         onClick={() => {
-                          console.log('Next arrow clicked')
-                          onNavigate('next')
+                          console.log("Next arrow clicked")
+                          onNavigate("next")
                         }}
                         disabled={currentIndex >= allBenches.length - 1}
                         title="Next bench (→)"
@@ -603,16 +635,16 @@ const Modal: React.FC<ModalProps> = ({
                       </NavigationArrow>
                     </>
                   )}
-                  
-                  <ModalImage 
+
+                  <ModalImage
                     ref={imageRef}
-                    src={imageUrl} 
-                    alt={`Bench ${bench.id}`} 
+                    src={imageUrl}
+                    alt={`Bench ${bench.id}`}
                     onLoad={handleImageLoad}
                   />
-                  <SegmentationOverlay 
+                  <SegmentationOverlay
                     ref={overlayRef}
-                    style={{ display: segmentationData ? 'block' : 'none' }}
+                    style={{ display: segmentationData ? "block" : "none" }}
                   />
                 </ImageContainer>
               ) : (
@@ -692,13 +724,17 @@ const Modal: React.FC<ModalProps> = ({
                     <h4>🎯 Detection Analysis</h4>
                     <InfoRow>
                       <InfoLabel>Detection Type:</InfoLabel>
-                      <InfoValue style={{ textTransform: "capitalize", fontWeight: 600 }}>
+                      <InfoValue
+                        style={{ textTransform: "capitalize", fontWeight: 600 }}
+                      >
                         {segmentationData.detection_type}
                       </InfoValue>
                     </InfoRow>
                     <InfoRow>
                       <InfoLabel>Source:</InfoLabel>
-                      <InfoValue style={{ textTransform: "capitalize", fontWeight: 600 }}>
+                      <InfoValue
+                        style={{ textTransform: "capitalize", fontWeight: 600 }}
+                      >
                         {segmentationData.source}
                       </InfoValue>
                     </InfoRow>
@@ -711,70 +747,97 @@ const Modal: React.FC<ModalProps> = ({
                   </DetectionHeader>
 
                   {/* Ultralytics Segmentation Detections */}
-                  {segmentationData.bench_detections && segmentationData.bench_detections.length > 0 && (
-                    <>
-                      <h5 style={{ color: '#4caf50', margin: '16px 0 12px 0' }}>
-                        🎯 Segmentation Detections (Ultralytics)
-                      </h5>
-                      {segmentationData.bench_detections.map((detection, index) => (
-                        <DetectionSection key={index} $color="#4caf50">
-                          <h5>Segmentation {index + 1}</h5>
-                          <InfoRow>
-                            <InfoLabel>Class:</InfoLabel>
-                            <InfoValue>{detection.class || 'Unknown'}</InfoValue>
-                          </InfoRow>
-                          <InfoRow>
-                            <InfoLabel>Confidence:</InfoLabel>
-                            <InfoValue>{(detection.confidence * 100).toFixed(1)}%</InfoValue>
-                          </InfoRow>
-                          {detection.segments && detection.segments.x && (
-                            <InfoRow>
-                              <InfoLabel>Segmentation Points:</InfoLabel>
-                              <InfoValue>{detection.segments.x.length} coordinates</InfoValue>
-                            </InfoRow>
-                          )}
-                          {detection.box && (
-                            <InfoRow>
-                              <InfoLabel>Bounding Box:</InfoLabel>
-                              <InfoValue>
-                                x: {detection.box.x1}-{detection.box.x2}, y: {detection.box.y1}-{detection.box.y2}
-                              </InfoValue>
-                            </InfoRow>
-                          )}
-                        </DetectionSection>
-                      ))}
-                    </>
-                  )}
+                  {segmentationData.bench_detections &&
+                    segmentationData.bench_detections.length > 0 && (
+                      <>
+                        <h5
+                          style={{ color: "#4caf50", margin: "16px 0 12px 0" }}
+                        >
+                          🎯 Segmentation Detections (Ultralytics)
+                        </h5>
+                        {segmentationData.bench_detections.map(
+                          (detection, index) => (
+                            <DetectionSection key={index} $color="#4caf50">
+                              <h5>Segmentation {index + 1}</h5>
+                              <InfoRow>
+                                <InfoLabel>Class:</InfoLabel>
+                                <InfoValue>
+                                  {detection.class || "Unknown"}
+                                </InfoValue>
+                              </InfoRow>
+                              <InfoRow>
+                                <InfoLabel>Confidence:</InfoLabel>
+                                <InfoValue>
+                                  {(detection.confidence * 100).toFixed(1)}%
+                                </InfoValue>
+                              </InfoRow>
+                              {detection.segments && detection.segments.x && (
+                                <InfoRow>
+                                  <InfoLabel>Segmentation Points:</InfoLabel>
+                                  <InfoValue>
+                                    {detection.segments.x.length} coordinates
+                                  </InfoValue>
+                                </InfoRow>
+                              )}
+                              {detection.box && (
+                                <InfoRow>
+                                  <InfoLabel>Bounding Box:</InfoLabel>
+                                  <InfoValue>
+                                    x: {detection.box.x1}-{detection.box.x2}, y:{" "}
+                                    {detection.box.y1}-{detection.box.y2}
+                                  </InfoValue>
+                                </InfoRow>
+                              )}
+                            </DetectionSection>
+                          )
+                        )}
+                      </>
+                    )}
 
                   {/* Roboflow Bounding Box Detections */}
-                  {segmentationData.roboflow_detections && segmentationData.roboflow_detections.length > 0 && (
-                    <>
-                      <h5 style={{ color: '#ff9800', margin: '16px 0 12px 0' }}>
-                        📦 Bounding Box Detections (Roboflow)
-                      </h5>
-                      {segmentationData.roboflow_detections.map((detection, index) => (
-                        <DetectionSection key={index} $color="#ff9800">
-                          <h5>Bounding Box {index + 1}</h5>
-                          <InfoRow>
-                            <InfoLabel>Class:</InfoLabel>
-                            <InfoValue>{detection.class || 'bench'}</InfoValue>
-                          </InfoRow>
-                          <InfoRow>
-                            <InfoLabel>Confidence:</InfoLabel>
-                            <InfoValue>{(detection.confidence * 100).toFixed(1)}%</InfoValue>
-                          </InfoRow>
-                          <InfoRow>
-                            <InfoLabel>Center:</InfoLabel>
-                            <InfoValue>x: {detection.x?.toFixed(1)}, y: {detection.y?.toFixed(1)}</InfoValue>
-                          </InfoRow>
-                          <InfoRow>
-                            <InfoLabel>Size:</InfoLabel>
-                            <InfoValue>w: {detection.width?.toFixed(1)}, h: {detection.height?.toFixed(1)}</InfoValue>
-                          </InfoRow>
-                        </DetectionSection>
-                      ))}
-                    </>
-                  )}
+                  {segmentationData.roboflow_detections &&
+                    segmentationData.roboflow_detections.length > 0 && (
+                      <>
+                        <h5
+                          style={{ color: "#ff9800", margin: "16px 0 12px 0" }}
+                        >
+                          📦 Bounding Box Detections (Roboflow)
+                        </h5>
+                        {segmentationData.roboflow_detections.map(
+                          (detection, index) => (
+                            <DetectionSection key={index} $color="#ff9800">
+                              <h5>Bounding Box {index + 1}</h5>
+                              <InfoRow>
+                                <InfoLabel>Class:</InfoLabel>
+                                <InfoValue>
+                                  {detection.class || "bench"}
+                                </InfoValue>
+                              </InfoRow>
+                              <InfoRow>
+                                <InfoLabel>Confidence:</InfoLabel>
+                                <InfoValue>
+                                  {(detection.confidence * 100).toFixed(1)}%
+                                </InfoValue>
+                              </InfoRow>
+                              <InfoRow>
+                                <InfoLabel>Center:</InfoLabel>
+                                <InfoValue>
+                                  x: {detection.x?.toFixed(1)}, y:{" "}
+                                  {detection.y?.toFixed(1)}
+                                </InfoValue>
+                              </InfoRow>
+                              <InfoRow>
+                                <InfoLabel>Size:</InfoLabel>
+                                <InfoValue>
+                                  w: {detection.width?.toFixed(1)}, h:{" "}
+                                  {detection.height?.toFixed(1)}
+                                </InfoValue>
+                              </InfoRow>
+                            </DetectionSection>
+                          )
+                        )}
+                      </>
+                    )}
                 </DetectionInfo>
               )}
             </ModalContent>

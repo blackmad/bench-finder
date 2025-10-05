@@ -6,10 +6,10 @@ import {
   Routes,
 } from "react-router-dom"
 import { ThemeProvider } from "styled-components"
+import ApiExample from "./components/ApiExample"
 import { AppProvider } from "./contexts/AppContext"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
-import ApiExample from "./components/ApiExample"
 import GlobalStyles from "./styles/GlobalStyles"
 import { theme } from "./styles/theme"
 

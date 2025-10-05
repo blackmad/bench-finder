@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "lint:biome": "biome lint .",
+    "lint:hooks": "biome lint . --only=correctness/useHookAtTopLevel --only=correctness/useExhaustiveDependencies",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check": "biome check .",

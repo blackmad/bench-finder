@@ -1,24 +1,21 @@
 // Updated API service using auto-generated OpenAPI client for type safety
-import { BenchFinderApi, OpenAPI } from '../api'
-import type {
-  BenchListResponse,
-  BboxBenchResponse,
-  RandomBenchResponse,
-  SegmentationData,
-  SearchListResponse,
-  ConfigResponse
-} from '../api'
-import type {
-  AppFilters,
-  BboxResponse,
-  Bench,
-} from "../types/index"
+
 import axios from "axios"
+import type {
+  BboxBenchResponse,
+  BenchListResponse,
+  ConfigResponse,
+  RandomBenchResponse,
+  SearchListResponse,
+  SegmentationData,
+} from "../api"
+import { BenchFinderApi, OpenAPI } from "../api"
+import type { AppFilters, BboxResponse, Bench } from "../types/index"
 
 // Configure the OpenAPI client
-OpenAPI.BASE = ''  // Use relative URLs for Vite proxy in development
+OpenAPI.BASE = "" // Use relative URLs for Vite proxy in development
 OpenAPI.WITH_CREDENTIALS = false
-OpenAPI.CREDENTIALS = 'same-origin'
+OpenAPI.CREDENTIALS = "same-origin"
 
 // Create the main API client instance
 const benchFinderApi = new BenchFinderApi()
@@ -74,7 +71,7 @@ export const benchApi = {
       minConfidence: params.min_confidence,
       startLat: params.start_lat,
       startLng: params.start_lng,
-      sortBy: params.sort_by
+      sortBy: params.sort_by,
     })
   },
 
@@ -97,11 +94,11 @@ export const benchApi = {
       minConfidence: params.min_confidence,
       startLat: params.start_lat,
       startLng: params.start_lng,
-      sortBy: params.sort_by
+      sortBy: params.sort_by,
     })
   },
 
-  // Get benches in bounding box for map view - now using generated API client  
+  // Get benches in bounding box for map view - now using generated API client
   getBenchesInBbox: async (params: {
     north: number
     south: number
@@ -120,7 +117,7 @@ export const benchApi = {
       minConfidence: params.min_confidence,
       source: params.source,
       sortBy: params.sort_by,
-      limit: params.limit
+      limit: params.limit,
     })
   },
 
@@ -134,15 +131,17 @@ export const benchApi = {
   }): Promise<RandomBenchResponse> => {
     return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
       minConfidence: params?.min_confidence,
-      source: params?.source
+      source: params?.source,
     })
   },
 
   // Get image segmentation data - now using generated API client
   getImageSegmentation: async (imageId: number): Promise<SegmentationData> => {
-    return benchFinderApi.images.getImageSegmentationApiImageImageIdSegmentationGet({
-      imageId
-    })
+    return benchFinderApi.images.getImageSegmentationApiImageImageIdSegmentationGet(
+      {
+        imageId,
+      }
+    )
   },
 
   // Get available searches - now using generated API client

@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import styled from 'styled-components'
-import { benchApi, checkApiHealth } from '../services/benchApi'
-import type { WebBenchData, BenchListResponse } from '../api'
+import { useQuery } from "@tanstack/react-query"
+import type React from "react"
+import { useEffect, useState } from "react"
+import styled from "styled-components"
+import type { BenchListResponse, WebBenchData } from "../api"
+import { benchApi, checkApiHealth } from "../services/benchApi"
 
 // Example component demonstrating the new OpenAPI-generated client
 const ApiExample: React.FC = () => {
-  const [healthStatus, setHealthStatus] = useState<Record<string, string> | null>(null)
+  const [healthStatus, setHealthStatus] = useState<Record<
+    string,
+    string
+  > | null>(null)
 
   // Example 1: Health check using regular fetch
   useEffect(() => {
@@ -15,29 +19,30 @@ const ApiExample: React.FC = () => {
         const health = await checkApiHealth()
         setHealthStatus(health)
       } catch (error) {
-        console.error('Health check failed:', error)
-        setHealthStatus({ status: 'unhealthy', error: String(error) })
+        console.error("Health check failed:", error)
+        setHealthStatus({ status: "unhealthy", error: String(error) })
       }
     }
-    
+
     checkHealth()
   }, [])
 
   // Example 2: Using React Query with the generated client
-  const { 
-    data: benchesData, 
-    isLoading, 
+  const {
+    data: benchesData,
+    isLoading,
     error,
-    refetch 
+    refetch,
   } = useQuery<BenchListResponse>({
-    queryKey: ['benches', { page: 0, minConfidence: 0.8 }],
-    queryFn: () => benchApi.getBenches({
-      page: 0,
-      pageSize: 5,
-      minConfidence: 0.8,
-      sortBy: 'confidence'
-    }),
-    staleTime: 1000 * 60 * 5 // 5 minutes
+    queryKey: ["benches", { page: 0, minConfidence: 0.8 }],
+    queryFn: () =>
+      benchApi.getBenches({
+        page: 0,
+        pageSize: 5,
+        minConfidence: 0.8,
+        sortBy: "confidence",
+      }),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   })
 
   // Example 3: Get random bench
@@ -49,11 +54,11 @@ const ApiExample: React.FC = () => {
     try {
       const result = await benchApi.getRandomBench({
         minConfidence: 0.9,
-        source: null
+        source: null,
       })
       setRandomBench(result.bench)
     } catch (error) {
-      console.error('Failed to get random bench:', error)
+      console.error("Failed to get random bench:", error)
     } finally {
       setIsLoadingRandom(false)
     }
@@ -62,15 +67,17 @@ const ApiExample: React.FC = () => {
   return (
     <Container>
       <Title>🚀 FastAPI + OpenAPI Integration Demo</Title>
-      
+
       {/* Health Status */}
       <Section>
         <SectionTitle>📊 API Health Status</SectionTitle>
         {healthStatus ? (
-          <HealthStatus healthy={healthStatus.status === 'healthy'}>
-            <strong>Status:</strong> {healthStatus.status}<br />
-            <strong>Database:</strong> {healthStatus.database || 'unknown'}<br />
-            <strong>Mapillary:</strong> {healthStatus.mapillary || 'unknown'}
+          <HealthStatus healthy={healthStatus.status === "healthy"}>
+            <strong>Status:</strong> {healthStatus.status}
+            <br />
+            <strong>Database:</strong> {healthStatus.database || "unknown"}
+            <br />
+            <strong>Mapillary:</strong> {healthStatus.mapillary || "unknown"}
           </HealthStatus>
         ) : (
           <Loading>Checking API health...</Loading>
@@ -90,8 +97,8 @@ const ApiExample: React.FC = () => {
         {benchesData && (
           <>
             <Stats>
-              Found <strong>{benchesData.pagination.total_count}</strong> benches 
-              (showing {benchesData.benches.length})
+              Found <strong>{benchesData.pagination.total_count}</strong>{" "}
+              benches (showing {benchesData.benches.length})
             </Stats>
             <BenchList>
               {benchesData.benches.map((bench: WebBenchData) => (
@@ -104,7 +111,8 @@ const ApiExample: React.FC = () => {
                   </BenchHeader>
                   <BenchDetails>
                     <DetailItem>
-                      <strong>Location:</strong> {bench.lat.toFixed(4)}, {bench.lng.toFixed(4)}
+                      <strong>Location:</strong> {bench.lat.toFixed(4)},{" "}
+                      {bench.lng.toFixed(4)}
                     </DetailItem>
                     <DetailItem>
                       <strong>Source:</strong> {bench.source}
@@ -114,21 +122,28 @@ const ApiExample: React.FC = () => {
                     </DetailItem>
                     <DetailItem>
                       <strong>Images:</strong> {bench.image_count}
-                      {bench.has_segmentation && ' 🎯'}
+                      {bench.has_segmentation && " 🎯"}
                     </DetailItem>
                     <DetailItem>
-                      <strong>Distance:</strong> {bench.distance_km.toFixed(2)} km
+                      <strong>Distance:</strong> {bench.distance_km.toFixed(2)}{" "}
+                      km
                     </DetailItem>
                   </BenchDetails>
                   <ConfidenceDetails>
                     {bench.roboflow_confidence > 0 && (
-                      <span>RF: {(bench.roboflow_confidence * 100).toFixed(1)}%</span>
+                      <span>
+                        RF: {(bench.roboflow_confidence * 100).toFixed(1)}%
+                      </span>
                     )}
                     {bench.ultralytics_confidence > 0 && (
-                      <span>UL: {(bench.ultralytics_confidence * 100).toFixed(1)}%</span>
+                      <span>
+                        UL: {(bench.ultralytics_confidence * 100).toFixed(1)}%
+                      </span>
                     )}
                     {bench.mapillary_confidence > 0 && (
-                      <span>MP: {(bench.mapillary_confidence * 100).toFixed(1)}%</span>
+                      <span>
+                        MP: {(bench.mapillary_confidence * 100).toFixed(1)}%
+                      </span>
                     )}
                   </ConfidenceDetails>
                 </BenchCard>
@@ -142,20 +157,30 @@ const ApiExample: React.FC = () => {
       <Section>
         <SectionTitle>🎲 Random Bench Discovery</SectionTitle>
         <RandomButton onClick={getRandomBench} disabled={isLoadingRandom}>
-          {isLoadingRandom ? 'Finding Random Bench...' : 'Get Random Bench'}
+          {isLoadingRandom ? "Finding Random Bench..." : "Get Random Bench"}
         </RandomButton>
         {randomBench && (
           <RandomBenchCard>
             <h4>🎯 Random Bench #{randomBench.id}</h4>
-            <p><strong>Confidence:</strong> {(randomBench.best_confidence * 100).toFixed(1)}%</p>
-            <p><strong>Location:</strong> {randomBench.lat.toFixed(4)}, {randomBench.lng.toFixed(4)}</p>
-            <p><strong>Source:</strong> {randomBench.source}</p>
+            <p>
+              <strong>Confidence:</strong>{" "}
+              {(randomBench.best_confidence * 100).toFixed(1)}%
+            </p>
+            <p>
+              <strong>Location:</strong> {randomBench.lat.toFixed(4)},{" "}
+              {randomBench.lng.toFixed(4)}
+            </p>
+            <p>
+              <strong>Source:</strong> {randomBench.source}
+            </p>
             {randomBench.tags && Object.keys(randomBench.tags).length > 0 && (
               <div>
                 <strong>Tags:</strong>
                 <TagList>
                   {Object.entries(randomBench.tags).map(([key, value]) => (
-                    <Tag key={key}>{key}: {String(value)}</Tag>
+                    <Tag key={key}>
+                      {key}: {String(value)}
+                    </Tag>
                   ))}
                 </TagList>
               </div>
@@ -170,11 +195,26 @@ const ApiExample: React.FC = () => {
         <InfoBox>
           <p>This component demonstrates:</p>
           <ul>
-            <li>✅ <strong>Type-safe API calls</strong> - All parameters and responses are typed</li>
-            <li>✅ <strong>Auto-completion</strong> - IDE provides IntelliSense for all API methods</li>
-            <li>✅ <strong>Compile-time validation</strong> - TypeScript catches API mismatches</li>
-            <li>✅ <strong>Generated documentation</strong> - All types include OpenAPI descriptions</li>
-            <li>✅ <strong>React Query integration</strong> - Seamless caching and state management</li>
+            <li>
+              ✅ <strong>Type-safe API calls</strong> - All parameters and
+              responses are typed
+            </li>
+            <li>
+              ✅ <strong>Auto-completion</strong> - IDE provides IntelliSense
+              for all API methods
+            </li>
+            <li>
+              ✅ <strong>Compile-time validation</strong> - TypeScript catches
+              API mismatches
+            </li>
+            <li>
+              ✅ <strong>Generated documentation</strong> - All types include
+              OpenAPI descriptions
+            </li>
+            <li>
+              ✅ <strong>React Query integration</strong> - Seamless caching and
+              state management
+            </li>
           </ul>
           <CodeExample>
             {`// Type-safe API call with full IntelliSense
@@ -228,9 +268,9 @@ const SectionTitle = styled.h2`
 const HealthStatus = styled.div<{ healthy: boolean }>`
   padding: 1rem;
   border-radius: 4px;
-  background: ${props => props.healthy ? '#f0fff4' : '#fed7d7'};
-  color: ${props => props.healthy ? '#22543d' : '#742a2a'};
-  border: 1px solid ${props => props.healthy ? '#9ae6b4' : '#feb2b2'};
+  background: ${(props) => (props.healthy ? "#f0fff4" : "#fed7d7")};
+  color: ${(props) => (props.healthy ? "#22543d" : "#742a2a")};
+  border: 1px solid ${(props) => (props.healthy ? "#9ae6b4" : "#feb2b2")};
 `
 
 const Loading = styled.div`
@@ -296,7 +336,7 @@ const BenchId = styled.h4`
 `
 
 const ConfidenceBadge = styled.span<{ confidence: number }>`
-  background: ${props => props.confidence > 0.9 ? '#48bb78' : props.confidence > 0.8 ? '#ed8936' : '#e53e3e'};
+  background: ${(props) => (props.confidence > 0.9 ? "#48bb78" : props.confidence > 0.8 ? "#ed8936" : "#e53e3e")};
   color: white;
   padding: 0.25rem 0.5rem;
   border-radius: 12px;

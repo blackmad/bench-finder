@@ -1,11 +1,11 @@
 import { motion } from "framer-motion"
+import L from "leaflet"
 import { Camera, Hash, MapPin, Target } from "lucide-react"
 import type React from "react"
-import { useRef, useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components"
 import { useApp } from "../../contexts/AppContext"
 import type { Bench } from "../../types"
-import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 
@@ -385,14 +385,14 @@ export const BenchCard: React.FC<BenchCardProps> = ({
         touchZoom: false,
       })
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '',
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "",
       }).addTo(map)
 
       // Add a marker for the bench
       const benchIcon = L.divIcon({
-        html: '🪑',
-        className: 'bench-minimap-marker',
+        html: "🪑",
+        className: "bench-minimap-marker",
         iconSize: [20, 20],
         iconAnchor: [10, 10],
       })
@@ -402,7 +402,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
       setMiniMap(map)
       setHoverMapLoaded(true)
     } catch (error) {
-      console.warn('Failed to initialize minimap:', error)
+      console.warn("Failed to initialize minimap:", error)
     }
   }
 
@@ -410,7 +410,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
     }
-    
+
     // Delay initialization to avoid creating maps for quick hovers
     hoverTimeoutRef.current = setTimeout(() => {
       initMiniMap()
@@ -458,175 +458,177 @@ export const BenchCard: React.FC<BenchCardProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-      <ImageContainer onClick={handleImageClick}>
-        {imageUrl ? (
-          <BenchImage src={imageUrl} alt={`Bench ${bench.id}`} loading="lazy" />
-        ) : (
-          <PlaceholderImage>🪑</PlaceholderImage>
-        )}
-
-        <HoverOverlay>
-          <div>
-            View bench details
-            <br />
-            <small>Click to see detection data</small>
-          </div>
-        </HoverOverlay>
-
-        {/* Distance Badge */}
-        <Badge $variant="distance">
-          {bench.distance_km < 1
-            ? `${bench.distance_meters}m`
-            : `${bench.distance_km}km`}
-        </Badge>
-
-        {/* Confidence Badge */}
-        <DebugBadge $variant="confidence" $show={state.debugMode}>
-          {(bench.best_confidence * 100).toFixed(0)}%
-        </DebugBadge>
-
-        {/* Detection Type Badge */}
-        <DebugBadge $variant="detection" $show={state.debugMode}>
-          {bench.detection_type}
-        </DebugBadge>
-
-        {/* Source Badge */}
-        <DebugBadge $variant="source" $show={state.debugMode}>
-          {bench.source}
-        </DebugBadge>
-
-        {/* Segmentation Badge */}
-        {bench.has_segmentation && (
-          <DebugBadge $variant="segmentation" $show={state.debugMode}>
-            🎯 SEG
-          </DebugBadge>
-        )}
-
-        {/* Hover Map */}
-        <HoverMap>
-          {hoverMapLoaded ? (
-            <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+        <ImageContainer onClick={handleImageClick}>
+          {imageUrl ? (
+            <BenchImage
+              src={imageUrl}
+              alt={`Bench ${bench.id}`}
+              loading="lazy"
+            />
           ) : (
-            <MiniMapPlaceholder>
-              📍 Map Preview
-            </MiniMapPlaceholder>
-          )}
-        </HoverMap>
-      </ImageContainer>
-
-      <CardContent>
-        <BenchTitle onClick={handleTitleClick}>
-          <MapPin />
-          Bench #{bench.id}
-        </BenchTitle>
-
-        <BenchDetails>
-          <DetailRow>
-            <DetailLabel>
-              <Hash />
-              OSM ID:
-            </DetailLabel>
-            <DetailValue>{bench.provider_id}</DetailValue>
-          </DetailRow>
-          <DetailRow>
-            <DetailLabel>
-              <Target />
-              Location:
-            </DetailLabel>
-            <DetailValue>
-              {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
-            </DetailValue>
-          </DetailRow>
-          <DetailRow>
-            <DetailLabel>
-              <Camera />
-              Images:
-            </DetailLabel>
-            <DetailValue>{bench.image_count}</DetailValue>
-          </DetailRow>
-        </BenchDetails>
-
-        {/* Debug Information */}
-        <DebugDetails $show={state.debugMode}>
-          <DetailRow>
-            <DetailLabel>Source:</DetailLabel>
-            <DetailValue
-              style={{
-                textTransform: "uppercase",
-                fontWeight: 600,
-                color: getDetectionTypeColor(bench.source),
-              }}
-            >
-              {bench.source}
-            </DetailValue>
-          </DetailRow>
-          <DetailRow>
-            <DetailLabel>Best Confidence:</DetailLabel>
-            <DetailValue>
-              {(bench.best_confidence * 100).toFixed(1)}% (
-              {bench.detection_type})
-            </DetailValue>
-          </DetailRow>
-          <ConfidenceBar
-            $confidence={bench.best_confidence}
-            $type={bench.detection_type}
-          />
-
-          {bench.roboflow_confidence > 0 && (
-            <>
-              <DetailRow>
-                <DetailLabel>Roboflow:</DetailLabel>
-                <DetailValue>
-                  {(bench.roboflow_confidence * 100).toFixed(1)}%
-                </DetailValue>
-              </DetailRow>
-              <ConfidenceBar
-                $confidence={bench.roboflow_confidence}
-                $type="roboflow"
-              />
-            </>
+            <PlaceholderImage>🪑</PlaceholderImage>
           )}
 
-          {bench.ultralytics_confidence > 0 && (
-            <>
-              <DetailRow>
-                <DetailLabel>Ultralytics:</DetailLabel>
-                <DetailValue>
-                  {(bench.ultralytics_confidence * 100).toFixed(1)}%
-                </DetailValue>
-              </DetailRow>
-              <ConfidenceBar
-                $confidence={bench.ultralytics_confidence}
-                $type="ultralytics"
-              />
-            </>
+          <HoverOverlay>
+            <div>
+              View bench details
+              <br />
+              <small>Click to see detection data</small>
+            </div>
+          </HoverOverlay>
+
+          {/* Distance Badge */}
+          <Badge $variant="distance">
+            {bench.distance_km < 1
+              ? `${bench.distance_meters}m`
+              : `${bench.distance_km}km`}
+          </Badge>
+
+          {/* Confidence Badge */}
+          <DebugBadge $variant="confidence" $show={state.debugMode}>
+            {(bench.best_confidence * 100).toFixed(0)}%
+          </DebugBadge>
+
+          {/* Detection Type Badge */}
+          <DebugBadge $variant="detection" $show={state.debugMode}>
+            {bench.detection_type}
+          </DebugBadge>
+
+          {/* Source Badge */}
+          <DebugBadge $variant="source" $show={state.debugMode}>
+            {bench.source}
+          </DebugBadge>
+
+          {/* Segmentation Badge */}
+          {bench.has_segmentation && (
+            <DebugBadge $variant="segmentation" $show={state.debugMode}>
+              🎯 SEG
+            </DebugBadge>
           )}
 
-          {bench.mapillary_confidence > 0 && (
-            <>
-              <DetailRow>
-                <DetailLabel>Mapillary:</DetailLabel>
-                <DetailValue>
-                  {(bench.mapillary_confidence * 100).toFixed(1)}%
-                </DetailValue>
-              </DetailRow>
-              <ConfidenceBar
-                $confidence={bench.mapillary_confidence}
-                $type="mapillary"
-              />
-            </>
-          )}
-        </DebugDetails>
+          {/* Hover Map */}
+          <HoverMap>
+            {hoverMapLoaded ? (
+              <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+            ) : (
+              <MiniMapPlaceholder>📍 Map Preview</MiniMapPlaceholder>
+            )}
+          </HoverMap>
+        </ImageContainer>
 
-        {/* Tags */}
-        {tags.length > 0 && (
-          <Tags>
-            {tags.map((tag, index) => (
-              <Tag key={index}>{tag}</Tag>
-            ))}
-          </Tags>
-        )}
-      </CardContent>
+        <CardContent>
+          <BenchTitle onClick={handleTitleClick}>
+            <MapPin />
+            Bench #{bench.id}
+          </BenchTitle>
+
+          <BenchDetails>
+            <DetailRow>
+              <DetailLabel>
+                <Hash />
+                OSM ID:
+              </DetailLabel>
+              <DetailValue>{bench.provider_id}</DetailValue>
+            </DetailRow>
+            <DetailRow>
+              <DetailLabel>
+                <Target />
+                Location:
+              </DetailLabel>
+              <DetailValue>
+                {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
+              </DetailValue>
+            </DetailRow>
+            <DetailRow>
+              <DetailLabel>
+                <Camera />
+                Images:
+              </DetailLabel>
+              <DetailValue>{bench.image_count}</DetailValue>
+            </DetailRow>
+          </BenchDetails>
+
+          {/* Debug Information */}
+          <DebugDetails $show={state.debugMode}>
+            <DetailRow>
+              <DetailLabel>Source:</DetailLabel>
+              <DetailValue
+                style={{
+                  textTransform: "uppercase",
+                  fontWeight: 600,
+                  color: getDetectionTypeColor(bench.source),
+                }}
+              >
+                {bench.source}
+              </DetailValue>
+            </DetailRow>
+            <DetailRow>
+              <DetailLabel>Best Confidence:</DetailLabel>
+              <DetailValue>
+                {(bench.best_confidence * 100).toFixed(1)}% (
+                {bench.detection_type})
+              </DetailValue>
+            </DetailRow>
+            <ConfidenceBar
+              $confidence={bench.best_confidence}
+              $type={bench.detection_type}
+            />
+
+            {bench.roboflow_confidence > 0 && (
+              <>
+                <DetailRow>
+                  <DetailLabel>Roboflow:</DetailLabel>
+                  <DetailValue>
+                    {(bench.roboflow_confidence * 100).toFixed(1)}%
+                  </DetailValue>
+                </DetailRow>
+                <ConfidenceBar
+                  $confidence={bench.roboflow_confidence}
+                  $type="roboflow"
+                />
+              </>
+            )}
+
+            {bench.ultralytics_confidence > 0 && (
+              <>
+                <DetailRow>
+                  <DetailLabel>Ultralytics:</DetailLabel>
+                  <DetailValue>
+                    {(bench.ultralytics_confidence * 100).toFixed(1)}%
+                  </DetailValue>
+                </DetailRow>
+                <ConfidenceBar
+                  $confidence={bench.ultralytics_confidence}
+                  $type="ultralytics"
+                />
+              </>
+            )}
+
+            {bench.mapillary_confidence > 0 && (
+              <>
+                <DetailRow>
+                  <DetailLabel>Mapillary:</DetailLabel>
+                  <DetailValue>
+                    {(bench.mapillary_confidence * 100).toFixed(1)}%
+                  </DetailValue>
+                </DetailRow>
+                <ConfidenceBar
+                  $confidence={bench.mapillary_confidence}
+                  $type="mapillary"
+                />
+              </>
+            )}
+          </DebugDetails>
+
+          {/* Tags */}
+          {tags.length > 0 && (
+            <Tags>
+              {tags.map((tag, index) => (
+                <Tag key={index}>{tag}</Tag>
+              ))}
+            </Tags>
+          )}
+        </CardContent>
       </CardContainer>
     </GlobalMiniMapStyles>
   )
