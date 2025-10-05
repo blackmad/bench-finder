@@ -155,10 +155,14 @@ const CardsPage: React.FC = () => {
 
   // Load initial data when filters change or when navigating to cards view
   useEffect(() => {
-    if (state.benches?.length === 0 && !state.loading && state.config) {
+    const hasNoData = state.clusteredMode 
+      ? (state.clusteredBenches?.length || 0) === 0
+      : (state.benches?.length || 0) === 0
+      
+    if (hasNoData && !state.loading && state.config) {
       loadMoreBenches()
     }
-  }, [state.config, state.benches?.length, state.loading, loadMoreBenches])
+  }, [state.config, state.benches?.length, state.clusteredBenches?.length, state.clusteredMode, state.loading, loadMoreBenches])
 
   // Handle infinite scroll
   useEffect(() => {
@@ -169,14 +173,18 @@ const CardsPage: React.FC = () => {
 
   const handleImageClick = useCallback(
     (bench: WebBenchData, imageUrl: string, imageId: number) => {
-      const benchIndex = state.benches?.findIndex((b) => b.id === bench.id) || 0
+      // In clustered mode, find the index in representative benches, otherwise use all benches
+      const benchesForIndex = state.clusteredMode && state.clusteredBenches?.length > 0 
+        ? state.clusteredBenches.map(cluster => cluster.representative_bench)
+        : state.benches
+      const benchIndex = benchesForIndex?.findIndex((b) => b.id === bench.id) || 0
       setSelectedBench(bench)
       setSelectedImageUrl(imageUrl)
       setSelectedImageId(imageId)
       setCurrentModalIndex(benchIndex >= 0 ? benchIndex : 0)
       setModalOpen(true)
     },
-    [state.benches]
+    [state.benches, state.clusteredBenches, state.clusteredMode]
   )
 
   const handleStreetViewClick = useCallback((lat: number, lng: number) => {
@@ -194,22 +202,28 @@ const CardsPage: React.FC = () => {
 
   const handleModalNavigate = useCallback(
     (direction: "prev" | "next") => {
-      if (!state.benches || state.benches.length === 0) return
+      // In clustered mode, navigate through representative benches
+      const benchesForNavigation = state.clusteredMode && state.clusteredBenches?.length > 0 
+        ? state.clusteredBenches.map(cluster => cluster.representative_bench)
+        : state.benches
+        
+      if (!benchesForNavigation || benchesForNavigation.length === 0) return
 
       let newIndex =
         direction === "prev" ? currentModalIndex - 1 : currentModalIndex + 1
 
       // Clamp to valid range
-      newIndex = Math.max(0, Math.min(state.benches.length - 1, newIndex))
+      newIndex = Math.max(0, Math.min(benchesForNavigation.length - 1, newIndex))
 
       console.log("Modal navigation:", {
         direction,
         currentIndex: currentModalIndex,
         newIndex,
-        totalBenches: state.benches.length,
+        totalBenches: benchesForNavigation.length,
+        clusteredMode: state.clusteredMode,
       })
 
-      const newBench = state.benches[newIndex]
+      const newBench = benchesForNavigation[newIndex]
       if (
         newBench &&
         newBench.image_filenames &&
@@ -227,15 +241,20 @@ const CardsPage: React.FC = () => {
         setCurrentModalIndex(newIndex)
       }
     },
-    [currentModalIndex, state.benches]
+    [currentModalIndex, state.benches, state.clusteredBenches, state.clusteredMode]
   )
 
+  // Determine which benches to display
+  const benchesToDisplay = state.clusteredMode && state.clusteredBenches?.length > 0 
+    ? state.clusteredBenches.map(cluster => cluster.representative_bench)
+    : state.benches
+
   const showNoResults =
-    (state.benches?.length || 0) === 0 &&
+    (benchesToDisplay?.length || 0) === 0 &&
     !state.loading &&
     state.currentPage > 0
 
-  const showLoading = state.loading && (state.benches?.length || 0) === 0
+  const showLoading = state.loading && (benchesToDisplay?.length || 0) === 0
 
   return (
     <PageContainer>
@@ -254,9 +273,9 @@ const CardsPage: React.FC = () => {
             <p>Try adjusting your search parameters or starting location.</p>
           </NoResults>
 
-          {state.benches && state.benches.length > 0 && (
+          {benchesToDisplay && benchesToDisplay.length > 0 && (
             <BenchGrid>
-              {state.benches.map((bench, index) => (
+              {benchesToDisplay.map((bench, index) => (
                 <BenchCard
                   key={bench.id}
                   bench={bench}
@@ -269,7 +288,7 @@ const CardsPage: React.FC = () => {
           )}
 
           {/* Infinite scroll trigger */}
-          {state.hasMore && state.benches && state.benches.length > 0 && (
+          {state.hasMore && benchesToDisplay && benchesToDisplay.length > 0 && (
             <InfiniteScrollTrigger ref={infiniteScrollRef}>
               {state.loading && (
                 <LoadingContainer $show={true}>
@@ -291,7 +310,7 @@ const CardsPage: React.FC = () => {
         bench={selectedBench}
         imageUrl={selectedImageUrl}
         imageId={selectedImageId}
-        allBenches={state.benches || []}
+        allBenches={benchesToDisplay || []}
         currentIndex={currentModalIndex}
         onNavigate={handleModalNavigate}
       />

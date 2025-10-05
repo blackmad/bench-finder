@@ -8,6 +8,7 @@ import React, {
 } from "react"
 import type {
   BenchListResponse,
+  ClusteredBenchData,
   ClusteredBenchListResponse,
   ConfigResponse,
   SearchSummary,
@@ -28,6 +29,7 @@ export type ViewMode = "cards" | "map"
 
 export interface AppState {
   benches: WebBenchData[]
+  clusteredBenches: ClusteredBenchData[]
   filters: AppFilters
   viewMode: ViewMode
   currentPage: number
@@ -45,6 +47,8 @@ type AppAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_BENCHES"; payload: WebBenchData[] }
   | { type: "ADD_BENCHES"; payload: WebBenchData[] }
+  | { type: "SET_CLUSTERED_BENCHES"; payload: ClusteredBenchData[] }
+  | { type: "ADD_CLUSTERED_BENCHES"; payload: ClusteredBenchData[] }
   | { type: "SET_FILTERS"; payload: Partial<AppFilters> }
   | { type: "SET_VIEW_MODE"; payload: ViewMode }
   | { type: "SET_CURRENT_PAGE"; payload: number }
@@ -60,6 +64,7 @@ type AppAction =
 // Initial state
 const initialState: AppState = {
   benches: [],
+  clusteredBenches: [],
   filters: {
     minConfidence: 0.2,
     sourceFilter: "all",
@@ -96,6 +101,22 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         ...state,
         benches: [
           ...(state.benches || []),
+          ...(Array.isArray(action.payload) ? action.payload : []),
+        ],
+      }
+
+    case "SET_CLUSTERED_BENCHES":
+      return {
+        ...state,
+        clusteredBenches: Array.isArray(action.payload) ? action.payload : [],
+        currentPage: 0,
+      }
+
+    case "ADD_CLUSTERED_BENCHES":
+      return {
+        ...state,
+        clusteredBenches: [
+          ...(state.clusteredBenches || []),
           ...(Array.isArray(action.payload) ? action.payload : []),
         ],
       }
@@ -143,6 +164,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         benches: [],
+        clusteredBenches: [],
         currentPage: 0,
         hasMore: true,
       }
@@ -187,6 +209,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, {
     ...initialState,
     benches: initialState.benches || [], // Extra safeguard
+    clusteredBenches: initialState.clusteredBenches || [], // Extra safeguard
   })
 
   // Initialize app data
@@ -277,22 +300,27 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
       // Handle both response types
       let benches: WebBenchData[]
+      let clusteredBenches: ClusteredBenchData[]
       let hasNext: boolean
       
       if ("benches" in response) {
         // BenchListResponse
         benches = Array.isArray(response.benches) ? response.benches : []
+        clusteredBenches = []
         hasNext = response.pagination.has_next
       } else {
-        // ClusteredBenchListResponse - extract individual benches from clusters
-        benches = response.clustered_benches?.flatMap(cluster => cluster.all_benches) || []
+        // ClusteredBenchListResponse - store both clustered data and flattened benches
+        clusteredBenches = response.clustered_benches || []
+        benches = clusteredBenches.flatMap(cluster => cluster.all_benches)
         hasNext = response.pagination.has_next
       }
 
       if (state.currentPage === 0) {
         dispatch({ type: "SET_BENCHES", payload: benches })
+        dispatch({ type: "SET_CLUSTERED_BENCHES", payload: clusteredBenches })
       } else {
         dispatch({ type: "ADD_BENCHES", payload: benches })
+        dispatch({ type: "ADD_CLUSTERED_BENCHES", payload: clusteredBenches })
       }
 
       dispatch({ type: "SET_CURRENT_PAGE", payload: state.currentPage + 1 })
