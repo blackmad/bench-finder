@@ -8,6 +8,7 @@ import React, {
 } from "react"
 import type {
   BenchListResponse,
+  ClusteredBenchListResponse,
   ConfigResponse,
   SearchSummary,
   WebBenchData,
@@ -242,7 +243,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       dispatch({ type: "SET_LOADING", payload: true })
 
-      let response: BenchListResponse
+      let response: BenchListResponse | ClusteredBenchListResponse
       if (state.filters.sourceFilter === "all") {
         response = await benchApi.getBenches({
           page: state.currentPage,
@@ -251,6 +252,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           start_lat: state.filters.startLat,
           start_lng: state.filters.startLng,
           sort_by: state.filters.sortBy,
+          clustered: false, // For the main app, we want individual benches
         })
       } else {
         response = await benchApi.getBenchesBySource(
@@ -266,8 +268,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         )
       }
 
-      // Ensure we have a valid benches array
-      const benches = Array.isArray(response.benches) ? response.benches : []
+      // Handle both response types
+      let benches: WebBenchData[]
+      let hasNext: boolean
+      
+      if ("benches" in response) {
+        // BenchListResponse
+        benches = Array.isArray(response.benches) ? response.benches : []
+        hasNext = response.pagination.has_next
+      } else {
+        // ClusteredBenchListResponse - extract individual benches from clusters
+        benches = response.clustered_benches?.flatMap(cluster => cluster.all_benches) || []
+        hasNext = response.pagination.has_next
+      }
 
       if (state.currentPage === 0) {
         dispatch({ type: "SET_BENCHES", payload: benches })
@@ -276,7 +289,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       }
 
       dispatch({ type: "SET_CURRENT_PAGE", payload: state.currentPage + 1 })
-      dispatch({ type: "SET_HAS_MORE", payload: response.pagination.has_next })
+      dispatch({ type: "SET_HAS_MORE", payload: hasNext })
     } catch (error) {
       console.error("Error loading benches:", error)
     } finally {

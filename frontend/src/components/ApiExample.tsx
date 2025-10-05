@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import type React from "react"
 import { useEffect, useState } from "react"
 import styled from "styled-components"
-import type { BenchListResponse, WebBenchData } from "../api"
+import type { BenchListResponse, ClusteredBenchListResponse, WebBenchData } from "../api"
 import { benchApi, checkApiHealth } from "../services/benchApi"
 
 // Example component demonstrating the new OpenAPI-generated client
@@ -33,7 +33,7 @@ const ApiExample: React.FC = () => {
     isLoading,
     error,
     refetch,
-  } = useQuery<BenchListResponse>({
+  } = useQuery<BenchListResponse | ClusteredBenchListResponse>({
     queryKey: ["benches", { page: 0, minConfidence: 0.8 }],
     queryFn: () =>
       benchApi.getBenches({
@@ -41,6 +41,7 @@ const ApiExample: React.FC = () => {
         pageSize: 5,
         minConfidence: 0.8,
         sortBy: "confidence",
+        clustered: false, // We want individual benches for the example
       }),
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
@@ -96,12 +97,14 @@ const ApiExample: React.FC = () => {
         )}
         {benchesData && (
           <>
-            <Stats>
-              Found <strong>{benchesData.pagination.total_count}</strong>{" "}
-              benches (showing {benchesData.benches.length})
-            </Stats>
-            <BenchList>
-              {benchesData.benches.map((bench: WebBenchData) => (
+            {"benches" in benchesData && (
+              <>
+                <Stats>
+                  Found <strong>{benchesData.pagination.total_count}</strong>{" "}
+                  benches (showing {benchesData.benches.length})
+                </Stats>
+                <BenchList>
+                  {benchesData.benches.map((bench: WebBenchData) => (
                 <BenchCard key={bench.id}>
                   <BenchHeader>
                     <BenchId>Bench #{bench.id}</BenchId>
@@ -148,7 +151,9 @@ const ApiExample: React.FC = () => {
                   </ConfidenceDetails>
                 </BenchCard>
               ))}
-            </BenchList>
+                </BenchList>
+              </>
+            )}
           </>
         )}
       </Section>

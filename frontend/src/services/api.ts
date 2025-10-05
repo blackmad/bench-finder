@@ -65,7 +65,8 @@ export const benchApi = {
     start_lat?: number
     start_lng?: number
     sort_by?: string
-  }): Promise<BenchListResponse> => {
+    clustered?: boolean
+  }): Promise<BenchListResponse | ClusteredBenchListResponse> => {
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page,
       pageSize: params.page_size,
@@ -73,6 +74,7 @@ export const benchApi = {
       startLat: params.start_lat,
       startLng: params.start_lng,
       sortBy: params.sort_by,
+      clustered: params.clustered ?? true, // Default to clustered
     })
   },
 

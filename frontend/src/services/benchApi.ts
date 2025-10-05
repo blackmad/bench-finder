@@ -34,8 +34,9 @@ export class BenchApiService {
       startLng?: number
       sortBy?: "distance" | "confidence" | "images" | "recent"
       source?: "osm" | "mapillary" | null
+      clustered?: boolean
     } = {}
-  ): Promise<BenchListResponse> {
+  ): Promise<BenchListResponse | ClusteredBenchListResponse> {
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page ?? 0,
       pageSize: params.pageSize ?? 20,
@@ -44,6 +45,7 @@ export class BenchApiService {
       startLng: params.startLng ?? 4.8666322,
       sortBy: params.sortBy ?? "distance",
       source: params.source,
+      clustered: params.clustered ?? true, // Default to clustered
     })
   }
 
@@ -68,7 +70,7 @@ export class BenchApiService {
       minConfidence: params.minConfidence ?? 0.8,
       startLat: params.startLat ?? 52.3613577,
       startLng: params.startLng ?? 4.8666322,
-      sortBy: (params.sortBy ?? "distance") as SortByEnum,
+      sortBy: params.sortBy ?? "distance",
     })
   }
 
@@ -92,8 +94,8 @@ export class BenchApiService {
       east: params.east,
       west: params.west,
       minConfidence: params.minConfidence ?? 0.8,
-      source: params.source as SourceEnum,
-      sortBy: (params.sortBy ?? "distance") as SortByEnum,
+      source: params.source,
+      sortBy: params.sortBy ?? "distance",
       limit: params.limit ?? 200,
       clustered: params.clustered ?? true, // Default to clustered
     })
@@ -107,7 +109,7 @@ export class BenchApiService {
   ): Promise<RandomBenchResponse> {
     return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
       minConfidence: params.minConfidence ?? 0.8,
-      source: params.source as SourceEnum,
+      source: params.source,
     })
   }
 
@@ -220,7 +222,7 @@ export class BenchApiService {
   ) {
     return benchFinderApi.statistics.getStatisticsBySourceApiStatisticsSourceSourceGet(
       {
-        source: source as SourceEnum,
+        source: source,
         centerLat: params.centerLat,
         centerLng: params.centerLng,
         radiusMeters: params.radiusMeters,
