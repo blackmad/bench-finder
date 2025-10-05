@@ -564,7 +564,7 @@ const Modal: React.FC<ModalProps> = ({
         duration: 0.2,
       },
     },
-  }
+  } as const
 
   return (
     <AnimatePresence>
@@ -740,7 +740,7 @@ const Modal: React.FC<ModalProps> = ({
                     <InfoRow>
                       <InfoLabel>Max Confidence:</InfoLabel>
                       <InfoValue style={{ fontWeight: 600 }}>
-                        {(segmentationData.confidence_score * 100).toFixed(1)}%
+                        {((segmentationData.confidence_score || 0) * 100).toFixed(1)}%
                       </InfoValue>
                     </InfoRow>
                   </DetectionHeader>

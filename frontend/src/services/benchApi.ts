@@ -3,13 +3,14 @@
  * This replaces the old manual API service with type-safe, auto-generated methods
  */
 import {
-  type BboxBenchResponse,
   BenchFinderApi,
+  type BboxBenchResponse,
   type BenchListResponse,
+  type ClusteredBenchListResponse,
   OpenAPI,
   type RandomBenchResponse,
 } from "../api"
-import type { AppFilters } from "../types/index"
+import type { AppFilters } from "../contexts/AppContext"
 
 // Configure the OpenAPI client
 OpenAPI.BASE = "" // Use relative URLs for Vite proxy in development
@@ -42,7 +43,7 @@ export class BenchApiService {
       startLat: params.startLat ?? 52.3613577,
       startLng: params.startLng ?? 4.8666322,
       sortBy: params.sortBy ?? "distance",
-      source: params.source ?? null,
+      source: params.source,
     })
   }
 
@@ -61,13 +62,13 @@ export class BenchApiService {
     } = {}
   ): Promise<BenchListResponse> {
     return benchFinderApi.benches.getBenchesBySourceApiBenchesSourceSourceGet({
-      source,
+      source: source as SourceEnum,
       page: params.page ?? 0,
       pageSize: params.pageSize ?? 20,
       minConfidence: params.minConfidence ?? 0.8,
       startLat: params.startLat ?? 52.3613577,
       startLng: params.startLng ?? 4.8666322,
-      sortBy: params.sortBy ?? "distance",
+      sortBy: (params.sortBy ?? "distance") as SortByEnum,
     })
   }
 
@@ -84,15 +85,15 @@ export class BenchApiService {
     sortBy?: "distance" | "confidence" | "images" | "recent"
     limit?: number
     clustered?: boolean
-  }): Promise<any> {
+  }): Promise<BboxBenchResponse | ClusteredBenchListResponse> {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
       south: params.south,
       east: params.east,
       west: params.west,
       minConfidence: params.minConfidence ?? 0.8,
-      source: params.source ?? null,
-      sortBy: params.sortBy ?? "distance",
+      source: params.source as SourceEnum,
+      sortBy: (params.sortBy ?? "distance") as SortByEnum,
       limit: params.limit ?? 200,
       clustered: params.clustered ?? true, // Default to clustered
     })
@@ -106,7 +107,7 @@ export class BenchApiService {
   ): Promise<RandomBenchResponse> {
     return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
       minConfidence: params.minConfidence ?? 0.8,
-      source: params.source ?? null,
+      source: params.source as SourceEnum,
     })
   }
 
@@ -219,7 +220,7 @@ export class BenchApiService {
   ) {
     return benchFinderApi.statistics.getStatisticsBySourceApiStatisticsSourceSourceGet(
       {
-        source,
+        source: source as SourceEnum,
         centerLat: params.centerLat,
         centerLng: params.centerLng,
         radiusMeters: params.radiusMeters,

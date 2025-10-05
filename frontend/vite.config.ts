@@ -15,7 +15,7 @@ export default defineConfig({
         secure: false,
         ws: true,
         configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
             console.log(`[PROXY] ${req.method} ${req.url} → ${options.target}${req.url}`)
           })
         }

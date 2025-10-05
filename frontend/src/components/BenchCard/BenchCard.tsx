@@ -4,8 +4,8 @@ import { Camera, Hash, MapPin, Target } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components"
-import { useApp } from "../../contexts/AppContext"
 import type { WebBenchData } from "../../api"
+import { useApp } from "../../contexts/AppContext"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 
@@ -313,7 +313,11 @@ const GlobalMiniMapStyles = styled.div`
 
 interface BenchCardProps {
   bench: WebBenchData
-  onImageClick?: (bench: WebBenchData, imageUrl: string, imageId: number) => void
+  onImageClick?: (
+    bench: WebBenchData,
+    imageUrl: string,
+    imageId: number
+  ) => void
   onStreetViewClick?: (lat: number, lng: number) => void
   animationDelay?: number
 }
@@ -331,13 +335,13 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get primary image
-  const imageUrl = bench.image_filenames[0]
+  const imageUrl = bench.image_filenames?.[0]
     ? `/images/${bench.image_filenames[0]}`
     : null
-  const imageId = bench.image_ids[0] || null
+  const imageId = bench.image_ids?.[0] || null
 
   // Format tags (exclude amenity tag)
-  const tags = Object.entries(bench.tags)
+  const tags = Object.entries(bench.tags || {})
     .filter(([key]) => key !== "amenity")
     .map(([key, value]) => `${key}: ${value}`)
 
@@ -438,15 +442,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
 
   const cardVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        delay: animationDelay,
-        ease: [0.4, 0, 0.2, 1],
-      },
-    },
+    visible: { opacity: 1, y: 0 },
   }
 
   return (
@@ -455,6 +451,11 @@ export const BenchCard: React.FC<BenchCardProps> = ({
         variants={cardVariants}
         initial="hidden"
         animate="visible"
+        transition={{
+          duration: 0.4,
+          delay: animationDelay,
+          ease: "easeOut",
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -574,46 +575,46 @@ export const BenchCard: React.FC<BenchCardProps> = ({
               $type={bench.detection_type}
             />
 
-            {bench.roboflow_confidence > 0 && (
+            {(bench.roboflow_confidence || 0) > 0 && (
               <>
                 <DetailRow>
                   <DetailLabel>Roboflow:</DetailLabel>
                   <DetailValue>
-                    {(bench.roboflow_confidence * 100).toFixed(1)}%
+                    {((bench.roboflow_confidence || 0) * 100).toFixed(1)}%
                   </DetailValue>
                 </DetailRow>
                 <ConfidenceBar
-                  $confidence={bench.roboflow_confidence}
+                  $confidence={bench.roboflow_confidence || 0}
                   $type="roboflow"
                 />
               </>
             )}
 
-            {bench.ultralytics_confidence > 0 && (
+            {(bench.ultralytics_confidence || 0) > 0 && (
               <>
                 <DetailRow>
                   <DetailLabel>Ultralytics:</DetailLabel>
                   <DetailValue>
-                    {(bench.ultralytics_confidence * 100).toFixed(1)}%
+                    {((bench.ultralytics_confidence || 0) * 100).toFixed(1)}%
                   </DetailValue>
                 </DetailRow>
                 <ConfidenceBar
-                  $confidence={bench.ultralytics_confidence}
+                  $confidence={bench.ultralytics_confidence || 0}
                   $type="ultralytics"
                 />
               </>
             )}
 
-            {bench.mapillary_confidence > 0 && (
+            {(bench.mapillary_confidence || 0) > 0 && (
               <>
                 <DetailRow>
                   <DetailLabel>Mapillary:</DetailLabel>
                   <DetailValue>
-                    {(bench.mapillary_confidence * 100).toFixed(1)}%
+                    {((bench.mapillary_confidence || 0) * 100).toFixed(1)}%
                   </DetailValue>
                 </DetailRow>
                 <ConfidenceBar
-                  $confidence={bench.mapillary_confidence}
+                  $confidence={bench.mapillary_confidence || 0}
                   $type="mapillary"
                 />
               </>

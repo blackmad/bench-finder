@@ -130,19 +130,19 @@ const ApiExample: React.FC = () => {
                     </DetailItem>
                   </BenchDetails>
                   <ConfidenceDetails>
-                    {bench.roboflow_confidence > 0 && (
+                    {(bench.roboflow_confidence || 0) > 0 && (
                       <span>
-                        RF: {(bench.roboflow_confidence * 100).toFixed(1)}%
+                        RF: {((bench.roboflow_confidence || 0) * 100).toFixed(1)}%
                       </span>
                     )}
-                    {bench.ultralytics_confidence > 0 && (
+                    {(bench.ultralytics_confidence || 0) > 0 && (
                       <span>
-                        UL: {(bench.ultralytics_confidence * 100).toFixed(1)}%
+                        UL: {((bench.ultralytics_confidence || 0) * 100).toFixed(1)}%
                       </span>
                     )}
-                    {bench.mapillary_confidence > 0 && (
+                    {(bench.mapillary_confidence || 0) > 0 && (
                       <span>
-                        MP: {(bench.mapillary_confidence * 100).toFixed(1)}%
+                        MP: {((bench.mapillary_confidence || 0) * 100).toFixed(1)}%
                       </span>
                     )}
                   </ConfidenceDetails>

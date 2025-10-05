@@ -4,17 +4,16 @@
 /* eslint-disable */
 import type { BboxBenchResponse } from '../models/BboxBenchResponse';
 import type { BenchListResponse } from '../models/BenchListResponse';
+import type { ClusteredBenchListResponse } from '../models/ClusteredBenchListResponse';
 import type { RandomBenchResponse } from '../models/RandomBenchResponse';
-import type { SortByEnum } from '../models/SortByEnum';
-import type { SourceEnum } from '../models/SourceEnum';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class BenchesService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
     /**
      * List Benches
-     * Get paginated list of benches with high confidence detections
-     * @returns BenchListResponse Successful Response
+     * Get paginated list of benches with high confidence detections, sorted by various criteria
+     * @returns any Successful Response
      * @throws ApiError
      */
     public getBenchesApiBenchesGet({
@@ -25,13 +24,14 @@ export class BenchesService {
         startLng = 4.8666322,
         sortBy = 'distance',
         source,
+        clustered = true,
     }: {
         /**
          * Page number (0-based)
          */
         page?: number,
         /**
-         * Items per page
+         * Items per page (max 50)
          */
         pageSize?: number,
         /**
@@ -49,12 +49,16 @@ export class BenchesService {
         /**
          * Sort criteria
          */
-        sortBy?: SortByEnum,
+        sortBy?: string,
         /**
          * Filter by data source
          */
-        source?: (SourceEnum | null),
-    }): CancelablePromise<BenchListResponse> {
+        source?: (string | null),
+        /**
+         * Return clustered results when available (default: True)
+         */
+        clustered?: boolean,
+    }): CancelablePromise<(BenchListResponse | ClusteredBenchListResponse)> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/benches',
@@ -66,15 +70,18 @@ export class BenchesService {
                 'start_lng': startLng,
                 'sort_by': sortBy,
                 'source': source,
+                'clustered': clustered,
             },
             errors: {
+                400: `Invalid query parameters`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
     /**
      * List Benches by Source
-     * Get benches filtered by specific data source
+     * Get benches filtered by specific data source (OSM or Mapillary)
      * @returns BenchListResponse Successful Response
      * @throws ApiError
      */
@@ -90,13 +97,13 @@ export class BenchesService {
         /**
          * Data source filter
          */
-        source: SourceEnum,
+        source: string,
         /**
          * Page number (0-based)
          */
         page?: number,
         /**
-         * Items per page
+         * Items per page (max 50)
          */
         pageSize?: number,
         /**
@@ -104,17 +111,17 @@ export class BenchesService {
          */
         minConfidence?: number,
         /**
-         * Starting latitude
+         * Starting latitude for distance sorting
          */
         startLat?: number,
         /**
-         * Starting longitude
+         * Starting longitude for distance sorting
          */
         startLng?: number,
         /**
          * Sort criteria
          */
-        sortBy?: SortByEnum,
+        sortBy?: string,
     }): CancelablePromise<BenchListResponse> {
         return this.httpRequest.request({
             method: 'GET',
@@ -131,7 +138,9 @@ export class BenchesService {
                 'sort_by': sortBy,
             },
             errors: {
+                400: `Invalid source or parameters`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
@@ -152,7 +161,7 @@ export class BenchesService {
         /**
          * Filter by data source
          */
-        source?: (SourceEnum | null),
+        source?: (string | null),
     }): CancelablePromise<RandomBenchResponse> {
         return this.httpRequest.request({
             method: 'GET',
@@ -162,14 +171,16 @@ export class BenchesService {
                 'source': source,
             },
             errors: {
+                404: `No benches found matching criteria`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
     /**
      * Get Benches in Bounding Box
      * Get benches within a geographic bounding box for map applications
-     * @returns BboxBenchResponse Successful Response
+     * @returns any Successful Response
      * @throws ApiError
      */
     public getBenchesInBboxApiBenchesBboxGet({
@@ -181,6 +192,7 @@ export class BenchesService {
         source,
         sortBy = 'distance',
         limit = 200,
+        clustered = true,
     }: {
         /**
          * Northern latitude boundary
@@ -205,16 +217,20 @@ export class BenchesService {
         /**
          * Filter by data source
          */
-        source?: (SourceEnum | null),
+        source?: (string | null),
         /**
          * Sort criteria
          */
-        sortBy?: SortByEnum,
+        sortBy?: string,
         /**
          * Maximum number of results
          */
         limit?: number,
-    }): CancelablePromise<BboxBenchResponse> {
+        /**
+         * Return clustered results when available (default: True)
+         */
+        clustered?: boolean,
+    }): CancelablePromise<(BboxBenchResponse | ClusteredBenchListResponse)> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/benches/bbox',
@@ -227,9 +243,12 @@ export class BenchesService {
                 'source': source,
                 'sort_by': sortBy,
                 'limit': limit,
+                'clustered': clustered,
             },
             errors: {
+                400: `Invalid bounding box parameters`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }

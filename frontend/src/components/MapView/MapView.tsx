@@ -9,10 +9,10 @@ import type {
   BboxBenchResponse,
   ClusteredBenchData,
   ClusteredBenchListResponse,
+  WebBenchData,
 } from "../../api"
 import { useApp } from "../../contexts/AppContext"
 import { benchApi } from "../../services/api"
-import type { WebBenchData } from "../../api"
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner"
 
 const MapViewContainer = styled.div`
@@ -266,7 +266,7 @@ const MapEventHandler: React.FC<{
 }
 
 interface MapData {
-  type: 'individual' | 'clustered'
+  type: "individual" | "clustered"
   benches?: WebBenchData[]
   clusters?: ClusteredBenchData[]
   totalCount: number
@@ -319,7 +319,7 @@ const MapView: React.FC = () => {
             clusters: clusteredResponse.clustered_benches,
             totalCount:
               clusteredResponse.pagination?.total_count ||
-              clusteredResponse.clustered_benches.length,
+              clusteredResponse.clustered_benches?.length || 0,
             clusteringInfo: clusteredResponse.clustering_info,
           })
         } else {
@@ -327,7 +327,7 @@ const MapView: React.FC = () => {
           const individualResponse = response as BboxBenchResponse
           setMapData({
             type: "individual",
-            benches: individualResponse.benches as Bench[],
+            benches: individualResponse.benches as WebBenchData[],
             totalCount:
               individualResponse.total_count ||
               individualResponse.benches.length,

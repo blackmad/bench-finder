@@ -4,13 +4,14 @@ import axios from "axios"
 import type {
   BboxBenchResponse,
   BenchListResponse,
+  ClusteredBenchListResponse,
   ConfigResponse,
   RandomBenchResponse,
   SearchListResponse,
   SegmentationData,
 } from "../api"
 import { BenchFinderApi, OpenAPI } from "../api"
-import type { AppFilters, BboxResponse, Bench } from "../types/index"
+import type { AppFilters } from "../contexts/AppContext"
 
 // Configure the OpenAPI client
 OpenAPI.BASE = "" // Use relative URLs for Vite proxy in development
@@ -88,7 +89,7 @@ export const benchApi = {
     }
   ): Promise<BenchListResponse> => {
     return benchFinderApi.benches.getBenchesBySourceApiBenchesSourceSourceGet({
-      source,
+      source: source,
       page: params.page,
       pageSize: params.page_size,
       minConfidence: params.min_confidence,
@@ -109,7 +110,7 @@ export const benchApi = {
     sort_by?: string
     limit?: number
     clustered?: boolean
-  }): Promise<any> => {
+  }): Promise<BboxBenchResponse | ClusteredBenchListResponse> => {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
       south: params.south,

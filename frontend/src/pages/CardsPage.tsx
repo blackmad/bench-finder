@@ -2,12 +2,12 @@ import React, { useCallback, useEffect } from "react"
 import { useInView } from "react-intersection-observer"
 import { useSearchParams } from "react-router-dom"
 import styled from "styled-components"
+import type { WebBenchData } from "../api"
 import BenchCard from "../components/BenchCard/BenchCard"
 import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
-import { useApp, type AppFilters } from "../contexts/AppContext"
-import type { WebBenchData } from "../api"
+import { type AppFilters, useApp } from "../contexts/AppContext"
 import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
 const PageContainer = styled.div`
@@ -114,7 +114,9 @@ const InfiniteScrollTrigger = styled.div`
 const CardsPage: React.FC = () => {
   const { state, loadMoreBenches, updateFilters } = useApp()
   const [searchParams, _setSearchParams] = useSearchParams()
-  const [selectedBench, setSelectedBench] = React.useState<WebBenchData | null>(null)
+  const [selectedBench, setSelectedBench] = React.useState<WebBenchData | null>(
+    null
+  )
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null>(
     null
   )
@@ -158,14 +160,6 @@ const CardsPage: React.FC = () => {
     if (state.benches?.length === 0 && !state.loading && state.config) {
       loadMoreBenches()
     }
-  }, [state.config, loadMoreBenches, state.benches?.length, state.loading])
-
-  // Ensure data loads when navigating to cards view from other views
-  useEffect(() => {
-    // If we have config but no benches and not loading, load them
-    if (state.config && (state.benches?.length || 0) === 0 && !state.loading) {
-      loadMoreBenches()
-    }
   }, [state.config, state.benches?.length, state.loading, loadMoreBenches])
 
   // Handle infinite scroll
@@ -203,7 +197,7 @@ const CardsPage: React.FC = () => {
   const handleModalNavigate = useCallback(
     (direction: "prev" | "next") => {
       if (!state.benches || state.benches.length === 0) return
-      
+
       let newIndex =
         direction === "prev" ? currentModalIndex - 1 : currentModalIndex + 1
 
@@ -218,7 +212,11 @@ const CardsPage: React.FC = () => {
       })
 
       const newBench = state.benches[newIndex]
-      if (newBench && newBench.image_filenames && newBench.image_filenames.length > 0) {
+      if (
+        newBench &&
+        newBench.image_filenames &&
+        newBench.image_filenames.length > 0
+      ) {
         const firstImageFilename = newBench.image_filenames[0]
         const imageUrl = `/images/${firstImageFilename}`
         console.log("Navigating to bench:", {
@@ -235,7 +233,9 @@ const CardsPage: React.FC = () => {
   )
 
   const showNoResults =
-    (state.benches?.length || 0) === 0 && !state.loading && state.currentPage > 0
+    (state.benches?.length || 0) === 0 &&
+    !state.loading &&
+    state.currentPage > 0
 
   const showLoading = state.loading && (state.benches?.length || 0) === 0
 

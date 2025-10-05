@@ -1,6 +1,12 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -14,8 +20,9 @@
       },
       "correctness": {
         "recommended": true,
-        "useExhaustiveDependencies": "warn",
-        "useHookAtTopLevel": "error"
+        "useExhaustiveDependencies": "error",
+        "useHookAtTopLevel": "error",
+        "noUnusedImports": "error"
       },
       "performance": {
         "recommended": true

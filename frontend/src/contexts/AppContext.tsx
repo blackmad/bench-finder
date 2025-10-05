@@ -1,17 +1,18 @@
 import React, {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useReducer,
 } from "react"
-import { benchApi } from "../services/api"
 import type {
   BenchListResponse,
   ConfigResponse,
   SearchSummary,
   WebBenchData,
 } from "../api"
+import { benchApi } from "../services/api"
 
 // App-specific types (not in API)
 export interface AppFilters {
@@ -89,7 +90,10 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case "ADD_BENCHES":
       return {
         ...state,
-        benches: [...(state.benches || []), ...(Array.isArray(action.payload) ? action.payload : [])],
+        benches: [
+          ...(state.benches || []),
+          ...(Array.isArray(action.payload) ? action.payload : []),
+        ],
       }
 
     case "SET_FILTERS":
@@ -227,18 +231,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   }, [])
 
   // Helper functions
-  const updateFilters = (filters: Partial<AppFilters>) => {
+  const updateFilters = useCallback((filters: Partial<AppFilters>) => {
     dispatch({ type: "SET_FILTERS", payload: filters })
     dispatch({ type: "RESET_BENCHES" })
-  }
+  }, [])
 
-  const resetAndReload = async () => {
-    dispatch({ type: "RESET_BENCHES" })
-    // Trigger a reload of benches after reset
-    await loadMoreBenches()
-  }
-
-  const loadMoreBenches = async (): Promise<void> => {
+  const loadMoreBenches = useCallback(async (): Promise<void> => {
     if (state.loading || !state.hasMore) return
 
     try {
@@ -270,7 +268,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
       // Ensure we have a valid benches array
       const benches = Array.isArray(response.benches) ? response.benches : []
-      
+
       if (state.currentPage === 0) {
         dispatch({ type: "SET_BENCHES", payload: benches })
       } else {
@@ -284,13 +282,25 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false })
     }
-  }
+  }, [
+    state.loading,
+    state.hasMore,
+    state.currentPage,
+    state.filters,
+    state.config,
+  ])
 
-  const setUserLocation = (lat: number, lng: number) => {
+  const resetAndReload = useCallback(async () => {
+    dispatch({ type: "RESET_BENCHES" })
+    // Trigger a reload of benches after reset
+    await loadMoreBenches()
+  }, [loadMoreBenches])
+
+  const setUserLocation = useCallback((lat: number, lng: number) => {
     dispatch({ type: "UPDATE_LOCATION", payload: { lat, lng } })
-  }
+  }, [])
 
-  const feelingLucky = async (): Promise<WebBenchData | null> => {
+  const feelingLucky = useCallback(async (): Promise<WebBenchData | null> => {
     try {
       const params: any = {
         min_confidence: state.filters.minConfidence,
@@ -307,7 +317,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       console.error("Error getting random bench:", error)
       return null
     }
-  }
+  }, [
+    state.filters.minConfidence,
+    state.filters.sortBy,
+    state.filters.sourceFilter,
+  ])
 
   const contextValue: AppContextType = {
     state,
