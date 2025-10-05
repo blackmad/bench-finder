@@ -26,11 +26,9 @@ const ViewContainer = styled.div`
 `
 
 const CardsContainer = styled.div`
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
   padding: ${({ theme }) => theme.spacing[8]} ${({ theme }) => theme.spacing[5]};
   background: ${({ theme }) => theme.colors.backgroundSecondary};
-  width: 100%;
   
   /* Ensure minimum width for grid layout */
   min-width: 0; /* Allow flexbox shrinking */

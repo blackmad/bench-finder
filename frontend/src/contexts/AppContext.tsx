@@ -35,6 +35,7 @@ export interface AppState {
   hasMore: boolean
   selectedBenchId: number | null
   debugMode: boolean
+  clusteredMode: boolean
   config: ConfigResponse | null
   searches: SearchSummary[]
 }
@@ -50,6 +51,7 @@ type AppAction =
   | { type: "SET_HAS_MORE"; payload: boolean }
   | { type: "SET_SELECTED_BENCH"; payload: number | null }
   | { type: "TOGGLE_DEBUG_MODE" }
+  | { type: "TOGGLE_CLUSTERED_MODE" }
   | { type: "SET_CONFIG"; payload: ConfigResponse }
   | { type: "SET_SEARCHES"; payload: SearchSummary[] }
   | { type: "RESET_BENCHES" }
@@ -71,6 +73,7 @@ const initialState: AppState = {
   hasMore: true,
   selectedBenchId: null,
   debugMode: false,
+  clusteredMode: true, // Default to clustered mode for cards view
   config: null,
   searches: [],
 }
@@ -117,6 +120,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
 
     case "TOGGLE_DEBUG_MODE":
       return { ...state, debugMode: !state.debugMode }
+
+    case "TOGGLE_CLUSTERED_MODE":
+      return { ...state, clusteredMode: !state.clusteredMode }
 
     case "SET_CONFIG":
       return {
@@ -166,6 +172,7 @@ interface AppContextType {
   loadMoreBenches: () => Promise<void>
   setUserLocation: (lat: number, lng: number) => void
   feelingLucky: () => Promise<WebBenchData | null>
+  toggleClusteredMode: () => void
 }
 
 // Create context
@@ -252,7 +259,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           start_lat: state.filters.startLat,
           start_lng: state.filters.startLng,
           sort_by: state.filters.sortBy,
-          clustered: false, // For the main app, we want individual benches
+          clustered: state.clusteredMode, // Use the clustered mode setting
         })
       } else {
         response = await benchApi.getBenchesBySource(
@@ -301,6 +308,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     state.currentPage,
     state.filters,
     state.config,
+    state.clusteredMode,
   ])
 
   const resetAndReload = useCallback(async () => {
@@ -311,6 +319,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const setUserLocation = useCallback((lat: number, lng: number) => {
     dispatch({ type: "UPDATE_LOCATION", payload: { lat, lng } })
+  }, [])
+
+  const toggleClusteredMode = useCallback(() => {
+    dispatch({ type: "TOGGLE_CLUSTERED_MODE" })
+    dispatch({ type: "RESET_BENCHES" }) // Reset data when toggling mode
   }, [])
 
   const feelingLucky = useCallback(async (): Promise<WebBenchData | null> => {
@@ -344,6 +357,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     loadMoreBenches,
     setUserLocation,
     feelingLucky,
+    toggleClusteredMode,
   }
 
   return (

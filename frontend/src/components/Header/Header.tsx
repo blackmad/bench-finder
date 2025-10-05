@@ -17,8 +17,7 @@ const HeaderContainer = styled.header`
 `
 
 const HeaderContent = styled.div`
-  max-width: 1600px;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 ${({ theme }) => theme.spacing[5]};
   display: flex;
   justify-content: space-between;
@@ -250,6 +249,7 @@ export const Header: React.FC = () => {
     resetAndReload,
     setUserLocation,
     feelingLucky,
+    toggleClusteredMode,
   } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
@@ -362,9 +362,10 @@ export const Header: React.FC = () => {
     }
   }
   const totalShown = state.benches?.length || 0
+  const modeText = currentViewMode === "cards" && state.clusteredMode ? " (from clusters)" : ""
   const statsText =
     currentViewMode === "cards"
-      ? `Showing ${totalShown} high-confidence benches`
+      ? `Showing ${totalShown} high-confidence benches${modeText}`
       : `${totalShown} benches in view`
 
   return (
@@ -466,6 +467,23 @@ export const Header: React.FC = () => {
                   <option value="all">All Sources</option>
                   <option value="osm">OSM + StreetView</option>
                   <option value="mapillary">Mapillary</option>
+                </Select>
+              </ControlGroup>
+              <ControlGroup>
+                <ControlLabel>Data Mode</ControlLabel>
+                <Select
+                  value={state.clusteredMode ? "clustered" : "individual"}
+                  onChange={async (e) => {
+                    if (
+                      (e.target.value === "clustered") !== state.clusteredMode
+                    ) {
+                      toggleClusteredMode()
+                      await resetAndReload()
+                    }
+                  }}
+                >
+                  <option value="clustered">🗂️ Clustered</option>
+                  <option value="individual">📋 Individual</option>
                 </Select>
               </ControlGroup>
             </>
