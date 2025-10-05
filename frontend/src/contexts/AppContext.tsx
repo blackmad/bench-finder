@@ -136,7 +136,7 @@ interface AppContextType {
   dispatch: React.Dispatch<AppAction>
   // Helper functions
   updateFilters: (filters: Partial<AppFilters>) => void
-  resetAndReload: () => void
+  resetAndReload: () => Promise<void>
   loadMoreBenches: () => Promise<void>
   setUserLocation: (lat: number, lng: number) => void
   feelingLucky: () => Promise<Bench | null>
@@ -208,8 +208,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "RESET_BENCHES" })
   }
 
-  const resetAndReload = () => {
+  const resetAndReload = async () => {
     dispatch({ type: "RESET_BENCHES" })
+    // Trigger a reload of benches after reset
+    await loadMoreBenches()
   }
 
   const loadMoreBenches = async (): Promise<void> => {

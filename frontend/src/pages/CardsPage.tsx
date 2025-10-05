@@ -7,7 +7,7 @@ import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
 import { useApp } from "../contexts/AppContext"
-import type { Bench } from "../types"
+import type { Bench, AppFilters } from "../types"
 import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
 const PageContainer = styled.div`
@@ -30,6 +30,14 @@ const CardsContainer = styled.div`
   margin: 0 auto;
   padding: ${({ theme }) => theme.spacing[8]} ${({ theme }) => theme.spacing[5]};
   background: ${({ theme }) => theme.colors.backgroundSecondary};
+  width: 100%;
+  
+  /* Ensure minimum width for grid layout */
+  min-width: 0; /* Allow flexbox shrinking */
+  
+  @media (max-width: 640px) {
+    padding: ${({ theme }) => theme.spacing[6]} ${({ theme }) => theme.spacing[4]};
+  }
 `
 
 const BenchGrid = styled.div`
@@ -37,6 +45,30 @@ const BenchGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: ${({ theme }) => theme.spacing[6]};
   margin-bottom: ${({ theme }) => theme.spacing[10]};
+  
+  /* Mobile: Single column for very small screens */
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: ${({ theme }) => theme.spacing[4]};
+  }
+  
+  /* Tablet: Smaller minimum card width */
+  @media (min-width: 641px) and (max-width: 1023px) {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: ${({ theme }) => theme.spacing[5]};
+  }
+  
+  /* Desktop: Default card size */
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: ${({ theme }) => theme.spacing[6]};
+  }
+  
+  /* Large desktop: Larger minimum card width */
+  @media (min-width: 1280px) {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: ${({ theme }) => theme.spacing[6]};
+  }
 `
 
 const LoadingContainer = styled.div<{ $show: boolean }>`
@@ -90,6 +122,7 @@ const CardsPage: React.FC = () => {
     null
   )
   const [modalOpen, setModalOpen] = React.useState(false)
+  const [currentModalIndex, setCurrentModalIndex] = React.useState(0)
 
   // Intersection observer for infinite scroll
   const { ref: infiniteScrollRef, inView } = useInView({
@@ -97,15 +130,21 @@ const CardsPage: React.FC = () => {
     rootMargin: "100px",
   })
 
-  // Initialize filters from URL on mount
+  // Initialize filters from URL on mount - only run when config or searchParams change
   useEffect(() => {
     if (state.config) {
       const urlFilters = searchParamsToFilters(searchParams, state.filters)
-      if (Object.keys(urlFilters).length > 0) {
+      
+      // Only update if filters actually differ from current state
+      const hasChanges = Object.entries(urlFilters).some(([key, value]) => {
+        return state.filters[key as keyof AppFilters] !== value
+      })
+      
+      if (hasChanges) {
         updateFilters(urlFilters)
       }
     }
-  }, [state.config, searchParams, updateFilters, state.filters])
+  }, [state.config, searchParams, updateFilters])
 
   // Update URL when filters change
   useEffect(() => {
@@ -114,12 +153,20 @@ const CardsPage: React.FC = () => {
     }
   }, [state.filters, state.config])
 
-  // Load initial data when filters change
+  // Load initial data when filters change or when navigating to cards view
   useEffect(() => {
     if (state.benches.length === 0 && !state.loading && state.config) {
       loadMoreBenches()
     }
   }, [state.config, loadMoreBenches, state.benches.length, state.loading])
+
+  // Ensure data loads when navigating to cards view from other views
+  useEffect(() => {
+    // If we have config but no benches and not loading, load them
+    if (state.config && state.benches.length === 0 && !state.loading) {
+      loadMoreBenches()
+    }
+  }, [state.config, state.benches.length, state.loading, loadMoreBenches])
 
   // Handle infinite scroll
   useEffect(() => {
@@ -130,12 +177,14 @@ const CardsPage: React.FC = () => {
 
   const handleImageClick = useCallback(
     (bench: Bench, imageUrl: string, imageId: number) => {
+      const benchIndex = state.benches.findIndex(b => b.id === bench.id)
       setSelectedBench(bench)
       setSelectedImageUrl(imageUrl)
       setSelectedImageId(imageId)
+      setCurrentModalIndex(benchIndex >= 0 ? benchIndex : 0)
       setModalOpen(true)
     },
-    []
+    [state.benches]
   )
 
   const handleStreetViewClick = useCallback((lat: number, lng: number) => {
@@ -148,7 +197,28 @@ const CardsPage: React.FC = () => {
     setSelectedBench(null)
     setSelectedImageUrl(null)
     setSelectedImageId(null)
+    setCurrentModalIndex(0)
   }, [])
+
+  const handleModalNavigate = useCallback((direction: 'prev' | 'next') => {
+    let newIndex = direction === 'prev' ? currentModalIndex - 1 : currentModalIndex + 1
+    
+    // Clamp to valid range
+    newIndex = Math.max(0, Math.min(state.benches.length - 1, newIndex))
+    
+    console.log('Modal navigation:', { direction, currentIndex: currentModalIndex, newIndex, totalBenches: state.benches.length })
+    
+    const newBench = state.benches[newIndex]
+    if (newBench && newBench.images && newBench.images.length > 0) {
+      const firstImage = newBench.images[0]
+      console.log('Navigating to bench:', { id: newBench.id, imageUrl: firstImage.image_url })
+      setSelectedBench(newBench)
+      setSelectedImageUrl(firstImage.image_url)
+      setSelectedImageId(firstImage.id)
+      setCurrentModalIndex(newIndex)
+    }
+  }, [currentModalIndex, state.benches])
+
 
   const showNoResults =
     state.benches.length === 0 && !state.loading && state.currentPage > 0
@@ -209,6 +279,9 @@ const CardsPage: React.FC = () => {
         bench={selectedBench}
         imageUrl={selectedImageUrl}
         imageId={selectedImageId}
+        allBenches={state.benches}
+        currentIndex={currentModalIndex}
+        onNavigate={handleModalNavigate}
       />
     </PageContainer>
   )

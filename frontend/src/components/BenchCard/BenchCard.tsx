@@ -1,10 +1,13 @@
 import { motion } from "framer-motion"
 import { Camera, Hash, MapPin, Target } from "lucide-react"
 import type React from "react"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import styled, { keyframes } from "styled-components"
 import { useApp } from "../../contexts/AppContext"
 import type { Bench } from "../../types"
+import L from "leaflet"
+import "leaflet/dist/leaflet.css"
+import "../../utils/leafletFix"
 
 const fadeInUp = keyframes`
   from {
@@ -269,6 +272,43 @@ const HoverMap = styled.div`
     opacity: 1;
     transform: translateY(0);
   }
+  
+  /* Ensure leaflet controls don't show in minimap */
+  .leaflet-control-container {
+    display: none !important;
+  }
+  
+  .leaflet-attribution-flag {
+    display: none !important;
+  }
+  
+  .leaflet-control-attribution {
+    display: none !important;
+  }
+`
+
+const MiniMapPlaceholder = styled.div`
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #64748b;
+  background: ${({ theme }) => theme.colors.gray100};
+`
+
+// Global styles for minimap marker
+const GlobalMiniMapStyles = styled.div`
+  .bench-minimap-marker {
+    background: none !important;
+    border: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+  }
 `
 
 interface BenchCardProps {
@@ -285,8 +325,10 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   animationDelay = 0,
 }) => {
   const { state } = useApp()
-  const [_hoverMapLoaded, setHoverMapLoaded] = useState(false)
+  const [hoverMapLoaded, setHoverMapLoaded] = useState(false)
+  const [miniMap, setMiniMap] = useState<L.Map | null>(null)
   const mapRef = useRef<HTMLDivElement>(null)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get primary image
   const imageUrl = bench.image_filenames[0]
@@ -325,10 +367,74 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     }
   }
 
-  const handleMouseEnter = () => {
-    // Load hover map functionality could be implemented here
-    setHoverMapLoaded(true)
+  // Initialize minimap when hovered
+  const initMiniMap = () => {
+    if (!mapRef.current || miniMap) return
+
+    try {
+      const map = L.map(mapRef.current, {
+        center: [bench.lat, bench.lng],
+        zoom: 16,
+        zoomControl: false,
+        attributionControl: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        dragging: false,
+        touchZoom: false,
+      })
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '',
+      }).addTo(map)
+
+      // Add a marker for the bench
+      const benchIcon = L.divIcon({
+        html: '🪑',
+        className: 'bench-minimap-marker',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      })
+
+      L.marker([bench.lat, bench.lng], { icon: benchIcon }).addTo(map)
+
+      setMiniMap(map)
+      setHoverMapLoaded(true)
+    } catch (error) {
+      console.warn('Failed to initialize minimap:', error)
+    }
   }
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+    }
+    
+    // Delay initialization to avoid creating maps for quick hovers
+    hoverTimeoutRef.current = setTimeout(() => {
+      initMiniMap()
+    }, 300)
+  }
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+  }
+
+  // Cleanup minimap on unmount
+  useEffect(() => {
+    return () => {
+      if (miniMap) {
+        miniMap.remove()
+      }
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current)
+      }
+    }
+  }, [miniMap])
 
   const cardVariants = {
     hidden: { opacity: 0, y: 30 },
@@ -344,12 +450,14 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   }
 
   return (
-    <CardContainer
-      variants={cardVariants}
-      initial="hidden"
-      animate="visible"
-      onMouseEnter={handleMouseEnter}
-    >
+    <GlobalMiniMapStyles>
+      <CardContainer
+        variants={cardVariants}
+        initial="hidden"
+        animate="visible"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
       <ImageContainer onClick={handleImageClick}>
         {imageUrl ? (
           <BenchImage src={imageUrl} alt={`Bench ${bench.id}`} loading="lazy" />
@@ -395,21 +503,14 @@ export const BenchCard: React.FC<BenchCardProps> = ({
         )}
 
         {/* Hover Map */}
-        <HoverMap ref={mapRef}>
-          {/* Mini map would be rendered here */}
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "12px",
-              color: "#64748b",
-            }}
-          >
-            📍 Map Preview
-          </div>
+        <HoverMap>
+          {hoverMapLoaded ? (
+            <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+          ) : (
+            <MiniMapPlaceholder>
+              📍 Map Preview
+            </MiniMapPlaceholder>
+          )}
         </HoverMap>
       </ImageContainer>
 
@@ -526,7 +627,8 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           </Tags>
         )}
       </CardContent>
-    </CardContainer>
+      </CardContainer>
+    </GlobalMiniMapStyles>
   )
 }
 

@@ -264,23 +264,23 @@ export const Header: React.FC = () => {
     navigate(url)
   }
 
-  const handleLocationChange = (
+  const handleLocationChange = async (
     field: "startLat" | "startLng",
     value: string
   ) => {
     const numValue = parseFloat(value)
     if (!Number.isNaN(numValue)) {
       updateFilters({ [field]: numValue })
-      resetAndReload()
+      await resetAndReload()
     }
   }
 
-  const handleFilterChange = (
+  const handleFilterChange = async (
     field: keyof typeof state.filters,
     value: any
   ) => {
     updateFilters({ [field]: value })
-    resetAndReload()
+    await resetAndReload()
   }
 
   const handleCurrentLocation = useCallback(async () => {
@@ -303,7 +303,7 @@ export const Header: React.FC = () => {
       )
 
       setUserLocation(position.coords.latitude, position.coords.longitude)
-      resetAndReload()
+      await resetAndReload()
     } catch (error: any) {
       let message = "Unable to get location"
       switch (error.code) {
@@ -337,7 +337,7 @@ export const Header: React.FC = () => {
           dispatch({ type: "SET_SELECTED_BENCH", payload: randomBench.id })
         } else {
           // In cards view, we might show a modal or navigate to the bench
-          resetAndReload()
+          await resetAndReload()
         }
       } else {
         alert(
@@ -352,13 +352,13 @@ export const Header: React.FC = () => {
     }
   }, [feelingLucky, setUserLocation, currentViewMode, dispatch, resetAndReload])
 
-  const handleStartPointChange = (value: string) => {
+  const handleStartPointChange = async (value: string) => {
     if (value === "current") {
-      handleCurrentLocation()
+      await handleCurrentLocation()
     } else if (value !== "custom") {
       const [lat, lng] = value.split(",").map(Number)
       setUserLocation(lat, lng)
-      resetAndReload()
+      await resetAndReload()
     }
   }
   const totalShown = state.benches.length
