@@ -265,7 +265,7 @@ const MapView: React.FC = () => {
   const [mapBenches, setMapBenches] = useState<Bench[]>([])
   const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const searchMapArea = useCallback(
     async (bounds?: LatLngBounds) => {

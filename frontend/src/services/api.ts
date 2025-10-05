@@ -1,15 +1,29 @@
-import axios from "axios"
+// Updated API service using auto-generated OpenAPI client for type safety
+import { BenchFinderApi, OpenAPI } from '../api'
+import type {
+  BenchListResponse,
+  BboxBenchResponse,
+  RandomBenchResponse,
+  SegmentationData,
+  SearchListResponse,
+  ConfigResponse
+} from '../api'
 import type {
   AppFilters,
   BboxResponse,
   Bench,
-  BenchListResponse,
-  ConfigResponse,
-  SearchListResponse,
-  SegmentationData,
 } from "../types/index"
+import axios from "axios"
 
-// Configure axios with base URL - Vite will proxy to Flask server in development
+// Configure the OpenAPI client
+OpenAPI.BASE = ''  // Use relative URLs for Vite proxy in development
+OpenAPI.WITH_CREDENTIALS = false
+OpenAPI.CREDENTIALS = 'same-origin'
+
+// Create the main API client instance
+const benchFinderApi = new BenchFinderApi()
+
+// Keep the old axios instance for any remaining manual calls and debugging
 export const api = axios.create({
   baseURL: "",
   headers: {
@@ -17,7 +31,7 @@ export const api = axios.create({
   },
 })
 
-// Add request interceptor for debugging
+// Add request interceptor for debugging (keep for backward compatibility)
 api.interceptors.request.use(
   (config) => {
     console.log(
@@ -31,7 +45,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Add response interceptor for error handling
+// Add response interceptor for error handling (keep for backward compatibility)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -45,7 +59,7 @@ api.interceptors.response.use(
 )
 
 export const benchApi = {
-  // Get paginated benches
+  // Get paginated benches - now using generated API client
   getBenches: async (params: {
     page?: number
     page_size?: number
@@ -54,11 +68,17 @@ export const benchApi = {
     start_lng?: number
     sort_by?: string
   }): Promise<BenchListResponse> => {
-    const response = await api.get("/api/benches", { params })
-    return response.data
+    return benchFinderApi.benches.getBenchesApiBenchesGet({
+      page: params.page,
+      pageSize: params.page_size,
+      minConfidence: params.min_confidence,
+      startLat: params.start_lat,
+      startLng: params.start_lng,
+      sortBy: params.sort_by
+    })
   },
 
-  // Get benches by source
+  // Get benches by source - now using generated API client
   getBenchesBySource: async (
     source: string,
     params: {
@@ -70,11 +90,18 @@ export const benchApi = {
       sort_by?: string
     }
   ): Promise<BenchListResponse> => {
-    const response = await api.get(`/api/benches/source/${source}`, { params })
-    return response.data
+    return benchFinderApi.benches.getBenchesBySourceApiBenchesSourceSourceGet({
+      source,
+      page: params.page,
+      pageSize: params.page_size,
+      minConfidence: params.min_confidence,
+      startLat: params.start_lat,
+      startLng: params.start_lng,
+      sortBy: params.sort_by
+    })
   },
 
-  // Get benches in bounding box for map view
+  // Get benches in bounding box for map view - now using generated API client  
   getBenchesInBbox: async (params: {
     north: number
     south: number
@@ -84,37 +111,48 @@ export const benchApi = {
     source?: string
     sort_by?: string
     limit?: number
-  }): Promise<BboxResponse> => {
-    const response = await api.get("/api/benches/bbox", { params })
-    return response.data
+  }): Promise<BboxBenchResponse> => {
+    return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
+      north: params.north,
+      south: params.south,
+      east: params.east,
+      west: params.west,
+      minConfidence: params.min_confidence,
+      source: params.source,
+      sortBy: params.sort_by,
+      limit: params.limit
+    })
   },
 
-  // Get random bench
+  // Get random bench - now using generated API client
+  // Note: The API returns RandomBenchResponse but for backward compatibility
+  // we keep the same interface
   getRandomBench: async (params?: {
     min_confidence?: number
     source?: string
     sort_by?: string
-  }): Promise<{ bench: Bench }> => {
-    const response = await api.get("/api/benches/random", { params })
-    return response.data
+  }): Promise<RandomBenchResponse> => {
+    return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
+      minConfidence: params?.min_confidence,
+      source: params?.source
+    })
   },
 
-  // Get image segmentation data
+  // Get image segmentation data - now using generated API client
   getImageSegmentation: async (imageId: number): Promise<SegmentationData> => {
-    const response = await api.get(`/api/image/${imageId}/segmentation`)
-    return response.data
+    return benchFinderApi.images.getImageSegmentationApiImageImageIdSegmentationGet({
+      imageId
+    })
   },
 
-  // Get available searches
+  // Get available searches - now using generated API client
   getSearches: async (): Promise<SearchListResponse> => {
-    const response = await api.get("/api/searches")
-    return response.data
+    return benchFinderApi.search.getSearchesApiSearchesGet()
   },
 
-  // Get app configuration
+  // Get app configuration - now using generated API client
   getConfig: async (): Promise<ConfigResponse> => {
-    const response = await api.get("/api/config")
-    return response.data
+    return benchFinderApi.config.getConfigApiConfigGet()
   },
 }
 
@@ -158,6 +196,22 @@ export const calculateDistance = (
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c // Distance in meters
+}
+
+// Export the new generated API client for advanced usage
+export { benchFinderApi }
+
+// Export individual services for granular access
+export const benchesService = benchFinderApi.benches
+export const imagesService = benchFinderApi.images
+export const searchService = benchFinderApi.search
+export const configService = benchFinderApi.config
+export const mapillaryService = benchFinderApi.mapillary
+export const statisticsService = benchFinderApi.statistics
+
+// Health check utility using the generated client
+export const checkApiHealth = async () => {
+  return benchFinderApi.config.healthCheckHealthGet()
 }
 
 export default benchApi

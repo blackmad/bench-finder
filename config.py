@@ -5,12 +5,18 @@ Manages API keys and application settings.
 import os
 from dotenv import load_dotenv
 
-from term_image.image import ITerm2Image
-from term_image.utils import get_terminal_name_version
-
-# Force iTerm2 image support for warp
-if get_terminal_name_version()[0] == "warp":
-    ITerm2Image.is_supported = lambda *_: True
+# Import term_image conditionally to avoid issues when running in background
+try:
+    from term_image.image import ITerm2Image
+    from term_image.utils import get_terminal_name_version
+    
+    # Force iTerm2 image support for warp
+    if get_terminal_name_version()[0] == "warp":
+        ITerm2Image.is_supported = lambda *_: True
+except (ImportError, ValueError, OSError) as e:
+    # This can happen when running in background without a proper terminal
+    # or when term_image is not available
+    pass
 
 # Load environment variables from .env file
 load_dotenv()

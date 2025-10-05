@@ -10,6 +10,7 @@ import type {
   AppFilters,
   AppState,
   Bench,
+  BenchListResponse,
   ConfigResponse,
   SearchSummary,
   ViewMode,
@@ -35,7 +36,7 @@ type AppAction =
 const initialState: AppState = {
   benches: [],
   filters: {
-    minConfidence: 0.8,
+    minConfidence: 0.2,
     sourceFilter: "all",
     sortBy: "distance",
     startLat: 52.3613577, // Amsterdam default
@@ -204,6 +205,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   // Helper functions
   const updateFilters = (filters: Partial<AppFilters>) => {
     dispatch({ type: "SET_FILTERS", payload: filters })
+    dispatch({ type: "RESET_BENCHES" })
   }
 
   const resetAndReload = () => {

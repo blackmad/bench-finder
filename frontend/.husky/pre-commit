@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔄 Pre-commit: Regenerating API client..."
+
+# Try to regenerate API client, but don't fail the commit if it doesn't work
+if npm run precommit:api; then
+    # Check if the generation created any changes and stage them
+    if ! git diff --quiet HEAD -- src/api/; then
+        echo "📝 API client updated, staging changes..."
+        git add src/api/
+    fi
+else
+    echo "⚠️  Could not regenerate API client (server may not be running)"
+    echo "💡 Tip: Start FastAPI server with 'npm run dev:with-api' for auto-generation"
+fi
+
+echo "🎨 Running linters and formatters..."
+npx lint-staged
+
+echo "✅ Pre-commit checks complete!"

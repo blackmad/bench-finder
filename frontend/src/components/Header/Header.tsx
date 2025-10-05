@@ -1,9 +1,10 @@
 import { Grid, MapIcon, MapPin, Settings, Shuffle } from "lucide-react"
 import type React from "react"
 import { useCallback, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import styled from "styled-components"
 import { useApp } from "../../contexts/AppContext"
-import type { ViewMode } from "../../types"
+import { buildUrlWithFilters } from "../../utils/urlParams"
 
 const HeaderContainer = styled.header`
   background: ${({ theme }) => theme.colors.background};
@@ -250,11 +251,17 @@ export const Header: React.FC = () => {
     setUserLocation,
     feelingLucky,
   } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [locationLoading, setLocationLoading] = useState(false)
   const [luckyLoading, setLuckyLoading] = useState(false)
+  
+  const currentViewMode = location.pathname === "/map" ? "map" : "cards"
 
-  const handleViewChange = (viewMode: ViewMode) => {
-    dispatch({ type: "SET_VIEW_MODE", payload: viewMode })
+  const handleViewChange = (viewMode: "cards" | "map") => {
+    const targetPath = `/${viewMode}`
+    const url = buildUrlWithFilters(state.filters, targetPath)
+    navigate(url)
   }
 
   const handleLocationChange = (
@@ -325,7 +332,7 @@ export const Header: React.FC = () => {
       if (randomBench) {
         // For now, just update the location to the random bench
         setUserLocation(randomBench.lat, randomBench.lng)
-        if (state.viewMode === "map") {
+        if (currentViewMode === "map") {
           // In map view, we'd center on the bench
           dispatch({ type: "SET_SELECTED_BENCH", payload: randomBench.id })
         } else {
@@ -343,7 +350,7 @@ export const Header: React.FC = () => {
     } finally {
       setLuckyLoading(false)
     }
-  }, [feelingLucky, setUserLocation, state.viewMode, dispatch, resetAndReload])
+  }, [feelingLucky, setUserLocation, currentViewMode, dispatch, resetAndReload])
 
   const handleStartPointChange = (value: string) => {
     if (value === "current") {
@@ -354,10 +361,9 @@ export const Header: React.FC = () => {
       resetAndReload()
     }
   }
-
   const totalShown = state.benches.length
   const statsText =
-    state.viewMode === "cards"
+    currentViewMode === "cards"
       ? `Showing ${totalShown} high-confidence benches`
       : `${totalShown} benches in view`
 
@@ -368,14 +374,14 @@ export const Header: React.FC = () => {
           <Title>🪑 Bench Finder</Title>
           <ViewToggle>
             <ViewButton
-              $active={state.viewMode === "cards"}
+              $active={currentViewMode === "cards"}
               onClick={() => handleViewChange("cards")}
             >
               <Grid />
               <span className="label">Cards</span>
             </ViewButton>
             <ViewButton
-              $active={state.viewMode === "map"}
+              $active={currentViewMode === "map"}
               onClick={() => handleViewChange("map")}
             >
               <MapIcon />

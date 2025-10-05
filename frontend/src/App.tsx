@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Route, BrowserRouter as Router, Routes } from "react-router-dom"
+import {
+  Navigate,
+  Route,
+  BrowserRouter as Router,
+  Routes,
+} from "react-router-dom"
 import { ThemeProvider } from "styled-components"
 import { AppProvider } from "./contexts/AppContext"
-import HomePage from "./pages/HomePage"
+import CardsPage from "./pages/CardsPage"
+import MapPage from "./pages/MapPage"
+import ApiExample from "./components/ApiExample"
 import GlobalStyles from "./styles/GlobalStyles"
 import { theme } from "./styles/theme"
 
@@ -24,7 +31,10 @@ function App() {
         <AppProvider>
           <Router>
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<Navigate to="/cards" replace />} />
+              <Route path="/cards" element={<CardsPage />} />
+              <Route path="/map" element={<MapPage />} />
+              <Route path="/api-demo" element={<ApiExample />} />
             </Routes>
           </Router>
         </AppProvider>

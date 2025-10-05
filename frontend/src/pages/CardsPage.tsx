@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect } from "react"
 import { useInView } from "react-intersection-observer"
+import { useSearchParams } from "react-router-dom"
 import styled from "styled-components"
 import BenchCard from "../components/BenchCard/BenchCard"
 import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
-import MapView from "../components/MapView/MapView"
 import Modal from "../components/Modal/Modal"
 import { useApp } from "../contexts/AppContext"
 import type { Bench } from "../types"
+import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -15,8 +16,8 @@ const PageContainer = styled.div`
   flex-direction: column;
 `
 
-const ViewContainer = styled.div<{ $show: boolean }>`
-  display: ${({ $show }) => ($show ? "flex" : "none")};
+const ViewContainer = styled.div`
+  display: flex;
   flex-direction: column;
   flex: 1;
   width: 100%;
@@ -78,8 +79,9 @@ const InfiniteScrollTrigger = styled.div`
   margin-top: ${({ theme }) => theme.spacing[5]};
 `
 
-const HomePage: React.FC = () => {
-  const { state, loadMoreBenches } = useApp()
+const CardsPage: React.FC = () => {
+  const { state, loadMoreBenches, updateFilters } = useApp()
+  const [searchParams, _setSearchParams] = useSearchParams()
   const [selectedBench, setSelectedBench] = React.useState<Bench | null>(null)
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null>(
     null
@@ -95,38 +97,36 @@ const HomePage: React.FC = () => {
     rootMargin: "100px",
   })
 
-  // Load initial data when view mode is cards
+  // Initialize filters from URL on mount
   useEffect(() => {
-    if (
-      state.viewMode === "cards" &&
-      state.benches.length === 0 &&
-      !state.loading &&
-      state.config
-    ) {
+    if (state.config) {
+      const urlFilters = searchParamsToFilters(searchParams, state.filters)
+      if (Object.keys(urlFilters).length > 0) {
+        updateFilters(urlFilters)
+      }
+    }
+  }, [state.config, searchParams, updateFilters, state.filters])
+
+  // Update URL when filters change
+  useEffect(() => {
+    if (state.config) {
+      updateUrlWithFilters(state.filters, "/cards")
+    }
+  }, [state.filters, state.config])
+
+  // Load initial data when filters change
+  useEffect(() => {
+    if (state.benches.length === 0 && !state.loading && state.config) {
       loadMoreBenches()
     }
-  }, [
-    state.viewMode,
-    state.config,
-    loadMoreBenches,
-    state.benches.length,
-    state.loading,
-  ])
+  }, [state.config, loadMoreBenches, state.benches.length, state.loading])
 
   // Handle infinite scroll
   useEffect(() => {
-    if (
-      inView &&
-      state.viewMode === "cards" &&
-      state.hasMore &&
-      !state.loading
-    ) {
+    if (inView && state.hasMore && !state.loading) {
       loadMoreBenches()
     }
-  }, [inView, state.viewMode, state.hasMore, state.loading, loadMoreBenches])
-
-  // Handle filter changes - this should be handled by the context, not here
-  // Removed to prevent infinite loops
+  }, [inView, state.hasMore, state.loading, loadMoreBenches])
 
   const handleImageClick = useCallback(
     (bench: Bench, imageUrl: string, imageId: number) => {
@@ -151,10 +151,7 @@ const HomePage: React.FC = () => {
   }, [])
 
   const showNoResults =
-    state.viewMode === "cards" &&
-    state.benches.length === 0 &&
-    !state.loading &&
-    state.currentPage > 0
+    state.benches.length === 0 && !state.loading && state.currentPage > 0
 
   const showLoading = state.loading && state.benches.length === 0
 
@@ -162,8 +159,7 @@ const HomePage: React.FC = () => {
     <PageContainer>
       <Header />
 
-      {/* Cards View */}
-      <ViewContainer $show={state.viewMode === "cards"}>
+      <ViewContainer>
         <CardsContainer>
           <LoadingContainer $show={showLoading}>
             <LoadingSpinner />
@@ -206,11 +202,6 @@ const HomePage: React.FC = () => {
         </CardsContainer>
       </ViewContainer>
 
-      {/* Map View */}
-      <ViewContainer $show={state.viewMode === "map"}>
-        <MapView />
-      </ViewContainer>
-
       {/* Modal for bench details */}
       <Modal
         isOpen={modalOpen}
@@ -223,4 +214,4 @@ const HomePage: React.FC = () => {
   )
 }
 
-export default HomePage
+export default CardsPage
