@@ -1,6 +1,6 @@
 import { divIcon, type LatLngBounds } from "leaflet"
 import type React from "react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet"
 import styled from "styled-components"
 import "leaflet/dist/leaflet.css"
@@ -14,13 +14,17 @@ const MapViewContainer = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
+  min-height: 500px;
   display: flex;
+  background: #f0f0f0; /* Temporary debug background */
 `
 
 const MainMap = styled.div`
   flex: 1;
   height: 100%;
+  min-height: 500px;
   position: relative;
+  background: #e0e0e0; /* Temporary debug background */
 `
 
 const MapSidebar = styled.div`
@@ -238,8 +242,15 @@ const MapEventHandler: React.FC<{
 
     map.on("moveend", handleMoveEnd)
 
+    // Trigger map resize after mount to ensure proper rendering
+    setTimeout(() => {
+      map.invalidateSize()
+    }, 100)
+
     // Initial bounds
-    handleMoveEnd()
+    setTimeout(() => {
+      handleMoveEnd()
+    }, 200)
 
     return () => {
       map.off("moveend", handleMoveEnd)
@@ -256,55 +267,65 @@ const MapView: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
-  const handleBoundsChange = async (bounds: LatLngBounds) => {
-    // Clear previous timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
+  const searchMapArea = useCallback(
+    async (bounds?: LatLngBounds) => {
+      if (!bounds) return
 
-    // Debounce the search
-    searchTimeoutRef.current = setTimeout(async () => {
-      await searchMapArea(bounds)
-    }, 500)
-  }
+      setLoading(true)
+      try {
+        const params = {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+          min_confidence: state.filters.minConfidence,
+          limit: 200,
+          sort_by: state.filters.sortBy,
+        }
 
-  const searchMapArea = async (bounds?: LatLngBounds) => {
-    if (!bounds) return
+        if (state.filters.sourceFilter !== "all") {
+          ;(params as any).source = state.filters.sourceFilter
+        }
 
-    setLoading(true)
-    try {
-      const params = {
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest(),
-        min_confidence: state.filters.minConfidence,
-        limit: 200,
-        sort_by: state.filters.sortBy,
+        const response = await benchApi.getBenchesInBbox(params)
+        setMapBenches(response.benches)
+      } catch (error) {
+        console.error("Map search failed:", error)
+        setMapBenches([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [
+      state.filters.minConfidence,
+      state.filters.sortBy,
+      state.filters.sourceFilter,
+    ]
+  )
+
+  const handleBoundsChange = useCallback(
+    async (bounds: LatLngBounds) => {
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
       }
 
-      if (state.filters.sourceFilter !== "all") {
-        ;(params as any).source = state.filters.sourceFilter
-      }
-
-      const response = await benchApi.getBenchesInBbox(params)
-      setMapBenches(response.benches)
-    } catch (error) {
-      console.error("Map search failed:", error)
-      setMapBenches([])
-    } finally {
-      setLoading(false)
-    }
-  }
+      // Debounce the search
+      searchTimeoutRef.current = setTimeout(async () => {
+        await searchMapArea(bounds)
+      }, 500)
+    },
+    [searchMapArea]
+  )
 
   const handleSearchHere = () => {
     // This would be triggered by the search button
     // For now, it's handled automatically by map movement
   }
 
-  const handleBenchClick = (benchId: number) => {
+  const handleBenchClick = useCallback((benchId: number) => {
     setSelectedBenchId(benchId)
-  }
+  }, [])
 
   const defaultCenter: [number, number] = [
     state.filters.startLat,
@@ -317,7 +338,7 @@ const MapView: React.FC = () => {
         <MapContainer
           center={defaultCenter}
           zoom={13}
-          style={{ height: "100%", width: "100%" }}
+          style={{ height: "500px", width: "100%", minHeight: "500px" }}
           zoomControl={true}
         >
           <TileLayer

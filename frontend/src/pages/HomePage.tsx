@@ -20,6 +20,7 @@ const ViewContainer = styled.div<{ $show: boolean }>`
   flex-direction: column;
   flex: 1;
   width: 100%;
+  height: calc(100vh - 140px);
   min-height: calc(100vh - 140px);
 `
 
