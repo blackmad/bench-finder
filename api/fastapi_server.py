@@ -17,10 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, ConfigDict
 import uvicorn
 
-from database import BenchDatabase
-from config import DATABASE_PATH, IMAGES_DIR
-from clustered_bench_service import ClusteredBenchService
-from schemas import (
+from bench_finder.services.database import BenchDatabase
+from bench_finder.config import DATABASE_PATH, IMAGES_DIR
+from bench_finder.services.clustered_bench_service import ClusteredBenchService
+from bench_finder.models.schemas import (
     BenchListResponse, WebBenchData, PaginationInfo, SegmentationData,
     ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary,
     SourceSearchRequest, SourceStatistics, ClusteredBenchListResponse
@@ -97,10 +97,10 @@ async def lifespan(app: FastAPI):
     print(f"🖼️  Images directory: {IMAGES_DIR}")
     
     # Try to initialize Mapillary service if token is available
-    from config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
+    from bench_finder.config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
     if MAPILLARY_ACCESS_TOKEN:
         try:
-            from mapillary_service import MapillaryBenchService
+            from bench_finder.services.mapillary_service import MapillaryBenchService
             mapillary_service = MapillaryBenchService(DATABASE_PATH, MAPILLARY_ACCESS_TOKEN, IMAGES_DIR)
             print(f"✅ Mapillary integration enabled (image downloading: {'ON' if MAPILLARY_DOWNLOAD_IMAGES else 'OFF'})")
         except Exception as e:
@@ -270,7 +270,7 @@ async def health_check():
 
 
 # Import the enhanced schemas
-from fastapi_schemas import (
+from .fastapi_schemas import (
     BenchListQuery, BboxQuery, RandomBenchQuery, BboxBenchResponse, 
     RandomBenchResponse, EnhancedErrorResponse, HealthCheckResponse,
     MapillarySearchRequest, StatisticsQuery

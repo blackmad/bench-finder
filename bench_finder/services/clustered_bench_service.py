@@ -12,13 +12,13 @@ import logging
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 
-from database import BenchDatabase
-from clustering import BenchClusterer
-from schemas import (
+from .database import BenchDatabase
+from ..core.clustering import BenchClusterer
+from ..models.schemas import (
     WebBenchData, ClusterInfo, ClusteredBenchData, ClusteredBenchListResponse,
     BenchListResponse, PaginationInfo
 )
-from config import DATABASE_PATH
+from ..config import DATABASE_PATH
 
 logger = logging.getLogger(__name__)
 

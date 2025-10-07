@@ -7,7 +7,7 @@ import time
 import functools
 import math
 from typing import Callable, Any, List, Dict
-from config import LOG_LEVEL, LOG_FORMAT
+from .config import LOG_LEVEL, LOG_FORMAT
 
 
 def setup_logging(level: str = None, format_str: str = None):

@@ -7,12 +7,12 @@ from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from config import DATABASE_PATH
-from models import (
+from ..config import DATABASE_PATH
+from ..models.models import (
     Base, Search, Bench, Image, Detection, UltralyticsDetection,
     create_database_engine, create_database_session
 )
-from schemas import (
+from ..models.schemas import (
     SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
     SearchResults, BenchWithDetections
 )

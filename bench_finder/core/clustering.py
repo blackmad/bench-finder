@@ -14,8 +14,8 @@ import logging
 from typing import List, Dict, Tuple, Optional, Set
 from datetime import datetime
 from dataclasses import dataclass
-from database import BenchDatabase
-from config import DATABASE_PATH
+from ..services.database import BenchDatabase
+from ..config import DATABASE_PATH
 
 logger = logging.getLogger(__name__)
 

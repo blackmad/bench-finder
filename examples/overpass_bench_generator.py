@@ -6,8 +6,8 @@ OverpassClient to find benches from OpenStreetMap data.
 """
 import logging
 from typing import List
-from bench_generator import BenchGenerator, BenchCandidate
-from overpass_client import OverpassClient
+from .bench_generator import BenchGenerator, BenchCandidate
+from bench_finder.clients.overpass_client import OverpassClient
 
 logger = logging.getLogger(__name__)
 

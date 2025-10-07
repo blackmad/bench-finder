@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict, validator
 from enum import Enum
 
 # Import existing models from schemas.py
-from schemas import (
+from bench_finder.models.schemas import (
     BenchListResponse, WebBenchData, PaginationInfo, SegmentationData,
     ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary,
     SourceSearchRequest, SourceStatistics, BenchResponse, SearchResponse

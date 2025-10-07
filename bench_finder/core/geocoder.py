@@ -4,7 +4,7 @@ Google Geocoder integration for converting address/query strings to coordinates.
 import googlemaps
 import logging
 from typing import Optional, Tuple
-from config import GOOGLE_MAPS_API_KEY
+from ..config import GOOGLE_MAPS_API_KEY
 
 logger = logging.getLogger(__name__)
 

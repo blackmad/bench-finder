@@ -11,20 +11,24 @@ import argparse
 import logging
 import sys
 from typing import List, Dict, Optional
+from pathlib import Path
 
-from config import validate_config, SEARCH_RADIUS_METERS, DETECTION_BACKEND, MAPILLARY_ACCESS_TOKEN
-from utils import setup_logging, ProgressTracker, log_execution_time, retry_on_failure
-from geocoder import Geocoder
-from overpass_client import OverpassClient
-from streetview import StreetViewClient
-from bench_generator import BenchGenerator, BenchCandidate
-from overpass_bench_generator import OverpassBenchGenerator
-from mapillary_bench_generator import MapillaryBenchGenerator
-from roboflow_client import RoboflowClient
-from ultralytics_client import UltralyticsClient
-from multi_model_client import MultiModelDetectionClient
-from database import BenchDatabase
-from schemas import (
+# Add project root to Python path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from bench_finder.config import validate_config, SEARCH_RADIUS_METERS, DETECTION_BACKEND, MAPILLARY_ACCESS_TOKEN
+from bench_finder.utils import setup_logging, ProgressTracker, log_execution_time, retry_on_failure
+from bench_finder.core.geocoder import Geocoder
+from bench_finder.clients.overpass_client import OverpassClient
+from bench_finder.core.streetview import StreetViewClient
+from examples.bench_generator import BenchGenerator, BenchCandidate
+from examples.overpass_bench_generator import OverpassBenchGenerator
+from examples.mapillary_bench_generator import MapillaryBenchGenerator
+from bench_finder.clients.roboflow_client import RoboflowClient
+from bench_finder.clients.ultralytics_client import UltralyticsClient
+from bench_finder.clients.multi_model_client import MultiModelDetectionClient
+from bench_finder.services.database import BenchDatabase
+from bench_finder.models.schemas import (
     SearchCreate, BenchCreate, ImageCreate, DetectionCreate, 
     UltralyticsDetectionCreate, SearchResults, BenchProcessingResult, ProcessingStats,
     PipelineResult
@@ -33,7 +37,7 @@ from term_image.image import AutoImage
 from PIL import Image as PILImage
 import os
 import shutil
-from roboflow_detector import render_detections
+from tools.roboflow_detector import render_detections
 
 logger = logging.getLogger(__name__)
 

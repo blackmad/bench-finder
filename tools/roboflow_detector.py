@@ -14,7 +14,7 @@ import cv2
 from PIL import Image, ImageDraw, ImageFont
 from term_image.image import from_file
 import tempfile
-from roboflow_client import RoboflowClient
+from bench_finder.clients.roboflow_client import RoboflowClient
 from term_image.image import ITerm2Image
 from term_image.utils import get_terminal_name_version
 
