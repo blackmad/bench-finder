@@ -64,7 +64,7 @@ class MapillaryBenchDetector:
         limit: int = 1000
     ) -> List[MapillaryImage]:
         """
-        Search for images with bench detections in a bounding box.
+        Search for map features with bench detections in a bounding box.
         
         Args:
             bbox: Bounding box as [min_lng, min_lat, max_lng, max_lat]
@@ -75,37 +75,67 @@ class MapillaryBenchDetector:
         """
         min_lng, min_lat, max_lng, max_lat = bbox
         
-        # Search for images with detections in the bounding box
-        url = f"{self.base_url}/images"
+        # Use map_features endpoint to search for bench objects specifically
+        url = f"{self.base_url}/map_features"
         params = {
-            'fields': 'id,geometry,detections.id,detections.value,detections.geometry,detections.created_at',
+            'access_token': self.access_token,
             'bbox': f"{min_lng},{min_lat},{max_lng},{max_lat}",
-            'limit': limit,
-            'access_token': self.access_token
+            'object_values': 'object--bench',  # Filter for bench objects only
+            'fields': 'object_value,images,geometry',
+            'limit': limit
         }
         
         try:
-            logger.info(f"Searching Mapillary for images in bbox: {bbox}")
+            logger.info(f"Searching Mapillary map_features for benches in bbox: {bbox}")
             response = self.session.get(url, params=params)
             response.raise_for_status()
             
             data = response.json()
             images_with_benches = []
             
-            for image_data in data.get('data', []):
-                bench_detections = self._filter_bench_detections(image_data)
-                if bench_detections:
-                    image = MapillaryImage(
-                        image_id=image_data['id'],
-                        coordinates=(
-                            image_data['geometry']['coordinates'][0],
-                            image_data['geometry']['coordinates'][1]
-                        ),
-                        detections=bench_detections
-                    )
-                    images_with_benches.append(image)
+            # Process map_features response - each feature has images with bench detections
+            for feature_data in data.get('data', []):
+                if feature_data.get('object_value') == 'object--bench':
+                    # Get the images associated with this bench feature
+                    images = feature_data.get('images', {}).get('data', [])
+                    feature_geometry = feature_data.get('geometry', {})
+                    
+                    for image_info in images:
+                        # Create bench detection for this feature
+                        detection = MapillaryDetection(
+                            detection_id=feature_data.get('id', ''),
+                            image_id=image_info.get('id', ''),
+                            image_coordinates=(
+                                image_info.get('geometry', {}).get('coordinates', [0, 0])[0],
+                                image_info.get('geometry', {}).get('coordinates', [0, 0])[1]
+                            ),
+                            value='object--bench',
+                            geometry_encoded=feature_geometry.get('coordinates', '') if isinstance(feature_geometry.get('coordinates'), str) else '',
+                            geometry_decoded=feature_geometry.get('coordinates', []) if isinstance(feature_geometry.get('coordinates'), list) else None,
+                            confidence=1.0  # Mapillary doesn't provide confidence scores
+                        )
+                        
+                        # Create or find existing MapillaryImage
+                        existing_image = None
+                        for existing in images_with_benches:
+                            if existing.image_id == image_info.get('id', ''):
+                                existing_image = existing
+                                break
+                        
+                        if existing_image:
+                            existing_image.detections.append(detection)
+                        else:
+                            image = MapillaryImage(
+                                image_id=image_info.get('id', ''),
+                                coordinates=(
+                                    image_info.get('geometry', {}).get('coordinates', [0, 0])[0],
+                                    image_info.get('geometry', {}).get('coordinates', [0, 0])[1]
+                                ),
+                                detections=[detection]
+                            )
+                            images_with_benches.append(image)
             
-            logger.info(f"Found {len(images_with_benches)} images with bench detections")
+            logger.info(f"Found {len(images_with_benches)} images with bench detections from map_features")
             return images_with_benches
             
         except requests.RequestException as e:
@@ -114,58 +144,57 @@ class MapillaryBenchDetector:
     
     def get_image_detections(self, image_id: str) -> List[MapillaryDetection]:
         """
-        Get all detections for a specific image.
+        Get bench detections for a specific image using map_features.
         
         Args:
             image_id: Mapillary image ID
             
         Returns:
-            List of detections for the image
+            List of bench detections for the image
         """
-        url = f"{self.base_url}/{image_id}/detections"
-        params = {
-            'fields': 'id,image,value,geometry,created_at',
+        # Note: The map_features endpoint doesn't directly support filtering by image_id
+        # This method is now less efficient as it needs to search in an area around the image
+        # First, we need to get the image location
+        image_url = f"{self.base_url}/{image_id}"
+        image_params = {
+            'fields': 'geometry',
             'access_token': self.access_token
         }
         
         try:
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
+            # Get image location
+            image_response = self.session.get(image_url, params=image_params)
+            image_response.raise_for_status()
+            image_data = image_response.json()
             
-            data = response.json()
-            detections = []
+            coords = image_data.get('geometry', {}).get('coordinates', [0, 0])
+            lng, lat = coords[0], coords[1]
             
-            for detection_data in data.get('data', []):
-                if detection_data.get('value') == 'object--bench':
-                    detection = self._parse_detection(detection_data)
-                    if detection:
-                        detections.append(detection)
+            # Search for bench features in a small area around the image
+            buffer = 0.0001  # Very small buffer ~10m
+            bbox = (lng - buffer, lat - buffer, lng + buffer, lat + buffer)
             
-            return detections
+            # Use the main search method
+            images_with_detections = self.search_images_with_detections(bbox, limit=100)
+            
+            # Filter results for this specific image
+            for image_result in images_with_detections:
+                if image_result.image_id == image_id:
+                    return image_result.detections
+            
+            return []
             
         except requests.RequestException as e:
             logger.error(f"Error fetching detections for image {image_id}: {e}")
             return []
     
-    def _filter_bench_detections(self, image_data: Dict) -> List[MapillaryDetection]:
-        """Filter and parse bench detections from image data."""
-        bench_detections = []
-        
-        detections = image_data.get('detections', {}).get('data', [])
-        for detection_data in detections:
-            if detection_data.get('value') == 'object--bench':
-                detection = self._parse_detection(detection_data, image_data)
-                if detection:
-                    bench_detections.append(detection)
-        
-        return bench_detections
     
     def _parse_detection(
         self, 
         detection_data: Dict, 
         image_data: Optional[Dict] = None
     ) -> Optional[MapillaryDetection]:
-        """Parse a detection from API response."""
+        """Parse a detection from API response (legacy method, mainly for compatibility)."""
         try:
             # Get image coordinates
             if image_data:
@@ -197,10 +226,10 @@ class MapillaryBenchDetector:
                 geometry_decoded = self._decode_geometry(geometry_encoded)
             
             return MapillaryDetection(
-                detection_id=detection_data['id'],
+                detection_id=detection_data.get('id', ''),
                 image_id=image_id,
                 image_coordinates=image_coords,
-                value=detection_data['value'],
+                value=detection_data.get('value', 'object--bench'),
                 geometry_encoded=geometry_encoded,
                 geometry_decoded=geometry_decoded,
                 created_at=created_at

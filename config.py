@@ -92,6 +92,8 @@ IMAGES_DIR = "images"
 # Mapillary settings
 MAPILLARY_IMAGE_SIZE = 2048  # Download high-resolution images
 MAPILLARY_DOWNLOAD_IMAGES = True  # Whether to download images when finding benches
+MAPILLARY_MAX_CHUNK_SIZE_METERS = 400  # Maximum size (in meters) of each search chunk for API efficiency
+MAPILLARY_API_LIMIT_PER_REQUEST = 1000  # Maximum number of images per API request
 
 # Overpass API settings
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"

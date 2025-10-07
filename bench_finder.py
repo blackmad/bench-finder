@@ -2,7 +2,7 @@
 """
 Main bench finder script that orchestrates the entire pipeline:
 1. Geocode a search query to get starting coordinates
-2. Find benches near that location using OSM Overpass API
+2. Find benches near that location using multiple sources (OSM Overpass API, Mapillary, etc.)
 3. Capture Street View images for each bench at multiple headings
 4. Use either Roboflow or Ultralytics API to detect if benches are visible in the images
 5. Save results to SQLite database (including full segmentation data for Ultralytics)
@@ -12,18 +12,22 @@ import logging
 import sys
 from typing import List, Dict, Optional
 
-from config import validate_config, SEARCH_RADIUS_METERS, DETECTION_BACKEND
+from config import validate_config, SEARCH_RADIUS_METERS, DETECTION_BACKEND, MAPILLARY_ACCESS_TOKEN
 from utils import setup_logging, ProgressTracker, log_execution_time, retry_on_failure
 from geocoder import Geocoder
 from overpass_client import OverpassClient
 from streetview import StreetViewClient
+from bench_generator import BenchGenerator, BenchCandidate
+from overpass_bench_generator import OverpassBenchGenerator
+from mapillary_bench_generator import MapillaryBenchGenerator
 from roboflow_client import RoboflowClient
 from ultralytics_client import UltralyticsClient
 from multi_model_client import MultiModelDetectionClient
 from database import BenchDatabase
 from schemas import (
-    SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
-    SearchResults, BenchWithDetections, BenchProcessingResult, ProcessingStats, PipelineResult
+    SearchCreate, BenchCreate, ImageCreate, DetectionCreate, 
+    UltralyticsDetectionCreate, SearchResults, BenchProcessingResult, ProcessingStats,
+    PipelineResult
 )
 from term_image.image import AutoImage
 from PIL import Image as PILImage
@@ -99,7 +103,7 @@ def create_combined_image_display(image_results: List[Dict], target_width: int =
 class BenchFinder:
     """Main class that orchestrates the bench finding pipeline."""
     
-    def __init__(self, detection_backend: str | None = None, enable_fallback: bool = True, copy_bench_images: bool = True):
+    def __init__(self, detection_backend: str | None = None, enable_fallback: bool = True, copy_bench_images: bool = True, bench_generators: List[BenchGenerator] | None = None):
         """Initialize all API clients and database.
         
         Args:
@@ -107,11 +111,20 @@ class BenchFinder:
                              If None, uses config.DETECTION_BACKEND or defaults to 'multi'
             enable_fallback: Whether to enable multi-model fallback detection (default: True)
             copy_bench_images: Whether to copy images with detected benches to bench_images/{model_name}/ (default: True)
+            bench_generators: List of BenchGenerator instances to use for finding benches.
+                            If None, creates default generators (OSM + Mapillary if available)
         """
         self.geocoder = Geocoder()
-        self.overpass_client = OverpassClient()
         self.streetview_client = StreetViewClient()
         self.database = BenchDatabase()
+        
+        # Initialize bench generators
+        if bench_generators is None:
+            self.bench_generators = self._create_default_generators()
+        else:
+            self.bench_generators = bench_generators
+        
+        logger.info(f"BenchFinder initialized with {len(self.bench_generators)} generators: {[g.name for g in self.bench_generators]}")
         
         # Initialize detection client based on backend selection
         self.detection_backend = detection_backend or DETECTION_BACKEND
@@ -143,6 +156,34 @@ class BenchFinder:
             logger.info("Bench image copying enabled - detected bench images will be copied to bench_images/{model_name}/")
         else:
             logger.info("Bench image copying disabled")
+    
+    def _create_default_generators(self) -> List[BenchGenerator]:
+        """Create default set of bench generators."""
+        generators = []
+        
+        # Always add OSM generator
+        try:
+            osm_generator = OverpassBenchGenerator()
+            generators.append(osm_generator)
+            logger.info("Added OpenStreetMap generator")
+        except Exception as e:
+            logger.error(f"Failed to initialize OSM generator: {e}")
+        
+        # Add Mapillary generator if token is available
+        try:
+            if MAPILLARY_ACCESS_TOKEN:
+                mapillary_generator = MapillaryBenchGenerator()
+                generators.append(mapillary_generator)
+                logger.info("Added Mapillary generator")
+            else:
+                logger.warning("MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Mapillary generator: {e}")
+        
+        if not generators:
+            raise ValueError("No bench generators could be initialized")
+        
+        return generators
     
     def _copy_bench_image(self, image_path: str, model_name: str, bench_id: str, heading: int) -> Optional[str]:
         """
@@ -213,7 +254,7 @@ class BenchFinder:
                 search_radius=radius
             ))
             
-            # Step 3: Find benches using OSM Overpass API
+            # Step 3: Find benches using all available generators (OSM, Mapillary, etc.)
             benches = self._find_nearby_benches(start_lat, start_lng, radius)
             if not benches:
                 self.database.update_search_status(search_id, 'completed')
@@ -244,9 +285,149 @@ class BenchFinder:
     
     @retry_on_failure(max_retries=2, delay=2.0)
     def _find_nearby_benches(self, lat: float, lng: float, radius: int) -> List[Dict]:
-        """Find benches near the given coordinates."""
-        logger.info(f"Searching for benches within {radius}m of {lat}, {lng}")
-        return self.overpass_client.find_benches_near_point(lat, lng, radius)
+        """Find benches near the given coordinates using all generators."""
+        logger.info(f"Searching for benches within {radius}m of {lat}, {lng} using {len(self.bench_generators)} generators")
+        
+        all_candidates = []
+        generator_results = {}
+        
+        # Query each generator
+        for generator in self.bench_generators:
+            try:
+                logger.debug(f"Querying {generator.name} for benches")
+                candidates = generator.find_benches_near_point(lat, lng, radius)
+                all_candidates.extend(candidates)
+                generator_results[generator.name] = len(candidates)
+                logger.info(f"{generator.name}: found {len(candidates)} bench candidates")
+            except Exception as e:
+                logger.error(f"Error querying {generator.name}: {e}")
+                generator_results[generator.name] = 0
+        
+        logger.info(f"Total bench candidates found: {len(all_candidates)} ({generator_results})")
+        
+        # Deduplicate benches based on proximity (same location from different sources)
+        deduplicated_candidates = self._deduplicate_bench_candidates(all_candidates)
+        logger.info(f"After deduplication: {len(deduplicated_candidates)} unique benches")
+        
+        # Convert BenchCandidate objects back to dictionaries for compatibility
+        # with existing processing pipeline
+        bench_dicts = []
+        for candidate in deduplicated_candidates:
+            bench_dict = {
+                'provider_id': candidate.provider_id,
+                'lat': candidate.lat,
+                'lng': candidate.lng,
+                'source': candidate.source,
+                'external_id': candidate.external_id,
+                'tags': candidate.tags or {},
+                'confidence': candidate.confidence
+            }
+            bench_dicts.append(bench_dict)
+        
+        return bench_dicts
+    
+    def _deduplicate_bench_candidates(self, candidates: List[BenchCandidate]) -> List[BenchCandidate]:
+        """
+        Remove duplicate bench candidates based on proximity.
+        
+        Two benches are considered duplicates if they are within 10 meters of each other.
+        When duplicates are found, prefers the one with higher confidence or from OSM.
+        
+        Args:
+            candidates: List of BenchCandidate objects
+            
+        Returns:
+            List of unique BenchCandidate objects
+        """
+        if not candidates:
+            return candidates
+        
+        # Distance threshold for considering two benches as duplicates (meters)
+        DUPLICATE_THRESHOLD_METERS = 10
+        
+        unique_candidates = []
+        
+        for candidate in candidates:
+            is_duplicate = False
+            
+            # Check if this candidate is close to any existing unique candidate
+            for i, existing in enumerate(unique_candidates):
+                distance = self._haversine_distance(
+                    candidate.lat, candidate.lng,
+                    existing.lat, existing.lng
+                )
+                
+                if distance <= DUPLICATE_THRESHOLD_METERS:
+                    is_duplicate = True
+                    
+                    # Replace existing if current candidate is "better"
+                    if self._is_better_candidate(candidate, existing):
+                        unique_candidates[i] = candidate
+                        logger.debug(f"Replaced duplicate bench: {existing.provider_id} -> {candidate.provider_id}")
+                    else:
+                        logger.debug(f"Skipped duplicate bench: {candidate.provider_id} (keeping {existing.provider_id})")
+                    break
+            
+            if not is_duplicate:
+                unique_candidates.append(candidate)
+        
+        return unique_candidates
+    
+    def _is_better_candidate(self, candidate1: BenchCandidate, candidate2: BenchCandidate) -> bool:
+        """
+        Determine which candidate is "better" for deduplication purposes.
+        
+        Args:
+            candidate1: First candidate
+            candidate2: Second candidate
+            
+        Returns:
+            True if candidate1 is better than candidate2
+        """
+        # Prefer candidate with confidence score
+        if candidate1.confidence is not None and candidate2.confidence is None:
+            return True
+        if candidate1.confidence is None and candidate2.confidence is not None:
+            return False
+        
+        # If both have confidence, prefer higher confidence
+        if candidate1.confidence is not None and candidate2.confidence is not None:
+            return candidate1.confidence > candidate2.confidence
+        
+        # If neither has confidence, prefer OSM (more reliable positioning)
+        if candidate1.source == 'osm' and candidate2.source != 'osm':
+            return True
+        if candidate1.source != 'osm' and candidate2.source == 'osm':
+            return False
+        
+        # If same source type, prefer the first one (arbitrary)
+        return False
+    
+    def _haversine_distance(self, lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+        """
+        Calculate the Haversine distance between two points in meters.
+        
+        Args:
+            lat1, lng1: First point coordinates
+            lat2, lng2: Second point coordinates
+            
+        Returns:
+            Distance in meters
+        """
+        import math
+        
+        # Convert decimal degrees to radians
+        lat1, lng1, lat2, lng2 = map(math.radians, [lat1, lng1, lat2, lng2])
+        
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlng = lng2 - lng1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        
+        # Radius of Earth in meters
+        R = 6371000
+        return R * c
     
     def _process_benches(self, search_id: int, benches: List[Dict]) -> ProcessingStats:
         """
@@ -254,7 +435,7 @@ class BenchFinder:
         
         Args:
             search_id: Database search ID
-            benches: List of bench dictionaries from OSM
+            benches: List of bench dictionaries from various sources (OSM, Mapillary, etc.)
             
         Returns:
             ProcessingStats with processing results summary
@@ -313,7 +494,7 @@ class BenchFinder:
         
         Args:
             search_id: Database search ID
-            bench: Bench dictionary from OSM
+            bench: Bench dictionary from any source (OSM, Mapillary, etc.)
             
         Returns:
             BenchProcessingResult for this bench
@@ -504,7 +685,7 @@ class BenchFinder:
                     ))
         
         # If no bench was detected, print image filepaths for manual debugging
-        if not result.get('bench_detected', False):
+        if not result.bench_detected:
             print("\n[DEBUG] No bench detected for this location.")
             print("Captured image filepaths for manual inspection:")
             
@@ -522,27 +703,25 @@ class BenchFinder:
 
         return result
     
-    def _create_result(self, search_id: int, message: str, details: Dict  | None= None) -> Dict:
-        """Create a standardized result dictionary."""
-        result = {
-            'success': True,
-            'search_id': search_id,
-            'message': message,
-            'search_results': self.database.get_search_results(search_id)
-        }
+    def _create_result(self, search_id: int, message: str, stats: ProcessingStats | None = None) -> PipelineResult:
+        """Create a standardized result."""
+        search_results = self.database.get_search_results(search_id)
         
-        if details:
-            result['processing_stats'] = details
-        
-        return result
+        return PipelineResult(
+            success=True,
+            search_id=search_id,
+            message=message,
+            stats=stats
+        )
     
-    def _create_error_result(self, error_message: str) -> Dict:
-        """Create a standardized error result dictionary."""
-        return {
-            'success': False,
-            'error': error_message,
-            'search_id': None
-        }
+    def _create_error_result(self, error_message: str) -> PipelineResult:
+        """Create a standardized error result."""
+        return PipelineResult(
+            success=False,
+            search_id=None,
+            message="",
+            error=error_message
+        )
 
 
 def main():
@@ -616,23 +795,24 @@ def main():
         
         results = bench_finder.find_benches(args.query, args.radius)
         
-        if results['success']:
-            logger.info(f"✅ {results['message']}")
+        if results.success:
+            logger.info(f"✅ {results.message}")
             
-            search_results: SearchResults = results['search_results']
-            logger.info(f"📊 Summary:")
-            logger.info(f"   • Search ID: {search_results.search.id}")
-            logger.info(f"   • Query: {search_results.search.query}")
-            logger.info(f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})")
-            logger.info(f"   • Search radius: {search_results.search.search_radius}m")
-            logger.info(f"   • Benches found: {search_results.bench_count}")
-            logger.info(f"   • Images captured: {search_results.successful_images}/{search_results.total_images}")
-            logger.info(f"   • Images with benches detected: {search_results.images_with_benches}")
-            logger.info(f"   • Best confidence: {search_results.best_confidence:.2f}")
+            if results.search_id:
+                search_results: SearchResults = bench_finder.database.get_search_results(results.search_id)
+                logger.info(f"📊 Summary:")
+                logger.info(f"   • Search ID: {search_results.search.id}")
+                logger.info(f"   • Query: {search_results.search.query}")
+                logger.info(f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})")
+                logger.info(f"   • Search radius: {search_results.search.search_radius}m")
+                logger.info(f"   • Benches found: {search_results.bench_count}")
+                logger.info(f"   • Images captured: {search_results.successful_images}/{search_results.total_images}")
+                logger.info(f"   • Images with benches detected: {search_results.images_with_benches}")
+                logger.info(f"   • Best confidence: {search_results.best_confidence:.2f}")
 
-            if 'processing_stats' in results:
-                stats = results['processing_stats']
-                logger.info(f"   • Processing stats: {stats['benches_detected']}/{stats['benches_processed']} benches detected")
+            if results.stats:
+                stats = results.stats
+                logger.info(f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected")
             
             # Show multi-model detection statistics if available
             if hasattr(bench_finder.detection_client, 'get_detection_stats'):
@@ -648,7 +828,7 @@ def main():
                         logger.info(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
         
         else:
-            logger.error(f"❌ {results['error']}")
+            logger.error(f"❌ {results.error}")
             return 1
         
         return 0

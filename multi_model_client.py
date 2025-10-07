@@ -84,26 +84,26 @@ class MultiModelRoboflowClient:
                 attempt = DetectionAttempt(
                     model_type='roboflow',
                     model_id=model_id,
-                    success=result.get('success', False),
-                    has_bench=result.get('has_bench', False),
-                    confidence=result.get('max_confidence', 0.0),
-                    error=result.get('error')
+                    success=result.success,
+                    has_bench=result.has_bench,
+                    confidence=result.max_confidence,
+                    error=result.error
                 )
                 attempts.append(attempt)
                 
                 # If this model detected a bench, use it as the result
-                if result.get('success') and result.get('has_bench'):
-                    logger.info(f"✅ Bench detected by {model_name}: confidence {result.get('max_confidence', 0):.2f}")
-                    best_result = result
-                    # Add model information to the result
+                if result.success and result.has_bench:
+                    logger.info(f"✅ Bench detected by {model_name}: confidence {result.max_confidence:.2f}")
+                    # Convert Pydantic model to dict and add metadata
+                    best_result = result.model_dump()
                     best_result['winning_model'] = model_name
                     best_result['winning_model_id'] = model_id
                     best_result['model_attempts'] = len(attempts)
                     break
-                elif result.get('success'):
+                elif result.success:
                     logger.debug(f"❌ No bench detected by {model_name}")
                 else:
-                    logger.debug(f"❌ {model_name} failed: {result.get('error', 'Unknown error')}")
+                    logger.debug(f"❌ {model_name} failed: {result.error or 'Unknown error'}")
                     
             except Exception as e:
                 logger.error(f"Error with Roboflow model {model_name} - id {model_id}: {e}")
@@ -268,7 +268,7 @@ class MultiModelDetectionClient:
                 
                 if roboflow_result.get('success') and roboflow_result.get('has_bench'):
                     logger.info(f"✅ Fallback successful: {roboflow_result.get('winning_model')} detected bench")
-                    final_result = roboflow_result
+                    final_result = roboflow_result  # This is already a dict from MultiModelRoboflowClient
                     final_result['winning_backend'] = 'roboflow'
                     final_result['fallback_used'] = True
                     final_result['total_attempts'] = len(detection_attempts)
