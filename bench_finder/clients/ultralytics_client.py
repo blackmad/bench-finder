@@ -8,7 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
-from config import (
+from ..config import (
     ULTRALYTICS_API_KEY, 
     ULTRALYTICS_MODEL_URL,
     ULTRALYTICS_CONFIDENCE_THRESHOLD,

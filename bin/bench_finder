@@ -225,6 +225,80 @@ class BenchFinder:
             logger.warning(f"Failed to copy bench image {image_path}: {e}")
             return None
     
+    def _calculate_pixel_coverage(self, detection_result: Dict, image_path: str) -> float:
+        """
+        Calculate what percentage of pixels the bench occupies in the image.
+        
+        Args:
+            detection_result: Detection result from the ML model
+            image_path: Path to the image file for dimensions
+            
+        Returns:
+            Percentage of pixels covered by bench detections (0.0 to 100.0)
+        """
+        try:
+            if not detection_result.get('has_bench', False):
+                return 0.0
+            
+            # Get image dimensions
+            with PILImage.open(image_path) as img:
+                image_width, image_height = img.size
+                total_pixels = image_width * image_height
+            
+            total_bench_pixels = 0
+            
+            # Handle Ultralytics segmentation data
+            if 'bench_detections' in detection_result:
+                for detection in detection_result['bench_detections']:
+                    if 'masks' in detection and detection['masks']:
+                        # Segmentation masks give exact pixel count
+                        mask_data = detection['masks']
+                        if isinstance(mask_data, list) and len(mask_data) > 0:
+                            # Count pixels in segmentation mask
+                            import numpy as np
+                            if isinstance(mask_data[0], list):
+                                # Convert polygon to mask and count pixels
+                                mask_array = np.array(mask_data[0]).reshape(-1, 2)
+                                # Create binary mask from polygon coordinates
+                                from PIL import Image, ImageDraw
+                                mask_img = Image.new('L', (image_width, image_height), 0)
+                                ImageDraw.Draw(mask_img).polygon([tuple(point) for point in mask_array], fill=1)
+                                total_bench_pixels += np.array(mask_img).sum()
+                    elif 'bbox' in detection:
+                        # Fall back to bounding box area
+                        bbox = detection['bbox']
+                        if len(bbox) >= 4:
+                            width = abs(bbox[2] - bbox[0])
+                            height = abs(bbox[3] - bbox[1])
+                            total_bench_pixels += width * height
+            
+            # Handle Roboflow bounding box data
+            elif 'detections' in detection_result:
+                for detection in detection_result['detections']:
+                    if 'x' in detection and 'y' in detection and 'width' in detection and 'height' in detection:
+                        # Roboflow format: center coordinates + dimensions
+                        width = detection['width']
+                        height = detection['height']
+                        total_bench_pixels += width * height
+                    elif 'bbox' in detection:
+                        # Alternative bbox format
+                        bbox = detection['bbox']
+                        if len(bbox) >= 4:
+                            width = abs(bbox[2] - bbox[0])
+                            height = abs(bbox[3] - bbox[1])
+                            total_bench_pixels += width * height
+            
+            # Calculate percentage
+            if total_pixels > 0:
+                coverage_percentage = (total_bench_pixels / total_pixels) * 100
+                return min(coverage_percentage, 100.0)  # Cap at 100%
+            
+            return 0.0
+            
+        except Exception as e:
+            logger.debug(f"Failed to calculate pixel coverage for {image_path}: {e}")
+            return 0.0
+    
     @log_execution_time
     def find_benches(self, query: str, radius: int | None = None) -> PipelineResult:
         """
@@ -560,9 +634,9 @@ class BenchFinder:
         result.images_captured = len(image_results)
         result.images_successful = sum(1 for img in image_results if img['success'])
         
-        # Process each image
+        # Phase 1: Add all images to database and collect successful ones
+        successful_images = []
         for image_result in image_results:
-            
             # Add image record to database
             try:
                 image_id = self.database.add_image(ImageCreate(
@@ -574,93 +648,87 @@ class BenchFinder:
                     capture_success=image_result.get('success', False),
                     capture_error=image_result.get('error')
                 ))
+                
+                # Track successful images for detection
+                if image_result['success'] and image_result.get('filepath'):
+                    image_result['image_id'] = image_id
+                    successful_images.append(image_result)
+                    
             except Exception as e:
-                logger.error(f"Failed to add image record for bench {bench['provider_id']}, heading {image_result.get('heading')}: {e}, type: {type(e).__name__}")    
+                logger.error(f"Failed to add image record for bench {bench['provider_id']}, heading {image_result.get('heading')}: {e}, type: {type(e).__name__}")
                 continue
-            
-            # Skip detection if image capture failed
-            if not image_result['success'] or not image_result.get('filepath'):
-                continue
-            
-            # Run bench detection on the image
+        
+        # Phase 2: Run detection on all successful images and calculate pixel coverage
+        detection_results = []
+        
+        for image_result in successful_images:
             try:
+                logger.debug(f"Running detection on {image_result['filepath']}")
                 detection_result = self.detection_client.detect_benches_in_image(
                     image_result['filepath']
                 )
                 
-                # Add detection record to database based on backend type and result
-                winning_backend = detection_result.get('winning_backend', 'unknown')
-                winning_model = detection_result.get('winning_model', 'unknown')
-                fallback_used = detection_result.get('fallback_used', False)
-                total_attempts = detection_result.get('total_attempts', 1)
+                # Calculate pixel coverage
+                pixel_coverage = self._calculate_pixel_coverage(detection_result, image_result['filepath'])
                 
-                # Log detection success with model information
-                if detection_result['has_bench']:
-                    logger.info(f"✅ Detection success: {winning_model} (backend: {winning_backend}, attempts: {total_attempts}, fallback: {fallback_used})")
-                else:
-                    logger.debug(f"❌ No detection: tried {total_attempts} models")
-                
-                # Store detection based on winning backend or detection structure
-                if ('bench_detections' in detection_result and 'full_response' in detection_result) or winning_backend == 'ultralytics':
-                    # Ultralytics detection format
-                    model_url = winning_model if winning_backend == 'ultralytics' else getattr(self.detection_client, 'model_url', 'unknown')
-                    self.database.add_ultralytics_detection(UltralyticsDetectionCreate(
-                        image_id=image_id,
-                        has_bench=detection_result['has_bench'],
-                        bench_count=detection_result['bench_count'],
-                        max_confidence=detection_result['max_confidence'],
-                        full_response=detection_result.get('full_response', {}),
-                        bench_detections=detection_result.get('bench_detections', []),
-                        detection_success=True,
-                        detection_error=None,
-                        model_url=model_url,
-                        confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0),
-                        iou_threshold=getattr(self.detection_client, 'iou_threshold', 0.0),
-                        image_size=getattr(self.detection_client, 'image_size', 640),
-                        # Enhanced metadata for multi-model tracking
-                        inference_time=detection_result.get('inference_time'),
-                        preprocess_time=detection_result.get('preprocess_time'),
-                        postprocess_time=detection_result.get('postprocess_time')
-                    ))
-                else:
-                    # Roboflow detection format
-                    model_id = detection_result.get('winning_model_id', getattr(self.detection_client, 'model_id', 'unknown'))
-                    self.database.add_detection(DetectionCreate(
-                        image_id=image_id,
-                        has_bench=detection_result['has_bench'],
-                        bench_count=detection_result['bench_count'],
-                        max_confidence=detection_result['max_confidence'],
-                        detections=detection_result.get('detections', []),
-                        detection_success=True,
-                        detection_error=None,
-                        model_id=model_id,
-                        confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
-                    ))
-                
+                # Store detection result with metadata
+                detection_info = {
+                    'image_result': image_result,
+                    'detection_result': detection_result,
+                    'pixel_coverage': pixel_coverage,
+                    'winning_backend': detection_result.get('winning_backend', 'unknown'),
+                    'winning_model': detection_result.get('winning_model', 'unknown'),
+                    'fallback_used': detection_result.get('fallback_used', False),
+                    'total_attempts': detection_result.get('total_attempts', 1)
+                }
+                detection_results.append(detection_info)
                 result.detections_performed += 1
                 
+                # Update overall results
                 if detection_result['has_bench']:
                     result.bench_detected = True
                     if detection_result['max_confidence'] > result.best_confidence:
                         result.best_confidence = detection_result['max_confidence']
-                    
-                    # Copy the image with detected bench
-                    copied_path = self._copy_bench_image(
-                        image_result['filepath'], 
-                        winning_model, 
-                        bench_identifier, 
-                        image_result['heading']
-                    )
-                    copy_info = f" (copied to {copied_path})" if copied_path else ""
-                    
-                    print(f"- Bench found in {image_result['filepath']} with confidence {detection_result['max_confidence']:.2f} using {winning_model}{copy_info}")
-                    print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
+                
+                logger.debug(f"Image {image_result['heading']}° - Bench: {detection_result['has_bench']}, "
+                           f"Confidence: {detection_result.get('max_confidence', 0):.2f}, "
+                           f"Pixel coverage: {pixel_coverage:.1f}%")
                 
             except Exception as e:
                 logger.error(f"Detection failed for bench {bench['provider_id']}, image {image_result.get('filepath')}: {type(e).__name__}: {e}")
                 import traceback
                 logger.debug(f"Detection error traceback:\n{traceback.format_exc()}")
-                # Add failed detection record based on backend
+                
+                # Add failed detection record
+                detection_info = {
+                    'image_result': image_result,
+                    'detection_result': None,
+                    'pixel_coverage': 0.0,
+                    'error': str(e)
+                }
+                detection_results.append(detection_info)
+        
+        # Phase 3: Find the representative image (highest pixel coverage with bench detected)
+        representative_detection = None
+        bench_detections = [d for d in detection_results if d.get('detection_result') and d['detection_result'].get('has_bench', False)]
+        
+        if bench_detections:
+            # Sort by pixel coverage (descending), then by confidence (descending)
+            representative_detection = max(bench_detections, key=lambda x: (x['pixel_coverage'], x['detection_result'].get('max_confidence', 0)))
+            
+            logger.info(f"🎯 Selected representative image: heading {representative_detection['image_result']['heading']}° "
+                       f"with {representative_detection['pixel_coverage']:.1f}% pixel coverage and "
+                       f"{representative_detection['detection_result']['max_confidence']:.2f} confidence")
+        
+        # Phase 4: Save all detection results to database and display representative image
+        for detection_info in detection_results:
+            image_result = detection_info['image_result']
+            detection_result = detection_info.get('detection_result')
+            image_id = image_result['image_id']
+            
+            if detection_result is None:
+                # Handle detection failure
+                error = detection_info.get('error', 'Unknown error')
                 if self.detection_backend == 'ultralytics':
                     self.database.add_ultralytics_detection(UltralyticsDetectionCreate(
                         image_id=image_id,
@@ -669,7 +737,7 @@ class BenchFinder:
                         max_confidence=0.0,
                         bench_detections=[],
                         detection_success=False,
-                        detection_error=str(e),
+                        detection_error=error,
                         model_url=getattr(self.detection_client, 'model_url', 'unknown'),
                         confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0),
                         iou_threshold=getattr(self.detection_client, 'iou_threshold', 0.0),
@@ -683,10 +751,85 @@ class BenchFinder:
                         max_confidence=0.0,
                         detections=[],
                         detection_success=False,
-                        detection_error=str(e),
+                        detection_error=error,
                         model_id=getattr(self.detection_client, 'model_id', 'unknown'),
                         confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
                     ))
+                continue
+            
+            # Store successful detection result
+            winning_backend = detection_info['winning_backend']
+            winning_model = detection_info['winning_model']
+            
+            if ('bench_detections' in detection_result and 'full_response' in detection_result) or winning_backend == 'ultralytics':
+                # Ultralytics detection format
+                model_url = winning_model if winning_backend == 'ultralytics' else getattr(self.detection_client, 'model_url', 'unknown')
+                self.database.add_ultralytics_detection(UltralyticsDetectionCreate(
+                    image_id=image_id,
+                    has_bench=detection_result['has_bench'],
+                    bench_count=detection_result['bench_count'],
+                    max_confidence=detection_result['max_confidence'],
+                    full_response=detection_result.get('full_response', {}),
+                    bench_detections=detection_result.get('bench_detections', []),
+                    detection_success=True,
+                    detection_error=None,
+                    model_url=model_url,
+                    confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0),
+                    iou_threshold=getattr(self.detection_client, 'iou_threshold', 0.0),
+                    image_size=getattr(self.detection_client, 'image_size', 640),
+                    # Enhanced metadata for multi-model tracking
+                    inference_time=detection_result.get('inference_time'),
+                    preprocess_time=detection_result.get('preprocess_time'),
+                    postprocess_time=detection_result.get('postprocess_time')
+                ))
+            else:
+                # Roboflow detection format
+                model_id = detection_result.get('winning_model_id', getattr(self.detection_client, 'model_id', 'unknown'))
+                self.database.add_detection(DetectionCreate(
+                    image_id=image_id,
+                    has_bench=detection_result['has_bench'],
+                    bench_count=detection_result['bench_count'],
+                    max_confidence=detection_result['max_confidence'],
+                    detections=detection_result.get('detections', []),
+                    detection_success=True,
+                    detection_error=None,
+                    model_id=model_id,
+                    confidence_threshold=getattr(self.detection_client, 'confidence_threshold', 0.0)
+                ))
+            
+            # Display and copy only the representative image
+            if detection_info == representative_detection:
+                winning_model = detection_info['winning_model']
+                pixel_coverage = detection_info['pixel_coverage']
+                
+                # Log detection success with model information
+                logger.info(f"✅ Representative detection: {winning_model} (backend: {winning_backend}, "
+                           f"attempts: {detection_info['total_attempts']}, fallback: {detection_info['fallback_used']})")
+                
+                # Copy the representative image
+                copied_path = self._copy_bench_image(
+                    image_result['filepath'], 
+                    winning_model, 
+                    bench_identifier, 
+                    image_result['heading']
+                )
+                copy_info = f" (copied to {copied_path})" if copied_path else ""
+                
+                print(f"🏆 Representative bench image: {image_result['filepath']} "
+                      f"(heading {image_result['heading']}°) with {pixel_coverage:.1f}% pixel coverage "
+                      f"and confidence {detection_result['max_confidence']:.2f} using {winning_model}{copy_info}")
+                print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
+        
+        # Log summary of all detections
+        if bench_detections:
+            print(f"\n📊 Detection Summary ({len(bench_detections)} images with benches):")
+            for i, detection_info in enumerate(sorted(bench_detections, key=lambda x: x['pixel_coverage'], reverse=True)):
+                img_result = detection_info['image_result']
+                det_result = detection_info['detection_result']
+                is_representative = detection_info == representative_detection
+                marker = "🏆" if is_representative else f"{i+1}."
+                print(f"  {marker} Heading {img_result['heading']:3d}°: {det_result['max_confidence']:.2f} confidence, "
+                      f"{detection_info['pixel_coverage']:.1f}% pixels{'  (REPRESENTATIVE)' if is_representative else ''}")
         
         # If no bench was detected, print image filepaths for manual debugging
         if not result.bench_detected:

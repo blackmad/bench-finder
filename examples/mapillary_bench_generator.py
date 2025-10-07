@@ -6,9 +6,9 @@ MapillaryBenchDetector to find benches from Mapillary crowd-sourced data.
 """
 import logging
 from typing import List, Optional
-from bench_generator import BenchGenerator, BenchCandidate
-from mapillary_client import MapillaryBenchDetector, MapillaryImage
-from config import MAPILLARY_ACCESS_TOKEN, IMAGES_DIR, MAPILLARY_MAX_CHUNK_SIZE_METERS, MAPILLARY_API_LIMIT_PER_REQUEST
+from .bench_generator import BenchGenerator, BenchCandidate
+from bench_finder.clients.mapillary_client import MapillaryBenchDetector, MapillaryImage
+from bench_finder.config import MAPILLARY_ACCESS_TOKEN, IMAGES_DIR, MAPILLARY_MAX_CHUNK_SIZE_METERS, MAPILLARY_API_LIMIT_PER_REQUEST
 import math
 
 logger = logging.getLogger(__name__)

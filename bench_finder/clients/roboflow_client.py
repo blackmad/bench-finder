@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from typing import Dict, List, Optional, Union
 from pathlib import Path
-from schemas import (
+from ..models.schemas import (
     ModelCacheInfo, RoboflowDetectionResult, RoboflowModelInfo, CacheStatus
 )
 
@@ -23,7 +23,7 @@ except ImportError as e:
     LOCAL_INFERENCE_AVAILABLE = False
     print(f"Local inference not available: {e}. Falling back to cloud API.")
 
-from config import ROBOFLOW_API_KEY, ROBOFLOW_MODEL_ID, ROBOFLOW_CONFIDENCE_THRESHOLD
+from ..config import ROBOFLOW_API_KEY, ROBOFLOW_MODEL_ID, ROBOFLOW_CONFIDENCE_THRESHOLD
 
 logger = logging.getLogger(__name__)
 

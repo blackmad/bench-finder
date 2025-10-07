@@ -6,9 +6,9 @@ import logging
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
-from ultralytics_client import UltralyticsClient
-from roboflow_client import RoboflowClient
-from config import (
+from .ultralytics_client import UltralyticsClient
+from .roboflow_client import RoboflowClient
+from ..config import (
     ROBOFLOW_MODELS, 
     ROBOFLOW_API_KEY,
     ULTRALYTICS_API_KEY,

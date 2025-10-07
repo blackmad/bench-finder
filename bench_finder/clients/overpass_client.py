@@ -5,7 +5,7 @@ import requests
 import json
 import logging
 from typing import List, Dict, Tuple
-from config import OVERPASS_URL, OVERPASS_TIMEOUT, SEARCH_RADIUS_METERS
+from bench_finder.config import OVERPASS_URL, OVERPASS_TIMEOUT, SEARCH_RADIUS_METERS
 
 logger = logging.getLogger(__name__)
 

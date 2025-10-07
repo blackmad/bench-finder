@@ -7,7 +7,7 @@ import logging
 from typing import Optional, List, Tuple, Dict
 from PIL import Image
 from io import BytesIO
-from config import (
+from ..config import (
     GOOGLE_MAPS_API_KEY, STREETVIEW_SIZE, STREETVIEW_FOV, 
     STREETVIEW_HEADINGS, IMAGES_DIR
 )

@@ -1706,6 +1706,289 @@ async def get_mapillary_config():
     }
 
 
+# REPORTING ENDPOINTS
+@app.post("/api/benches/{bench_id}/report",
+          summary="Report Bad Bench Detection",
+          description="Report a bad bench detection with optional description and image data",
+          response_model=Dict[str, Any],
+          responses={
+              400: {"model": EnhancedErrorResponse, "description": "Invalid bench ID or request data"},
+              404: {"model": EnhancedErrorResponse, "description": "Bench not found"},
+              500: {"model": EnhancedErrorResponse, "description": "Internal server error"}
+          },
+          tags=["reporting"])
+async def report_bad_bench(
+    bench_id: int = Path(..., gt=0, description="Bench ID to report"),
+    request: Request,
+    report_type: str = Body("bad_detection", description="Type of report"),
+    description: Optional[str] = Body(None, description="Optional description of the issue"),
+    image_id: Optional[int] = Body(None, description="Specific image ID being reported"),
+    user_location_lat: Optional[float] = Body(None, description="User's GPS latitude"),
+    user_location_lng: Optional[float] = Body(None, description="User's GPS longitude")
+):
+    """
+    Report a bad bench detection.
+    
+    This endpoint allows users to report issues with bench detections, such as:
+    - **bad_detection**: AI incorrectly identified a bench where there isn't one
+    - **incorrect_location**: Bench location is wrong
+    - **poor_image_quality**: Image quality makes detection unreliable
+    - **other**: Other issues (requires description)
+    
+    **Process:**
+    1. Validate bench exists in database
+    2. Store report with metadata (user agent, IP, timestamp)
+    3. Optionally copy the reported image for review
+    4. Return confirmation of successful report
+    
+    **Privacy:**
+    Only basic metadata is stored for spam prevention and debugging.
+    """
+    try:
+        from bench_finder.models.models import BenchReport, Bench, Image
+        from bench_finder.services.database import BenchDatabase
+        import shutil
+        import os
+        from datetime import datetime
+        
+        db = BenchDatabase()
+        
+        with db._get_connection() as conn:
+            # Verify bench exists
+            bench_row = conn.execute(
+                "SELECT id, provider_id, lat, lng, source FROM benches WHERE id = ?", 
+                [bench_id]
+            ).fetchone()
+            
+            if not bench_row:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found"
+                )
+            
+            # Verify image exists if provided
+            reported_image_filename = None
+            if image_id:
+                image_row = conn.execute(
+                    "SELECT id, filename, filepath FROM images WHERE id = ? AND bench_id = ?",
+                    [image_id, bench_id]
+                ).fetchone()
+                
+                if image_row and image_row['filename']:
+                    # Copy the image for review purposes
+                    source_path = os.path.join(IMAGES_DIR, image_row['filename'])
+                    if os.path.exists(source_path):
+                        # Create reports directory if it doesn't exist
+                        reports_dir = os.path.join(IMAGES_DIR, 'reports')
+                        os.makedirs(reports_dir, exist_ok=True)
+                        
+                        # Create unique filename for the report
+                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        reported_image_filename = f"report_{bench_id}_{timestamp}_{image_row['filename']}"
+                        dest_path = os.path.join(reports_dir, reported_image_filename)
+                        
+                        try:
+                            shutil.copy2(source_path, dest_path)
+                        except Exception as e:
+                            print(f"Warning: Failed to copy reported image: {e}")
+                            reported_image_filename = None
+            
+            # Get client information
+            user_agent = request.headers.get('user-agent', '')
+            client_host = request.client.host if request.client else None
+            
+            # Insert report
+            result = conn.execute(
+                """
+                INSERT INTO bench_reports (
+                    bench_id, image_id, report_type, description, user_agent, ip_address,
+                    user_location_lat, user_location_lng, reported_image_filename,
+                    metadata, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    bench_id, image_id, report_type, description, user_agent, client_host,
+                    user_location_lat, user_location_lng, reported_image_filename,
+                    json.dumps({
+                        'bench_source': bench_row['source'],
+                        'bench_provider_id': bench_row['provider_id'],
+                        'timestamp': datetime.now().isoformat()
+                    }),
+                    datetime.now()
+                ]
+            )
+            
+            report_id = result.lastrowid
+            conn.commit()
+            
+            return {
+                'success': True,
+                'report_id': report_id,
+                'message': 'Thank you for your report. It will be reviewed by our team.',
+                'bench_id': bench_id,
+                'report_type': report_type,
+                'created_at': datetime.now().isoformat()
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to submit report: {str(e)}"
+        )
+
+
+@app.post("/api/missing-benches",
+          summary="Report Missing Bench",
+          description="Report a missing bench at a specific location with optional photo",
+          response_model=Dict[str, Any],
+          responses={
+              400: {"model": EnhancedErrorResponse, "description": "Invalid location or request data"},
+              413: {"model": EnhancedErrorResponse, "description": "Image file too large"},
+              500: {"model": EnhancedErrorResponse, "description": "Internal server error"}
+          },
+          tags=["reporting"])
+async def report_missing_bench(
+    request: Request,
+    lat: float = Body(..., ge=-90.0, le=90.0, description="Bench latitude"),
+    lng: float = Body(..., ge=-180.0, le=180.0, description="Bench longitude"),
+    description: Optional[str] = Body(None, description="Description of the bench"),
+    location_method: str = Body("gps", description="How location was determined (gps, map_click)"),
+    user_location_lat: Optional[float] = Body(None, description="User's GPS latitude"),
+    user_location_lng: Optional[float] = Body(None, description="User's GPS longitude"),
+    accuracy_meters: Optional[float] = Body(None, description="GPS accuracy in meters"),
+    image_data: Optional[str] = Body(None, description="Base64 encoded image data")
+):
+    """
+    Report a missing bench at a specific location.
+    
+    This endpoint allows users to report benches that exist in real life but are not
+    in the system. It supports two location methods:
+    
+    **GPS Location ("RIGHT HERE" mode):**
+    - Uses the user's current GPS coordinates
+    - Includes accuracy information
+    - Best for reporting benches at user's current location
+    
+    **Map Click ("MAP VIEW" mode):**
+    - User clicks on a map to specify location
+    - More precise for distant locations
+    - Allows planning and remote reporting
+    
+    **Photo Upload:**
+    - Optional base64-encoded image of the bench
+    - Helps verify the report during review
+    - Images are resized and compressed automatically
+    
+    **Process:**
+    1. Validate location coordinates
+    2. Process and store uploaded image (if provided)
+    3. Store report with metadata
+    4. Return confirmation with report ID
+    """
+    try:
+        from bench_finder.models.models import MissingBenchReport
+        from bench_finder.services.database import BenchDatabase
+        import base64
+        import os
+        from PIL import Image
+        from datetime import datetime
+        import io
+        
+        db = BenchDatabase()
+        
+        # Process uploaded image if provided
+        uploaded_image_filename = None
+        if image_data:
+            try:
+                # Decode base64 image
+                if ',' in image_data:
+                    header, image_data = image_data.split(',', 1)
+                
+                image_bytes = base64.b64decode(image_data)
+                
+                # Check file size (max 10MB)
+                if len(image_bytes) > 10 * 1024 * 1024:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="Image file too large. Maximum size is 10MB."
+                    )
+                
+                # Process with PIL
+                image = Image.open(io.BytesIO(image_bytes))
+                
+                # Convert to RGB if necessary
+                if image.mode in ('RGBA', 'P'):
+                    image = image.convert('RGB')
+                
+                # Resize if too large (max 2048px on longest side)
+                max_size = 2048
+                if max(image.size) > max_size:
+                    image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+                
+                # Save processed image
+                missing_reports_dir = os.path.join(IMAGES_DIR, 'missing_reports')
+                os.makedirs(missing_reports_dir, exist_ok=True)
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]  # Include milliseconds
+                uploaded_image_filename = f"missing_{timestamp}_{lat}_{lng}.jpg"
+                image_path = os.path.join(missing_reports_dir, uploaded_image_filename)
+                
+                image.save(image_path, 'JPEG', quality=85, optimize=True)
+                
+            except Exception as e:
+                print(f"Warning: Failed to process uploaded image: {e}")
+                uploaded_image_filename = None
+        
+        # Get client information
+        user_agent = request.headers.get('user-agent', '')
+        client_host = request.client.host if request.client else None
+        
+        with db._get_connection() as conn:
+            # Insert missing bench report
+            result = conn.execute(
+                """
+                INSERT INTO missing_bench_reports (
+                    lat, lng, description, user_agent, ip_address,
+                    user_location_lat, user_location_lng, location_method,
+                    uploaded_image_filename, accuracy_meters, metadata, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    lat, lng, description, user_agent, client_host,
+                    user_location_lat, user_location_lng, location_method,
+                    uploaded_image_filename, accuracy_meters,
+                    json.dumps({
+                        'timestamp': datetime.now().isoformat(),
+                        'has_image': uploaded_image_filename is not None
+                    }),
+                    datetime.now()
+                ]
+            )
+            
+            report_id = result.lastrowid
+            conn.commit()
+            
+            return {
+                'success': True,
+                'report_id': report_id,
+                'message': 'Thank you for reporting this missing bench. It will be reviewed by our team.',
+                'location': {'lat': lat, 'lng': lng},
+                'location_method': location_method,
+                'has_image': uploaded_image_filename is not None,
+                'created_at': datetime.now().isoformat()
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to submit missing bench report: {str(e)}"
+        )
+
+
 # STATISTICS ENDPOINTS
 @app.get("/api/statistics/source/{source}",
          summary="Get Statistics by Source",
