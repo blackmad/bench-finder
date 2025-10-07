@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components"
 import type { WebBenchData } from "../../api"
 import { useApp } from "../../contexts/AppContext"
+import FavoriteButton from "../FavoriteButton"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 
@@ -298,6 +299,13 @@ const MiniMapPlaceholder = styled.div`
   background: ${({ theme }) => theme.colors.gray100};
 `
 
+const FavoriteButtonContainer = styled.div`
+  position: absolute;
+  top: ${({ theme }) => theme.spacing[4]};
+  left: ${({ theme }) => theme.spacing[4]};
+  z-index: 10;
+`
+
 // Global styles for minimap marker
 const GlobalMiniMapStyles = styled.div`
   .bench-minimap-marker {
@@ -477,6 +485,11 @@ export const BenchCard: React.FC<BenchCardProps> = ({
               <small>Click to see detection data</small>
             </div>
           </HoverOverlay>
+
+          {/* Favorite Button */}
+          <FavoriteButtonContainer>
+            <FavoriteButton benchId={bench.id} size="medium" />
+          </FavoriteButtonContainer>
 
           {/* Distance Badge */}
           <Badge $variant="distance">

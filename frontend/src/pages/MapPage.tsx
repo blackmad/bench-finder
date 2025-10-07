@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom"
 import styled from "styled-components"
 import Header from "../components/Header/Header"
 import MapView from "../components/MapView/MapView"
+import Navigation from "../components/Navigation"
 import { useApp } from "../contexts/AppContext"
 import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
@@ -45,6 +46,7 @@ const MapPage: React.FC = () => {
 
   return (
     <PageContainer>
+      <Navigation />
       <Header />
       <ViewContainer>
         <MapView />

@@ -7,6 +7,7 @@ import BenchCard from "../components/BenchCard/BenchCard"
 import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
+import Navigation from "../components/Navigation"
 import { type AppFilters, useApp } from "../contexts/AppContext"
 import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
@@ -258,6 +259,7 @@ const CardsPage: React.FC = () => {
 
   return (
     <PageContainer>
+      <Navigation />
       <Header />
 
       <ViewContainer>

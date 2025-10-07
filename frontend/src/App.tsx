@@ -8,8 +8,10 @@ import {
 import { ThemeProvider } from "styled-components"
 import ApiExample from "./components/ApiExample"
 import { AppProvider } from "./contexts/AppContext"
+import { AuthProvider } from "./contexts/AuthContext"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
+import ProfilePage from "./pages/ProfilePage"
 import GlobalStyles from "./styles/GlobalStyles"
 import { theme } from "./styles/theme"
 
@@ -28,16 +30,19 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <GlobalStyles />
-        <AppProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<Navigate to="/cards" replace />} />
-              <Route path="/cards" element={<CardsPage />} />
-              <Route path="/map" element={<MapPage />} />
-              <Route path="/api-demo" element={<ApiExample />} />
-            </Routes>
-          </Router>
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <Router>
+              <Routes>
+                <Route path="/" element={<Navigate to="/cards" replace />} />
+                <Route path="/cards" element={<CardsPage />} />
+                <Route path="/map" element={<MapPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/api-demo" element={<ApiExample />} />
+              </Routes>
+            </Router>
+          </AppProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )

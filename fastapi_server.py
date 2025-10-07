@@ -25,6 +25,8 @@ from schemas import (
     ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary,
     SourceSearchRequest, SourceStatistics, ClusteredBenchListResponse
 )
+from supabase_client import supabase_service, verify_supabase_connection
+from supabase_endpoints import router as user_router
 
 # Configuration constants
 DEFAULT_START_LAT = 52.3613577  # Amsterdam, Netherlands (matches actual data)
@@ -108,6 +110,12 @@ async def lifespan(app: FastAPI):
             mapillary_service = None
     else:
         print("ℹ️ Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
+    
+    # Initialize Supabase connection
+    if verify_supabase_connection():
+        print("✅ Supabase integration enabled")
+    else:
+        print("⚠️ Supabase integration disabled (connection failed or not configured)")
     
     # Ensure required directories exist
     os.makedirs('templates', exist_ok=True)
@@ -197,6 +205,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include user endpoints router
+app.include_router(user_router)
 
 # Mount static files for images
 if os.path.exists(IMAGES_DIR):

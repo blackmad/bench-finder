@@ -84,7 +84,7 @@ packaging==24.2
 paho-mqtt==1.6.1
 pandas==2.2.3
 pi_heif==0.22.0
-pillow==11.3.0
+pillow>=11.0,<12.0
 pillow-avif-plugin==1.5.2
 platformdirs==4.4.0
 pluggy==1.6.0
@@ -139,7 +139,7 @@ structlog==24.4.0
 supervision==0.26.1
 sure==2.0.1
 sympy==1.14.0
-term-image==0.7.2
+# term-image==0.7.2  # Commented out due to pillow version conflict
 tifffile==2025.9.30
 tldextract==5.1.3
 tokenizers==0.21.4

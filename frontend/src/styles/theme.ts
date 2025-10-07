@@ -2,6 +2,7 @@ export const theme = {
   colors: {
     // Primary palette
     primary: "#3b82f6",
+    primaryHover: "#2563eb",
     primaryLight: "#60a5fa",
     primaryDark: "#2563eb",
 
@@ -39,6 +40,11 @@ export const theme = {
     textPrimary: "#1e293b",
     textSecondary: "#64748b",
     textTertiary: "#94a3b8",
+    text: {
+      primary: "#1e293b",
+      secondary: "#64748b",
+      tertiary: "#94a3b8",
+    },
 
     // Border colors
     border: "#e2e8f0",
