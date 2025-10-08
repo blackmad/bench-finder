@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 from typing import Dict, List, Optional, Union
 from pathlib import Path
+from .base_detection_client import DetectionClient, DetectionResult, DetectionItem, BoundingBox, Polygon
 from ..models.schemas import (
     ModelCacheInfo, RoboflowDetectionResult, RoboflowModelInfo, CacheStatus
 )
@@ -47,18 +48,21 @@ def clear_model_cache() -> None:
     logger.info(f"Cleared model cache ({cached_count} models removed)")
 
 
-class RoboflowClient:
+class RoboflowClient(DetectionClient):
     """Client for Roboflow inference - supports both local and cloud inference."""
     
-    def __init__(self, use_local_inference: bool = True, model_id: Optional[str] = None):
+    def __init__(self, use_local_inference: bool = True, model_id: Optional[str] = None, confidence_threshold: Optional[float] = None):
         """Initialize the Roboflow client.
         
         Args:
             use_local_inference: Whether to use local inference (default: True)
             model_id: Model ID to use (defaults to config value or 'yolov8n-640' for local)
+            confidence_threshold: Override confidence threshold (defaults to config value)
         """
+        # Initialize base class with confidence threshold
+        super().__init__(confidence_threshold or ROBOFLOW_CONFIDENCE_THRESHOLD)
+        
         self.use_local_inference = use_local_inference and LOCAL_INFERENCE_AVAILABLE
-        self.confidence_threshold = ROBOFLOW_CONFIDENCE_THRESHOLD
         self.local_model = None
         
         if self.use_local_inference:
@@ -93,7 +97,7 @@ class RoboflowClient:
             self.base_url = f"https://detect.roboflow.com/{self.model_id}"
             logger.info(f"Using cloud API with model: {self.model_id}")
     
-    def detect_benches_in_image(self, image_path: str) -> RoboflowDetectionResult:
+    def detect_benches_in_image(self, image_path: str) -> DetectionResult:
         """
         Detect benches in an image using local inference or cloud API.
         
@@ -101,7 +105,7 @@ class RoboflowClient:
             image_path: Path to the image file
             
         Returns:
-            RoboflowDetectionResult with detection results
+            DetectionResult with detection results
         """
         logger.debug(f"Analyzing image for benches: {image_path}")
         
@@ -110,7 +114,7 @@ class RoboflowClient:
         else:
             return self._detect_benches_cloud(image_path)
     
-    def _detect_benches_local(self, image_path: str) -> RoboflowDetectionResult:
+    def _detect_benches_local(self, image_path: str) -> DetectionResult:
         """
         Detect benches using local inference.
         
@@ -118,7 +122,7 @@ class RoboflowClient:
             image_path: Path to the image file
             
         Returns:
-            RoboflowDetectionResult with detection results
+            DetectionResult with detection results
         """
         try:
             # Load image using cv2
@@ -146,7 +150,7 @@ class RoboflowClient:
             logger.error(f"Unexpected error in local inference for {image_path}: {e}")
             return self._create_error_result(image_path, f"Local inference error: {e}")
     
-    def _detect_benches_cloud(self, image_path: str) -> RoboflowDetectionResult:
+    def _detect_benches_cloud(self, image_path: str) -> DetectionResult:
         """
         Detect benches using cloud API.
         
@@ -154,7 +158,7 @@ class RoboflowClient:
             image_path: Path to the image file
             
         Returns:
-            RoboflowDetectionResult with detection results
+            DetectionResult with detection results
         """
         try:
             # Read and encode the image
@@ -197,7 +201,7 @@ class RoboflowClient:
             logger.error(f"Unexpected error in cloud inference for {image_path}: {e}")
             return self._create_error_result(image_path, f"Cloud inference error: {e}")
     
-    def _process_detection_result(self, image_path: str, api_result: Dict, is_local: bool = False) -> RoboflowDetectionResult:
+    def _process_detection_result(self, image_path: str, api_result: Dict, is_local: bool = False) -> DetectionResult:
         """
         Process the raw inference result into a standardized format.
         
@@ -207,7 +211,7 @@ class RoboflowClient:
             is_local: Whether this is from local inference
             
         Returns:
-            RoboflowDetectionResult with processed detection data
+            DetectionResult with processed detection data
         """
         try:
             predictions = api_result.get('predictions', [])
@@ -231,29 +235,40 @@ class RoboflowClient:
                     is_bench_like = 'bench' in class_name
                 
                 if is_bench_like and confidence >= self.confidence_threshold:
-                    bench_detections.append({
-                        'class': prediction.get('class'),
-                        'confidence': confidence,
-                        'x': prediction.get('x'),
-                        'y': prediction.get('y'),
-                        'width': prediction.get('width'),
-                        'height': prediction.get('height')
-                    })
+                    # Convert Roboflow format (center coordinates + width/height) to bounding box
+                    x_center = prediction.get('x', 0)
+                    y_center = prediction.get('y', 0)
+                    width = prediction.get('width', 0)
+                    height = prediction.get('height', 0)
+                    
+                    # Convert to corner coordinates
+                    x1 = x_center - width / 2
+                    y1 = y_center - height / 2
+                    x2 = x_center + width / 2
+                    y2 = y_center + height / 2
+                    
+                    bbox = BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
+                    
+                    detection_item = DetectionItem(
+                        confidence=confidence,
+                        bbox=bbox,
+                        class_name=prediction.get('class', 'bench')
+                    )
+                    bench_detections.append(detection_item)
             
             has_bench = len(bench_detections) > 0
-            max_confidence = max((d['confidence'] for d in bench_detections), default=0)
+            max_confidence = max((d.confidence for d in bench_detections), default=0.0)
             
-            result = RoboflowDetectionResult(
+            result = DetectionResult(
                 image_path=image_path,
                 success=True,
                 has_bench=has_bench,
                 bench_count=len(bench_detections),
                 max_confidence=max_confidence,
                 detections=bench_detections,
-                raw_predictions=len(predictions),
+                backend_name="RoboflowClient",
                 model_id=self.model_id,
-                confidence_threshold=self.confidence_threshold,
-                inference_type='local' if is_local else 'cloud'
+                confidence_threshold=self.confidence_threshold
             )
             
             if has_bench:
@@ -268,22 +283,22 @@ class RoboflowClient:
             logger.error(f"Error processing detection result for {image_path}: {e}")
             return self._create_error_result(image_path, f"Processing error: {e}")
     
-    def _create_error_result(self, image_path: str, error: str) -> RoboflowDetectionResult:
+    def _create_error_result(self, image_path: str, error: str) -> DetectionResult:
         """Create a standardized error result."""
-        return RoboflowDetectionResult(
+        return DetectionResult(
             image_path=image_path,
             success=False,
             has_bench=False,
             bench_count=0,
             max_confidence=0.0,
             detections=[],
-            raw_predictions=0,
+            backend_name="RoboflowClient",
             model_id=self.model_id,
             confidence_threshold=self.confidence_threshold,
             error=error
         )
     
-    def batch_detect_benches(self, image_paths: List[str]) -> List[RoboflowDetectionResult]:
+    def batch_detect_benches(self, image_paths: List[str]) -> List[DetectionResult]:
         """
         Detect benches in multiple images.
         
@@ -291,7 +306,7 @@ class RoboflowClient:
             image_paths: List of image file paths
             
         Returns:
-            List of RoboflowDetectionResult objects
+            List of DetectionResult objects
         """
         logger.info(f"Batch analyzing {len(image_paths)} images for benches")
         
@@ -315,56 +330,25 @@ class RoboflowClient:
         
         return results
     
-    def get_model_info(self) -> Optional[RoboflowModelInfo]:
+    def get_model_info(self) -> dict:
         """
         Get information about the Roboflow model.
         
         Returns:
-            RoboflowModelInfo or None if unavailable
+            Dictionary with model information
         """
         try:
-            # This would need to be implemented based on Roboflow's model info endpoint
-            # For now, return basic info
-            return RoboflowModelInfo(
-                model_id=self.model_id,
-                confidence_threshold=self.confidence_threshold,
-                classes=['bench']  # This model is specifically for bench detection
-            )
+            return {
+                'model_id': self.model_id,
+                'confidence_threshold': self.confidence_threshold,
+                'use_local_inference': self.use_local_inference,
+                'classes': ['bench'],  # This model is specifically for bench detection
+                'backend': 'RoboflowClient'
+            }
         except Exception as e:
             logger.error(f"Error getting model info: {e}")
-            return None
+            return {'error': str(e)}
     
-    def validate_image_file(self, image_path: str) -> bool:
-        """
-        Validate that an image file exists and is readable.
-        
-        Args:
-            image_path: Path to the image file
-            
-        Returns:
-            True if valid, False otherwise
-        """
-        try:
-            import os
-            from PIL import Image
-            
-            if not os.path.exists(image_path):
-                logger.warning(f"Image file does not exist: {image_path}")
-                return False
-            
-            if os.path.getsize(image_path) == 0:
-                logger.warning(f"Image file is empty: {image_path}")
-                return False
-            
-            # Try to open as image to verify it's valid
-            with Image.open(image_path) as img:
-                img.verify()
-            
-            return True
-            
-        except Exception as e:
-            logger.warning(f"Image validation failed for {image_path}: {e}")
-            return False
     
     def get_cache_status(self) -> CacheStatus:
         """Get cache status information for this client."""

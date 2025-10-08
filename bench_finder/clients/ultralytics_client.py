@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
+from .base_detection_client import DetectionClient, DetectionResult, DetectionItem, BoundingBox, Polygon
 from ..models.schemas import (
     UltralyticsApiResponse, UltralyticsDetectionResult, UltralyticsImageResult,
     UltralyticsDetectionItem, UltralyticsBox, UltralyticsSegments, UltralyticsSpeed
@@ -26,22 +27,25 @@ from ..config import (
 logger = logging.getLogger(__name__)
 
 
-class UltralyticsClient:
+class UltralyticsClient(DetectionClient):
     """Client for Ultralytics inference supporting both local YOLO11-seg and API modes."""
     
-    def __init__(self, use_local=None):
+    def __init__(self, use_local=None, confidence_threshold: Optional[float] = None):
         """Initialize the Ultralytics client.
         
         Args:
             use_local: Override for local mode setting (for testing)
+            confidence_threshold: Override confidence threshold (defaults to config value)
         """
+        # Initialize base class with confidence threshold
+        super().__init__(confidence_threshold or ULTRALYTICS_CONFIDENCE_THRESHOLD)
+        
         # Allow override for testing purposes
         if use_local is not None:
             self.use_local = use_local
         else:
             self.use_local = ULTRALYTICS_USE_LOCAL
             
-        self.confidence_threshold = ULTRALYTICS_CONFIDENCE_THRESHOLD
         self.iou_threshold = ULTRALYTICS_IOU_THRESHOLD
         self.image_size = ULTRALYTICS_IMAGE_SIZE
         
@@ -99,7 +103,7 @@ class UltralyticsClient:
                 logger.error(f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}: {e}")
                 raise
     
-    def detect_benches_in_image(self, image_path: str) -> UltralyticsDetectionResult:
+    def detect_benches_in_image(self, image_path: str) -> DetectionResult:
         """
         Detect benches in an image using either local YOLO11-seg or Ultralytics API.
         
@@ -107,14 +111,14 @@ class UltralyticsClient:
             image_path: Path to the image file
             
         Returns:
-            UltralyticsDetectionResult with detection results including full segmentation data
+            DetectionResult with detection results including full segmentation data
         """
         if self.use_local:
             return self._detect_benches_local(image_path)
         else:
             return self._detect_benches_api(image_path)
     
-    def _detect_benches_local(self, image_path: str) -> UltralyticsDetectionResult:
+    def _detect_benches_local(self, image_path: str) -> DetectionResult:
         """
         Detect benches using local YOLO11-seg model.
         
@@ -122,7 +126,7 @@ class UltralyticsClient:
             image_path: Path to the image file
             
         Returns:
-            UltralyticsDetectionResult with detection results
+            DetectionResult with detection results
         """
         try:
             logger.debug(f"Analyzing image for benches with local YOLO: {image_path}")
@@ -149,7 +153,7 @@ class UltralyticsClient:
             logger.error(f"Unexpected error analyzing image {image_path}: {e}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
     
-    def _detect_benches_api(self, image_path: str) -> UltralyticsDetectionResult:
+    def _detect_benches_api(self, image_path: str) -> DetectionResult:
         """
         Detect benches using Ultralytics API.
         
@@ -157,7 +161,7 @@ class UltralyticsClient:
             image_path: Path to the image file
             
         Returns:
-            UltralyticsDetectionResult with detection results
+            DetectionResult with detection results
         """
         try:
             logger.debug(f"Analyzing image for benches with Ultralytics API: {image_path}")
@@ -208,7 +212,7 @@ class UltralyticsClient:
             logger.error(f"Unexpected error analyzing image {image_path}: {e}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
     
-    def _process_local_detection_result(self, image_path: str, results) -> UltralyticsDetectionResult:
+    def _process_local_detection_result(self, image_path: str, results) -> DetectionResult:
         """
         Process the local YOLO detection results into a standardized format.
         
@@ -217,7 +221,7 @@ class UltralyticsClient:
             results: YOLO results object from local inference
             
         Returns:
-            UltralyticsDetectionResult with processed detection data
+            DetectionResult with processed detection data
         """
         try:
             # Extract timing information
@@ -247,7 +251,7 @@ class UltralyticsClient:
                         
                         # Get bounding box coordinates
                         xyxy = box.xyxy.cpu().numpy()[0]
-                        box_data = UltralyticsBox(
+                        bbox = BoundingBox(
                             x1=float(xyxy[0]),
                             y1=float(xyxy[1]),
                             x2=float(xyxy[2]),
@@ -255,60 +259,40 @@ class UltralyticsClient:
                         )
                         
                         # Get segmentation data if available
-                        segments_data = None
+                        polygon = None
                         if result.masks is not None and i < len(result.masks.xy):
                             mask_points = result.masks.xy[i]
                             if len(mask_points) > 0:
-                                segments_data = UltralyticsSegments(
-                                    x=mask_points[:, 0].tolist(),
-                                    y=mask_points[:, 1].tolist()
-                                )
+                                # Convert to polygon format
+                                coordinates = [[float(x), float(y)] for x, y in mask_points]
+                                polygon = Polygon(coordinates=coordinates)
                         
-                        detection_data = UltralyticsDetectionItem(
-                            **{"class": class_names.get(class_id, f"class_{class_id}")},
-                            class_id=class_id,
+                        detection_item = DetectionItem(
                             confidence=confidence,
-                            box=box_data,
-                            segments=segments_data,
+                            bbox=bbox,
+                            class_name=class_names.get(class_id, f"class_{class_id}"),
+                            polygon=polygon
                         )
                         
-                        all_results.append(detection_data)
+                        all_results.append(detection_item)
                         
                         # Check if this is a bench detection
                         if 'bench' in class_name and confidence >= self.confidence_threshold:
-                            bench_detections.append(detection_data)
+                            bench_detections.append(detection_item)
             
             has_bench = len(bench_detections) > 0
             max_confidence = max((d.confidence for d in bench_detections), default=0.0)
             
-            # Create proper Pydantic models for the response
-            speed_data = UltralyticsSpeed(
-                inference=timing_info.get('inference_time'),
-                preprocess=timing_info.get('preprocess_time'),
-                postprocess=timing_info.get('postprocess_time')
-            )
-            
-            image_result = UltralyticsImageResult(
-                results=all_results,
-                shape=results[0].orig_shape if hasattr(results[0], 'orig_shape') else [0, 0],
-                speed=speed_data
-            )
-            
-            full_response = UltralyticsApiResponse(images=[image_result])
-            
-            result_data = UltralyticsDetectionResult(
+            result_data = DetectionResult(
                 image_path=image_path,
                 success=True,
                 has_bench=has_bench,
                 bench_count=len(bench_detections),
                 max_confidence=max_confidence,
-                bench_detections=bench_detections,
-                full_response=full_response,
-                model_url=str(self.local_model_path) if self.local_model_path else 'local',
+                detections=bench_detections,
+                backend_name="UltralyticsClient",
+                model_id=str(self.local_model_path) if self.local_model_path else 'local',
                 confidence_threshold=self.confidence_threshold,
-                iou_threshold=self.iou_threshold,
-                image_size=self.image_size,
-                inference_mode='local',
                 inference_time=timing_info.get('inference_time'),
                 preprocess_time=timing_info.get('preprocess_time'),
                 postprocess_time=timing_info.get('postprocess_time')
@@ -317,9 +301,9 @@ class UltralyticsClient:
             if has_bench:
                 logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
                 # Log segmentation info for first bench detection
-                if bench_detections and bench_detections[0].segments:
-                    segments = bench_detections[0].segments
-                    logger.debug(f"Segmentation points: {len(segments.x)} coordinates")
+                if bench_detections and bench_detections[0].polygon:
+                    segments = bench_detections[0].polygon
+                    logger.debug(f"Segmentation points: {len(polygon.coordinates)} coordinates")
             else:
                 logger.debug(f"No bench detected in {image_path}")
             
@@ -329,7 +313,7 @@ class UltralyticsClient:
             logger.error(f"Error processing local detection result for {image_path}: {e}")
             return self._create_error_result(image_path, f"Processing error: {e}")
     
-    def _process_api_detection_result(self, image_path: str, api_result: Dict) -> UltralyticsDetectionResult:
+    def _process_api_detection_result(self, image_path: str, api_result: Dict) -> DetectionResult:
         """
         Process the raw Ultralytics API result into a standardized format.
         
@@ -338,7 +322,7 @@ class UltralyticsClient:
             api_result: Raw API response dictionary
             
         Returns:
-            UltralyticsDetectionResult with processed detection data
+            DetectionResult with processed detection data
         """
         try:
             # Extract timing information if available
@@ -363,18 +347,27 @@ class UltralyticsClient:
                     class_name = result.get('name', f'class_{class_id}')
                     confidence = result.get('confidence', 0)
                     
-                    # Convert API result to Pydantic model
-                    box_data = UltralyticsBox(**result.get('box', {}))
-                    segments_data = None
-                    if result.get('segments'):
-                        segments_data = UltralyticsSegments(**result.get('segments', {}))
+                    # Convert API result to DetectionItem
+                    box_data = result.get('box', {})
+                    bbox = BoundingBox(
+                        x1=box_data.get('x1', 0),
+                        y1=box_data.get('y1', 0),
+                        x2=box_data.get('x2', 0),
+                        y2=box_data.get('y2', 0)
+                    )
                     
-                    detection_item = UltralyticsDetectionItem(
-                        **{"class": class_name},
-                        class_id=class_id,
+                    polygon = None
+                    if result.get('segments'):
+                        segments_data = result.get('segments', {})
+                        if segments_data.get('x') and segments_data.get('y'):
+                            coordinates = [[x, y] for x, y in zip(segments_data['x'], segments_data['y'])]
+                            polygon = Polygon(coordinates=coordinates)
+                    
+                    detection_item = DetectionItem(
                         confidence=confidence,
-                        box=box_data,
-                        segments=segments_data
+                        bbox=bbox,
+                        class_name=class_name,
+                        polygon=polygon
                     )
                     
                     all_results.append(detection_item)
@@ -389,27 +382,16 @@ class UltralyticsClient:
             has_bench = len(bench_detections) > 0
             max_confidence = max((d.confidence for d in bench_detections), default=0.0)
             
-            # Convert API result to Pydantic model - handle the actual API response format
-            try:
-                full_response = UltralyticsApiResponse(**api_result)
-            except Exception as e:
-                logger.warning(f"Could not parse API response as Pydantic model: {e}")
-                # Create a minimal response structure
-                full_response = UltralyticsApiResponse(images=[])
-            
-            result_data = UltralyticsDetectionResult(
+            result_data = DetectionResult(
                 image_path=image_path,
                 success=True,
                 has_bench=has_bench,
                 bench_count=len(bench_detections),
                 max_confidence=max_confidence,
-                bench_detections=bench_detections,
-                full_response=full_response,
-                model_url=self.model_url or "unknown",
+                detections=bench_detections,
+                backend_name="UltralyticsClient",
+                model_id=self.model_url or "unknown",
                 confidence_threshold=self.confidence_threshold,
-                iou_threshold=self.iou_threshold,
-                image_size=self.image_size,
-                inference_mode='api',
                 inference_time=timing_info.get('inference_time'),
                 preprocess_time=timing_info.get('preprocess_time'),
                 postprocess_time=timing_info.get('postprocess_time')
@@ -418,9 +400,9 @@ class UltralyticsClient:
             if has_bench:
                 logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
                 # Log segmentation info for first bench detection
-                if bench_detections and bench_detections[0].segments:
-                    segments = bench_detections[0].segments
-                    logger.debug(f"Segmentation points: {len(segments.x)} coordinates")
+                if bench_detections and bench_detections[0].polygon:
+                    segments = bench_detections[0].polygon
+                    logger.debug(f"Segmentation points: {len(polygon.coordinates)} coordinates")
             else:
                 logger.debug(f"No bench detected in {image_path}")
             
@@ -430,25 +412,22 @@ class UltralyticsClient:
             logger.error(f"Error processing detection result for {image_path}: {e}")
             return self._create_error_result(image_path, f"Processing error: {e}")
     
-    def _create_error_result(self, image_path: str, error: str) -> UltralyticsDetectionResult:
+    def _create_error_result(self, image_path: str, error: str) -> DetectionResult:
         """Create a standardized error result."""
-        return UltralyticsDetectionResult(
+        return DetectionResult(
             image_path=image_path,
             success=False,
             has_bench=False,
             bench_count=0,
             max_confidence=0.0,
-            bench_detections=[],
-            full_response=UltralyticsApiResponse(images=[]),
-            model_url=str(self.local_model_path) if self.use_local else self.model_url or "unknown",
+            detections=[],
+            backend_name="UltralyticsClient",
+            model_id=str(self.local_model_path) if self.use_local else self.model_url or "unknown",
             confidence_threshold=self.confidence_threshold,
-            iou_threshold=self.iou_threshold,
-            image_size=self.image_size,
-            inference_mode='local' if self.use_local else 'api',
             error=error
         )
     
-    def batch_detect_benches(self, image_paths: List[str]) -> List[UltralyticsDetectionResult]:
+    def batch_detect_benches(self, image_paths: List[str]) -> List[DetectionResult]:
         """
         Detect benches in multiple images.
         
@@ -456,7 +435,7 @@ class UltralyticsClient:
             image_paths: List of image file paths
             
         Returns:
-            List of UltralyticsDetectionResult objects
+            List of DetectionResult objects
         """
         logger.info(f"Batch analyzing {len(image_paths)} images for benches with Ultralytics")
         
@@ -482,12 +461,12 @@ class UltralyticsClient:
         
         return results
     
-    def get_model_info(self) -> Optional[Dict]:
+    def get_model_info(self) -> dict:
         """
         Get information about the Ultralytics model.
         
         Returns:
-            Model information dictionary or None if unavailable
+            Dictionary with model information
         """
         try:
             return {
@@ -497,45 +476,15 @@ class UltralyticsClient:
                 'image_size': self.image_size,
                 'supports_segmentation': True,
                 'mode': 'local' if self.use_local else 'api',
-                'api_endpoint': self.inference_url if not self.use_local else None
+                'api_endpoint': self.inference_url if not self.use_local else None,
+                'backend': 'UltralyticsClient'
             }
         except Exception as e:
             logger.error(f"Error getting model info: {e}")
-            return None
+            return {'error': str(e)}
     
-    def validate_image_file(self, image_path: str) -> bool:
-        """
-        Validate that an image file exists and is readable.
-        
-        Args:
-            image_path: Path to the image file
-            
-        Returns:
-            True if valid, False otherwise
-        """
-        try:
-            import os
-            from PIL import Image
-            
-            if not os.path.exists(image_path):
-                logger.warning(f"Image file does not exist: {image_path}")
-                return False
-            
-            if os.path.getsize(image_path) == 0:
-                logger.warning(f"Image file is empty: {image_path}")
-                return False
-            
-            # Try to open as image to verify it's valid
-            with Image.open(image_path) as img:
-                img.verify()
-            
-            return True
-            
-        except Exception as e:
-            logger.warning(f"Image validation failed for {image_path}: {e}")
-            return False
 
-    def detect_benches_with_class_filter(self, image_path: str, target_classes: List[str] | None = None) -> UltralyticsDetectionResult:
+    def detect_benches_with_class_filter(self, image_path: str, target_classes: List[str] | None = None) -> DetectionResult:
         """
         Detect benches in an image with specific class filtering.
         
@@ -544,7 +493,7 @@ class UltralyticsClient:
             target_classes: List of class names to look for (defaults to bench-related terms)
             
         Returns:
-            UltralyticsDetectionResult with filtered detection results
+            DetectionResult with filtered detection results
         """
         if target_classes is None:
             target_classes = ['bench', 'seat', 'chair']  # Default bench-related classes
@@ -556,25 +505,22 @@ class UltralyticsClient:
         
         # Filter detections to only include target classes
         filtered_detections = []
-        for detection in result.bench_detections:
+        for detection in result.detections:
             class_name = detection.class_name.lower()
             if any(target_class in class_name for target_class in target_classes):
                 filtered_detections.append(detection)
         
         # Create new result with filtered detections
-        filtered_result = UltralyticsDetectionResult(
+        filtered_result = DetectionResult(
             image_path=result.image_path,
             success=result.success,
             has_bench=len(filtered_detections) > 0,
             bench_count=len(filtered_detections),
             max_confidence=max((d.confidence for d in filtered_detections), default=0.0),
-            bench_detections=filtered_detections,
-            full_response=result.full_response,
-            model_url=result.model_url,
+            detections=filtered_detections,
+            backend_name=result.backend_name,
+            model_id=result.model_id,
             confidence_threshold=result.confidence_threshold,
-            iou_threshold=result.iou_threshold,
-            image_size=result.image_size,
-            inference_mode=result.inference_mode,
             inference_time=result.inference_time,
             preprocess_time=result.preprocess_time,
             postprocess_time=result.postprocess_time,

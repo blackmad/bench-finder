@@ -11,7 +11,7 @@ try:
     from term_image.utils import get_terminal_name_version
     
     # Force iTerm2 image support for warp
-    if get_terminal_name_version()[0] == "warp":
+    if get_terminal_name_version()[0] in ["warp", "vscode"]:
         ITerm2Image.is_supported = lambda *_: True
 except (ImportError, ValueError, OSError) as e:
     # This can happen when running in background without a proper terminal
