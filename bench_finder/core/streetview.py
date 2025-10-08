@@ -55,7 +55,7 @@ class StreetViewClient:
                 result = self.capture_image(lat, lng, bench_id, heading)
                 capture_results.append(result)
                 
-                if result.success:
+                if result and result.success:
                     if result.cached:
                         logger.debug(f"Using cached image at heading {heading}°")
                     else:
@@ -65,21 +65,10 @@ class StreetViewClient:
                     
             except Exception as e:
                 logger.error(f"Error capturing image at heading {heading}°: {e}")
-                error_result = StreetViewImageCapture(
-                    bench_id=bench_id,
-                    lat=lat,
-                    lng=lng,
-                    heading=heading,
-                    filepath=None,
-                    filename=None,
-                    success=False,
-                    error=str(e)
-                )
-                capture_results.append(error_result)
         
         # Create batch result from individual capture results
         batch_result = StreetViewBatchCaptureResult.from_capture_results(
-            bench_id, lat, lng, [result.dict() for result in capture_results]
+            bench_id, lat, lng, capture_results
         )
         
         logger.info(f"Bench {bench_id}: {batch_result.successful_images}/{batch_result.total_images} images total "
@@ -87,7 +76,7 @@ class StreetViewClient:
         
         return batch_result
     
-    def capture_image(self, lat: float, lng: float, bench_id: str, heading: int) -> StreetViewImageCapture:
+    def capture_image(self, lat: float, lng: float, bench_id: str, heading: int) -> StreetViewImageCapture | None:
         """
         Capture a single street view image at specified heading.
         
@@ -117,7 +106,8 @@ class StreetViewClient:
                     filename=filename,
                     success=True,
                     file_size=os.path.getsize(filepath),
-                    cached=True
+                    cached=True,
+                    error=None
                 )
             
             # Build the Street View Static API URL
@@ -137,31 +127,13 @@ class StreetViewClient:
             # Check if we got a valid response
             if response.status_code != 200:
                 logger.error(f"Street View API returned status {response.status_code}")
-                return StreetViewImageCapture(
-                    bench_id=bench_id,
-                    lat=lat,
-                    lng=lng,
-                    heading=heading,
-                    filepath=None,
-                    filename=None,
-                    success=False,
-                    error=f"HTTP {response.status_code}"
-                )
+                return None
             
             # Check content type to ensure we got an image
             content_type = response.headers.get('content-type', '')
             if not content_type.startswith('image/'):
                 logger.error(f"Expected image, got content-type: {content_type}")
-                return StreetViewImageCapture(
-                    bench_id=bench_id,
-                    lat=lat,
-                    lng=lng,
-                    heading=heading,
-                    filepath=None,
-                    filename=None,
-                    success=False,
-                    error=f"Invalid content type: {content_type}"
-                )
+                return None
             
             # Save the image
             with open(filepath, 'wb') as f:
@@ -170,16 +142,7 @@ class StreetViewClient:
             # Verify the image was saved correctly
             if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
                 logger.error(f"Failed to save image to {filepath}")
-                return StreetViewImageCapture(
-                    bench_id=bench_id,
-                    lat=lat,
-                    lng=lng,
-                    heading=heading,
-                    filepath=None,
-                    filename=None,
-                    success=False,
-                    error="Failed to save image"
-                )
+                return None
             
             # Optionally verify it's a valid image
             try:
@@ -189,42 +152,14 @@ class StreetViewClient:
             except Exception as e:
                 logger.warning(f"Could not verify image {filename}: {e}")
             
-            return StreetViewImageCapture(
-                bench_id=bench_id,
-                lat=lat,
-                lng=lng,
-                heading=heading,
-                filepath=filepath,
-                filename=filename,
-                success=True,
-                file_size=os.path.getsize(filepath),
-                cached=False
-            )
+            return None
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error capturing street view image: {e}")
-            return StreetViewImageCapture(
-                bench_id=bench_id,
-                lat=lat,
-                lng=lng,
-                heading=heading,
-                filepath=None,
-                filename=None,
-                success=False,
-                error=f"Network error: {e}"
-            )
+            return None
         except Exception as e:
             logger.error(f"Unexpected error capturing street view image: {e}")
-            return StreetViewImageCapture(
-                bench_id=bench_id,
-                lat=lat,
-                lng=lng,
-                heading=heading,
-                filepath=None,
-                filename=None,
-                success=False,
-                error=f"Unexpected error: {e}"
-            )
+            return None
     
     
     def get_street_view_metadata(self, lat: float, lng: float) -> StreetViewMetadataResponse:

@@ -62,7 +62,7 @@ class StreetViewBatchCaptureResult(BaseModel):
         bench_id: str, 
         lat: float, 
         lng: float, 
-        capture_results: List[Dict[str, Any]]
+        capture_results: List[StreetViewImageCapture | None]
     ) -> "StreetViewBatchCaptureResult":
         """Create batch result from raw capture results."""
         captures = []
@@ -70,11 +70,10 @@ class StreetViewBatchCaptureResult(BaseModel):
         cached_count = 0
         downloaded_count = 0
         
-        for result in capture_results:
-            capture = StreetViewImageCapture(**result)
+        for capture in capture_results:
             captures.append(capture)
             
-            if capture.success:
+            if capture is not None and capture.success:
                 successful_count += 1
                 if capture.cached:
                     cached_count += 1
@@ -84,7 +83,7 @@ class StreetViewBatchCaptureResult(BaseModel):
         return cls(
             bench_id=bench_id,
             location=StreetViewLocation(lat=lat, lng=lng),
-            captures=captures,
+            captures=[capture for capture in capture_results if capture is not None],
             total_images=len(capture_results),
             successful_images=successful_count,
             failed_images=len(capture_results) - successful_count,
