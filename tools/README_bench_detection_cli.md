@@ -104,6 +104,11 @@ The tool provides:
 - Valid API keys for cloud services (optional)
 - Terminal with image display support (for visual output)
 
+### Optional Dependencies for Local Inference
+
+- **Roboflow Local**: Requires `pip install inference supervision`
+- **Ultralytics Local**: Requires `pip install ultralytics` (usually included in requirements.txt)
+
 ## Notes
 
 - **Local Inference**: Requires appropriate model files and dependencies
@@ -114,7 +119,11 @@ The tool provides:
 
 ## Troubleshooting
 
-- **"No module named 'inference'"**: Local Roboflow inference not available, will fall back to cloud
-- **"HTTP 413"**: Image too large for cloud API, try resizing
-- **"API key required"**: Set appropriate environment variables for cloud services
+- **"Local inference not available"**: Install missing dependencies:
+  - Roboflow local: `pip install inference supervision`
+  - Ultralytics local: `pip install ultralytics`
+- **"HTTP 413"**: Image too large for cloud API, try resizing or use local inference
+- **"API key not set"**: Set appropriate environment variables for cloud services:
+  - `export ROBOFLOW_API_KEY=your_key`
+  - `export ULTRALYTICS_API_KEY=your_key`
 - **Image display issues**: Use `--no-display` to skip terminal visualization

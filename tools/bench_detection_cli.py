@@ -147,6 +147,17 @@ def test_roboflow_local(image_path: str, output_dir: str) -> Optional[str]:
     """Test Roboflow local inference."""
     print("\n🔧 Testing Roboflow Local Inference...")
     try:
+        # Check if local inference is available
+        try:
+            from inference import get_model
+            import supervision as sv
+            local_available = True
+        except ImportError as e:
+            local_available = False
+            print(f"  ⚠️  Local inference not available: {e}")
+            print(f"  💡 Install with: pip install inference supervision")
+            return None
+        
         client = RoboflowClient(use_local_inference=True, model_id="yolov8n-640")
         result = client.detect_benches_in_image(image_path)
         
@@ -167,6 +178,13 @@ def test_roboflow_cloud(image_path: str, output_dir: str) -> Optional[str]:
     """Test Roboflow cloud API."""
     print("\n☁️  Testing Roboflow Cloud API...")
     try:
+        # Check if API key is available
+        from bench_finder.config import ROBOFLOW_API_KEY
+        if not ROBOFLOW_API_KEY:
+            print(f"  ⚠️  ROBOFLOW_API_KEY not set")
+            print(f"  💡 Set environment variable: export ROBOFLOW_API_KEY=your_key")
+            return None
+        
         client = RoboflowClient(use_local_inference=False, model_id="streetview-benches-m4bc5/1")
         result = client.detect_benches_in_image(image_path)
         
@@ -176,7 +194,11 @@ def test_roboflow_cloud(image_path: str, output_dir: str) -> Optional[str]:
             pil_image.save(output_path)
             return output_path
         else:
-            print(f"  ❌ Failed: {result.error}")
+            if "413" in str(result.error):
+                print(f"  ⚠️  Image too large for API: {result.error}")
+                print(f"  💡 Try resizing the image or use local inference")
+            else:
+                print(f"  ❌ Failed: {result.error}")
             return None
     except Exception as e:
         print(f"  ❌ Error: {e}")
@@ -207,6 +229,13 @@ def test_ultralytics_cloud(image_path: str, output_dir: str) -> Optional[str]:
     """Test Ultralytics cloud API."""
     print("\n☁️  Testing Ultralytics Cloud API...")
     try:
+        # Check if API key is available
+        from bench_finder.config import ULTRALYTICS_API_KEY
+        if not ULTRALYTICS_API_KEY:
+            print(f"  ⚠️  ULTRALYTICS_API_KEY not set")
+            print(f"  💡 Set environment variable: export ULTRALYTICS_API_KEY=your_key")
+            return None
+        
         client = UltralyticsClient(use_local=False)
         result = client.detect_benches_in_image(image_path)
         
