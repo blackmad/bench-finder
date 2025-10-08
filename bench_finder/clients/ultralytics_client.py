@@ -302,7 +302,7 @@ class UltralyticsClient(DetectionClient):
                 logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
                 # Log segmentation info for first bench detection
                 if bench_detections and bench_detections[0].polygon:
-                    segments = bench_detections[0].polygon
+                    polygon = bench_detections[0].polygon
                     logger.debug(f"Segmentation points: {len(polygon.coordinates)} coordinates")
             else:
                 logger.debug(f"No bench detected in {image_path}")
@@ -401,7 +401,7 @@ class UltralyticsClient(DetectionClient):
                 logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
                 # Log segmentation info for first bench detection
                 if bench_detections and bench_detections[0].polygon:
-                    segments = bench_detections[0].polygon
+                    polygon = bench_detections[0].polygon
                     logger.debug(f"Segmentation points: {len(polygon.coordinates)} coordinates")
             else:
                 logger.debug(f"No bench detected in {image_path}")

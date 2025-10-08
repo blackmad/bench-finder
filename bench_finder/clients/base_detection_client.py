@@ -4,7 +4,7 @@ All detection clients should inherit from this base class.
 """
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional, Protocol
+from typing import Dict, List, Optional, Protocol
 from pathlib import Path
 from pydantic import BaseModel, Field
 
@@ -228,7 +228,7 @@ class MultiModelDetectionClient(DetectionClient):
         if not self.all_attempts:
             return {'total_attempts': 0, 'no_data': True}
         
-        stats = {
+        stats: Dict[str, float | int] = {
             'total_attempts': len(self.all_attempts),
             'successful_attempts': len([a for a in self.all_attempts if a.success and a.has_bench]),
             'failed_attempts': len([a for a in self.all_attempts if not a.success]),
