@@ -15,11 +15,13 @@ from bench_finder.models.mapillary_models import (
     MapillaryMapFeaturesResponse, MapillaryImageMetadata,
     MapillaryImageDownloadResult, MapillaryDetectionStatistics
 )
+from bench_finder.clients.base_location_client import BaseLocationClient, LocationSearchResult
+from bench_finder.models.unified_models import UnifiedBench, UnifiedSearchResult
 
 logger = logging.getLogger(__name__)
 
 
-class MapillaryBenchDetector:
+class MapillaryBenchDetector(BaseLocationClient):
     """Client for fetching bench detections from Mapillary API."""
     
     def __init__(self, access_token: str, images_dir: str = "images"):
@@ -30,6 +32,7 @@ class MapillaryBenchDetector:
             access_token: Mapillary API access token
             images_dir: Directory to store downloaded images
         """
+        super().__init__("MapillaryBenchDetector")
         self.access_token = access_token
         self.base_url = "https://graph.mapillary.com"
         self.images_dir = images_dir
@@ -40,6 +43,71 @@ class MapillaryBenchDetector:
         
         # Ensure images directory exists
         os.makedirs(self.images_dir, exist_ok=True)
+    
+    def search_near_point(self, lat: float, lng: float, radius: int = 1000) -> LocationSearchResult:
+        """
+        Search for benches near a point (implements BaseLocationClient interface).
+        
+        Args:
+            lat: Latitude of the center point
+            lng: Longitude of the center point
+            radius: Search radius in meters
+            
+        Returns:
+            LocationSearchResult with found benches
+        """
+        result = self.search_benches_by_location(lat, lng, radius)
+        return LocationSearchResult(
+            search_center_lat=result.search_center_lat,
+            search_center_lng=result.search_center_lng,
+            search_radius_meters=result.search_radius_meters,
+            total_count=result.total_detections
+        )
+    
+    def search_near_point_unified(self, lat: float, lng: float, radius: int = 1000) -> UnifiedSearchResult:
+        """
+        Search for benches near a point and return unified results.
+        
+        Args:
+            lat: Latitude of the center point
+            lng: Longitude of the center point
+            radius: Search radius in meters
+            
+        Returns:
+            UnifiedSearchResult with found benches
+        """
+        result = self.search_benches_by_location(lat, lng, radius)
+        
+        # Convert MapillaryImage objects to UnifiedBench objects
+        unified_benches = []
+        for image in result.images:
+            for detection in image.detections:
+                unified_bench = UnifiedBench.from_mapillary_detection(detection, image.coordinates)
+                unified_benches.append(unified_bench)
+        
+        return UnifiedSearchResult(
+            benches=unified_benches,
+            search_center_lat=result.search_center_lat,
+            search_center_lng=result.search_center_lng,
+            search_radius_meters=result.search_radius_meters,
+            total_count=len(unified_benches),
+            source="mapillary"
+        )
+    
+    def get_item_details(self, provider_id: str) -> Optional[dict]:
+        """
+        Get detailed information about a specific detection (implements BaseLocationClient interface).
+        
+        Args:
+            provider_id: Provider ID in format "mapillary_detection_id"
+            
+        Returns:
+            Dictionary with detection details or None if not found
+        """
+        # For Mapillary, we don't have a direct way to get details by detection ID
+        # This would require searching in an area around the detection
+        # For now, return None as this is not commonly used for Mapillary
+        return None
     
     def search_images_with_detections(
         self,

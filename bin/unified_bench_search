@@ -1,0 +1,14 @@
+#!/bin/bash
+# Wrapper script for the unified bench search CLI tool
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Activate virtual environment if it exists
+if [ -f "$PROJECT_ROOT/venv/bin/activate" ]; then
+    source "$PROJECT_ROOT/venv/bin/activate"
+fi
+
+# Run the CLI tool
+python "$PROJECT_ROOT/tools/unified_bench_search_cli.py" "$@"
