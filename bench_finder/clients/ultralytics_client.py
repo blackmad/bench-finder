@@ -8,6 +8,10 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
+from ..models.schemas import (
+    UltralyticsDetectionResult, UltralyticsApiResponse, UltralyticsImageResult,
+    UltralyticsDetectionItem, UltralyticsBox, UltralyticsSegments, UltralyticsSpeed
+)
 from ..config import (
     ULTRALYTICS_API_KEY, 
     ULTRALYTICS_MODEL_URL,
@@ -95,7 +99,7 @@ class UltralyticsClient:
                 logger.error(f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}: {e}")
                 raise
     
-    def detect_benches_in_image(self, image_path: str) -> Dict:
+    def detect_benches_in_image(self, image_path: str) -> UltralyticsDetectionResult:
         """
         Detect benches in an image using either local YOLO11-seg or Ultralytics API.
         
@@ -103,14 +107,14 @@ class UltralyticsClient:
             image_path: Path to the image file
             
         Returns:
-            Dictionary with detection results including full segmentation data
+            UltralyticsDetectionResult with detection results including full segmentation data
         """
         if self.use_local:
             return self._detect_benches_local(image_path)
         else:
             return self._detect_benches_api(image_path)
     
-    def _detect_benches_local(self, image_path: str) -> Dict:
+    def _detect_benches_local(self, image_path: str) -> UltralyticsDetectionResult:
         """
         Detect benches using local YOLO11-seg model.
         
@@ -118,7 +122,7 @@ class UltralyticsClient:
             image_path: Path to the image file
             
         Returns:
-            Dictionary with detection results
+            UltralyticsDetectionResult with detection results
         """
         try:
             logger.debug(f"Analyzing image for benches with local YOLO: {image_path}")
@@ -145,7 +149,7 @@ class UltralyticsClient:
             logger.error(f"Unexpected error analyzing image {image_path}: {e}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
     
-    def _detect_benches_api(self, image_path: str) -> Dict:
+    def _detect_benches_api(self, image_path: str) -> UltralyticsDetectionResult:
         """
         Detect benches using Ultralytics API.
         
@@ -153,7 +157,7 @@ class UltralyticsClient:
             image_path: Path to the image file
             
         Returns:
-            Dictionary with detection results
+            UltralyticsDetectionResult with detection results
         """
         try:
             logger.debug(f"Analyzing image for benches with Ultralytics API: {image_path}")

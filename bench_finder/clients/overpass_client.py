@@ -4,8 +4,11 @@ OpenStreetMap Overpass API integration for finding benches.
 import requests
 import json
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from bench_finder.config import OVERPASS_URL, OVERPASS_TIMEOUT, SEARCH_RADIUS_METERS
+from bench_finder.models.overpass_models import (
+    OverpassResponse, OverpassSearchResult, OSMElement, OSMBench
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ class OverpassClient:
         self.base_url = OVERPASS_URL
         self.timeout = OVERPASS_TIMEOUT
     
-    def find_benches_near_point(self, lat: float, lng: float, radius: int = None) -> List[Dict]:
+    def find_benches_near_point(self, lat: float, lng: float, radius: int = None) -> OverpassSearchResult:
         """
         Find all benches within a radius of a given point using Overpass API.
         
@@ -28,7 +31,7 @@ class OverpassClient:
             radius: Search radius in meters (defaults to SEARCH_RADIUS_METERS)
             
         Returns:
-            List of bench dictionaries with id, lat, lng, and any tags
+            OverpassSearchResult with found benches
             
         Raises:
             Exception: If Overpass API call fails
@@ -58,20 +61,26 @@ class OverpassClient:
             )
             response.raise_for_status()
             
-            data = response.json()
+            # Parse response using Pydantic
+            raw_data = response.json()
+            overpass_response = OverpassResponse(**raw_data)
             
-            if 'elements' not in data:
-                logger.warning("No 'elements' key in Overpass response")
-                return []
-            
+            # Convert elements to benches
             benches = []
-            for element in data['elements']:
-                bench = self._parse_bench_element(element)
+            for element in overpass_response.elements:
+                bench = OSMBench.from_osm_element(element)
                 if bench:
                     benches.append(bench)
             
             logger.info(f"Found {len(benches)} benches within {radius}m")
-            return benches
+            
+            return OverpassSearchResult(
+                benches=benches,
+                search_center_lat=lat,
+                search_center_lng=lng,
+                search_radius_meters=radius,
+                total_count=len(benches)
+            )
             
         except requests.exceptions.RequestException as e:
             logger.error(f"HTTP error querying Overpass API: {e}")
@@ -83,78 +92,7 @@ class OverpassClient:
             logger.error(f"Unexpected error querying Overpass API: {e}")
             raise
     
-    def _parse_bench_element(self, element: Dict) -> Dict:
-        """
-        Parse a bench element from Overpass API response.
-        
-        Args:
-            element: Raw element dictionary from Overpass response
-            
-        Returns:
-            Parsed bench dictionary or None if invalid
-        """
-        try:
-            osm_id = element.get('id')
-            osm_type = element.get('type')
-            
-            bench = {
-                'provider_id': f"{osm_id}_{osm_type}" if osm_id and osm_type else None,
-                'source': 'osm',
-                'external_id': str(osm_id) if osm_id else None,
-                'tags': element.get('tags', {})
-            }
-            
-            # Handle different element types (node, way, relation)
-            if element['type'] == 'node':
-                bench['lat'] = element.get('lat')
-                bench['lng'] = element.get('lon')
-                
-            elif element['type'] == 'way':
-                # For ways, use the center point of the geometry
-                if 'geometry' in element and element['geometry']:
-                    coords = [(node['lat'], node['lon']) for node in element['geometry']]
-                    if coords:
-                        # Calculate centroid
-                        bench['lat'] = sum(coord[0] for coord in coords) / len(coords)
-                        bench['lng'] = sum(coord[1] for coord in coords) / len(coords)
-                    else:
-                        logger.warning(f"Way {element['id']} has no geometry coordinates")
-                        return None
-                else:
-                    logger.warning(f"Way {element['id']} missing geometry")
-                    return None
-                    
-            elif element['type'] == 'relation':
-                # For relations, we'd need to process the members
-                # For now, skip relations as they're complex to handle
-                logger.debug(f"Skipping relation {element['id']} (not implemented)")
-                return None
-            else:
-                logger.warning(f"Unknown element type: {element['type']}")
-                return None
-            
-            # Validate coordinates
-            if bench.get('lat') is None or bench.get('lng') is None:
-                logger.warning(f"Element {element['id']} missing coordinates")
-                return None
-                
-            # Add any interesting tags for logging
-            interesting_tags = []
-            for tag_key in ['name', 'operator', 'material', 'backrest', 'seats']:
-                if tag_key in bench['tags']:
-                    interesting_tags.append(f"{tag_key}={bench['tags'][tag_key]}")
-            
-            if interesting_tags:
-                logger.debug(f"Bench {bench['provider_id']}: {', '.join(interesting_tags)}")
-            
-            return bench
-            
-        except Exception as e:
-            logger.error(f"Error parsing bench element: {e}")
-            logger.debug(f"Problematic element: {element}")
-            return None
-    
-    def get_bench_details(self, provider_id: str) -> Dict:
+    def get_bench_details(self, provider_id: str) -> Optional[OSMBench]:
         """
         Get detailed information about a specific bench.
         
@@ -162,7 +100,7 @@ class OverpassClient:
             provider_id: Provider ID in format "osm_id_osm_type"
             
         Returns:
-            Detailed bench information dictionary
+            OSMBench object with detailed information or None if not found
         """
         try:
             # Parse provider_id to extract osm_id and osm_type
@@ -189,14 +127,17 @@ class OverpassClient:
             )
             response.raise_for_status()
             
-            data = response.json()
+            # Parse response using Pydantic
+            raw_data = response.json()
+            overpass_response = OverpassResponse(**raw_data)
             
-            if 'elements' not in data or not data['elements']:
+            if not overpass_response.elements:
                 logger.warning(f"No details found for {osm_type} {osm_id}")
-                return {}
+                return None
             
-            return self._parse_bench_element(data['elements'][0]) or {}
+            # Convert first element to bench
+            return OSMBench.from_osm_element(overpass_response.elements[0])
             
         except Exception as e:
             logger.error(f"Error getting bench details for provider_id {provider_id}: {e}")
-            return {}
+            return None

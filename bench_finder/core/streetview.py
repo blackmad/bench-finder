@@ -11,6 +11,11 @@ from ..config import (
     GOOGLE_MAPS_API_KEY, STREETVIEW_SIZE, STREETVIEW_FOV, 
     STREETVIEW_HEADINGS, IMAGES_DIR
 )
+from ..models.streetview_models import (
+    StreetViewBatchCaptureResult, StreetViewImageCapture,
+    StreetViewLocation, StreetViewMetadataResponse, StreetViewMetadata,
+    StreetViewCleanupResult
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +34,7 @@ class StreetViewClient:
         # Ensure images directory exists
         os.makedirs(IMAGES_DIR, exist_ok=True)
     
-    def capture_bench_images(self, lat: float, lng: float, bench_id: str) -> List[Dict]:
+    def capture_bench_images(self, lat: float, lng: float, bench_id: str) -> StreetViewBatchCaptureResult:
         """
         Capture street view images from multiple headings for a bench location.
         
@@ -39,50 +44,50 @@ class StreetViewClient:
             bench_id: Unique identifier for the bench
             
         Returns:
-            List of dictionaries with image info (filepath, heading, success)
+            StreetViewBatchCaptureResult with capture information
         """
         logger.info(f"Capturing street view images for bench {bench_id} at {lat}, {lng}")
         
-        results = []
-        downloaded_count = 0
-        cached_count = 0
+        capture_results = []
         
         for heading in STREETVIEW_HEADINGS:
             try:
                 result = self.capture_image(lat, lng, bench_id, heading)
-                results.append(result)
+                capture_results.append(result)
                 
-                if result['success']:
-                    if result.get('cached', False):
-                        cached_count += 1
+                if result.success:
+                    if result.cached:
                         logger.debug(f"Using cached image at heading {heading}°")
                     else:
-                        downloaded_count += 1
                         logger.debug(f"Successfully downloaded image at heading {heading}°")
                 else:
                     logger.warning(f"Failed to capture image at heading {heading}°")
                     
             except Exception as e:
                 logger.error(f"Error capturing image at heading {heading}°: {e}")
-                results.append({
-                    'bench_id': bench_id,
-                    'lat': lat,
-                    'lng': lng,
-                    'heading': heading,
-                    'filepath': None,
-                    'success': False,
-                    'error': str(e)
-                })
+                error_result = StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=None,
+                    filename=None,
+                    success=False,
+                    error=str(e)
+                )
+                capture_results.append(error_result)
         
-        successful_images = sum(1 for r in results if r['success'])
-        failed_images = len(STREETVIEW_HEADINGS) - successful_images
+        # Create batch result from individual capture results
+        batch_result = StreetViewBatchCaptureResult.from_capture_results(
+            bench_id, lat, lng, [result.dict() for result in capture_results]
+        )
         
-        logger.info(f"Bench {bench_id}: {successful_images}/{len(STREETVIEW_HEADINGS)} images total "
-                   f"({downloaded_count} downloaded, {cached_count} cached, {failed_images} failed)")
+        logger.info(f"Bench {bench_id}: {batch_result.successful_images}/{batch_result.total_images} images total "
+                   f"({batch_result.downloaded_images} downloaded, {batch_result.cached_images} cached, {batch_result.failed_images} failed)")
         
-        return results
+        return batch_result
     
-    def capture_image(self, lat: float, lng: float, bench_id: str, heading: int) -> Dict:
+    def capture_image(self, lat: float, lng: float, bench_id: str, heading: int) -> StreetViewImageCapture:
         """
         Capture a single street view image at specified heading.
         
@@ -93,7 +98,7 @@ class StreetViewClient:
             heading: Compass heading (0-360 degrees)
             
         Returns:
-            Dictionary with capture results
+            StreetViewImageCapture with capture results
         """
         try:
             # Generate filename first to check if image already exists
@@ -103,17 +108,17 @@ class StreetViewClient:
             # Check if image already exists
             if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
                 logger.debug(f"Image already exists: {filename}, skipping download")
-                return {
-                    'bench_id': bench_id,
-                    'lat': lat,
-                    'lng': lng,
-                    'heading': heading,
-                    'filepath': filepath,
-                    'filename': filename,
-                    'success': True,
-                    'file_size': os.path.getsize(filepath),
-                    'cached': True
-                }
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    success=True,
+                    file_size=os.path.getsize(filepath),
+                    cached=True
+                )
             
             # Build the Street View Static API URL
             params = {
@@ -132,15 +137,31 @@ class StreetViewClient:
             # Check if we got a valid response
             if response.status_code != 200:
                 logger.error(f"Street View API returned status {response.status_code}")
-                return self._create_failure_result(bench_id, lat, lng, heading, 
-                                                 f"HTTP {response.status_code}")
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=None,
+                    filename=None,
+                    success=False,
+                    error=f"HTTP {response.status_code}"
+                )
             
             # Check content type to ensure we got an image
             content_type = response.headers.get('content-type', '')
             if not content_type.startswith('image/'):
                 logger.error(f"Expected image, got content-type: {content_type}")
-                return self._create_failure_result(bench_id, lat, lng, heading, 
-                                                 f"Invalid content type: {content_type}")
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=None,
+                    filename=None,
+                    success=False,
+                    error=f"Invalid content type: {content_type}"
+                )
             
             # Save the image
             with open(filepath, 'wb') as f:
@@ -149,8 +170,16 @@ class StreetViewClient:
             # Verify the image was saved correctly
             if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
                 logger.error(f"Failed to save image to {filepath}")
-                return self._create_failure_result(bench_id, lat, lng, heading, 
-                                                 "Failed to save image")
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=None,
+                    filename=None,
+                    success=False,
+                    error="Failed to save image"
+                )
             
             # Optionally verify it's a valid image
             try:
@@ -160,38 +189,43 @@ class StreetViewClient:
             except Exception as e:
                 logger.warning(f"Could not verify image {filename}: {e}")
             
-            return {
-                'bench_id': bench_id,
-                'lat': lat,
-                'lng': lng,
-                'heading': heading,
-                'filepath': filepath,
-                'filename': filename,
-                'success': True,
-                'file_size': os.path.getsize(filepath),
-                'cached': False
-            }
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=filepath,
+                filename=filename,
+                success=True,
+                file_size=os.path.getsize(filepath),
+                cached=False
+            )
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error capturing street view image: {e}")
-            return self._create_failure_result(bench_id, lat, lng, heading, f"Network error: {e}")
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=None,
+                filename=None,
+                success=False,
+                error=f"Network error: {e}"
+            )
         except Exception as e:
             logger.error(f"Unexpected error capturing street view image: {e}")
-            return self._create_failure_result(bench_id, lat, lng, heading, f"Unexpected error: {e}")
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=None,
+                filename=None,
+                success=False,
+                error=f"Unexpected error: {e}"
+            )
     
-    def _create_failure_result(self, bench_id: str, lat: float, lng: float, 
-                              heading: int, error: str) -> Dict:
-        """Create a standardized failure result dictionary."""
-        return {
-            'bench_id': bench_id,
-            'lat': lat,
-            'lng': lng,
-            'heading': heading,
-            'filepath': None,
-            'filename': None,
-            'success': False,
-            'error': error
-        }
     
     def get_street_view_metadata(self, lat: float, lng: float) -> Optional[Dict]:
         """

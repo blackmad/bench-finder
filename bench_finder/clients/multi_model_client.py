@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from .ultralytics_client import UltralyticsClient
 from .roboflow_client import RoboflowClient
+from ..models.schemas import StandardDetectionResult, DetectionItem, BoundingBox
 from ..config import (
     ROBOFLOW_MODELS, 
     ROBOFLOW_API_KEY,
@@ -16,6 +17,84 @@ from ..config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _convert_ultralytics_to_standard(ultralytics_result: Dict, image_path: str) -> StandardDetectionResult:
+    """Convert Ultralytics result to StandardDetectionResult."""
+    detections = []
+    
+    if ultralytics_result.get('has_bench') and ultralytics_result.get('bench_detections'):
+        for detection in ultralytics_result['bench_detections']:
+            if 'bbox' in detection:
+                bbox_data = detection['bbox']
+                # Ultralytics bbox format: [x1, y1, x2, y2]
+                bbox = BoundingBox(
+                    x1=bbox_data[0],
+                    y1=bbox_data[1], 
+                    x2=bbox_data[2],
+                    y2=bbox_data[3]
+                )
+                
+                detection_item = DetectionItem(
+                    confidence=detection.get('confidence', 0.0),
+                    bbox=bbox,
+                    class_name="bench",
+                    segmentation=detection.get('masks')  # Keep segmentation if available
+                )
+                detections.append(detection_item)
+    
+    return StandardDetectionResult(
+        image_path=image_path,
+        success=ultralytics_result.get('success', False),
+        has_bench=ultralytics_result.get('has_bench', False),
+        bench_count=ultralytics_result.get('bench_count', 0),
+        max_confidence=ultralytics_result.get('max_confidence', 0.0),
+        detections=detections,
+        winning_backend='ultralytics',
+        winning_model='ultralytics',
+        error=ultralytics_result.get('error')
+    )
+
+
+def _convert_roboflow_to_standard(roboflow_result: Dict, image_path: str) -> StandardDetectionResult:
+    """Convert Roboflow result to StandardDetectionResult."""
+    detections = []
+    
+    if roboflow_result.get('has_bench') and roboflow_result.get('detections'):
+        for detection in roboflow_result['detections']:
+            # Roboflow format: center coordinates + width/height
+            if 'x' in detection and 'y' in detection and 'width' in detection and 'height' in detection:
+                x_center = detection['x']
+                y_center = detection['y']
+                width = detection['width']
+                height = detection['height']
+                
+                # Convert to corner coordinates
+                x1 = x_center - width / 2
+                y1 = y_center - height / 2
+                x2 = x_center + width / 2
+                y2 = y_center + height / 2
+                
+                bbox = BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
+                
+                detection_item = DetectionItem(
+                    confidence=detection.get('confidence', 0.0),
+                    bbox=bbox,
+                    class_name=detection.get('class', 'bench')
+                )
+                detections.append(detection_item)
+    
+    return StandardDetectionResult(
+        image_path=image_path,
+        success=roboflow_result.get('success', False),
+        has_bench=roboflow_result.get('has_bench', False),
+        bench_count=roboflow_result.get('bench_count', 0),
+        max_confidence=roboflow_result.get('max_confidence', 0.0),
+        detections=detections,
+        winning_backend='roboflow',
+        winning_model=roboflow_result.get('winning_model', 'unknown'),
+        error=roboflow_result.get('error')
+    )
 
 
 @dataclass
@@ -205,7 +284,7 @@ class MultiModelDetectionClient:
         
         logger.info(f"MultiModelDetectionClient ready - Ultralytics: {self.enable_ultralytics}, Roboflow: {self.enable_roboflow_fallback}")
     
-    def detect_benches_in_image(self, image_path: str) -> Dict:
+    def detect_benches_in_image(self, image_path: str) -> StandardDetectionResult:
         """
         Detect benches using fallback logic: Ultralytics first, then Roboflow models.
         
@@ -213,7 +292,7 @@ class MultiModelDetectionClient:
             image_path: Path to the image file
             
         Returns:
-            Detection result dictionary with enhanced metadata
+            StandardDetectionResult with enhanced metadata
         """
         detection_attempts = []
         final_result = None
@@ -224,29 +303,28 @@ class MultiModelDetectionClient:
         if self.enable_ultralytics and self.ultralytics_client:
             logger.debug("🚀 Trying Ultralytics first...")
             try:
-                ultralytics_result = self.ultralytics_client.detect_benches_in_image(image_path)
+                ultralytics_result_dict = self.ultralytics_client.detect_benches_in_image(image_path)
                 
                 attempt = DetectionAttempt(
                     model_type='ultralytics',
                     model_id='ultralytics',
-                    success=ultralytics_result.get('success', False),
-                    has_bench=ultralytics_result.get('has_bench', False),
-                    confidence=ultralytics_result.get('max_confidence', 0.0),
-                    error=ultralytics_result.get('error')
+                    success=ultralytics_result_dict.get('success', False),
+                    has_bench=ultralytics_result_dict.get('has_bench', False),
+                    confidence=ultralytics_result_dict.get('max_confidence', 0.0),
+                    error=ultralytics_result_dict.get('error')
                 )
                 detection_attempts.append(attempt)
                 
-                if ultralytics_result.get('success') and ultralytics_result.get('has_bench'):
-                    logger.info(f"✅ Ultralytics detected bench: confidence {ultralytics_result.get('max_confidence', 0):.2f}")
-                    final_result = ultralytics_result
-                    final_result['winning_backend'] = 'ultralytics'
-                    final_result['winning_model'] = 'ultralytics'
-                    final_result['fallback_used'] = False
-                    final_result['total_attempts'] = 1
-                elif ultralytics_result.get('success'):
+                if ultralytics_result_dict.get('success') and ultralytics_result_dict.get('has_bench'):
+                    logger.info(f"✅ Ultralytics detected bench: confidence {ultralytics_result_dict.get('max_confidence', 0):.2f}")
+                    # Convert to standard format
+                    final_result = _convert_ultralytics_to_standard(ultralytics_result_dict, image_path)
+                    final_result.fallback_used = False
+                    final_result.total_attempts = 1
+                elif ultralytics_result_dict.get('success'):
                     logger.debug("❌ Ultralytics: No bench detected, trying fallback models...")
                 else:
-                    logger.debug(f"❌ Ultralytics failed: {ultralytics_result.get('error', 'Unknown error')}")
+                    logger.debug(f"❌ Ultralytics failed: {ultralytics_result_dict.get('error', 'Unknown error')}")
             except Exception as e:
                 logger.error(f"❌ Ultralytics detection failed: {e}")
                 attempt = DetectionAttempt(
@@ -263,15 +341,15 @@ class MultiModelDetectionClient:
         if final_result is None and self.enable_roboflow_fallback and self.roboflow_client:
             logger.debug("🔄 Falling back to Roboflow models...")
             try:
-                roboflow_result, roboflow_attempts = self.roboflow_client.detect_benches_in_image(image_path)
+                roboflow_result_dict, roboflow_attempts = self.roboflow_client.detect_benches_in_image(image_path)
                 detection_attempts.extend(roboflow_attempts)
                 
-                if roboflow_result.get('success') and roboflow_result.get('has_bench'):
-                    logger.info(f"✅ Fallback successful: {roboflow_result.get('winning_model')} detected bench")
-                    final_result = roboflow_result  # This is already a dict from MultiModelRoboflowClient
-                    final_result['winning_backend'] = 'roboflow'
-                    final_result['fallback_used'] = True
-                    final_result['total_attempts'] = len(detection_attempts)
+                if roboflow_result_dict.get('success') and roboflow_result_dict.get('has_bench'):
+                    logger.info(f"✅ Fallback successful: {roboflow_result_dict.get('winning_model')} detected bench")
+                    # Convert to standard format
+                    final_result = _convert_roboflow_to_standard(roboflow_result_dict, image_path)
+                    final_result.fallback_used = True
+                    final_result.total_attempts = len(detection_attempts)
                 else:
                     logger.debug("❌ All fallback models failed to detect bench")
                     
@@ -281,23 +359,22 @@ class MultiModelDetectionClient:
         # Step 3: If no model detected a bench, create a comprehensive failure result
         if final_result is None:
             logger.debug("❌ All detection models failed")
-            final_result = {
-                'image_path': image_path,
-                'success': False,
-                'has_bench': False,
-                'bench_count': 0,
-                'max_confidence': 0.0,
-                'detections': [],
-                'bench_detections': [],
-                'error': f"No bench detected by any model ({len(detection_attempts)} attempts)",
-                'winning_backend': 'none',
-                'winning_model': 'none',
-                'fallback_used': len(detection_attempts) > 1,
-                'total_attempts': len(detection_attempts)
-            }
+            final_result = StandardDetectionResult(
+                image_path=image_path,
+                success=False,
+                has_bench=False,
+                bench_count=0,
+                max_confidence=0.0,
+                detections=[],
+                winning_backend='none',
+                winning_model='none',
+                fallback_used=len(detection_attempts) > 1,
+                total_attempts=len(detection_attempts),
+                error=f"No bench detected by any model ({len(detection_attempts)} attempts)"
+            )
         
         # Add detection attempt metadata to the result
-        final_result['detection_attempts'] = [
+        final_result.detection_attempts = [
             {
                 'model_type': attempt.model_type,
                 'model_id': attempt.model_id,
