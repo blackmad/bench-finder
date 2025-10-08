@@ -6,20 +6,24 @@ import sys
 import time
 import functools
 import math
-from typing import Callable, Any, List, Dict
+from typing import Callable, Any, List, Dict, TypeVar, ParamSpec, Union
 from .config import LOG_LEVEL, LOG_FORMAT
 
+# Type variables for decorator type preservation
+P = ParamSpec('P')
+T = TypeVar('T')
 
-def setup_logging(level: str = None, format_str: str = None):
+
+def setup_logging(level: Union[str, None] = None, format_str: Union[str, None] = None):
     """
     Configure logging for the application.
     
     Args:
-        level: Log level (defaults to config LOG_LEVEL)
-        format_str: Log format string (defaults to config LOG_FORMAT)
+        level: Log level (defaults to config LOG_LEVEL if None)
+        format_str: Log format string (defaults to config LOG_FORMAT if None)
     """
-    level = level or LOG_LEVEL
-    format_str = format_str or LOG_FORMAT
+    level = LOG_LEVEL if level is None else level
+    format_str = LOG_FORMAT if format_str is None else format_str
     
     # Convert string level to logging constant
     numeric_level = getattr(logging, level.upper(), None)
@@ -51,9 +55,9 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 
         delay: Initial delay between retries in seconds
         backoff: Multiplier for delay after each retry
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             logger = logging.getLogger(func.__module__)
             
             for attempt in range(max_retries + 1):
@@ -69,17 +73,18 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 
                                  f"Retrying in {sleep_time:.1f}s...")
                     time.sleep(sleep_time)
             
-            return None  # Should never reach here
+            # This should never be reached due to the raise in the except block above
+            raise RuntimeError("Unexpected end of retry loop")
         return wrapper
     return decorator
 
 
-def log_execution_time(func: Callable) -> Callable:
+def log_execution_time(func: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator that logs the execution time of a function.
     """
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         logger = logging.getLogger(func.__module__)
         start_time = time.time()
         
@@ -131,12 +136,13 @@ def format_file_size(size_bytes: int) -> str:
     
     size_names = ["B", "KB", "MB", "GB", "TB"]
     i = 0
+    size_float = float(size_bytes)
     
-    while size_bytes >= 1024 and i < len(size_names) - 1:
-        size_bytes /= 1024.0
+    while size_float >= 1024 and i < len(size_names) - 1:
+        size_float /= 1024.0
         i += 1
     
-    return f"{size_bytes:.1f} {size_names[i]}"
+    return f"{size_float:.1f} {size_names[i]}"
 
 
 def validate_coordinates(lat: float, lng: float) -> bool:

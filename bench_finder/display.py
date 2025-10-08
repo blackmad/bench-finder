@@ -5,6 +5,8 @@ import logging
 from typing import List, Dict, Optional
 from PIL import Image as PILImage
 from term_image.image import AutoImage
+from bench_finder.clients.base_detection_client import DetectionResult
+from bench_finder.models.streetview_models import StreetViewImageCapture
 from tools.roboflow_detector import render_detections
 
 logger = logging.getLogger(__name__)
@@ -50,9 +52,9 @@ def create_combined_image_display(image_results: List[Dict], target_width: int =
     
     # Paste images side by side
     x_offset = 0
-    for img in valid_images:
-        y_offset = (max_height - img.height) // 2  # Center vertically
-        combined.paste(img, (x_offset, y_offset))
+    for valid_image in valid_images:
+        y_offset = (max_height - valid_image.height) // 2  # Center vertically
+        combined.paste(valid_image, (x_offset, y_offset))
         x_offset += target_width
     
     return combined
@@ -60,9 +62,9 @@ def create_combined_image_display(image_results: List[Dict], target_width: int =
 
 def display_bench_detection_results(
     bench_identifier: str,
-    image_results: List[Dict],
-    bench_detections: List[Dict],
-    representative_detection: Optional[Dict],
+    image_results: List[StreetViewImageCapture],
+    bench_detections: List[DetectionResult],
+    representative_detection: Optional[DetectionResult],
     copy_bench_images: bool = True
 ) -> None:
     """

@@ -8,7 +8,9 @@ import shutil
 from typing import List, Dict, Optional, Tuple
 from PIL import Image as PILImage
 
+from bench_finder.clients.base_detection_client import DetectionClient, DetectionResult
 from bench_finder.config import SEARCH_RADIUS_METERS, DETECTION_BACKEND, MAPILLARY_ACCESS_TOKEN
+from bench_finder.models.streetview_models import StreetViewImageCapture
 from bench_finder.utils import ProgressTracker, log_execution_time, retry_on_failure
 from bench_finder.core.geocoder import Geocoder
 from bench_finder.core.streetview import StreetViewClient
@@ -66,12 +68,10 @@ class BenchFinder:
             logger.info(f"Enabling multi-model detection with fallback (primary: {self.detection_backend})")
             self.detection_backend = 'multi'
 
+        self.detection_client: DetectionClient
         if self.detection_backend == 'multi':
             logger.info("Initializing multi-model detection client with fallback")
-            self.detection_client = MultiModelDetectionClient(
-                enable_ultralytics=True,
-                enable_roboflow_fallback=True
-            )
+            self.detection_client = MultiModelDetectionClient()
         elif self.detection_backend == 'ultralytics':
             logger.info("Initializing Ultralytics detection backend (no fallback)")
             self.detection_client = UltralyticsClient()
@@ -89,7 +89,7 @@ class BenchFinder:
     
     def _create_default_generators(self) -> List[BenchGenerator]:
         """Create default set of bench generators."""
-        generators = []
+        generators: List[BenchGenerator] = []
         
         # Always add OSM generator
         try:
@@ -151,7 +151,7 @@ class BenchFinder:
             logger.warning(f"Failed to copy bench image {image_path}: {e}")
             return None
     
-    def _calculate_pixel_coverage(self, detection_result, image_path: str) -> float:
+    def _calculate_pixel_coverage(self, detection_result: DetectionResult, image_path: str) -> float:
         """
         Calculate what percentage of pixels the bench occupies in the image.
         
@@ -175,7 +175,7 @@ class BenchFinder:
                 image_width, image_height = img.size
                 total_pixels = image_width * image_height
             
-            total_bench_pixels = 0
+            total_bench_pixels: float = 0
             
             # Process standardized detections
             for detection_item in detection_result.detections:
@@ -234,7 +234,7 @@ class BenchFinder:
             ))
             
             # Step 3: Find benches using all available generators (OSM, Mapillary, etc.)
-            benches = self._find_nearby_benches(start_lat, start_lng, radius)
+            benches: List[BenchCandidate] = self._find_nearby_benches(start_lat, start_lng, radius)
             if not benches:
                 self.database.update_search_status(search_id, 'completed')
                 return self._create_result(search_id, "No benches found in the area")
@@ -263,7 +263,7 @@ class BenchFinder:
         return self.geocoder.geocode_query(query)
     
     @retry_on_failure(max_retries=2, delay=2.0)
-    def _find_nearby_benches(self, lat: float, lng: float, radius: int) -> List[Dict]:
+    def _find_nearby_benches(self, lat: float, lng: float, radius: int) -> List[BenchCandidate]:
         """Find benches near the given coordinates using all generators."""
         logger.info(f"Searching for benches within {radius}m of {lat}, {lng} using {len(self.bench_generators)} generators")
         
@@ -287,23 +287,8 @@ class BenchFinder:
         # Deduplicate benches based on proximity (same location from different sources)
         deduplicated_candidates = self._deduplicate_bench_candidates(all_candidates)
         logger.info(f"After deduplication: {len(deduplicated_candidates)} unique benches")
-        
-        # Convert BenchCandidate objects back to dictionaries for compatibility
-        # with existing processing pipeline
-        bench_dicts = []
-        for candidate in deduplicated_candidates:
-            bench_dict = {
-                'provider_id': candidate.provider_id,
-                'lat': candidate.lat,
-                'lng': candidate.lng,
-                'source': candidate.source,
-                'external_id': candidate.external_id,
-                'tags': candidate.tags or {},
-                'confidence': candidate.confidence
-            }
-            bench_dicts.append(bench_dict)
-        
-        return bench_dicts
+
+        return deduplicated_candidates
     
     def _deduplicate_bench_candidates(self, candidates: List[BenchCandidate]) -> List[BenchCandidate]:
         """
@@ -324,7 +309,7 @@ class BenchFinder:
         # Distance threshold for considering two benches as duplicates (meters)
         DUPLICATE_THRESHOLD_METERS = 10
         
-        unique_candidates = []
+        unique_candidates: List[BenchCandidate] = []
         
         for candidate in candidates:
             is_duplicate = False
@@ -406,7 +391,7 @@ class BenchFinder:
         R = 6371000
         return R * c
     
-    def _process_benches(self, search_id: int, benches: List[Dict]) -> ProcessingStats:
+    def _process_benches(self, search_id: int, benches: List[BenchCandidate]) -> ProcessingStats:
         """
         Process each bench: capture images and run detection.
         
@@ -450,7 +435,7 @@ class BenchFinder:
                 progress.update()
                 
             except Exception as e:
-                bench_id = bench.get('provider_id', 'unknown')
+                bench_id = bench.provider_id
                 logger.error(f"Failed to process bench {bench_id}: {type(e).__name__}: {e}")
                 import traceback
                 logger.debug(f"Full traceback for bench {bench_id}:\n{traceback.format_exc()}")
@@ -465,7 +450,7 @@ class BenchFinder:
         
         return stats
     
-    def _process_single_bench(self, search_id: int, bench: Dict) -> BenchProcessingResult:
+    def _process_single_bench(self, search_id: int, bench: BenchCandidate) -> BenchProcessingResult:
         """
         Process a single bench: add to DB, capture images, run detection.
         
@@ -485,42 +470,36 @@ class BenchFinder:
             best_confidence=0.0
         )
         
-        # Validate required bench fields
-        required_fields = ['lat', 'lng', 'provider_id']
-        missing_fields = [field for field in required_fields if field not in bench or bench[field] is None]
-        if missing_fields:
-            raise ValueError(f"Bench missing required fields: {missing_fields}. Bench data: {bench}")
-        
         # Validate coordinate types
         try:
-            lat = float(bench['lat'])
-            lng = float(bench['lng'])
+            lat = float(bench.lat)
+            lng = float(bench.lng)
         except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid coordinates in bench data: lat={bench.get('lat')}, lng={bench.get('lng')}. Error: {e}")
+            raise ValueError(f"Invalid coordinates in bench data: lat={bench.lat}, lng={bench.lng}. Error: {e}")
         
         # Add bench to database
         try:
             bench_data = BenchCreate(
                 search_id=search_id,
-                provider_id=bench['provider_id'],
+                provider_id=bench.provider_id,
                 lat=lat,  # Use validated coordinates
                 lng=lng,
-                tags=bench.get('tags', {}),
-                source=bench.get('source', 'osm'),
-                external_id=bench.get('external_id')
+                tags=bench.tags,
+                source=bench.source,
+                external_id=bench.external_id
             )
             bench_id = self.database.add_bench(bench_data)
             if bench_id:
                 result.bench_added = True
-                logger.debug(f"Added bench {bench['provider_id']} as DB record {bench_id}")
+                logger.debug(f"Added bench {bench.provider_id} as DB record {bench_id}")
             else:
-                logger.warning(f"Failed to add bench {bench['provider_id']} to database")
+                logger.warning(f"Failed to add bench {bench.provider_id} to database")
                 return result
         except Exception as e:
-            raise RuntimeError(f"Failed to add bench {bench['provider_id']} to database: {e}") from e
+            raise RuntimeError(f"Failed to add bench {bench.provider_id} to database: {e}") from e
         
         # Generate unique identifier for image filenames
-        bench_identifier = bench['provider_id'] or f"bench_{bench_id}"
+        bench_identifier = bench.provider_id or f"bench_{bench_id}"
         
         # Capture street view images
         try:
@@ -528,67 +507,49 @@ class BenchFinder:
                 lat, lng, bench_identifier  # Use validated coordinates
             )
         except Exception as e:
-            raise RuntimeError(f"Failed to capture images for bench {bench['provider_id']}: {e}") from e
+            raise RuntimeError(f"Failed to capture images for bench {bench.provider_id}: {e}") from e
         
         result.images_captured = len(image_results.captures)
         result.images_successful = sum(1 for img in image_results.captures if img.success)
         
         # Phase 1: Add all images to database and collect successful ones
-        successful_images = []
-        for image_result in image_results.captures:
+        successful_images: List[StreetViewImageCapture] = []
+        for image_capture in image_results.captures:
+            
             # Add image record to database
             try:
                 image_id = self.database.add_image(ImageCreate(
                     bench_id=bench_id,
-                    heading=image_result.heading,
-                    filepath=image_result.filepath,
-                    filename=image_result.filename,
-                    file_size=image_result.file_size,
-                    capture_success=image_result.success,
-                    capture_error=image_result.error
+                    heading=image_capture.heading,
+                    filepath=image_capture.filepath,
+                    filename=image_capture.filename,
+                    file_size=image_capture.file_size,
+                    capture_success=image_capture.success,
+                    capture_error=image_capture.error
                 ))
                 
                 # Track successful images for detection
-                if image_result.success and image_result.filepath:
-                    # Create a dict-like object for compatibility with detection code
-                    image_dict = {
-                        'image_id': image_id,
-                        'heading': image_result.heading,
-                        'filepath': image_result.filepath,
-                        'filename': image_result.filename,
-                        'success': image_result.success,
-                        'error': image_result.error
-                    }
-                    successful_images.append(image_dict)
+                if image_capture.success and image_capture.filepath:
+                    successful_images.append(image_capture)
                     
             except Exception as e:
-                logger.error(f"Failed to add image record for bench {bench['provider_id']}, heading {image_result.heading}: {e}, type: {type(e).__name__}")
+                logger.error(f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}: {e}, type: {type(e).__name__}")
                 continue
         
         # Phase 2: Run detection on all successful images and calculate pixel coverage
-        detection_results = []
+        detection_results: List[DetectionResult] = []
         
         for image_result in successful_images:
             try:
-                logger.debug(f"Running detection on {image_result['filepath']}")
+                logger.debug(f"Running detection on {image_result.filepath}")
                 detection_result = self.detection_client.detect_benches_in_image(
-                    image_result['filepath']
+                    image_result.filepath
                 )
                 
                 # Calculate pixel coverage
-                pixel_coverage = self._calculate_pixel_coverage(detection_result, image_result['filepath'])
+                pixel_coverage = self._calculate_pixel_coverage(detection_result, image_result.filepath)
                 
-                # Store detection result with metadata
-                detection_info = {
-                    'image_result': image_result,
-                    'detection_result': detection_result,
-                    'pixel_coverage': pixel_coverage,
-                    'winning_backend': detection_result.winning_backend,
-                    'winning_model': detection_result.winning_model,
-                    'fallback_used': detection_result.fallback_used,
-                    'total_attempts': detection_result.total_attempts
-                }
-                detection_results.append(detection_info)
+                detection_results.append(detection_result)
                 result.detections_performed += 1
                 
                 # Update overall results
@@ -597,41 +558,31 @@ class BenchFinder:
                     if detection_result.max_confidence > result.best_confidence:
                         result.best_confidence = detection_result.max_confidence
                 
-                logger.debug(f"Image {image_result['heading']}° - Bench: {detection_result.has_bench}, "
+                logger.debug(f"Image {image_result.heading}° - Bench: {detection_result.has_bench}, "
                            f"Confidence: {detection_result.max_confidence:.2f}, "
                            f"Pixel coverage: {pixel_coverage:.1f}%")
                 
             except Exception as e:
-                logger.error(f"Detection failed for bench {bench['provider_id']}, image {image_result.get('filepath')}: {type(e).__name__}: {e}")
+                logger.error(f"Detection failed for bench {bench.provider_id}, image {image_result.filepath}: {type(e).__name__}: {e}")
                 import traceback
                 logger.debug(f"Detection error traceback:\n{traceback.format_exc()}")
-                
-                # Add failed detection record
-                detection_info = {
-                    'image_result': image_result,
-                    'detection_result': None,
-                    'pixel_coverage': 0.0,
-                    'error': str(e)
-                }
-                detection_results.append(detection_info)
         
         # Phase 3: Find the representative image (highest pixel coverage with bench detected)
         representative_detection = None
-        bench_detections = [d for d in detection_results if d.get('detection_result') and d['detection_result'].has_bench]
         
-        if bench_detections:
+        if detection_results:
             # Sort by pixel coverage (descending), then by confidence (descending)
-            representative_detection = max(bench_detections, key=lambda x: (x['pixel_coverage'], x['detection_result'].max_confidence))
+            representative_detection = max(detection_results, key=lambda x: (x.pixel_coverage, x.detection_result.max_confidence))
             
-            logger.info(f"🎯 Selected representative image: heading {representative_detection['image_result']['heading']}° "
-                       f"with {representative_detection['pixel_coverage']:.1f}% pixel coverage and "
-                       f"{representative_detection['detection_result'].max_confidence:.2f} confidence")
+            logger.info(f"🎯 Selected representative image: heading {representative_detection.image_result.heading}° "
+                       f"with {representative_detection.pixel_coverage:.1f}% pixel coverage and "
+                       f"{representative_detection.detection_result.max_confidence:.2f} confidence")
         
         # Phase 4: Save all detection results to database and display representative image
         for detection_info in detection_results:
             image_result = detection_info['image_result']
-            detection_result = detection_info.get('detection_result')
-            image_id = image_result['image_id']
+            detection_result = detection_info.detection_result
+            image_id = image_result.image_id
             
             if detection_result is None:
                 # Handle detection failure
@@ -715,15 +666,15 @@ class BenchFinder:
                 
                 # Copy the representative image
                 copied_path = self._copy_bench_image(
-                    image_result['filepath'], 
+                    image_result.filepath,
                     winning_model, 
                     bench_identifier, 
-                    image_result['heading']
+                    image_result.heading
                 )
                 copy_info = f" (copied to {copied_path})" if copied_path else ""
                 
-                print(f"🏆 Representative bench image: {image_result['filepath']} "
-                      f"(heading {image_result['heading']}°) with {pixel_coverage:.1f}% pixel coverage "
+                print(f"🏆 Representative bench image: {image_result.filepath} "
+                      f"(heading {image_result.heading}°) with {pixel_coverage:.1f}% pixel coverage "
                       f"and confidence {detection_result.max_confidence:.2f} using {winning_model}{copy_info}")
                 
                 # Import here to avoid circular imports
@@ -731,23 +682,23 @@ class BenchFinder:
                 from term_image.image import AutoImage
                 
                 # Pass StandardDetectionResult object directly to render_detections
-                print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
+                print(AutoImage(render_detections(image_result.filepath, detection_result, winning_model)))
         
         # Use display utilities for consistent output
         display_bench_detection_results(
             bench_identifier, 
-            [{'filepath': img['filepath'], 'heading': img['heading']} for img in successful_images],
-            bench_detections,
+            [{'filepath': img.filepath, 'heading': img.heading} for img in successful_images],
+            detection_results,
             representative_detection,
             self.copy_bench_images
         )
         
         # If no bench was detected, show debug information
         if not result.bench_detected:
-            display_no_bench_detected([{'filepath': img['filepath'], 'heading': img['heading']} for img in successful_images])
+            display_no_bench_detected([{'filepath': img.filepath, 'heading': img.heading} for img in successful_images])
             
             # Create combined image display
-            combined_img = create_combined_image_display([{'filepath': img['filepath']} for img in successful_images])
+            combined_img = create_combined_image_display([{'filepath': img.filepath} for img in successful_images])
             if combined_img:
                 from term_image.image import AutoImage
                 print(AutoImage(combined_img))
@@ -756,7 +707,7 @@ class BenchFinder:
             
             # Also print the file paths
             for image_result in successful_images:
-                print(f"  - {image_result.get('filepath')}")
+                print(f"  - {image_result.filepath}")
             print("You can manually review these images to check for benches or detection issues.\n")
 
         return result
