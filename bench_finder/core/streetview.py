@@ -227,7 +227,7 @@ class StreetViewClient:
             )
     
     
-    def get_street_view_metadata(self, lat: float, lng: float) -> Optional[Dict]:
+    def get_street_view_metadata(self, lat: float, lng: float) -> StreetViewMetadataResponse:
         """
         Get metadata about street view availability at a location.
         
@@ -236,8 +236,10 @@ class StreetViewClient:
             lng: Longitude
             
         Returns:
-            Metadata dictionary or None if not available
+            StreetViewMetadataResponse with metadata information
         """
+        requested_location = StreetViewLocation(lat=lat, lng=lng)
+        
         try:
             metadata_url = "https://maps.googleapis.com/maps/api/streetview/metadata"
             params = {
@@ -248,30 +250,99 @@ class StreetViewClient:
             response = requests.get(metadata_url, params=params, timeout=10)
             response.raise_for_status()
             
-            metadata = response.json()
+            metadata_raw = response.json()
+            status = metadata_raw.get('status')
             
-            if metadata.get('status') == 'OK':
+            if status == 'OK':
                 logger.debug(f"Street view available at {lat}, {lng}")
-                return metadata
+                
+                # Parse location information
+                location_info = metadata_raw.get('location', {})
+                location = None
+                if location_info:
+                    location = StreetViewLocation(
+                        lat=location_info.get('lat'),
+                        lng=location_info.get('lng')
+                    )
+                
+                metadata = StreetViewMetadata(
+                    status=status,
+                    location=location,
+                    pano_id=metadata_raw.get('pano_id'),
+                    date=metadata_raw.get('date'),
+                    copyright=metadata_raw.get('copyright')
+                )
+                
+                return StreetViewMetadataResponse(
+                    requested_location=requested_location,
+                    metadata=metadata
+                )
             else:
-                logger.debug(f"Street view not available at {lat}, {lng}: {metadata.get('status')}")
-                return None
+                logger.debug(f"Street view not available at {lat}, {lng}: {status}")
+                
+                # Create metadata with error status
+                metadata = StreetViewMetadata(
+                    status=status,
+                    location=None,
+                    pano_id=None,
+                    date=None,
+                    copyright=None
+                )
+                
+                return StreetViewMetadataResponse(
+                    requested_location=requested_location,
+                    metadata=metadata
+                )
                 
         except Exception as e:
             logger.error(f"Error getting street view metadata: {e}")
-            return None
+            
+            # Return error response
+            error_metadata = StreetViewMetadata(
+                status="ERROR",
+                location=None,
+                pano_id=None,
+                date=None,
+                copyright=None
+            )
+            
+            return StreetViewMetadataResponse(
+                requested_location=requested_location,
+                metadata=error_metadata
+            )
     
-    def cleanup_images(self, filepaths: List[str]):
+    def cleanup_images(self, filepaths: List[str]) -> StreetViewCleanupResult:
         """
         Clean up image files.
         
         Args:
             filepaths: List of file paths to delete
+            
+        Returns:
+            StreetViewCleanupResult with cleanup statistics
         """
+        removed_count = 0
+        failed_count = 0
+        errors = []
+        
         for filepath in filepaths:
             try:
                 if filepath and os.path.exists(filepath):
                     os.remove(filepath)
+                    removed_count += 1
                     logger.debug(f"Removed image file: {filepath}")
+                elif filepath:
+                    # File doesn't exist, but this isn't really an error
+                    logger.debug(f"File already removed or doesn't exist: {filepath}")
             except Exception as e:
-                logger.warning(f"Could not remove image file {filepath}: {e}")
+                failed_count += 1
+                error_msg = f"Could not remove image file {filepath}: {e}"
+                errors.append(error_msg)
+                logger.warning(error_msg)
+        
+        return StreetViewCleanupResult(
+            filepaths=filepaths,
+            removed_count=removed_count,
+            failed_count=failed_count,
+            errors=errors
+        )

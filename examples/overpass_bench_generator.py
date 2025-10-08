@@ -47,18 +47,18 @@ class OverpassBenchGenerator(BenchGenerator):
         try:
             logger.debug(f"Searching OSM for benches near {lat}, {lng} (radius: {radius}m)")
             
-            # Use existing OverpassClient to get bench dictionaries
-            bench_dicts = self.overpass_client.find_benches_near_point(lat, lng, radius)
+            # Use existing OverpassClient to get search result
+            search_result = self.overpass_client.find_benches_near_point(lat, lng, radius)
             
-            # Convert dictionaries to BenchCandidate objects
+            # Convert OSMBench objects to BenchCandidate objects
             bench_candidates = []
-            for bench_dict in bench_dicts:
+            for osm_bench in search_result.benches:
                 try:
-                    candidate = self._convert_dict_to_candidate(bench_dict)
+                    candidate = self._convert_osm_bench_to_candidate(osm_bench)
                     if candidate:
                         bench_candidates.append(candidate)
                 except Exception as e:
-                    logger.warning(f"Failed to convert bench dict to candidate: {e}")
+                    logger.warning(f"Failed to convert OSM bench to candidate: {e}")
                     continue
             
             self._update_stats(success=True, bench_count=len(bench_candidates))
@@ -70,39 +70,34 @@ class OverpassBenchGenerator(BenchGenerator):
             logger.error(f"OSM bench search failed: {e}")
             raise
     
-    def _convert_dict_to_candidate(self, bench_dict: dict) -> BenchCandidate:
+    def _convert_osm_bench_to_candidate(self, osm_bench) -> BenchCandidate:
         """
-        Convert a bench dictionary from OverpassClient to a BenchCandidate.
+        Convert an OSMBench object to a BenchCandidate.
         
         Args:
-            bench_dict: Dictionary from OverpassClient
+            osm_bench: OSMBench object from OverpassClient
             
         Returns:
             BenchCandidate object
             
         Raises:
-            ValueError: If required fields are missing
+            ValueError: If required fields are missing or invalid
         """
-        # Validate required fields
-        required_fields = ['provider_id', 'lat', 'lng', 'source']
-        missing_fields = [field for field in required_fields if field not in bench_dict]
-        if missing_fields:
-            raise ValueError(f"Bench dict missing required fields: {missing_fields}")
+        from bench_finder.models.overpass_models import OSMBench
         
-        # Validate coordinate types
-        try:
-            lat = float(bench_dict['lat'])
-            lng = float(bench_dict['lng'])
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid coordinates: lat={bench_dict.get('lat')}, lng={bench_dict.get('lng')}") from e
+        if not isinstance(osm_bench, OSMBench):
+            raise ValueError(f"Expected OSMBench object, got {type(osm_bench)}")
+        
+        # Convert OSMTags to regular dict
+        tags_dict = osm_bench.tags.model_dump() if osm_bench.tags else {}
         
         return BenchCandidate(
-            provider_id=bench_dict['provider_id'],
-            lat=lat,
-            lng=lng,
-            source=bench_dict['source'],
-            external_id=bench_dict.get('external_id'),
-            tags=bench_dict.get('tags', {}),
+            provider_id=osm_bench.provider_id,
+            lat=osm_bench.lat,
+            lng=osm_bench.lng,
+            source=osm_bench.source,
+            external_id=osm_bench.external_id,
+            tags=tags_dict,
             confidence=None  # OSM doesn't provide confidence scores
         )
     

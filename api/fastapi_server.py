@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query, Path, Body, Request, status
+from fastapi import FastAPI, HTTPException, Query, Path, Body, Request, status, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,7 +23,9 @@ from bench_finder.services.clustered_bench_service import ClusteredBenchService
 from bench_finder.models.schemas import (
     BenchListResponse, WebBenchData, PaginationInfo, SegmentationData,
     ImageListResponse, ImageResponse, ConfigResponse, SearchListResponse, SearchSummary,
-    SourceSearchRequest, SourceStatistics, ClusteredBenchListResponse
+    SourceSearchRequest, SourceStatistics, ClusteredBenchListResponse,
+    HealthResponse, ApiInfoResponse, MapillaryConfigResponse, ReportResponse,
+    MissingBenchReportResponse, SourceStatsResponse, ErrorResponse
 )
 
 # Configuration constants
@@ -79,10 +81,6 @@ class RandomBenchResponse(BaseModel):
     bench: WebBenchData = Field(..., description="Randomly selected bench matching criteria")
 
 
-class ErrorResponse(BaseModel):
-    """Standard error response model."""
-    error: str = Field(..., description="Error message")
-    detail: Optional[str] = Field(None, description="Additional error details")
 
 
 # Application lifecycle management
@@ -213,7 +211,7 @@ async def value_error_handler(request: Request, exc: ValueError):
     """Handle ValueError exceptions with proper HTTP status."""
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"error": "Invalid input", "detail": str(exc)}
+        content=ErrorResponse(error="Invalid input", detail=str(exc)).model_dump()
     )
 
 
@@ -223,7 +221,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     print(f"Unexpected error on {request.url}: {exc}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"error": "Internal server error", "detail": "An unexpected error occurred"}
+        content=ErrorResponse(error="Internal server error", detail="An unexpected error occurred").model_dump()
     )
 
 
@@ -261,11 +259,11 @@ async def health_check():
         with db._get_connection() as conn:
             conn.execute("SELECT 1").fetchone()
         
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "mapillary": "enabled" if mapillary_service else "disabled"
-        }
+        return HealthResponse(
+            status="healthy",
+            database="connected",
+            mapillary="enabled" if mapillary_service else "disabled"
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1126,7 +1124,7 @@ async def get_config():
 @app.get("/api/info",
          summary="Get API Information",
          description="Get comprehensive API information including capabilities and limits",
-         response_model=Dict[str, Any],
+         response_model=ApiInfoResponse,
          tags=["config"])
 async def get_api_info():
     """
@@ -1138,13 +1136,13 @@ async def get_api_info():
     - Usage limits and performance constraints
     - Version information
     """
-    return {
-        "name": "Bench Finder API",
-        "version": "2.0.0",
-        "description": "A comprehensive API for discovering and analyzing public benches using computer vision",
-        "supported_sources": ["osm", "mapillary"],
-        "supported_detection_models": ["roboflow", "ultralytics", "mapillary"],
-        "features": [
+    return ApiInfoResponse(
+        name="Bench Finder API",
+        version="2.0.0",
+        description="A comprehensive API for discovering and analyzing public benches using computer vision",
+        supported_sources=["osm", "mapillary"],
+        supported_detection_models=["roboflow", "ultralytics", "mapillary"],
+        features=[
             "spatial_search",
             "confidence_filtering",
             "multi_source_data",
@@ -1154,13 +1152,13 @@ async def get_api_info():
             "bbox_queries",
             "random_discovery"
         ],
-        "limits": {
+        limits={
             "max_page_size": 50,
             "max_bbox_results": 500,
             "max_search_radius": 10000,
             "max_mapillary_limit": 5000
         },
-        "endpoints": {
+        endpoints={
             "benches": "/api/benches",
             "bench_by_source": "/api/benches/source/{source}",
             "random_bench": "/api/benches/random",
@@ -1170,14 +1168,8 @@ async def get_api_info():
             "health": "/health",
             "docs": "/docs",
             "redoc": "/redoc"
-        },
-        "mapillary_enabled": mapillary_service is not None,
-        "documentation_urls": {
-            "openapi_json": "/openapi.json",
-            "swagger_ui": "/docs",
-            "redoc": "/redoc"
         }
-    }
+    )
 
 
 # IMAGE AND DETECTION ENDPOINTS
@@ -1682,7 +1674,7 @@ async def refresh_mapillary_image(
 @app.get("/api/mapillary/config",
          summary="Get Mapillary Configuration",
          description="Get Mapillary integration configuration and status",
-         response_model=Dict[str, Any],
+         response_model=MapillaryConfigResponse,
          tags=["mapillary"])
 async def get_mapillary_config():
     """
@@ -1694,27 +1686,27 @@ async def get_mapillary_config():
     - Supported detection types
     - API limits and constraints
     """
-    return {
-        'mapillary_enabled': mapillary_service is not None,
-        'default_radius_meters': 1000,
-        'default_limit': 1000,
-        'supported_detection_types': ['object--bench'],
-        'max_radius_meters': 10000,
-        'max_limit': 5000,
-        'features': {
+    return MapillaryConfigResponse(
+        mapillary_enabled=mapillary_service is not None,
+        default_radius_meters=1000,
+        default_limit=1000,
+        supported_detection_types=['object--bench'],
+        max_radius_meters=10000,
+        max_limit=5000,
+        features={
             'search_and_store': mapillary_service is not None,
             'stored_data_retrieval': mapillary_service is not None,
             'statistics': mapillary_service is not None,
             'image_refresh': mapillary_service is not None
         }
-    }
+    )
 
 
 # REPORTING ENDPOINTS
 @app.post("/api/benches/{bench_id}/report",
           summary="Report Bad Bench Detection",
           description="Report a bad bench detection with optional description and image data",
-          response_model=Dict[str, Any],
+          response_model=ReportResponse,
           responses={
               400: {"model": EnhancedErrorResponse, "description": "Invalid bench ID or request data"},
               404: {"model": EnhancedErrorResponse, "description": "Bench not found"},
@@ -1723,12 +1715,12 @@ async def get_mapillary_config():
           tags=["reporting"])
 async def report_bad_bench(
     bench_id: int = Path(..., gt=0, description="Bench ID to report"),
-    request: Request,
     report_type: str = Body("bad_detection", description="Type of report"),
     description: Optional[str] = Body(None, description="Optional description of the issue"),
     image_id: Optional[int] = Body(None, description="Specific image ID being reported"),
     user_location_lat: Optional[float] = Body(None, description="User's GPS latitude"),
-    user_location_lng: Optional[float] = Body(None, description="User's GPS longitude")
+    user_location_lng: Optional[float] = Body(None, description="User's GPS longitude"),
+    request: Request = Depends()
 ):
     """
     Report a bad bench detection.
@@ -1825,14 +1817,14 @@ async def report_bad_bench(
             report_id = result.lastrowid
             conn.commit()
             
-            return {
-                'success': True,
-                'report_id': report_id,
-                'message': 'Thank you for your report. It will be reviewed by our team.',
-                'bench_id': bench_id,
-                'report_type': report_type,
-                'created_at': datetime.now().isoformat()
-            }
+            return ReportResponse(
+                success=True,
+                report_id=report_id,
+                message='Thank you for your report. It will be reviewed by our team.',
+                bench_id=bench_id,
+                report_type=report_type,
+                created_at=datetime.now().isoformat()
+            )
     
     except HTTPException:
         raise
@@ -1846,7 +1838,7 @@ async def report_bad_bench(
 @app.post("/api/missing-benches",
           summary="Report Missing Bench",
           description="Report a missing bench at a specific location with optional photo",
-          response_model=Dict[str, Any],
+          response_model=MissingBenchReportResponse,
           responses={
               400: {"model": EnhancedErrorResponse, "description": "Invalid location or request data"},
               413: {"model": EnhancedErrorResponse, "description": "Image file too large"},
@@ -1974,15 +1966,15 @@ async def report_missing_bench(
             report_id = result.lastrowid
             conn.commit()
             
-            return {
-                'success': True,
-                'report_id': report_id,
-                'message': 'Thank you for reporting this missing bench. It will be reviewed by our team.',
-                'location': {'lat': lat, 'lng': lng},
-                'location_method': location_method,
-                'has_image': uploaded_image_filename is not None,
-                'created_at': datetime.now().isoformat()
-            }
+            return MissingBenchReportResponse(
+                success=True,
+                report_id=report_id,
+                message='Thank you for reporting this missing bench. It will be reviewed by our team.',
+                location={'lat': lat, 'lng': lng},
+                location_method=location_method,
+                has_image=uploaded_image_filename is not None,
+                created_at=datetime.now().isoformat()
+            )
     
     except HTTPException:
         raise
@@ -1997,7 +1989,7 @@ async def report_missing_bench(
 @app.get("/api/statistics/source/{source}",
          summary="Get Statistics by Source",
          description="Get comprehensive statistics filtered by data source",
-         response_model=Dict[str, Any],
+         response_model=SourceStatsResponse,
          responses={
              400: {"model": EnhancedErrorResponse, "description": "Invalid source parameter"},
              500: {"model": EnhancedErrorResponse, "description": "Internal server error"}
@@ -2078,19 +2070,19 @@ async def get_statistics_by_source(
             
             row = conn.execute(base_query, query_params).fetchone()
             
-            return {
-                'source': source,
-                'total_benches': row['total_benches'] or 0,
-                'total_images': row['total_images'] or 0, 
-                'total_detections': row['total_detections'] or 0,
-                'avg_confidence': round(row['avg_confidence'] or 0, 3),
-                'area_filtered': center_lat is not None and center_lng is not None,
-                'area_center': {
+            return SourceStatsResponse(
+                source=source,
+                total_benches=row['total_benches'] or 0,
+                total_images=row['total_images'] or 0, 
+                total_detections=row['total_detections'] or 0,
+                avg_confidence=round(row['avg_confidence'] or 0, 3),
+                area_filtered=center_lat is not None and center_lng is not None,
+                area_center={
                     'lat': center_lat,
-                    'lng': center_lng,
-                    'radius_meters': radius_meters
-                } if center_lat is not None else None
-            }
+                    'lng': center_lng
+                } if center_lat is not None else None,
+                area_radius_meters=radius_meters if center_lat is not None else None
+            )
         
     except Exception as e:
         raise HTTPException(

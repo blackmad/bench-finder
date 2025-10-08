@@ -69,19 +69,25 @@ class MapillaryMapFeature(BaseModel):
     
     def to_detections(self) -> List[MapillaryDetection]:
         """Convert this feature to MapillaryDetection objects."""
-        detections = []
+        detections: List[MapillaryDetection] = []
         
         if not self.images or not self.images.data:
             return detections
             
         for image_info in self.images.data:
+            # Convert geometry coordinates to the expected format
+            geometry_decoded = None
+            if self.geometry and isinstance(self.geometry.coordinates, list) and len(self.geometry.coordinates) >= 2:
+                # Wrap the coordinates in a list to match List[List[float]] format
+                geometry_decoded = [self.geometry.coordinates]
+            
             detection = MapillaryDetection(
                 detection_id=self.id,
                 image_id=image_info.id,
                 image_coordinates=image_info.coordinates,
                 value=self.object_value,
                 geometry_encoded=str(self.geometry.coordinates) if self.geometry else "",
-                geometry_decoded=self.geometry.coordinates if self.geometry and isinstance(self.geometry.coordinates, list) else None,
+                geometry_decoded=geometry_decoded,
                 confidence=1.0  # Mapillary doesn't provide confidence scores
             )
             detections.append(detection)

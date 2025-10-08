@@ -13,8 +13,8 @@ from ..models.models import (
     create_database_engine, create_database_session
 )
 from ..models.schemas import (
-    SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
-    SearchResults, BenchWithDetections
+    DetectionResponse, ImageWithDetections, SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
+    SearchResults, BenchWithDetections, UltralyticsDetectionResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -278,14 +278,14 @@ class BenchDatabase:
                 image_stats = session.query(
                     func.count(Image.id).label('total_images'),
                     func.sum(Image.capture_success).label('successful_images')
-                ).join(Bench).filter(Bench.search_id == search_id).first()
+                ).join(Bench, Image.bench_id == Bench.id).filter(Bench.search_id == search_id).first()
                 
                 # Get detection stats
                 detection_stats = session.query(
                     func.count(Detection.id).label('total_detections'),
                     func.sum(Detection.has_bench).label('images_with_benches'),
                     func.max(Detection.max_confidence).label('best_confidence')
-                ).join(Image).join(Bench).filter(Bench.search_id == search_id).first()
+                ).join(Image, Detection.image_id == Image.id).join(Bench, Image.bench_id == Bench.id).filter(Bench.search_id == search_id).first()
                 
                 return SearchResults(
                     search=search,

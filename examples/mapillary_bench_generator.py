@@ -72,7 +72,8 @@ class MapillaryBenchGenerator(BenchGenerator):
             # Check if we need to chunk the search area
             if radius * 2 <= MAPILLARY_MAX_CHUNK_SIZE_METERS:
                 # Small enough area - use single request
-                mapillary_images = self.mapillary_client.search_benches_by_location(lat, lng, radius)
+                search_result = self.mapillary_client.search_benches_by_location(lat, lng, radius)
+                mapillary_images = search_result.images
             else:
                 # Large area - break into chunks
                 logger.info(f"Large search area ({radius}m radius) - breaking into chunks of {MAPILLARY_MAX_CHUNK_SIZE_METERS}m")
@@ -298,7 +299,8 @@ class MapillaryBenchGenerator(BenchGenerator):
                     bbox = (chunk_min_lng, chunk_min_lat, chunk_max_lng, chunk_max_lat)
                     limit = kwargs.get('limit', MAPILLARY_API_LIMIT_PER_REQUEST)
                     
-                    chunk_images = self.mapillary_client.search_images_with_detections(bbox, limit)
+                    search_result = self.mapillary_client.search_images_with_detections(bbox, limit)
+                    chunk_images = search_result.images
                     
                     if chunk_images:
                         all_images.extend(chunk_images)

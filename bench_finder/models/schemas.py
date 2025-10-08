@@ -500,3 +500,73 @@ class PipelineResult(BaseModel):
     message: str
     stats: Optional[ProcessingStats] = None
     error: Optional[str] = None
+
+
+# Additional response models for FastAPI endpoints
+class HealthResponse(BaseModel):
+    """Schema for health check response."""
+    status: str
+    database: str
+    mapillary: str
+
+
+class ApiInfoResponse(BaseModel):
+    """Schema for API information response."""
+    name: str
+    version: str
+    description: str
+    supported_sources: List[str]
+    supported_detection_models: List[str]
+    features: List[str]
+    endpoints: Dict[str, str]
+    limits: Dict[str, Any]
+
+
+class MapillaryConfigResponse(BaseModel):
+    """Schema for Mapillary configuration response."""
+    mapillary_enabled: bool
+    default_radius_meters: int
+    default_limit: int
+    supported_detection_types: List[str]
+    max_radius_meters: int
+    max_limit: int
+    features: Dict[str, Any]
+
+
+class ReportResponse(BaseModel):
+    """Schema for bench report response."""
+    success: bool
+    report_id: int
+    message: str
+    bench_id: int
+    report_type: str
+    created_at: str
+
+
+class MissingBenchReportResponse(BaseModel):
+    """Schema for missing bench report response."""
+    success: bool
+    report_id: int
+    message: str
+    location: Dict[str, float]
+    location_method: str
+    has_image: bool
+    created_at: str
+
+
+class SourceStatsResponse(BaseModel):
+    """Schema for source statistics response."""
+    source: str
+    total_benches: int
+    total_images: int
+    total_detections: int
+    avg_confidence: float
+    area_filtered: bool
+    area_center: Optional[Dict[str, float]] = None
+    area_radius_meters: Optional[int] = None
+
+
+class ErrorResponse(BaseModel):
+    """Schema for error response."""
+    error: str
+    detail: Optional[str] = None

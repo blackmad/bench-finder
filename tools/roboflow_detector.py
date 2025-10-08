@@ -52,7 +52,7 @@ def run_inference(client: RoboflowClient, image_path: str) -> Dict[str, Any]:
         sys.exit(1)
 
 
-def render_detections(image_path: str, result: Dict[str, Any], model_name: str = "Model") -> Image.Image:
+def render_detections(image_path: str, result, model_name: str = "Model") -> Image.Image:
     """Draw bounding boxes on the image based on RoboflowClient results."""
     # Load the original image
     image = cv2.imread(image_path)
@@ -79,12 +79,12 @@ def render_detections(image_path: str, result: Dict[str, Any], model_name: str =
         (255, 0, 255), (0, 255, 255), (128, 0, 0), (0, 128, 0)
     ]
     
-    # Extract detections from RoboflowClient result format
-    detections = result.get('detections', [])
-    bench_count = result.get('bench_count', 0)
-    max_confidence = result.get('max_confidence', 0)
-    inference_type = result.get('inference_type', 'unknown')
-    model_id = result.get('model_id', 'unknown')
+    # Extract detections from StandardDetectionResult object
+    detections = result.detections if hasattr(result, 'detections') else []
+    bench_count = result.bench_count if hasattr(result, 'bench_count') else 0
+    max_confidence = result.max_confidence if hasattr(result, 'max_confidence') else 0
+    inference_type = getattr(result, 'inference_type', 'unknown')
+    model_id = getattr(result, 'winning_model', 'unknown')
     
     print(f"\n[{model_name}] Found {bench_count} bench detection(s) using {inference_type} inference ({model_id}):")  
     if bench_count > 0:
@@ -93,44 +93,37 @@ def render_detections(image_path: str, result: Dict[str, Any], model_name: str =
     for i, detection in enumerate(detections):
         color = colors[i % len(colors)]
         
-        # Extract detection info
-        if 'class' in detection:
-            class_name = detection['class']
-        elif 'class_name' in detection:
-            class_name = detection['class_name']
-        else:
-            class_name = detection.get('label', 'Unknown')
-            
-        confidence = detection.get('confidence', 0.0)
+        # Extract detection info from DetectionItem object
+        class_name = detection.class_name
+        confidence = detection.confidence
+        bbox = detection.bbox
         
         print(f"  {i+1}. {class_name} (confidence: {confidence:.2f})")
         
-        # Handle bounding box detection
-        if 'x' in detection and 'y' in detection and 'width' in detection and 'height' in detection:
-            x, y, w, h = detection['x'], detection['y'], detection['width'], detection['height']
-            
-            # Convert center coordinates to corner coordinates
-            x1 = int(x - w/2)
-            y1 = int(y - h/2)
-            x2 = int(x + w/2)
-            y2 = int(y + h/2)
-            
-            # Draw bounding box
-            draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
-            
-            # Draw label
-            label = f"{class_name} {confidence:.2f}"
-            bbox = draw.textbbox((x1, y1-25), label, font=font)
-            draw.rectangle([bbox[0]-2, bbox[1]-2, bbox[2]+2, bbox[3]+2], fill=color)
-            draw.text((x1, y1-25), label, fill=(255, 255, 255), font=font)
+        # Handle bounding box detection using BoundingBox object
+        x1 = int(bbox.x1)
+        y1 = int(bbox.y1)
+        x2 = int(bbox.x2)
+        y2 = int(bbox.y2)
+        
+        # Draw bounding box
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
+        
+        # Draw label
+        label = f"{class_name} {confidence:.2f}"
+        text_bbox = draw.textbbox((x1, y1-25), label, font=font)
+        draw.rectangle([text_bbox[0]-2, text_bbox[1]-2, text_bbox[2]+2, text_bbox[3]+2], fill=color)
+        draw.text((x1, y1-25), label, fill=(255, 255, 255), font=font)
         
         # Handle segmentation masks (if available)
-        elif 'points' in detection:
-            points = detection['points']
-            if points:
-                # Convert points to tuples for PIL
-                polygon_points = [(point['x'], point['y']) for point in points]
-                
+        if hasattr(detection, 'segmentation') and detection.segmentation:
+            # Convert segmentation points to tuples for PIL
+            polygon_points = []
+            for point_list in detection.segmentation:
+                if len(point_list) >= 2:
+                    polygon_points.append((point_list[0], point_list[1]))
+            
+            if polygon_points:
                 # Draw segmentation mask
                 draw.polygon(polygon_points, outline=color, width=3)
                 
@@ -145,7 +138,7 @@ def render_detections(image_path: str, result: Dict[str, Any], model_name: str =
                     draw.text((cx-50, cy-10), label, fill=(255, 255, 255), font=font)
     return pil_image
 
-def draw_detections(image_path: str, result: Dict[str, Any], output_path: str, model_name: str = "Model") -> None:
+def draw_detections(image_path: str, result, output_path: str, model_name: str = "Model") -> None:
     pil_image = render_detections(image_path, result, model_name)
     # Save the annotated image
     pil_image.save(output_path)
