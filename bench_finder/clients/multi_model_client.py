@@ -249,7 +249,7 @@ class MultiModelDetectionClient:
         """
         self.enable_ultralytics = enable_ultralytics
         self.enable_roboflow_fallback = enable_roboflow_fallback
-        self.all_attempts = []  # Track all detection attempts for analysis
+        self.all_attempts: List[DetectionAttempt] = []  # Track all detection attempts for analysis
         
         # Initialize Ultralytics client if enabled and API key available
         self.ultralytics_client = None
@@ -303,7 +303,7 @@ class MultiModelDetectionClient:
         if self.enable_ultralytics and self.ultralytics_client:
             logger.debug("🚀 Trying Ultralytics first...")
             try:
-                ultralytics_result_dict = self.ultralytics_client.detect_benches_in_image(image_path)
+                ultralytics_result_dict: Dict = self.ultralytics_client.detect_benches_in_image(image_path)
                 
                 attempt = DetectionAttempt(
                     model_type='ultralytics',
@@ -396,7 +396,7 @@ class MultiModelDetectionClient:
         if not self.all_attempts:
             return {'total_attempts': 0, 'no_data': True}
         
-        stats = {
+        stats: Dict[str, float | int] = {
             'total_attempts': len(self.all_attempts),
             'ultralytics_attempts': len([a for a in self.all_attempts if a.model_type == 'ultralytics']),
             'roboflow_attempts': len([a for a in self.all_attempts if a.model_type == 'roboflow']),
@@ -407,10 +407,10 @@ class MultiModelDetectionClient:
         
         # Calculate success rates
         if stats['ultralytics_attempts'] > 0:
-            stats['ultralytics_success_rate'] = stats['ultralytics_successes'] / stats['ultralytics_attempts']
+            stats['ultralytics_success_rate'] = float(stats['ultralytics_successes']) / float(stats['ultralytics_attempts'])
         
         if stats['roboflow_attempts'] > 0:
-            stats['roboflow_success_rate'] = stats['roboflow_successes'] / stats['roboflow_attempts']
+            stats['roboflow_success_rate'] = float(stats['roboflow_successes']) / float(stats['roboflow_attempts'])
         
         return stats
     

@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Optional
 from ..models.schemas import (
-    UltralyticsDetectionResult, UltralyticsApiResponse, UltralyticsImageResult,
+    UltralyticsApiResponse, UltralyticsDetectionResult, UltralyticsImageResult,
     UltralyticsDetectionItem, UltralyticsBox, UltralyticsSegments, UltralyticsSpeed
 )
 from ..config import (
@@ -208,7 +208,7 @@ class UltralyticsClient:
             logger.error(f"Unexpected error analyzing image {image_path}: {e}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
     
-    def _process_local_detection_result(self, image_path: str, results) -> Dict:
+    def _process_local_detection_result(self, image_path: str, results) -> UltralyticsDetectionResult:
         """
         Process the local YOLO detection results into a standardized format.
         
@@ -217,7 +217,7 @@ class UltralyticsClient:
             results: YOLO results object from local inference
             
         Returns:
-            Processed detection result dictionary
+            UltralyticsDetectionResult with processed detection data
         """
         try:
             # Extract timing information
@@ -247,30 +247,30 @@ class UltralyticsClient:
                         
                         # Get bounding box coordinates
                         xyxy = box.xyxy.cpu().numpy()[0]
-                        box_data = {
-                            'x1': float(xyxy[0]),
-                            'y1': float(xyxy[1]),
-                            'x2': float(xyxy[2]),
-                            'y2': float(xyxy[3])
-                        }
+                        box_data = UltralyticsBox(
+                            x1=float(xyxy[0]),
+                            y1=float(xyxy[1]),
+                            x2=float(xyxy[2]),
+                            y2=float(xyxy[3])
+                        )
                         
                         # Get segmentation data if available
-                        segments_data = {}
+                        segments_data = None
                         if result.masks is not None and i < len(result.masks.xy):
                             mask_points = result.masks.xy[i]
                             if len(mask_points) > 0:
-                                segments_data = {
-                                    'x': mask_points[:, 0].tolist(),
-                                    'y': mask_points[:, 1].tolist()
-                                }
+                                segments_data = UltralyticsSegments(
+                                    x=mask_points[:, 0].tolist(),
+                                    y=mask_points[:, 1].tolist()
+                                )
                         
-                        detection_data = {
-                            'class': class_names.get(class_id, f"class_{class_id}"),
-                            'class_id': class_id,
-                            'confidence': confidence,
-                            'box': box_data,
-                            'segments': segments_data,
-                        }
+                        detection_data = UltralyticsDetectionItem(
+                            **{"class": class_names.get(class_id, f"class_{class_id}")},
+                            class_id=class_id,
+                            confidence=confidence,
+                            box=box_data,
+                            segments=segments_data,
+                        )
                         
                         all_results.append(detection_data)
                         
@@ -279,40 +279,47 @@ class UltralyticsClient:
                             bench_detections.append(detection_data)
             
             has_bench = len(bench_detections) > 0
-            max_confidence = max((d['confidence'] for d in bench_detections), default=0.0)
+            max_confidence = max((d.confidence for d in bench_detections), default=0.0)
             
-            # Create a mock full_response to maintain compatibility
-            full_response = {
-                'images': [{
-                    'results': all_results,
-                    'shape': results[0].orig_shape if hasattr(results[0], 'orig_shape') else [0, 0],
-                    'speed': timing_info
-                }]
-            }
+            # Create proper Pydantic models for the response
+            speed_data = UltralyticsSpeed(
+                inference=timing_info.get('inference_time'),
+                preprocess=timing_info.get('preprocess_time'),
+                postprocess=timing_info.get('postprocess_time')
+            )
             
-            result_data = {
-                'image_path': image_path,
-                'success': True,
-                'has_bench': has_bench,
-                'bench_count': len(bench_detections),
-                'max_confidence': max_confidence,
-                'bench_detections': bench_detections,
-                'full_response': full_response,
-                'model_url': str(self.local_model_path) if self.local_model_path else 'local',
-                'confidence_threshold': self.confidence_threshold,
-                'iou_threshold': self.iou_threshold,
-                'image_size': self.image_size,
-                'inference_mode': 'local',
-                **timing_info
-            }
+            image_result = UltralyticsImageResult(
+                results=all_results,
+                shape=results[0].orig_shape if hasattr(results[0], 'orig_shape') else [0, 0],
+                speed=speed_data
+            )
+            
+            full_response = UltralyticsApiResponse(images=[image_result])
+            
+            result_data = UltralyticsDetectionResult(
+                image_path=image_path,
+                success=True,
+                has_bench=has_bench,
+                bench_count=len(bench_detections),
+                max_confidence=max_confidence,
+                bench_detections=bench_detections,
+                full_response=full_response,
+                model_url=str(self.local_model_path) if self.local_model_path else 'local',
+                confidence_threshold=self.confidence_threshold,
+                iou_threshold=self.iou_threshold,
+                image_size=self.image_size,
+                inference_mode='local',
+                inference_time=timing_info.get('inference_time'),
+                preprocess_time=timing_info.get('preprocess_time'),
+                postprocess_time=timing_info.get('postprocess_time')
+            )
             
             if has_bench:
                 logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
                 # Log segmentation info for first bench detection
-                if bench_detections and 'segments' in bench_detections[0]:
-                    segments = bench_detections[0]['segments']
-                    if segments and 'x' in segments and 'y' in segments:
-                        logger.debug(f"Segmentation points: {len(segments['x'])} coordinates")
+                if bench_detections and bench_detections[0].segments:
+                    segments = bench_detections[0].segments
+                    logger.debug(f"Segmentation points: {len(segments.x)} coordinates")
             else:
                 logger.debug(f"No bench detected in {image_path}")
             
@@ -322,7 +329,7 @@ class UltralyticsClient:
             logger.error(f"Error processing local detection result for {image_path}: {e}")
             return self._create_error_result(image_path, f"Processing error: {e}")
     
-    def _process_api_detection_result(self, image_path: str, api_result: Dict) -> Dict:
+    def _process_api_detection_result(self, image_path: str, api_result: Dict) -> UltralyticsDetectionResult:
         """
         Process the raw Ultralytics API result into a standardized format.
         
@@ -331,7 +338,7 @@ class UltralyticsClient:
             api_result: Raw API response dictionary
             
         Returns:
-            Processed detection result dictionary
+            UltralyticsDetectionResult with processed detection data
         """
         try:
             # Extract timing information if available
@@ -350,49 +357,70 @@ class UltralyticsClient:
             
             for image_result in api_result.get('images', []):
                 for result in image_result.get('results', []):
-                    all_results.append(result)
-                    
-                    # Check if this is a bench detection
-                    class_name = result.get('name', '').lower()
+                    # Handle the actual API response format
+                    # The API returns 'class' as an integer and 'name' as the class name
+                    class_id = result.get('class', 0)
+                    class_name = result.get('name', f'class_{class_id}')
                     confidence = result.get('confidence', 0)
                     
+                    # Convert API result to Pydantic model
+                    box_data = UltralyticsBox(**result.get('box', {}))
+                    segments_data = None
+                    if result.get('segments'):
+                        segments_data = UltralyticsSegments(**result.get('segments', {}))
+                    
+                    detection_item = UltralyticsDetectionItem(
+                        **{"class": class_name},
+                        class_id=class_id,
+                        confidence=confidence,
+                        box=box_data,
+                        segments=segments_data
+                    )
+                    
+                    all_results.append(detection_item)
+                    
+                    # Check if this is a bench detection
+                    class_name_lower = class_name.lower()
+                    
                     # Look for "bench" in the class name and check confidence
-                    if 'bench' in class_name and confidence >= self.confidence_threshold:
-                        detection_data = {
-                            'class': result.get('name'),
-                            'class_id': result.get('class'),
-                            'confidence': confidence,
-                            'box': result.get('box', {}),
-                            'segments': result.get('segments', {}),
-                        }
-                        bench_detections.append(detection_data)
+                    if 'bench' in class_name_lower and confidence >= self.confidence_threshold:
+                        bench_detections.append(detection_item)
             
             has_bench = len(bench_detections) > 0
-            max_confidence = max((d['confidence'] for d in bench_detections), default=0.0)
+            max_confidence = max((d.confidence for d in bench_detections), default=0.0)
             
-            result_data = {
-                'image_path': image_path,
-                'success': True,
-                'has_bench': has_bench,
-                'bench_count': len(bench_detections),
-                'max_confidence': max_confidence,
-                'bench_detections': bench_detections,
-                'full_response': api_result,  # Store complete response
-                'model_url': self.model_url,
-                'confidence_threshold': self.confidence_threshold,
-                'iou_threshold': self.iou_threshold,
-                'image_size': self.image_size,
-                'inference_mode': 'api',
-                **timing_info
-            }
+            # Convert API result to Pydantic model - handle the actual API response format
+            try:
+                full_response = UltralyticsApiResponse(**api_result)
+            except Exception as e:
+                logger.warning(f"Could not parse API response as Pydantic model: {e}")
+                # Create a minimal response structure
+                full_response = UltralyticsApiResponse(images=[])
+            
+            result_data = UltralyticsDetectionResult(
+                image_path=image_path,
+                success=True,
+                has_bench=has_bench,
+                bench_count=len(bench_detections),
+                max_confidence=max_confidence,
+                bench_detections=bench_detections,
+                full_response=full_response,
+                model_url=self.model_url or "unknown",
+                confidence_threshold=self.confidence_threshold,
+                iou_threshold=self.iou_threshold,
+                image_size=self.image_size,
+                inference_mode='api',
+                inference_time=timing_info.get('inference_time'),
+                preprocess_time=timing_info.get('preprocess_time'),
+                postprocess_time=timing_info.get('postprocess_time')
+            )
             
             if has_bench:
                 logger.info(f"Bench detected in {image_path} - Count: {len(bench_detections)}, Max confidence: {max_confidence:.2f}")
                 # Log segmentation info for first bench detection
-                if bench_detections and 'segments' in bench_detections[0]:
-                    segments = bench_detections[0]['segments']
-                    if segments and 'x' in segments and 'y' in segments:
-                        logger.debug(f"Segmentation points: {len(segments['x'])} coordinates")
+                if bench_detections and bench_detections[0].segments:
+                    segments = bench_detections[0].segments
+                    logger.debug(f"Segmentation points: {len(segments.x)} coordinates")
             else:
                 logger.debug(f"No bench detected in {image_path}")
             
@@ -402,25 +430,25 @@ class UltralyticsClient:
             logger.error(f"Error processing detection result for {image_path}: {e}")
             return self._create_error_result(image_path, f"Processing error: {e}")
     
-    def _create_error_result(self, image_path: str, error: str) -> Dict:
-        """Create a standardized error result dictionary."""
-        return {
-            'image_path': image_path,
-            'success': False,
-            'has_bench': False,
-            'bench_count': 0,
-            'max_confidence': 0.0,
-            'bench_detections': [],
-            'full_response': {},
-            'error': error,
-            'model_url': str(self.local_model_path) if self.use_local else self.model_url,
-            'confidence_threshold': self.confidence_threshold,
-            'iou_threshold': self.iou_threshold,
-            'image_size': self.image_size,
-            'inference_mode': 'local' if self.use_local else 'api'
-        }
+    def _create_error_result(self, image_path: str, error: str) -> UltralyticsDetectionResult:
+        """Create a standardized error result."""
+        return UltralyticsDetectionResult(
+            image_path=image_path,
+            success=False,
+            has_bench=False,
+            bench_count=0,
+            max_confidence=0.0,
+            bench_detections=[],
+            full_response=UltralyticsApiResponse(images=[]),
+            model_url=str(self.local_model_path) if self.use_local else self.model_url or "unknown",
+            confidence_threshold=self.confidence_threshold,
+            iou_threshold=self.iou_threshold,
+            image_size=self.image_size,
+            inference_mode='local' if self.use_local else 'api',
+            error=error
+        )
     
-    def batch_detect_benches(self, image_paths: List[str]) -> List[Dict]:
+    def batch_detect_benches(self, image_paths: List[str]) -> List[UltralyticsDetectionResult]:
         """
         Detect benches in multiple images.
         
@@ -428,7 +456,7 @@ class UltralyticsClient:
             image_paths: List of image file paths
             
         Returns:
-            List of detection result dictionaries
+            List of UltralyticsDetectionResult objects
         """
         logger.info(f"Batch analyzing {len(image_paths)} images for benches with Ultralytics")
         
@@ -443,11 +471,11 @@ class UltralyticsClient:
             result = self.detect_benches_in_image(image_path)
             results.append(result)
             
-            if result['success']:
+            if result.success:
                 successful_detections += 1
-                if result['has_bench']:
+                if result.has_bench:
                     benches_found += 1
-                    total_bench_count += result['bench_count']
+                    total_bench_count += result.bench_count
         
         logger.info(f"Batch analysis complete - {successful_detections}/{len(image_paths)} successful, "
                    f"{benches_found} images with benches detected, {total_bench_count} total bench instances")
@@ -507,7 +535,7 @@ class UltralyticsClient:
             logger.warning(f"Image validation failed for {image_path}: {e}")
             return False
 
-    def detect_benches_with_class_filter(self, image_path: str, target_classes: List[str] | None = None) -> Dict:
+    def detect_benches_with_class_filter(self, image_path: str, target_classes: List[str] | None = None) -> UltralyticsDetectionResult:
         """
         Detect benches in an image with specific class filtering.
         
@@ -516,27 +544,41 @@ class UltralyticsClient:
             target_classes: List of class names to look for (defaults to bench-related terms)
             
         Returns:
-            Dictionary with detection results
+            UltralyticsDetectionResult with filtered detection results
         """
         if target_classes is None:
             target_classes = ['bench', 'seat', 'chair']  # Default bench-related classes
             
         result = self.detect_benches_in_image(image_path)
         
-        if not result['success']:
+        if not result.success:
             return result
         
         # Filter detections to only include target classes
         filtered_detections = []
-        for detection in result['bench_detections']:
-            class_name = detection.get('class', '').lower()
+        for detection in result.bench_detections:
+            class_name = detection.class_name.lower()
             if any(target_class in class_name for target_class in target_classes):
                 filtered_detections.append(detection)
         
-        # Update result with filtered detections
-        result['bench_detections'] = filtered_detections
-        result['bench_count'] = len(filtered_detections)
-        result['has_bench'] = len(filtered_detections) > 0
-        result['max_confidence'] = max((d['confidence'] for d in filtered_detections), default=0.0)
+        # Create new result with filtered detections
+        filtered_result = UltralyticsDetectionResult(
+            image_path=result.image_path,
+            success=result.success,
+            has_bench=len(filtered_detections) > 0,
+            bench_count=len(filtered_detections),
+            max_confidence=max((d.confidence for d in filtered_detections), default=0.0),
+            bench_detections=filtered_detections,
+            full_response=result.full_response,
+            model_url=result.model_url,
+            confidence_threshold=result.confidence_threshold,
+            iou_threshold=result.iou_threshold,
+            image_size=result.image_size,
+            inference_mode=result.inference_mode,
+            inference_time=result.inference_time,
+            preprocess_time=result.preprocess_time,
+            postprocess_time=result.postprocess_time,
+            error=result.error
+        )
         
-        return result
+        return filtered_result
