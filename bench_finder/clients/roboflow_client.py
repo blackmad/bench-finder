@@ -18,7 +18,6 @@ from ..models.schemas import (
 # Import local inference dependencies
 try:
     from inference import get_model
-    import supervision as sv
     LOCAL_INFERENCE_AVAILABLE = True
 except ImportError as e:
     LOCAL_INFERENCE_AVAILABLE = False
@@ -292,6 +291,7 @@ class RoboflowClient(DetectionClient):
             bench_count=0,
             max_confidence=0.0,
             detections=[],
+
             backend_name="RoboflowClient",
             model_id=self.model_id,
             confidence_threshold=self.confidence_threshold,

@@ -58,7 +58,6 @@ hyperframe==6.1.0
 idna==3.7
 ifaddr==0.2.0
 imageio==2.37.0
-inference==0.58.1
 iniconfig==2.1.0
 isodate==0.7.2
 itsdangerous==2.2.0
@@ -89,9 +88,11 @@ packaging==24.2
 paho-mqtt==1.6.1
 pandas==2.2.3
 pi_heif==0.22.0
-pillow==11.3.0
+pillow>=9.1,<11
 pillow-avif-plugin==1.5.2
 platformdirs==4.4.0
+
+
 pluggy==1.6.0
 polars==1.34.0
 polars-runtime-32==1.34.0
@@ -168,6 +169,7 @@ typing_extensions==4.12.2
 tzdata==2025.2
 tzlocal==5.3.1
 ultralytics==8.3.204
+inference>=0.58.0
 ultralytics-thop==2.0.17
 urllib3==2.5.0
 uvicorn==0.34.0
