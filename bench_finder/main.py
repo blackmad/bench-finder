@@ -656,7 +656,7 @@ class BenchFinder:
                         has_bench=False,
                         bench_count=0,
                         max_confidence=0.0,
-                        detections=[],
+                        detections=[],  # Empty list for failed detections
                         detection_success=False,
                         detection_error=error,
                         model_id=getattr(self.detection_client, 'model_id', 'unknown'),

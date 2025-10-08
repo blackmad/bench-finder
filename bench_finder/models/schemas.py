@@ -2,8 +2,11 @@
 Pydantic schemas for API request and response validation.
 """
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from .schemas import DetectionItem
 
 
 class SearchBase(BaseModel):
@@ -96,7 +99,7 @@ class DetectionBase(BaseModel):
     has_bench: bool
     bench_count: int = 0
     max_confidence: float = 0.0
-    detections: List[Dict[str, Any]] = []
+    detections: List["DetectionItem"] = []
     detection_success: bool
     detection_error: Optional[str] = None
     model_id: str
