@@ -10,6 +10,7 @@ import ApiExample from "./components/ApiExample"
 import { AppProvider } from "./contexts/AppContext"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
+import ReportMissingBenchPage from "./pages/ReportMissingBenchPage"
 import GlobalStyles from "./styles/GlobalStyles"
 import { theme } from "./styles/theme"
 
@@ -34,6 +35,7 @@ function App() {
               <Route path="/" element={<Navigate to="/cards" replace />} />
               <Route path="/cards" element={<CardsPage />} />
               <Route path="/map" element={<MapPage />} />
+              <Route path="/report-missing-bench" element={<ReportMissingBenchPage />} />
               <Route path="/api-demo" element={<ApiExample />} />
             </Routes>
           </Router>

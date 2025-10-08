@@ -9,7 +9,7 @@ export class MapillaryService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
     /**
      * Search Mapillary for Benches
-     * Search for bench detections using Mapillary API and store results in database
+     * Search for bench detections using Mapillary API and store results
      * @returns any Successful Response
      * @throws ApiError
      */
@@ -24,10 +24,7 @@ export class MapillaryService {
             body: requestBody,
             mediaType: 'application/json',
             errors: {
-                400: `Invalid request parameters`,
                 422: `Validation Error`,
-                500: `Internal server error`,
-                503: `Mapillary service not available`,
             },
         });
     }
@@ -70,10 +67,7 @@ export class MapillaryService {
                 'limit': limit,
             },
             errors: {
-                400: `Invalid query parameters`,
                 422: `Validation Error`,
-                500: `Internal server error`,
-                503: `Mapillary service not available`,
             },
         });
     }
@@ -111,8 +105,6 @@ export class MapillaryService {
             },
             errors: {
                 422: `Validation Error`,
-                500: `Internal server error`,
-                503: `Mapillary service not available`,
             },
         });
     }
@@ -137,10 +129,7 @@ export class MapillaryService {
                 'mapillary_image_id': mapillaryImageId,
             },
             errors: {
-                404: `Image not found or no detections available`,
                 422: `Validation Error`,
-                500: `Internal server error`,
-                503: `Mapillary service not available`,
             },
         });
     }

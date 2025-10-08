@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SourceEnum } from '../models/SourceEnum';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class StatisticsService {
@@ -21,7 +22,7 @@ export class StatisticsService {
         /**
          * Data source
          */
-        source: string,
+        source: SourceEnum,
         /**
          * Center latitude for area-specific stats
          */
@@ -47,9 +48,7 @@ export class StatisticsService {
                 'radius_meters': radiusMeters,
             },
             errors: {
-                400: `Invalid source parameter`,
                 422: `Validation Error`,
-                500: `Internal server error`,
             },
         });
     }

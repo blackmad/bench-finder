@@ -178,6 +178,10 @@ app = FastAPI(
             "description": "Mapillary-specific operations and street imagery",
         },
         {
+            "name": "reporting",
+            "description": "User reporting for bad detections and missing benches",
+        },
+        {
             "name": "statistics",
             "description": "Analytics and performance metrics",
         },

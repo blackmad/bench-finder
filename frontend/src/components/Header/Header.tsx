@@ -1,4 +1,4 @@
-import { Grid, MapIcon, MapPin, Settings, Shuffle } from "lucide-react"
+import { Grid, MapIcon, MapPin, Settings, Shuffle, Plus } from "lucide-react"
 import type React from "react"
 import { useCallback, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
@@ -523,6 +523,15 @@ export const Header: React.FC = () => {
             <span className="label">
               {locationLoading ? "Locating..." : "Current Location"}
             </span>
+          </ActionButton>
+
+          <ActionButton
+            $variant="secondary"
+            onClick={() => navigate("/report-missing-bench")}
+            title="Report a bench that's missing from our database"
+          >
+            <Plus />
+            <span className="label">Report Missing</span>
           </ActionButton>
 
           <DebugButton

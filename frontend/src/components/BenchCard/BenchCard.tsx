@@ -1,11 +1,12 @@
 import { motion } from "framer-motion"
 import L from "leaflet"
-import { Camera, Hash, MapPin, Target } from "lucide-react"
+import { Camera, Hash, MapPin, Target, Flag } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components"
 import type { WebBenchData } from "../../api"
 import { useApp } from "../../contexts/AppContext"
+import ReportModal from "../ReportModal/ReportModal"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 
@@ -252,6 +253,44 @@ const Tag = styled.span`
   font-weight: ${({ theme }) => theme.typography.weights.medium};
 `
 
+const ReportButton = styled.button`
+  position: absolute;
+  top: ${({ theme }) => theme.spacing[4]};
+  left: ${({ theme }) => theme.spacing[4]};
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid ${({ theme }) => theme.colors.borderLight};
+  border-radius: ${({ theme }) => theme.borderRadius.full};
+  padding: ${({ theme }) => theme.spacing[2]};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: all ${({ theme }) => theme.transitions.normal};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  z-index: 5;
+
+  ${CardContainer}:hover & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 1);
+    color: ${({ theme }) => theme.colors.warning};
+    border-color: ${({ theme }) => theme.colors.warning};
+    box-shadow: ${({ theme }) => theme.shadows.md};
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`
+
 const HoverMap = styled.div`
   position: absolute;
   right: ${({ theme }) => theme.spacing[3]};
@@ -331,6 +370,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   const { state } = useApp()
   const [hoverMapLoaded, setHoverMapLoaded] = useState(false)
   const [miniMap, setMiniMap] = useState<L.Map | null>(null)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -469,6 +509,16 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           ) : (
             <PlaceholderImage>🪑</PlaceholderImage>
           )}
+
+          <ReportButton
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsReportModalOpen(true)
+            }}
+            title="Report issue with this bench"
+          >
+            <Flag />
+          </ReportButton>
 
           <HoverOverlay>
             <div>
@@ -631,6 +681,14 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           )}
         </CardContent>
       </CardContainer>
+
+      <ReportModal
+        bench={bench}
+        imageUrl={imageUrl || undefined}
+        imageId={imageId || undefined}
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+      />
     </GlobalMiniMapStyles>
   )
 }

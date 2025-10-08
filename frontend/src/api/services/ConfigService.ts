@@ -9,7 +9,7 @@ export class ConfigService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
     /**
      * Health Check
-     * Simple health check endpoint to verify server status
+     * Check server and database status
      * @returns string Successful Response
      * @throws ApiError
      */

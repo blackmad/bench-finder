@@ -17,9 +17,6 @@ export class SearchService {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/searches',
-            errors: {
-                500: `Internal server error`,
-            },
         });
     }
 }

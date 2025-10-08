@@ -12,11 +12,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { BboxBenchResponse } from './models/BboxBenchResponse';
 export type { BenchListResponse } from './models/BenchListResponse';
-export type { ClusteredBenchData } from './models/ClusteredBenchData';
-export type { ClusteredBenchListResponse } from './models/ClusteredBenchListResponse';
-export type { ClusterInfo } from './models/ClusterInfo';
 export type { ConfigResponse } from './models/ConfigResponse';
-export type { EnhancedErrorResponse } from './models/EnhancedErrorResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { ImageListResponse } from './models/ImageListResponse';
 export type { ImageResponse } from './models/ImageResponse';
@@ -26,6 +22,8 @@ export type { RandomBenchResponse } from './models/RandomBenchResponse';
 export type { SearchListResponse } from './models/SearchListResponse';
 export type { SearchSummary } from './models/SearchSummary';
 export type { SegmentationData } from './models/SegmentationData';
+export { SortByEnum } from './models/SortByEnum';
+export { SourceEnum } from './models/SourceEnum';
 export type { ValidationError } from './models/ValidationError';
 export type { WebBenchData } from './models/WebBenchData';
 

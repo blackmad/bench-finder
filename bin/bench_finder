@@ -240,6 +240,14 @@ class BenchFinder:
             if not detection_result.get('has_bench', False):
                 return 0.0
             
+            # Debug logging
+            logger.debug(f"Calculating pixel coverage for {image_path}")
+            logger.debug(f"Detection result keys: {list(detection_result.keys())}")
+            if 'bench_detections' in detection_result:
+                logger.debug(f"Found {len(detection_result['bench_detections'])} bench detections")
+            if 'detections' in detection_result:
+                logger.debug(f"Found {len(detection_result['detections'])} detections")
+            
             # Get image dimensions
             with PILImage.open(image_path) as img:
                 image_width, image_height = img.size
@@ -249,10 +257,22 @@ class BenchFinder:
             
             # Handle Ultralytics segmentation data
             if 'bench_detections' in detection_result:
+                logger.debug(f"Processing Ultralytics bench_detections: {detection_result['bench_detections']}")
                 for detection in detection_result['bench_detections']:
-                    if 'masks' in detection and detection['masks']:
-                        # Segmentation masks give exact pixel count
+                    # Always use bounding box for pixel coverage (more reliable than polygon conversion)
+                    if 'bbox' in detection:
+                        bbox = detection['bbox']
+                        logger.debug(f"Using bbox for pixel coverage: {bbox}")
+                        if len(bbox) >= 4:
+                            width = abs(bbox[2] - bbox[0])
+                            height = abs(bbox[3] - bbox[1])
+                            bbox_pixels = width * height
+                            total_bench_pixels += bbox_pixels
+                            logger.debug(f"Bbox area: {width:.1f} x {height:.1f} = {bbox_pixels:.0f} pixels")
+                    elif 'masks' in detection and detection['masks']:
+                        # Only use segmentation masks if no bbox is available
                         mask_data = detection['masks']
+                        logger.debug(f"Fallback to mask data (no bbox available): {type(mask_data)}")
                         if isinstance(mask_data, list) and len(mask_data) > 0:
                             # Count pixels in segmentation mask
                             import numpy as np
@@ -263,36 +283,39 @@ class BenchFinder:
                                 from PIL import Image, ImageDraw
                                 mask_img = Image.new('L', (image_width, image_height), 0)
                                 ImageDraw.Draw(mask_img).polygon([tuple(point) for point in mask_array], fill=1)
-                                total_bench_pixels += np.array(mask_img).sum()
-                    elif 'bbox' in detection:
-                        # Fall back to bounding box area
-                        bbox = detection['bbox']
-                        if len(bbox) >= 4:
-                            width = abs(bbox[2] - bbox[0])
-                            height = abs(bbox[3] - bbox[1])
-                            total_bench_pixels += width * height
+                                mask_pixels = np.array(mask_img).sum()
+                                total_bench_pixels += mask_pixels
+                                logger.debug(f"Mask area: {mask_pixels:.0f} pixels")
             
             # Handle Roboflow bounding box data
             elif 'detections' in detection_result:
+                logger.debug(f"Processing Roboflow detections: {detection_result['detections']}")
                 for detection in detection_result['detections']:
                     if 'x' in detection and 'y' in detection and 'width' in detection and 'height' in detection:
                         # Roboflow format: center coordinates + dimensions
                         width = detection['width']
                         height = detection['height']
-                        total_bench_pixels += width * height
+                        roboflow_pixels = width * height
+                        total_bench_pixels += roboflow_pixels
+                        logger.debug(f"Roboflow bbox (center+dims): {width:.1f} x {height:.1f} = {roboflow_pixels:.0f} pixels")
                     elif 'bbox' in detection:
                         # Alternative bbox format
                         bbox = detection['bbox']
+                        logger.debug(f"Roboflow bbox (x1y1x2y2): {bbox}")
                         if len(bbox) >= 4:
                             width = abs(bbox[2] - bbox[0])
                             height = abs(bbox[3] - bbox[1])
-                            total_bench_pixels += width * height
+                            bbox_pixels = width * height
+                            total_bench_pixels += bbox_pixels
+                            logger.debug(f"Roboflow bbox area: {width:.1f} x {height:.1f} = {bbox_pixels:.0f} pixels")
             
             # Calculate percentage
             if total_pixels > 0:
                 coverage_percentage = (total_bench_pixels / total_pixels) * 100
+                logger.debug(f"Pixel coverage calculation: {total_bench_pixels} bench pixels / {total_pixels} total pixels = {coverage_percentage:.2f}%")
                 return min(coverage_percentage, 100.0)  # Cap at 100%
             
+            logger.debug(f"No pixels found - returning 0.0% coverage")
             return 0.0
             
         except Exception as e:

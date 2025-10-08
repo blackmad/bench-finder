@@ -108,7 +108,6 @@ class BenchDatabase:
                     tags=bench_data.tags,
                     source=bench_data.source,
                     external_id=bench_data.external_id,
-                    representative_image_id=bench_data.representative_image_id
                 )
                 session.add(bench)
                 session.commit()
@@ -225,28 +224,6 @@ class BenchDatabase:
                 
         except Exception as e:
             logger.error(f"Error adding Ultralytics detection record: {e}")
-            raise
-    
-    def update_bench_representative_image(self, bench_id: int, representative_image_id: int):
-        """
-        Update the representative image ID for an existing bench.
-        
-        Args:
-            bench_id: ID of the bench record
-            representative_image_id: ID of the image to set as representative
-        """
-        try:
-            with self.get_session() as session:
-                bench = session.query(Bench).filter(Bench.id == bench_id).first()
-                if bench:
-                    bench.representative_image_id = representative_image_id
-                    session.commit()
-                    logger.debug(f"Updated bench {bench_id} representative image to {representative_image_id}")
-                else:
-                    logger.warning(f"Bench {bench_id} not found for representative image update")
-                
-        except Exception as e:
-            logger.error(f"Error updating bench representative image: {e}")
             raise
     
     def update_search_status(self, search_id: int, status: str, completed_at: datetime = None):

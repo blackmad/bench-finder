@@ -29,15 +29,13 @@ export class ImagesService {
                 'filename': filename,
             },
             errors: {
-                404: `Image not found`,
                 422: `Validation Error`,
-                500: `Internal server error`,
             },
         });
     }
     /**
      * Get Detection Visualization Data
-     * Get detection visualization data for a specific image (segmentation and bounding boxes)
+     * Get detection visualization data for a specific image
      * @returns SegmentationData Successful Response
      * @throws ApiError
      */
@@ -56,9 +54,7 @@ export class ImagesService {
                 'image_id': imageId,
             },
             errors: {
-                404: `Image or detection data not found`,
                 422: `Validation Error`,
-                500: `Internal server error`,
             },
         });
     }
@@ -83,9 +79,7 @@ export class ImagesService {
                 'bench_id': benchId,
             },
             errors: {
-                404: `Bench not found`,
                 422: `Validation Error`,
-                500: `Internal server error`,
             },
         });
     }
