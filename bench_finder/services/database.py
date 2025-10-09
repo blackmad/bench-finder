@@ -529,6 +529,63 @@ class BenchDatabase:
             logger.exception("Error getting bench candidate count")
             return 0
 
+    def update_bench_candidate_status(self, candidate_id: int, status: str) -> bool:
+        """
+        Update the status of a bench candidate.
+
+        Args:
+            candidate_id: ID of the bench candidate
+            status: New status ('pending', 'image_download_done', 'detection_done')
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            with self.get_session() as session:
+                candidate = session.query(BenchCandidate).filter(
+                    BenchCandidate.id == candidate_id
+                ).first()
+
+                if candidate:
+                    candidate.status = status
+                    session.commit()
+                    logger.debug(f"Updated candidate {candidate_id} status to {status}")
+                    return True
+                else:
+                    logger.warning(f"Candidate {candidate_id} not found")
+                    return False
+
+        except Exception:
+            logger.exception(f"Error updating candidate {candidate_id} status to {status}")
+            return False
+
+    def get_bench_candidates_by_status(self, search_id: int, status: str) -> list[BenchCandidate]:
+        """
+        Get bench candidates for a search filtered by status.
+
+        Args:
+            search_id: ID of the search
+            status: Status to filter by ('pending', 'image_download_done', 'detection_done')
+
+        Returns:
+            List of BenchCandidate objects with the specified status
+        """
+        try:
+            with self.get_session() as session:
+                candidates = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.search_id == search_id,
+                        BenchCandidate.status == status
+                    )
+                    .all()
+                )
+                return candidates
+
+        except Exception:
+            logger.exception(f"Error getting bench candidates with status {status}")
+            return []
+
     def get_latest_search_id(self) -> Optional[int]:
         """
         Get the ID of the most recently created search.

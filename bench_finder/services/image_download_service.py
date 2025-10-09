@@ -70,11 +70,9 @@ class ImageDownloadService:
 
                 progress.update()
 
-            except Exception as e:
+            except Exception:
                 bench_id = bench.provider_id
-                logger.exception(
-                    f"Failed to process bench {bench_id}: {type(e).__name__}: {e}"
-                )
+                logger.exception(f"Failed to process bench {bench_id}")
                 import traceback
 
                 logger.debug(
@@ -85,6 +83,63 @@ class ImageDownloadService:
                 continue
 
         progress.finish()
+
+        logger.info(
+            f"Image download complete - {stats.benches_added}/{stats.benches_processed} "
+            f"benches processed with {stats.images_successful}/{stats.images_captured} images captured"
+        )
+
+        return stats
+
+    def process_benches_with_progress(
+        self, search_id: int, benches: list[BenchCandidate], progress, task
+    ) -> ProcessingStats:
+        """
+        Process each bench: capture images and store in database with progress bar.
+
+        Args:
+            search_id: Database search ID
+            benches: List of bench candidates from various sources (OSM, Mapillary, etc.)
+            progress: Rich Progress object
+            task: Rich Progress task ID
+
+        Returns:
+            ProcessingStats with processing results summary
+        """
+        stats = ProcessingStats(
+            benches_processed=0,
+            benches_added=0,
+            images_captured=0,
+            images_successful=0,
+            detections_performed=0,
+            benches_detected=0,
+            best_confidence=0.0,
+        )
+
+        for bench in benches:
+            try:
+                result = self._process_single_bench(search_id, bench)
+
+                stats.benches_processed += 1
+                if result.bench_added:
+                    stats.benches_added += 1
+
+                stats.images_captured += result.images_captured
+                stats.images_successful += result.images_successful
+
+                progress.update(task, advance=1)
+
+            except Exception:
+                bench_id = bench.provider_id
+                logger.exception(f"Failed to process bench {bench_id}")
+                import traceback
+
+                logger.debug(
+                    f"Full traceback for bench {bench_id}:\n{traceback.format_exc()}"
+                )
+                logger.debug(f"Bench data that caused the error: {bench}")
+                progress.update(task, advance=1)
+                continue
 
         logger.info(
             f"Image download complete - {stats.benches_added}/{stats.benches_processed} "
@@ -122,7 +177,7 @@ class ImageDownloadService:
         except (ValueError, TypeError) as e:
             raise ValueError(
                 f"Invalid coordinates in bench data: lat={bench.lat}, lng={bench.lng}. Error: {e}"
-            )
+            ) from e
 
         # Add bench to database
         try:
@@ -186,14 +241,36 @@ class ImageDownloadService:
                     f"Added image record for bench {bench.provider_id}, heading {image_capture.heading}"
                 )
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
-                    f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}: {e}, type: {type(e).__name__}"
+                    f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}"
                 )
                 continue
 
-        logger.info(
+        logger.debug(
             f"Processed bench {bench.provider_id}: {result.images_successful}/{result.images_captured} images captured"
         )
+
+        # Update candidate status to image_download_done (even if no images were captured)
+        # We need to find the candidate ID from the database
+        try:
+            with self.database.get_session() as session:
+                from bench_finder.models.models import BenchCandidate
+                candidate = session.query(BenchCandidate).filter(
+                    BenchCandidate.provider_id == bench.provider_id,
+                    BenchCandidate.search_id == search_id
+                ).first()
+
+                if candidate:
+                    # Only update status if it's not already image_download_done or detection_done
+                    if candidate.status not in ["image_download_done", "detection_done"]:
+                        self.database.update_bench_candidate_status(candidate.id, "image_download_done")
+                        logger.debug(f"Updated candidate {candidate.id} status to image_download_done")
+                    else:
+                        logger.debug(f"Candidate {candidate.id} already has status {candidate.status}, skipping update")
+                else:
+                    logger.warning(f"Could not find candidate with provider_id {bench.provider_id} to update status")
+        except Exception as e:
+            logger.warning(f"Failed to update candidate status: {e}")
 
         return result

@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Optional
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
 
 from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
@@ -353,6 +360,11 @@ def fetch_images(
         "--max-candidates",
         help="Maximum number of candidates to process (for testing)",
     ),
+    status: str = typer.Option(
+        "pending",
+        "--status",
+        help="Process candidates with this status (pending, image_download_done, detection_done, or all)",
+    ),
 ):
     """
     Download and cache images for bench candidates from the database.
@@ -382,7 +394,11 @@ def fetch_images(
                 return
             console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
 
-        candidates = database.get_bench_candidates(search_id)
+        # Get candidates based on status filter
+        if status == "all":
+            candidates = database.get_bench_candidates(search_id)
+        else:
+            candidates = database.get_bench_candidates_by_status(search_id, status)
 
         if not candidates:
             console.print(
@@ -396,7 +412,7 @@ def fetch_images(
             console.print(f"[dim]Limited to first {max_candidates} candidates[/dim]")
 
         console.print(
-            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id})[/bold blue]\n"
+            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id}, status: {status})[/bold blue]\n"
         )
 
         # Initialize image download service
@@ -424,8 +440,25 @@ def fetch_images(
             )
             bench_candidates.append(bench_candidate)
 
-        # Process the candidates using the image download service
-        results = image_service.process_benches(search_id, bench_candidates)
+        # Process the candidates using the image download service with progress bar
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                f"📸 Downloading images for {len(bench_candidates)} candidates",
+                total=len(bench_candidates)
+            )
+
+            results = image_service.process_benches_with_progress(
+                search_id, bench_candidates, progress, task
+            )
 
         # Display results
         console.print(
@@ -445,11 +478,11 @@ def fetch_images(
 
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
-        raise typer.Exit(130)
+        raise typer.Exit(130) from None
     except Exception as e:
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
         logger.exception("Unexpected error")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 def _deduplicate_bench_candidates(candidates: list) -> list:

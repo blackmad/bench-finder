@@ -378,6 +378,9 @@ class BenchCandidate(Base):
     confidence: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True
     )  # Confidence score if available from source
+    status: Mapped[str] = mapped_column(
+        String, nullable=False, default="pending"
+    )  # Processing status: pending, image_download_done, detection_done
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Relationships
@@ -390,6 +393,7 @@ class BenchCandidate(Base):
         Index("idx_bench_candidates_location", "lat", "lng"),
         Index("idx_bench_candidates_source", "source"),
         Index("idx_bench_candidates_external_id", "external_id"),
+        Index("idx_bench_candidates_status", "status"),
     )
 
     def __repr__(self):

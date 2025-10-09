@@ -346,6 +346,7 @@ class BenchFinder:
             f"Total bench candidates found: {len(all_candidates)} ({generator_results})"
         )
 
+
         # Deduplicate benches based on proximity (same location from different sources)
         deduplicated_candidates = self._deduplicate_bench_candidates(all_candidates)
         logger.info(

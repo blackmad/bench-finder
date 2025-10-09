@@ -56,7 +56,7 @@ class StreetViewClient:
         Returns:
             StreetViewBatchCaptureResult with capture information
         """
-        logger.info(
+        logger.debug(
             f"Capturing street view images for bench {bench_id} at {lat}, {lng}"
         )
 
@@ -85,7 +85,7 @@ class StreetViewClient:
             bench_id, lat, lng, capture_results
         )
 
-        logger.info(
+        logger.debug(
             f"Bench {bench_id}: {batch_result.successful_images}/{batch_result.total_images} images total "
             f"({batch_result.downloaded_images} downloaded, {batch_result.cached_images} cached, {batch_result.failed_images} failed)"
         )
