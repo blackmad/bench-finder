@@ -285,6 +285,118 @@ def list_candidates(
         raise typer.Exit(1)
 
 
+@app.command("fetch-images")
+def fetch_images(
+    search_id: int = typer.Argument(..., help="Search ID to fetch images for"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"),
+    backend: Optional[str] = typer.Option(None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"),
+    disable_fallback: bool = typer.Option(False, "--disable-fallback", help="Disable multi-model fallback detection"),
+    no_copy_bench_images: bool = typer.Option(False, "--no-copy-bench-images", help="Disable copying images with detected benches"),
+    max_candidates: Optional[int] = typer.Option(None, "--max-candidates", help="Maximum number of candidates to process (for testing)")
+):
+    """
+    Fetch images and run detection for bench candidates from the database.
+    
+    This command processes existing bench candidates by:
+    1. Loading candidates from the bench_candidates table
+    2. Converting them to Bench records
+    3. Capturing Street View images
+    4. Running AI detection on the images
+    
+    Use this after running generate-candidates to complete the pipeline.
+    """
+    # Setup logging first
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Import BenchFinder only when needed to avoid import issues
+        from bench_finder.main import BenchFinder
+        
+        # Initialize database and get candidates
+        database = BenchDatabase()
+        candidates = database.get_bench_candidates(search_id)
+        
+        if not candidates:
+            console.print(f"[yellow]No candidates found for search ID {search_id}[/yellow]")
+            return
+        
+        # Limit candidates if specified
+        if max_candidates and len(candidates) > max_candidates:
+            candidates = candidates[:max_candidates]
+            console.print(f"[dim]Limited to first {max_candidates} candidates[/dim]")
+        
+        console.print(f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id})[/bold blue]\n")
+        
+        # Initialize bench finder with selected backend and fallback setting
+        enable_fallback = not disable_fallback
+        copy_bench_images = not no_copy_bench_images
+        bench_finder = BenchFinder(
+            detection_backend=backend, 
+            enable_fallback=enable_fallback,
+            copy_bench_images=copy_bench_images
+        )
+        
+        console.print(f"[dim]Using {bench_finder.detection_backend} detection backend[/dim]\n")
+        
+        # Convert candidates to BenchCandidate objects for processing
+        from examples.bench_generator import BenchCandidate as BenchCandidateClass
+        
+        bench_candidates = []
+        for candidate in candidates:
+            # Ensure provider_id is always a string
+            provider_id = candidate.provider_id or f"candidate_{candidate.id}"
+            bench_candidate = BenchCandidateClass(
+                provider_id=provider_id,
+                lat=candidate.lat,
+                lng=candidate.lng,
+                tags=candidate.tags or {},
+                source=candidate.source,
+                external_id=candidate.external_id,
+                confidence=candidate.confidence
+            )
+            bench_candidates.append(bench_candidate)
+        
+        # Process the candidates using the existing pipeline
+        results = bench_finder._process_benches(search_id, bench_candidates)
+        
+        # Display results
+        console.print(f"\n[bold green]✅ Image fetching and detection complete![/bold green]")
+        console.print(f"[bold]📊 Processing Summary:[/bold]")
+        console.print(f"   • Candidates processed: {results.benches_processed}")
+        console.print(f"   • Benches added to database: {results.benches_added}")
+        console.print(f"   • Images captured: {results.images_captured}")
+        console.print(f"   • Images successful: {results.images_successful}")
+        console.print(f"   • Detections performed: {results.detections_performed}")
+        console.print(f"   • Benches detected: {results.benches_detected}")
+        console.print(f"   • Best confidence: {results.best_confidence:.2f}")
+        
+        # Show multi-model detection statistics if available
+        if hasattr(bench_finder.detection_client, 'get_detection_stats'):
+            detection_stats = bench_finder.detection_client.get_detection_stats()
+            if not detection_stats.get('no_data', False):
+                console.print(f"\n[bold]🔍 Detection Statistics:[/bold]")
+                console.print(f"   • Total model attempts: {detection_stats['total_attempts']}")
+                if detection_stats.get('ultralytics_attempts', 0) > 0:
+                    success_rate = detection_stats.get('ultralytics_success_rate', 0) * 100
+                    console.print(f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)")
+                if detection_stats.get('roboflow_attempts', 0) > 0:
+                    success_rate = detection_stats.get('roboflow_success_rate', 0) * 100
+                    console.print(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
+        
+        # Update search status to completed
+        database.update_search_status(search_id, 'completed')
+        console.print(f"\n[dim]📝 Updated search status to 'completed'[/dim]")
+        
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130)
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.error(f"Unexpected error: {e}")
+        raise typer.Exit(1)
+
+
 def _deduplicate_bench_candidates(candidates: List) -> List:
     """
     Remove duplicate bench candidates based on proximity.

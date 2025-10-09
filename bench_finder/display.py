@@ -4,7 +4,7 @@ Display and visualization utilities for bench finder results.
 import logging
 from typing import List, Dict, Optional
 from PIL import Image as PILImage
-from term_image.image import AutoImage
+from term_image.image import AutoImage # type: ignore[import-untyped]
 from bench_finder.clients.base_detection_client import DetectionResult
 from bench_finder.models.streetview_models import StreetViewImageCapture
 from tools.roboflow_detector import render_detections

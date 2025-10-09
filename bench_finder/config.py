@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 
 # Import term_image conditionally to avoid issues when running in background
 try:
-    from term_image.image import ITerm2Image
-    from term_image.utils import get_terminal_name_version
+    from term_image.image import ITerm2Image  # type: ignore[import-untyped]
+    from term_image.utils import get_terminal_name_version  # type: ignore[import-untyped]
     
     # Force iTerm2 image support for warp
     if get_terminal_name_version()[0] in ["warp"]:

@@ -23,8 +23,8 @@ class StreetViewImageCapture(BaseModel):
     file_size: Optional[int] = Field(None, description="File size in bytes")
     cached: bool = Field(False, description="Whether the image was already cached")
     error: Optional[str] = Field(None, description="Error message if capture failed")
-    width: int = Field(None, description="Width of the image")
-    height: int = Field(None, description="Height of the image")
+    width: int = Field(..., description="Width of the image")
+    height: int = Field(..., description="Height of the image")
     
     @property
     def is_valid(self) -> bool:

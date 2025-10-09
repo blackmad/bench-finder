@@ -13,7 +13,7 @@ from ..models.models import (
     create_database_engine, create_database_session
 )
 from ..models.schemas import (
-    DetectionResponse, ImageWithDetections, SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
+    DetectionResponse, ImageWithDetections, SearchCreate, BenchCreate, ImageCreate, DetectionCreate, SearchResponse, UltralyticsDetectionCreate,
     SearchResults, BenchWithDetections, UltralyticsDetectionResponse, BenchCandidateCreate, BenchCandidateResponse
 )
 
@@ -288,7 +288,16 @@ class BenchDatabase:
                 ).join(Image, Detection.image_id == Image.id).join(Bench, Image.bench_id == Bench.id).filter(Bench.search_id == search_id).first()
                 
                 return SearchResults(
-                    search=search,
+                    search=SearchResponse(
+                        id=search.id,
+                        query=search.query,
+                        start_lat=search.start_lat,
+                        start_lng=search.start_lng,
+                        search_radius=search.search_radius,
+                        created_at=search.created_at,
+                        completed_at=search.completed_at,
+                        status=search.status
+                    ),
                     bench_count=bench_count,
                     total_images=image_stats.total_images if image_stats else 0,
                     successful_images=image_stats.successful_images if image_stats else 0,

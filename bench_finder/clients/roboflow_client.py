@@ -2,7 +2,7 @@
 Roboflow integration for bench detection using computer vision.
 Supports both local inference (default) and cloud API as fallback.
 """
-from inference import Model
+from inference import Model # type: ignore[import-untyped]
 import requests
 import base64
 import json
