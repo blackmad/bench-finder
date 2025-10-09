@@ -305,7 +305,8 @@ ignore = [
     "Q001", # single quote multiline found but double quotes preferred
     "Q002", # single quote docstring found but double quotes preferred
     "Q003", # change outer quotes to avoid escaping inner quotes
-    "G004", # logging-format: logging statement uses f-string
+    "G004", # logging-format: logging statement uses f-string,
+    "PERF203", # try in loop
 ]
 
 [tool.ruff.per-file-ignores]

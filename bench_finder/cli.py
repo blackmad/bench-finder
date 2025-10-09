@@ -129,7 +129,7 @@ def generate_candidates(
             generators.append(osm_generator)
             logger.info("Added OpenStreetMap generator")
         except Exception as e:
-            logger.exception(f"Failed to initialize OSM generator: {e}")
+            logger.exception("Failed to initialize OSM generator")
 
         # Add Mapillary generator if token is available
         try:

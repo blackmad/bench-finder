@@ -23,15 +23,6 @@ from .base_detection_client import (
 )
 
 
-# Import local inference dependencies
-try:
-    from inference import get_model
-
-    LOCAL_INFERENCE_AVAILABLE = True
-except ImportError as e:
-    LOCAL_INFERENCE_AVAILABLE = False
-    print(f"Local inference not available: {e}. Falling back to cloud API.")
-
 from ..config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
 
@@ -74,6 +65,16 @@ class RoboflowClient(DetectionClient):
         """
         # Initialize base class with confidence threshold
         super().__init__(confidence_threshold or ROBOFLOW_CONFIDENCE_THRESHOLD)
+
+
+        # Import local inference dependencies
+        try:
+            from inference import get_model
+
+            LOCAL_INFERENCE_AVAILABLE = True
+        except ImportError as e:
+            LOCAL_INFERENCE_AVAILABLE = False
+            print(f"Local inference not available: {e}. Falling back to cloud API.")
 
         self.use_local_inference = use_local_inference and LOCAL_INFERENCE_AVAILABLE
         self.local_model = None
