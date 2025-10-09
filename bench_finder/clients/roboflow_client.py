@@ -2,6 +2,7 @@
 Roboflow integration for bench detection using computer vision.
 Supports both local inference (default) and cloud API as fallback.
 """
+from inference import Model
 import requests
 import base64
 import json
@@ -28,7 +29,7 @@ from ..config import ROBOFLOW_API_KEY, ROBOFLOW_MODEL_ID, ROBOFLOW_CONFIDENCE_TH
 logger = logging.getLogger(__name__)
 
 # Global model cache to avoid reinitializing models
-_MODEL_CACHE = {}
+_MODEL_CACHE: dict[str, Model]  = {}
 
 
 def get_cache_info() -> ModelCacheInfo:
@@ -123,6 +124,9 @@ class RoboflowClient(DetectionClient):
         Returns:
             DetectionResult with detection results
         """
+        if not self.local_model:
+            raise ValueError("Local model not loaded")
+
         try:
             # Load image using cv2
             image = cv2.imread(image_path)
@@ -266,7 +270,7 @@ class RoboflowClient(DetectionClient):
                 max_confidence=max_confidence,
                 detections=bench_detections,
                 backend_name="RoboflowClient",
-                model_id=self.model_id,
+                model_id=self.model_id or "unknown",
                 confidence_threshold=self.confidence_threshold
             )
             

@@ -687,7 +687,7 @@ class BenchFinder:
         # Use display utilities for consistent output
         display_bench_detection_results(
             bench_identifier, 
-            [{'filepath': img.filepath, 'heading': img.heading} for img in successful_images],
+            successful_images,
             detection_results,
             representative_detection,
             self.copy_bench_images

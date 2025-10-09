@@ -78,7 +78,7 @@ class DetectionResult(BaseModel):
     
     # Backend information
     backend_name: str = Field(description="Name of the detection backend used")
-    model_id: str = Field(description="ID of the model used")
+    model_id: str | None = Field(description="ID of the model used")
     confidence_threshold: float = Field(ge=0.0, le=1.0, description="Confidence threshold used")
     
     # Error information

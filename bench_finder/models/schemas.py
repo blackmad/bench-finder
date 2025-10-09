@@ -467,7 +467,7 @@ class UltralyticsDetectionResult(BaseModel):
 class CacheStatus(BaseModel):
     """Schema for cache status information."""
     use_local_inference: bool
-    model_id: str
+    model_id : str | None
     model_cached: bool
     cache_key: Optional[str]
     total_cached_models: int
@@ -572,3 +572,36 @@ class ErrorResponse(BaseModel):
     """Schema for error response."""
     error: str
     detail: Optional[str] = None
+
+
+class BenchCandidateBase(BaseModel):
+    """Base schema for bench candidate data."""
+    provider_id: Optional[str] = None
+    lat: float
+    lng: float
+    tags: Optional[Dict[str, Any]] = None
+    source: str = 'osm'
+    external_id: Optional[str] = None
+    confidence: Optional[float] = None
+
+
+class BenchCandidateCreate(BenchCandidateBase):
+    """Schema for creating a bench candidate."""
+    search_id: int
+
+
+class BenchCandidateResponse(BenchCandidateBase):
+    """Schema for bench candidate response."""
+    id: int
+    search_id: int
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BenchCandidateListResponse(BaseModel):
+    """Schema for list of bench candidates response."""
+    candidates: List[BenchCandidateResponse]
+    total_count: int
+    search_id: int
+    search_query: str

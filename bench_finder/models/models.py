@@ -237,6 +237,37 @@ class MissingBenchReport(Base):
         return f"<MissingBenchReport(id={self.id}, location=({self.lat}, {self.lng}), status='{self.status}')>"
 
 
+class BenchCandidate(Base):
+    """Model for storing bench candidates found during the search phase."""
+    __tablename__ = 'bench_candidates'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    search_id = Column(Integer, ForeignKey('searches.id'), nullable=False)
+    provider_id = Column(String, nullable=True)  # Unified ID from OSM or Mapillary
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    tags = Column(JSON)  # JSON column for OSM tags or Mapillary metadata
+    source = Column(String, nullable=False, default='osm')  # 'osm' or 'mapillary'
+    external_id = Column(String, nullable=True)  # For Mapillary image IDs or other external IDs
+    confidence = Column(Float, nullable=True)  # Confidence score if available from source
+    created_at = Column(DateTime, default=func.now())
+    
+    # Relationships
+    search = relationship("Search")
+    
+    # Indexes
+    __table_args__ = (
+        Index('idx_bench_candidates_search_id', 'search_id'),
+        Index('idx_bench_candidates_provider_id', 'provider_id'),
+        Index('idx_bench_candidates_location', 'lat', 'lng'),
+        Index('idx_bench_candidates_source', 'source'),
+        Index('idx_bench_candidates_external_id', 'external_id'),
+    )
+    
+    def __repr__(self):
+        return f"<BenchCandidate(id={self.id}, provider_id='{self.provider_id}', source='{self.source}')>"
+
+
 # Database configuration
 def create_database_engine(database_path: str):
     """Create SQLAlchemy engine for the database."""

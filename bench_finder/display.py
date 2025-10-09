@@ -113,7 +113,7 @@ def display_bench_detection_results(
         print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
 
 
-def _copy_bench_image(bench_identifier: str, image_result: Dict, model_name: str) -> Optional[str]:
+def _copy_bench_image(bench_identifier: str, source_path: str, model_name: str) -> Optional[str]:
     """
     Copy a bench image to the bench_images directory.
     
@@ -130,7 +130,6 @@ def _copy_bench_image(bench_identifier: str, image_result: Dict, model_name: str
         import shutil
         from pathlib import Path
         
-        source_path = image_result['filepath']
         if not source_path or not os.path.exists(source_path):
             return None
         

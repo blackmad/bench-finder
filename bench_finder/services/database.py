@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..config import DATABASE_PATH
 from ..models.models import (
-    Base, Search, Bench, Image, Detection, UltralyticsDetection,
+    Base, Search, Bench, Image, Detection, UltralyticsDetection, BenchCandidate,
     create_database_engine, create_database_session
 )
 from ..models.schemas import (
     DetectionResponse, ImageWithDetections, SearchCreate, BenchCreate, ImageCreate, DetectionCreate, UltralyticsDetectionCreate,
-    SearchResults, BenchWithDetections, UltralyticsDetectionResponse
+    SearchResults, BenchWithDetections, UltralyticsDetectionResponse, BenchCandidateCreate, BenchCandidateResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class BenchDatabase:
     """SQLAlchemy ORM database manager for bench finder application."""
     
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: Optional[str] = None):
         """
         Initialize database connection and create tables if needed.
         
@@ -70,7 +70,7 @@ class BenchDatabase:
                 session.refresh(search)
                 
                 logger.info(f"Created search record {search.id} for query: {search_data.query}")
-                return search.id
+                return search.id  # type: ignore
                 
         except Exception as e:
             logger.error(f"Error creating search record: {e}")
@@ -98,7 +98,7 @@ class BenchDatabase:
                 
                 if existing_bench:
                     logger.debug(f"Bench {bench_data.provider_id} already exists as record {existing_bench.id}")
-                    return existing_bench.id
+                    return existing_bench.id  # type: ignore
                 
                 bench = Bench(
                     search_id=bench_data.search_id,
@@ -114,7 +114,7 @@ class BenchDatabase:
                 session.refresh(bench)
                 
                 logger.debug(f"Added bench {bench_data.provider_id} as record {bench.id}")
-                return bench.id
+                return bench.id  # type: ignore
                 
         except Exception as e:
             logger.error(f"Error adding bench record: {e}")
@@ -146,7 +146,7 @@ class BenchDatabase:
                 session.refresh(image)
                 
                 logger.debug(f"Added image record {image.id} for bench {image_data.bench_id}, heading {image_data.heading}")
-                return image.id
+                return image.id  # type: ignore
                 
         except Exception as e:
             logger.error(f"Error adding image record: {e}")
@@ -180,7 +180,7 @@ class BenchDatabase:
                 session.refresh(detection)
                 
                 logger.debug(f"Added detection record {detection.id} for image {detection_data.image_id}")
-                return detection.id
+                return detection.id  # type: ignore
                 
         except Exception as e:
             logger.error(f"Error adding detection record: {e}")
@@ -220,13 +220,13 @@ class BenchDatabase:
                 session.refresh(detection)
                 
                 logger.debug(f"Added Ultralytics detection record {detection.id} for image {detection_data.image_id}")
-                return detection.id
+                return detection.id  # type: ignore
                 
         except Exception as e:
             logger.error(f"Error adding Ultralytics detection record: {e}")
             raise
     
-    def update_search_status(self, search_id: int, status: str, completed_at: datetime = None):
+    def update_search_status(self, search_id: int, status: str, completed_at: Optional[datetime] = None):
         """
         Update the status of a search record.
         
@@ -242,8 +242,8 @@ class BenchDatabase:
             with self.get_session() as session:
                 search = session.query(Search).filter(Search.id == search_id).first()
                 if search:
-                    search.status = status
-                    search.completed_at = completed_at
+                    search.status = status  # type: ignore
+                    search.completed_at = completed_at  # type: ignore
                     session.commit()
                     logger.debug(f"Updated search {search_id} status to {status}")
                 else:
@@ -290,11 +290,11 @@ class BenchDatabase:
                 return SearchResults(
                     search=search,
                     bench_count=bench_count,
-                    total_images=image_stats.total_images or 0,
-                    successful_images=image_stats.successful_images or 0,
-                    total_detections=detection_stats.total_detections or 0,
-                    images_with_benches=detection_stats.images_with_benches or 0,
-                    best_confidence=detection_stats.best_confidence or 0.0
+                    total_images=image_stats.total_images if image_stats else 0,
+                    successful_images=image_stats.successful_images if image_stats else 0,
+                    total_detections=detection_stats.total_detections if detection_stats else 0,
+                    images_with_benches=detection_stats.images_with_benches if detection_stats else 0,
+                    best_confidence=detection_stats.best_confidence if detection_stats else 0.0
                 )
                 
         except Exception as e:
@@ -337,7 +337,7 @@ class BenchDatabase:
                             ultralytics_detections=[UltralyticsDetectionResponse.model_validate(d) for d in image.ultralytics_detections]
                         ))
                     
-                    bench_with_detections = BenchWithDetections(
+                    bench_with_detections = BenchWithDetections( 
                         id=bench.id,
                         search_id=bench.search_id,
                         provider_id=bench.provider_id,
@@ -356,6 +356,87 @@ class BenchDatabase:
         except Exception as e:
             logger.error(f"Error getting benches with detections: {e}")
             return []
+    
+    def add_bench_candidate(self, search_id: int, provider_id: str, lat: float, lng: float, 
+                           tags: dict, source: str, external_id: Optional[str] = None, confidence: Optional[float] = None) -> Optional[int]:
+        """
+        Add a bench candidate to the database.
+        
+        Args:
+            search_id: ID of the search this candidate belongs to
+            provider_id: Unified ID from OSM or Mapillary
+            lat: Latitude
+            lng: Longitude
+            tags: JSON tags/metadata
+            source: Source of the candidate ('osm', 'mapillary', etc.)
+            external_id: External ID if applicable
+            confidence: Confidence score if available
+            
+        Returns:
+            ID of the created bench candidate, or None if failed
+        """
+        try:
+            with self.get_session() as session:
+                candidate = BenchCandidate(
+                    search_id=search_id,
+                    provider_id=provider_id,
+                    lat=lat,
+                    lng=lng,
+                    tags=tags,
+                    source=source,
+                    external_id=external_id,
+                    confidence=confidence
+                )
+                session.add(candidate)
+                session.commit()
+                logger.debug(f"Added bench candidate: {provider_id} from {source}")
+                return candidate.id  # type: ignore
+                
+        except Exception as e:
+            logger.error(f"Error adding bench candidate: {e}")
+            return None
+    
+    def get_bench_candidates(self, search_id: int) -> List[BenchCandidate]:
+        """
+        Get all bench candidates for a search.
+        
+        Args:
+            search_id: ID of the search
+            
+        Returns:
+            List of BenchCandidate objects
+        """
+        try:
+            with self.get_session() as session:
+                candidates = session.query(BenchCandidate).filter(
+                    BenchCandidate.search_id == search_id
+                ).all()
+                return candidates
+                
+        except Exception as e:
+            logger.error(f"Error getting bench candidates: {e}")
+            return []
+    
+    def get_bench_candidate_count(self, search_id: int) -> int:
+        """
+        Get count of bench candidates for a search.
+        
+        Args:
+            search_id: ID of the search
+            
+        Returns:
+            Number of bench candidates
+        """
+        try:
+            with self.get_session() as session:
+                count = session.query(BenchCandidate).filter(
+                    BenchCandidate.search_id == search_id
+                ).count()
+                return count
+                
+        except Exception as e:
+            logger.error(f"Error getting bench candidate count: {e}")
+            return 0
     
     def close(self):
         """Close database connection if needed."""

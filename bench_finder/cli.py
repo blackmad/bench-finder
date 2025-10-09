@@ -1,137 +1,454 @@
 #!/usr/bin/env python3
 """
-CLI interface for the bench finder application.
+CLI interface for the bench finder application using Typer.
 """
-import argparse
 import logging
 import sys
-from typing import Optional
+from typing import Optional, List
+import typer
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from bench_finder.config import SEARCH_RADIUS_METERS
+from bench_finder.config import SEARCH_RADIUS_METERS, MAPILLARY_ACCESS_TOKEN
 from bench_finder.utils import setup_logging
-from bench_finder.main import BenchFinder
+from bench_finder.core.geocoder import Geocoder
+from bench_finder.services.database import BenchDatabase
+from bench_finder.models.schemas import SearchCreate, BenchCandidateResponse
+from examples.bench_generator import BenchGenerator
+from examples.overpass_bench_generator import OverpassBenchGenerator
+from examples.mapillary_bench_generator import MapillaryBenchGenerator
+
+# Initialize Typer app and console
+app = typer.Typer(
+    name="bench-finder",
+    help="Find benches using OSM data, Street View images, and AI detection",
+    no_args_is_help=True
+)
+console = Console()
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser."""
-    parser = argparse.ArgumentParser(
-        description="Find benches using OSM data, Street View images, and AI detection (Roboflow or Ultralytics)"
-    )
-    parser.add_argument(
-        'query',
-        help='Search query (address, location name, etc.)'
-    )
-    parser.add_argument(
-        '--radius',
-        type=int,
-        default=SEARCH_RADIUS_METERS,
-        help=f'Search radius in meters (default: {SEARCH_RADIUS_METERS})'
-    )
-    parser.add_argument(
-        '--log-level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default='INFO',
-        help='Logging level (default: INFO)'
-    )
-    parser.add_argument(
-        '--results',
-        action='store_true',
-        help='Show detailed results for the most recent search'
-    )
-    parser.add_argument(
-        '--backend',
-        choices=['roboflow', 'ultralytics', 'multi'],
-        default=None,
-        help=f'Detection backend to use: roboflow, ultralytics, or multi (default: multi with fallback)'
-    )
-    parser.add_argument(
-        '--disable-fallback',
-        action='store_true',
-        help='Disable multi-model fallback detection (use single backend only)'
-    )
-    parser.add_argument(
-        '--no-copy-bench-images',
-        action='store_true',
-        help='Disable copying images with detected benches to bench_images/{model_name}/ directory'
-    )
+@app.command("generate-candidates")
+def generate_candidates(
+    query: str = typer.Argument(..., help="Search query (address, location name, etc.)"),
+    radius: int = typer.Option(SEARCH_RADIUS_METERS, "--radius", "-r", help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"),
+    show_table: bool = typer.Option(True, "--show-table/--no-show-table", help="Display results in a table"),
+    output_format: str = typer.Option("table", "--format", help="Output format: table, json, csv")
+):
+    """
+    Generate bench candidates by running the first 3 phases:
+    1. Geocode query
+    2. Create search record
+    3. Find candidates using OSM and Mapillary
     
-    return parser
-
-
-def main() -> int:
-    """Main entry point for the bench finder CLI."""
-    parser = create_argument_parser()
-    args = parser.parse_args()
-    
+    This command only finds potential bench locations without processing images or running detection.
+    """
     try:
         # Setup logging
-        setup_logging(level=args.log_level)
+        setup_logging(level=log_level)
+        logger = logging.getLogger(__name__)
+        
+        console.print(f"[bold blue]🔍 Generating bench candidates for: '{query}'[/bold blue]")
+        console.print(f"[dim]Search radius: {radius}m[/dim]\n")
+        
+        # Initialize components
+        geocoder = Geocoder()
+        database = BenchDatabase()
+        
+        # Phase 1: Geocode the query
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            geocode_task = progress.add_task("Geocoding query...", total=None)
+            coordinates = geocoder.geocode_query(query)
+            progress.update(geocode_task, description="✅ Geocoding complete")
+        
+        if not coordinates:
+            console.print("[bold red]❌ Failed to geocode query[/bold red]")
+            raise typer.Exit(1)
+        
+        start_lat, start_lng = coordinates
+        console.print(f"[green]📍 Location: {start_lat:.6f}, {start_lng:.6f}[/green]\n")
+        
+        # Phase 2: Create search record in database
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            search_task = progress.add_task("Creating search record...", total=None)
+            search_id = database.create_search(SearchCreate(
+                query=query,
+                start_lat=start_lat,
+                start_lng=start_lng,
+                search_radius=radius
+            ))
+            progress.update(search_task, description="✅ Search record created")
+        
+        console.print(f"[green]📝 Search ID: {search_id}[/green]\n")
+        
+        # Phase 3: Find benches using all available generators
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            candidates_task = progress.add_task("Finding bench candidates...", total=None)
+            
+            # Create bench generators
+            generators: List[BenchGenerator] = []
+            
+            # Always add OSM generator
+            try:
+                osm_generator = OverpassBenchGenerator()
+                generators.append(osm_generator)
+                logger.info("Added OpenStreetMap generator")
+            except Exception as e:
+                logger.error(f"Failed to initialize OSM generator: {e}")
+            
+            # Add Mapillary generator if token is available
+            try:
+                if MAPILLARY_ACCESS_TOKEN:
+                    mapillary_generator = MapillaryBenchGenerator()
+                    generators.append(mapillary_generator)
+                    logger.info("Added Mapillary generator")
+                else:
+                    logger.warning("MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Mapillary generator: {e}")
+            
+            if not generators:
+                console.print("[bold red]❌ No bench generators could be initialized[/bold red]")
+                raise typer.Exit(1)
+            
+            # Find candidates using all generators
+            all_candidates = []
+            generator_results = {}
+            
+            for generator in generators:
+                try:
+                    logger.debug(f"Querying {generator.name} for benches")
+                    candidates = generator.find_benches_near_point(start_lat, start_lng, radius)
+                    all_candidates.extend(candidates)
+                    generator_results[generator.name] = len(candidates)
+                    logger.info(f"{generator.name}: found {len(candidates)} bench candidates")
+                except Exception as e:
+                    logger.error(f"Error querying {generator.name}: {e}")
+                    generator_results[generator.name] = 0
+            
+            # Deduplicate candidates
+            deduplicated_candidates = _deduplicate_bench_candidates(all_candidates)
+            
+            # Store candidates in database
+            for candidate in deduplicated_candidates:
+                database.add_bench_candidate(
+                    search_id=search_id,
+                    provider_id=candidate.provider_id,
+                    lat=candidate.lat,
+                    lng=candidate.lng,
+                    tags=candidate.tags,
+                    source=candidate.source,
+                    external_id=candidate.external_id,
+                    confidence=candidate.confidence
+                )
+            
+            progress.update(candidates_task, description="✅ Bench candidates found and stored")
+        
+        # Display results
+        console.print(f"\n[bold green]✅ Found {len(deduplicated_candidates)} unique bench candidates[/bold green]")
+        console.print(f"[dim]Generator results: {generator_results}[/dim]\n")
+        
+        if show_table and deduplicated_candidates:
+            _display_candidates_table(deduplicated_candidates, output_format)
+        
+        # Get stored candidates from database for verification
+        stored_candidates = database.get_bench_candidates(search_id)
+        console.print(f"\n[dim]📊 Stored {len(stored_candidates)} candidates in database (search_id: {search_id})[/dim]")
+        
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130)
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.error(f"Unexpected error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("find-benches")
+def find_benches(
+    query: str = typer.Argument(..., help="Search query (address, location name, etc.)"),
+    radius: int = typer.Option(SEARCH_RADIUS_METERS, "--radius", "-r", help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"),
+    backend: Optional[str] = typer.Option(None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"),
+    disable_fallback: bool = typer.Option(False, "--disable-fallback", help="Disable multi-model fallback detection"),
+    no_copy_bench_images: bool = typer.Option(False, "--no-copy-bench-images", help="Disable copying images with detected benches")
+):
+    """
+    Complete bench finding pipeline: find candidates, capture images, and run detection.
+    
+    This is the full pipeline that includes image capture and AI detection.
+    """
+    try:
+        # Import BenchFinder only when needed to avoid import issues
+        from bench_finder.main import BenchFinder
+        
+        # Setup logging
+        setup_logging(level=log_level)
         logger = logging.getLogger(__name__)
         
         # Initialize bench finder with selected backend and fallback setting
-        enable_fallback = not args.disable_fallback
-        copy_bench_images = not args.no_copy_bench_images
+        enable_fallback = not disable_fallback
+        copy_bench_images = not no_copy_bench_images
         bench_finder = BenchFinder(
-            detection_backend=args.backend, 
+            detection_backend=backend, 
             enable_fallback=enable_fallback,
             copy_bench_images=copy_bench_images
         )
         
-        if args.results:
-            # Show results for the most recent search (simplified for now)
-            logger.info("Results display not implemented yet - check database directly")
-            return 0
+        console.print(f"[bold blue]🔍 BenchFinder starting with query: '{query}' using {bench_finder.detection_backend} backend[/bold blue]")
         
-        # Run the bench finding pipeline
-        logger.info(f"BenchFinder starting with query: '{args.query}' using {bench_finder.detection_backend} backend")
-        
-        results = bench_finder.find_benches(args.query, args.radius)
+        results = bench_finder.find_benches(query, radius)
         
         if results.success:
-            logger.info(f"✅ {results.message}")
+            console.print(f"[bold green]✅ {results.message}[/bold green]")
             
             if results.search_id:
                 search_results = bench_finder.database.get_search_results(results.search_id)
-                logger.info(f"📊 Summary:")
-                logger.info(f"   • Search ID: {search_results.search.id}")
-                logger.info(f"   • Query: {search_results.search.query}")
-                logger.info(f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})")
-                logger.info(f"   • Search radius: {search_results.search.search_radius}m")
-                logger.info(f"   • Benches found: {search_results.bench_count}")
-                logger.info(f"   • Images captured: {search_results.successful_images}/{search_results.total_images}")
-                logger.info(f"   • Images with benches detected: {search_results.images_with_benches}")
-                logger.info(f"   • Best confidence: {search_results.best_confidence:.2f}")
+                if search_results:
+                    console.print(f"\n[bold]📊 Summary:[/bold]")
+                    console.print(f"   • Search ID: {search_results.search.id}")
+                    console.print(f"   • Query: {search_results.search.query}")
+                    console.print(f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})")
+                    console.print(f"   • Search radius: {search_results.search.search_radius}m")
+                    console.print(f"   • Benches found: {search_results.bench_count}")
+                    console.print(f"   • Images captured: {search_results.successful_images}/{search_results.total_images}")
+                    console.print(f"   • Images with benches detected: {search_results.images_with_benches}")
+                    console.print(f"   • Best confidence: {search_results.best_confidence:.2f}")
 
             if results.stats:
                 stats = results.stats
-                logger.info(f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected")
+                console.print(f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected")
             
             # Show multi-model detection statistics if available
             if hasattr(bench_finder.detection_client, 'get_detection_stats'):
                 detection_stats = bench_finder.detection_client.get_detection_stats()
                 if not detection_stats.get('no_data', False):
-                    logger.info(f"🔍 Detection Statistics:")
-                    logger.info(f"   • Total model attempts: {detection_stats['total_attempts']}")
+                    console.print(f"\n[bold]🔍 Detection Statistics:[/bold]")
+                    console.print(f"   • Total model attempts: {detection_stats['total_attempts']}")
                     if detection_stats.get('ultralytics_attempts', 0) > 0:
                         success_rate = detection_stats.get('ultralytics_success_rate', 0) * 100
-                        logger.info(f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)")
+                        console.print(f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)")
                     if detection_stats.get('roboflow_attempts', 0) > 0:
                         success_rate = detection_stats.get('roboflow_success_rate', 0) * 100
-                        logger.info(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
+                        console.print(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
         
         else:
-            logger.error(f"❌ {results.error}")
-            return 1
-        
-        return 0
+            console.print(f"[bold red]❌ {results.error}[/bold red]")
+            raise typer.Exit(1)
         
     except KeyboardInterrupt:
-        logger.warning("🛑 Operation cancelled by user")
-        return 130
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130)
     except Exception as e:
-        logger.error(f"💥 Unexpected error: {e}")
-        return 1
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.error(f"Unexpected error: {e}")
+        raise typer.Exit(1)
+
+
+@app.command("list-candidates")
+def list_candidates(
+    search_id: int = typer.Argument(..., help="Search ID to list candidates for"),
+    output_format: str = typer.Option("table", "--format", help="Output format: table, json, csv")
+):
+    """
+    List bench candidates for a specific search ID.
+    """
+    try:
+        database = BenchDatabase()
+        candidates = database.get_bench_candidates(search_id)
+        
+        if not candidates:
+            console.print(f"[yellow]No candidates found for search ID {search_id}[/yellow]")
+            return
+        
+        console.print(f"[bold blue]📋 Bench candidates for search ID {search_id}[/bold blue]")
+        console.print(f"[dim]Found {len(candidates)} candidates[/dim]\n")
+        
+        _display_candidates_table(candidates, output_format)
+        
+    except Exception as e:
+        console.print(f"[bold red]💥 Error: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
+def _deduplicate_bench_candidates(candidates: List) -> List:
+    """
+    Remove duplicate bench candidates based on proximity.
+    
+    Two benches are considered duplicates if they are within 10 meters of each other.
+    When duplicates are found, prefers the one with higher confidence or from OSM.
+    """
+    if not candidates:
+        return candidates
+    
+    # Distance threshold for considering two benches as duplicates (meters)
+    DUPLICATE_THRESHOLD_METERS = 10
+    
+    unique_candidates: List = []
+    
+    for candidate in candidates:
+        is_duplicate = False
+        
+        # Check if this candidate is close to any existing unique candidate
+        for i, existing in enumerate(unique_candidates):
+            distance = _haversine_distance(
+                candidate.lat, candidate.lng,
+                existing.lat, existing.lng
+            )
+            
+            if distance <= DUPLICATE_THRESHOLD_METERS:
+                is_duplicate = True
+                
+                # Replace existing if current candidate is "better"
+                if _is_better_candidate(candidate, existing):
+                    unique_candidates[i] = candidate
+                break
+        
+        if not is_duplicate:
+            unique_candidates.append(candidate)
+    
+    return unique_candidates
+
+
+def _is_better_candidate(candidate1, candidate2) -> bool:
+    """
+    Determine which candidate is "better" for deduplication purposes.
+    """
+    # Prefer candidate with confidence score
+    if candidate1.confidence is not None and candidate2.confidence is None:
+        return True
+    if candidate1.confidence is None and candidate2.confidence is not None:
+        return False
+    
+    # If both have confidence, prefer higher confidence
+    if candidate1.confidence is not None and candidate2.confidence is not None:
+        return candidate1.confidence > candidate2.confidence
+    
+    # If neither has confidence, prefer OSM (more reliable positioning)
+    if candidate1.source == 'osm' and candidate2.source != 'osm':
+        return True
+    if candidate1.source != 'osm' and candidate2.source == 'osm':
+        return False
+    
+    # If same source type, prefer the first one (arbitrary)
+    return False
+
+
+def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """
+    Calculate the Haversine distance between two points in meters.
+    """
+    import math
+    
+    # Convert decimal degrees to radians
+    lat1, lng1, lat2, lng2 = map(math.radians, [lat1, lng1, lat2, lng2])
+    
+    # Haversine formula
+    dlat = lat2 - lat1
+    dlng = lng2 - lng1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    # Radius of Earth in meters
+    R = 6371000
+    return R * c
+
+
+def _display_candidates_table(candidates: List, output_format: str = "table"):
+    """
+    Display candidates in the specified format.
+    """
+    if output_format == "table":
+        table = Table(title="Bench Candidates")
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Provider ID", style="green")
+        table.add_column("Source", style="blue")
+        table.add_column("Latitude", style="magenta")
+        table.add_column("Longitude", style="magenta")
+        table.add_column("Confidence", style="yellow")
+        table.add_column("Tags", style="dim")
+        
+        for candidate in candidates:
+            # Get provider_id or use a fallback
+            provider_id = getattr(candidate, 'provider_id', None) or f"candidate_{getattr(candidate, 'id', 'unknown')}"
+            
+            # Get tags as a string
+            tags = getattr(candidate, 'tags', {})
+            if isinstance(tags, dict):
+                tags_str = ", ".join([f"{k}: {v}" for k, v in list(tags.items())[:2]])  # Show first 2 tags
+                if len(tags) > 2:
+                    tags_str += "..."
+            else:
+                tags_str = str(tags)[:50] + "..." if len(str(tags)) > 50 else str(tags)
+            
+            table.add_row(
+                str(getattr(candidate, 'id', 'N/A')),
+                provider_id,
+                getattr(candidate, 'source', 'unknown'),
+                f"{getattr(candidate, 'lat', 0):.6f}",
+                f"{getattr(candidate, 'lng', 0):.6f}",
+                f"{getattr(candidate, 'confidence', 0):.2f}" if getattr(candidate, 'confidence', None) is not None else "N/A",
+                tags_str
+            )
+        
+        console.print(table)
+    
+    elif output_format == "json":
+        import json
+        candidates_data = []
+        for candidate in candidates:
+            candidates_data.append({
+                "id": getattr(candidate, 'id', None),
+                "provider_id": getattr(candidate, 'provider_id', None),
+                "source": getattr(candidate, 'source', None),
+                "lat": getattr(candidate, 'lat', None),
+                "lng": getattr(candidate, 'lng', None),
+                "confidence": getattr(candidate, 'confidence', None),
+                "tags": getattr(candidate, 'tags', None)
+            })
+        console.print(json.dumps(candidates_data, indent=2))
+    
+    elif output_format == "csv":
+        import csv
+        import io
+        
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow(["ID", "Provider ID", "Source", "Latitude", "Longitude", "Confidence", "Tags"])
+        
+        # Write data
+        for candidate in candidates:
+            tags = getattr(candidate, 'tags', {})
+            tags_str = str(tags) if tags else ""
+            
+            writer.writerow([
+                getattr(candidate, 'id', 'N/A'),
+                getattr(candidate, 'provider_id', 'N/A'),
+                getattr(candidate, 'source', 'unknown'),
+                getattr(candidate, 'lat', 0),
+                getattr(candidate, 'lng', 0),
+                getattr(candidate, 'confidence', 'N/A'),
+                tags_str
+            ])
+        
+        console.print(output.getvalue())
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    app()
