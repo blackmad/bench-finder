@@ -2,25 +2,31 @@
 Multi-model detection client that implements fallback detection logic.
 Tries Ultralytics first, then falls back to multiple Roboflow models.
 """
-import logging
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
 
-from .ultralytics_client import UltralyticsClient
-from .roboflow_client import RoboflowClient
-from .base_detection_client import MultiModelDetectionClient, DetectionResult, DetectionAttempt, MultiModelDetectionResult
-from ..models.schemas import StandardDetectionResult, DetectionItem, BoundingBox
+import logging
+
 from ..config import (
-    ROBOFLOW_MODELS, 
     ROBOFLOW_API_KEY,
+    ROBOFLOW_MODELS,
     ULTRALYTICS_API_KEY,
-    ULTRALYTICS_USE_LOCAL
+    ULTRALYTICS_USE_LOCAL,
 )
+from .base_detection_client import (
+    DetectionAttempt,
+    DetectionResult,
+    MultiModelDetectionClient,
+    MultiModelDetectionResult,
+)
+from .roboflow_client import RoboflowClient
+from .ultralytics_client import UltralyticsClient
+
 
 logger = logging.getLogger(__name__)
 
 
-def _convert_ultralytics_to_standard(ultralytics_result: DetectionResult) -> DetectionResult:
+def _convert_ultralytics_to_standard(
+    ultralytics_result: DetectionResult,
+) -> DetectionResult:
     """Convert Ultralytics result to standard DetectionResult (already in correct format)."""
     return ultralytics_result
 
@@ -30,128 +36,140 @@ def _convert_roboflow_to_standard(roboflow_result: DetectionResult) -> Detection
     return roboflow_result
 
 
-
-
 class MultiModelRoboflowClient:
     """Enhanced Roboflow client that tries multiple models."""
-    
-    def __init__(self, models_config: List[Dict]):
+
+    def __init__(self, models_config: list[dict]):
         """Initialize with multiple model configurations.
-        
+
         Args:
             models_config: List of model configuration dictionaries
         """
         if not ROBOFLOW_API_KEY:
             raise ValueError("ROBOFLOW_API_KEY is required for Roboflow models")
-        
+
         # Sort models by priority (lower number = higher priority)
-        self.models_config = sorted(models_config, key=lambda x: x.get('priority', 999))
+        self.models_config = sorted(models_config, key=lambda x: x.get("priority", 999))
         self.api_key = ROBOFLOW_API_KEY
-        logger.info(f"Initialized MultiModelRoboflowClient with {len(self.models_config)} models")
-        
+        logger.info(
+            f"Initialized MultiModelRoboflowClient with {len(self.models_config)} models"
+        )
+
         # Log model order
         for i, model in enumerate(self.models_config, 1):
-            logger.info(f"  {i}. {model['name']} ({model['id']}) - threshold: {model['confidence_threshold']}")
-    
-    def detect_benches_in_image(self, image_path: str) -> Tuple[Dict, List[DetectionAttempt]]:
+            logger.info(
+                f"  {i}. {model['name']} ({model['id']}) - threshold: {model['confidence_threshold']}"
+            )
+
+    def detect_benches_in_image(
+        self, image_path: str
+    ) -> tuple[dict, list[DetectionAttempt]]:
         """
         Try detecting benches using multiple Roboflow models until one succeeds.
-        
+
         Args:
             image_path: Path to the image file
-            
+
         Returns:
             Tuple of (best_result, all_attempts)
         """
         attempts = []
         best_result = None
-        
-        logger.debug(f"Trying {len(self.models_config)} Roboflow models for {image_path}")
-        
+
+        logger.debug(
+            f"Trying {len(self.models_config)} Roboflow models for {image_path}"
+        )
+
         for model_config in self.models_config:
-            model_id = model_config['id']
-            model_name = model_config['name']
-            confidence_threshold = model_config['confidence_threshold']
-            
+            model_id = model_config["id"]
+            model_name = model_config["name"]
+            confidence_threshold = model_config["confidence_threshold"]
+
             logger.debug(f"Trying Roboflow model: {model_name} ({model_id})")
-            
+
             try:
                 # Create a temporary RoboflowClient for this specific model
                 temp_client = RoboflowClient(model_id=model_id)
                 temp_client.confidence_threshold = confidence_threshold
-                
+
                 # Attempt detection
                 result = temp_client.detect_benches_in_image(image_path)
-                
+
                 # Record the attempt
                 attempt = DetectionAttempt(
-                    model_type='roboflow',
+                    model_type="roboflow",
                     model_id=model_id,
                     success=result.success,
                     has_bench=result.has_bench,
                     confidence=result.max_confidence,
-                    error=result.error
+                    error=result.error,
                 )
                 attempts.append(attempt)
-                
+
                 # If this model detected a bench, use it as the result
                 if result.success and result.has_bench:
-                    logger.info(f"✅ Bench detected by {model_name}: confidence {result.max_confidence:.2f}")
+                    logger.info(
+                        f"✅ Bench detected by {model_name}: confidence {result.max_confidence:.2f}"
+                    )
                     # Convert Pydantic model to dict and add metadata
                     best_result = result.model_dump()
-                    best_result['winning_model'] = model_name
-                    best_result['winning_model_id'] = model_id
-                    best_result['model_attempts'] = len(attempts)
+                    best_result["winning_model"] = model_name
+                    best_result["winning_model_id"] = model_id
+                    best_result["model_attempts"] = len(attempts)
                     break
                 elif result.success:
                     logger.debug(f"❌ No bench detected by {model_name}")
                 else:
-                    logger.debug(f"❌ {model_name} failed: {result.error or 'Unknown error'}")
-                    
+                    logger.debug(
+                        f"❌ {model_name} failed: {result.error or 'Unknown error'}"
+                    )
+
             except Exception as e:
-                logger.error(f"Error with Roboflow model {model_name} - id {model_id}: {e}")
+                logger.exception(
+                    f"Error with Roboflow model {model_name} - id {model_id}: {e}"
+                )
                 attempt = DetectionAttempt(
-                    model_type='roboflow',
+                    model_type="roboflow",
                     model_id=model_id,
                     success=False,
                     has_bench=False,
                     confidence=0.0,
-                    error=str(e)
+                    error=str(e),
                 )
                 attempts.append(attempt)
                 continue
-        
+
         # If no model detected a bench, return the last result or create an error result
         if best_result is None:
             if attempts:
                 # Use the last attempt's result, but mark it as the "best" available
-                last_attempt = attempts[-1]
+                attempts[-1]
                 best_result = {
-                    'image_path': image_path,
-                    'success': False,
-                    'has_bench': False,
-                    'bench_count': 0,
-                    'max_confidence': 0.0,
-                    'detections': [],
-                    'error': f"No bench detected by any of {len(self.models_config)} Roboflow models",
-                    'winning_model': 'none',
-                    'winning_model_id': 'none',
-                    'model_attempts': len(attempts)
+                    "image_path": image_path,
+                    "success": False,
+                    "has_bench": False,
+                    "bench_count": 0,
+                    "max_confidence": 0.0,
+                    "detections": [],
+                    "error": f"No bench detected by any of {len(self.models_config)} Roboflow models",
+                    "winning_model": "none",
+                    "winning_model_id": "none",
+                    "model_attempts": len(attempts),
                 }
             else:
                 best_result = {
-                    'image_path': image_path,
-                    'success': False,
-                    'has_bench': False,
-                    'bench_count': 0,
-                    'max_confidence': 0.0,
-                    'detections': [],
-                    'error': "All Roboflow models failed",
-                    'winning_model': 'none',
-                    'winning_model_id': 'none',
-                    'model_attempts': 0
+                    "image_path": image_path,
+                    "success": False,
+                    "has_bench": False,
+                    "bench_count": 0,
+                    "max_confidence": 0.0,
+                    "detections": [],
+                    "error": "All Roboflow models failed",
+                    "winning_model": "none",
+                    "winning_model_id": "none",
+                    "model_attempts": 0,
                 }
-        
+
         return best_result, attempts
 
 
@@ -162,11 +180,16 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
     2. If no bench detected, try multiple Roboflow models in priority order
     3. Stop as soon as any model detects a bench
     """
-    
-    def __init__(self, enable_ultralytics: bool = True, enable_roboflow_fallback: bool = True, confidence_threshold: float = 0.5):
+
+    def __init__(
+        self,
+        enable_ultralytics: bool = True,
+        enable_roboflow_fallback: bool = True,
+        confidence_threshold: float = 0.5,
+    ):
         """
         Initialize the multi-model detection client.
-        
+
         Args:
             enable_ultralytics: Whether to try Ultralytics first
             enable_roboflow_fallback: Whether to use Roboflow fallback models
@@ -175,7 +198,7 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
         super().__init__(confidence_threshold)
         self.enable_ultralytics = enable_ultralytics
         self.enable_roboflow_fallback = enable_roboflow_fallback
-        
+
         # Initialize Ultralytics client if enabled and API key available
         self.ultralytics_client = None
         if enable_ultralytics:
@@ -184,12 +207,14 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                     self.ultralytics_client = UltralyticsClient()
                     logger.info("✅ Ultralytics client initialized")
                 else:
-                    logger.warning("⚠️  Ultralytics disabled: no API key or local inference not enabled")
+                    logger.warning(
+                        "⚠️  Ultralytics disabled: no API key or local inference not enabled"
+                    )
                     self.enable_ultralytics = False
             except Exception as e:
-                logger.error(f"❌ Failed to initialize Ultralytics client: {e}")
+                logger.exception(f"❌ Failed to initialize Ultralytics client: {e}")
                 self.enable_ultralytics = False
-        
+
         # Initialize Roboflow fallback client if enabled
         self.roboflow_client = None
         if enable_roboflow_fallback:
@@ -198,50 +223,60 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                     self.roboflow_client = MultiModelRoboflowClient(ROBOFLOW_MODELS)
                     logger.info("✅ Multi-model Roboflow client initialized")
                 else:
-                    logger.warning("⚠️  Roboflow fallback disabled: no API key or models configured")
+                    logger.warning(
+                        "⚠️  Roboflow fallback disabled: no API key or models configured"
+                    )
                     self.enable_roboflow_fallback = False
             except Exception as e:
-                logger.error(f"❌ Failed to initialize Roboflow client: {e}")
+                logger.exception(f"❌ Failed to initialize Roboflow client: {e}")
                 self.enable_roboflow_fallback = False
-        
+
         if not self.enable_ultralytics and not self.enable_roboflow_fallback:
-            raise ValueError("At least one detection backend must be enabled and properly configured")
-        
-        logger.info(f"MultiModelDetectionClient ready - Ultralytics: {self.enable_ultralytics}, Roboflow: {self.enable_roboflow_fallback}")
-    
+            raise ValueError(
+                "At least one detection backend must be enabled and properly configured"
+            )
+
+        logger.info(
+            f"MultiModelDetectionClient ready - Ultralytics: {self.enable_ultralytics}, Roboflow: {self.enable_roboflow_fallback}"
+        )
+
     def detect_benches_in_image(self, image_path: str) -> DetectionResult:
         """
         Detect benches using fallback logic: Ultralytics first, then Roboflow models.
-        
+
         Args:
             image_path: Path to the image file
-            
+
         Returns:
             DetectionResult with enhanced metadata
         """
         detection_attempts = []
         final_result = None
-        
+
         logger.debug(f"🔍 Starting multi-model detection for {image_path}")
-        
+
         # Step 1: Try Ultralytics first
         if self.enable_ultralytics and self.ultralytics_client:
             logger.debug("🚀 Trying Ultralytics first...")
             try:
-                ultralytics_result: DetectionResult = self.ultralytics_client.detect_benches_in_image(image_path)
-                
+                ultralytics_result: DetectionResult = (
+                    self.ultralytics_client.detect_benches_in_image(image_path)
+                )
+
                 attempt = DetectionAttempt(
-                    model_type='ultralytics',
-                    model_id='ultralytics',
+                    model_type="ultralytics",
+                    model_id="ultralytics",
                     success=ultralytics_result.success,
                     has_bench=ultralytics_result.has_bench,
                     confidence=ultralytics_result.max_confidence,
-                    error=ultralytics_result.error
+                    error=ultralytics_result.error,
                 )
                 detection_attempts.append(attempt)
-                
+
                 if ultralytics_result.success and ultralytics_result.has_bench:
-                    logger.info(f"✅ Ultralytics detected bench: confidence {ultralytics_result.max_confidence:.2f}")
+                    logger.info(
+                        f"✅ Ultralytics detected bench: confidence {ultralytics_result.max_confidence:.2f}"
+                    )
                     # Convert to multi-model result format
                     final_result = MultiModelDetectionResult(
                         image_path=ultralytics_result.image_path,
@@ -259,56 +294,72 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                         error=ultralytics_result.error,
                         fallback_used=False,
                         total_attempts=1,
-                        detection_attempts=detection_attempts
+                        detection_attempts=detection_attempts,
                     )
                 elif ultralytics_result.success:
-                    logger.debug("❌ Ultralytics: No bench detected, trying fallback models...")
+                    logger.debug(
+                        "❌ Ultralytics: No bench detected, trying fallback models..."
+                    )
                 else:
-                    logger.debug(f"❌ Ultralytics failed: {ultralytics_result.error or 'Unknown error'}")
+                    logger.debug(
+                        f"❌ Ultralytics failed: {ultralytics_result.error or 'Unknown error'}"
+                    )
             except Exception as e:
-                logger.error(f"❌ Ultralytics detection failed: {e}")
+                logger.exception(f"❌ Ultralytics detection failed: {e}")
                 attempt = DetectionAttempt(
-                    model_type='ultralytics',
-                    model_id='ultralytics',
+                    model_type="ultralytics",
+                    model_id="ultralytics",
                     success=False,
                     has_bench=False,
                     confidence=0.0,
-                    error=str(e)
+                    error=str(e),
                 )
                 detection_attempts.append(attempt)
-        
+
         # Step 2: If Ultralytics didn't detect a bench, try Roboflow fallback models
-        if final_result is None and self.enable_roboflow_fallback and self.roboflow_client:
+        if (
+            final_result is None
+            and self.enable_roboflow_fallback
+            and self.roboflow_client
+        ):
             logger.debug("🔄 Falling back to Roboflow models...")
             try:
-                roboflow_result_dict, roboflow_attempts = self.roboflow_client.detect_benches_in_image(image_path)
+                roboflow_result_dict, roboflow_attempts = (
+                    self.roboflow_client.detect_benches_in_image(image_path)
+                )
                 detection_attempts.extend(roboflow_attempts)
-                
-                if roboflow_result_dict.get('success') and roboflow_result_dict.get('has_bench'):
-                    logger.info(f"✅ Fallback successful: {roboflow_result_dict.get('winning_model')} detected bench")
+
+                if roboflow_result_dict.get("success") and roboflow_result_dict.get(
+                    "has_bench"
+                ):
+                    logger.info(
+                        f"✅ Fallback successful: {roboflow_result_dict.get('winning_model')} detected bench"
+                    )
                     # Create a DetectionResult from the Roboflow result
                     # Note: This is a simplified conversion - in practice you'd want to properly convert
                     # the Roboflow result format to DetectionResult
                     final_result = MultiModelDetectionResult(
                         image_path=image_path,
-                        success=roboflow_result_dict.get('success', False),
-                        has_bench=roboflow_result_dict.get('has_bench', False),
-                        bench_count=roboflow_result_dict.get('bench_count', 0),
-                        max_confidence=roboflow_result_dict.get('max_confidence', 0.0),
+                        success=roboflow_result_dict.get("success", False),
+                        has_bench=roboflow_result_dict.get("has_bench", False),
+                        bench_count=roboflow_result_dict.get("bench_count", 0),
+                        max_confidence=roboflow_result_dict.get("max_confidence", 0.0),
                         detections=[],  # Would need proper conversion here
-                        backend_name='RoboflowClient',
-                        model_id=roboflow_result_dict.get('winning_model_id', 'unknown'),
+                        backend_name="RoboflowClient",
+                        model_id=roboflow_result_dict.get(
+                            "winning_model_id", "unknown"
+                        ),
                         confidence_threshold=self.confidence_threshold,
                         fallback_used=True,
                         total_attempts=len(detection_attempts),
-                        detection_attempts=detection_attempts
+                        detection_attempts=detection_attempts,
                     )
                 else:
                     logger.debug("❌ All fallback models failed to detect bench")
-                    
+
             except Exception as e:
-                logger.error(f"❌ Roboflow fallback failed: {e}")
-        
+                logger.exception(f"❌ Roboflow fallback failed: {e}")
+
         # Step 3: If no model detected a bench, create a comprehensive failure result
         if final_result is None:
             logger.debug("❌ All detection models failed")
@@ -319,27 +370,27 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                 bench_count=0,
                 max_confidence=0.0,
                 detections=[],
-                backend_name='none',
-                model_id='none',
+                backend_name="none",
+                model_id="none",
                 confidence_threshold=self.confidence_threshold,
                 fallback_used=len(detection_attempts) > 1,
                 total_attempts=len(detection_attempts),
                 detection_attempts=detection_attempts,
-                error=f"No bench detected by any model ({len(detection_attempts)} attempts)"
+                error=f"No bench detected by any model ({len(detection_attempts)} attempts)",
             )
-        
+
         # Store attempts for analysis
         self.all_attempts.extend(detection_attempts)
-        
+
         return final_result
-    
-    def batch_detect_benches(self, image_paths: List[str]) -> List[DetectionResult]:
+
+    def batch_detect_benches(self, image_paths: list[str]) -> list[DetectionResult]:
         """
         Detect benches in multiple images.
-        
+
         Args:
             image_paths: List of image file paths
-            
+
         Returns:
             List of DetectionResult objects
         """
@@ -348,26 +399,25 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
             result = self.detect_benches_in_image(image_path)
             results.append(result)
         return results
-    
+
     def get_model_info(self) -> dict:
         """
         Get information about the multi-model detection setup.
-        
+
         Returns:
             Dictionary with model information
         """
         info = {
-            'backend': 'UnifiedMultiModelDetectionClient',
-            'confidence_threshold': self.confidence_threshold,
-            'enable_ultralytics': self.enable_ultralytics,
-            'enable_roboflow_fallback': self.enable_roboflow_fallback
+            "backend": "UnifiedMultiModelDetectionClient",
+            "confidence_threshold": self.confidence_threshold,
+            "enable_ultralytics": self.enable_ultralytics,
+            "enable_roboflow_fallback": self.enable_roboflow_fallback,
         }
-        
+
         if self.ultralytics_client:
-            info['ultralytics_info'] = self.ultralytics_client.get_model_info()
-        
+            info["ultralytics_info"] = self.ultralytics_client.get_model_info()
+
         if self.roboflow_client:
-            info['roboflow_models_count'] = len(self.roboflow_client.models_config)
-        
+            info["roboflow_models_count"] = len(self.roboflow_client.models_config)
+
         return info
-    

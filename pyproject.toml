@@ -7,7 +7,7 @@ name = "bench-finder"
 version = "0.1.0"
 description = "AI-powered bench detection and mapping system"
 readme = "docs/README.md"
-requires-python = "==3.12"
+requires-python = "==3.12.*"
 license = {text = "MIT"}
 authors = [
     {name = "Bench Finder Team"},
@@ -236,7 +236,9 @@ unified-bench-search = "tools.unified_bench_search_cli:main"
 
 # Dependency overrides to force specific versions
 [tool.uv]
-override-dependencies = ["pillow>=9.11"]
+override-dependencies = [
+    "pillow>=9.11",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["bench_finder", "api", "tools", "examples"]
@@ -245,7 +247,7 @@ packages = ["bench_finder", "api", "tools", "examples"]
 include = [
     "/bench_finder",
     "/api",
-    "/tools", 
+    "/tools",
     "/examples",
     "/docs",
     "/tests",
@@ -303,6 +305,7 @@ ignore = [
     "Q001", # single quote multiline found but double quotes preferred
     "Q002", # single quote docstring found but double quotes preferred
     "Q003", # change outer quotes to avoid escaping inner quotes
+    "G004", # logging-format: logging statement uses f-string
 ]
 
 [tool.ruff.per-file-ignores]

@@ -1,14 +1,17 @@
 """
 Pydantic models for OpenStreetMap Overpass API responses.
 """
-from typing import Dict, List, Optional, Union, Any
-from pydantic import BaseModel, Field, ConfigDict
+
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OSMTags(BaseModel):
     """OpenStreetMap tags dictionary."""
-    model_config = ConfigDict(extra='allow')  # Allow additional tags
-    
+
+    model_config = ConfigDict(extra="allow")  # Allow additional tags
+
     # Common bench tags
     amenity: Optional[str] = None
     name: Optional[str] = None
@@ -24,45 +27,50 @@ class OSMTags(BaseModel):
 
 class OSMGeometryNode(BaseModel):
     """A node in an OSM way geometry."""
+
     lat: float
     lon: float
 
 
 class OSMElement(BaseModel):
     """Raw OSM element from Overpass API."""
+
     type: str = Field(..., description="Element type: node, way, or relation")
     id: int = Field(..., description="OSM element ID")
     lat: Optional[float] = Field(None, description="Latitude (for nodes only)")
     lon: Optional[float] = Field(None, description="Longitude (for nodes only)")
-    tags: Optional[Dict[str, str]] = Field(default_factory=dict, description="OSM tags")
-    geometry: Optional[List[OSMGeometryNode]] = Field(None, description="Geometry for ways/relations")
+    tags: Optional[dict[str, str]] = Field(default_factory=dict, description="OSM tags")
+    geometry: Optional[list[OSMGeometryNode]] = Field(
+        None, description="Geometry for ways/relations"
+    )
 
 
 class OSMBench(BaseModel):
     """Parsed bench from OSM data."""
+
     provider_id: str = Field(..., description="Unique provider ID (osm_id_type)")
     source: str = Field(default="osm", description="Data source")
     external_id: str = Field(..., description="Original OSM ID")
     lat: float = Field(..., description="Bench latitude")
-    lng: float = Field(..., description="Bench longitude") 
+    lng: float = Field(..., description="Bench longitude")
     tags: OSMTags = Field(default_factory=OSMTags, description="OSM tags")
     osm_type: str = Field(..., description="OSM element type (node, way, relation)")
     osm_id: int = Field(..., description="Original OSM element ID")
-    
+
     @classmethod
     def from_osm_element(cls, element: OSMElement) -> Optional["OSMBench"]:
         """Create OSMBench from raw OSM element."""
         osm_id = element.id
         osm_type = element.type
         tags = OSMTags(**element.tags) if element.tags else OSMTags()
-        
+
         # Calculate coordinates based on element type
         lat, lng = None, None
-        
+
         if element.type == "node":
             lat = element.lat
             lng = element.lon
-            
+
         elif element.type == "way":
             if element.geometry and len(element.geometry) > 0:
                 # Calculate centroid
@@ -71,15 +79,15 @@ class OSMBench(BaseModel):
                 lng = sum(coord[1] for coord in coords) / len(coords)
             else:
                 return None  # Cannot process way without geometry
-                
+
         elif element.type == "relation":
             # Skip relations for now as they're complex to handle
             return None
-            
+
         # Validate coordinates
         if lat is None or lng is None:
             return None
-            
+
         return cls(
             provider_id=f"{osm_id}_{osm_type}",
             external_id=str(osm_id),
@@ -87,26 +95,28 @@ class OSMBench(BaseModel):
             lng=lng,
             tags=tags,
             osm_type=osm_type,
-            osm_id=osm_id
+            osm_id=osm_id,
         )
 
 
 class OverpassResponse(BaseModel):
     """Full Overpass API response."""
+
     version: Optional[float] = None
     generator: Optional[str] = None
-    osm3s: Optional[Dict[str, Any]] = None
-    elements: List[OSMElement] = Field(default_factory=list, description="OSM elements")
+    osm3s: Optional[dict[str, Any]] = None
+    elements: list[OSMElement] = Field(default_factory=list, description="OSM elements")
 
 
 class OverpassSearchResult(BaseModel):
     """Result of an Overpass search operation."""
-    benches: List[OSMBench] = Field(default_factory=list, description="Found benches")
+
+    benches: list[OSMBench] = Field(default_factory=list, description="Found benches")
     search_center_lat: float = Field(..., description="Search center latitude")
-    search_center_lng: float = Field(..., description="Search center longitude") 
+    search_center_lng: float = Field(..., description="Search center longitude")
     search_radius_meters: int = Field(..., description="Search radius in meters")
     total_count: int = Field(..., description="Total number of benches found")
-    
+
     @property
     def has_benches(self) -> bool:
         """Check if any benches were found."""

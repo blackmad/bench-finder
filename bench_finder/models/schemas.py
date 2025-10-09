@@ -1,16 +1,16 @@
 """
 Pydantic schemas for API request and response validation.
 """
-from datetime import datetime
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
-from pydantic import BaseModel, ConfigDict, Field
 
-if TYPE_CHECKING:
-    pass
+from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SearchBase(BaseModel):
     """Base schema for search operations."""
+
     query: str
     start_lat: float
     start_lng: float
@@ -19,21 +19,22 @@ class SearchBase(BaseModel):
 
 class SearchCreate(SearchBase):
     """Schema for creating a new search."""
-    pass
 
 
 class SearchResponse(SearchBase):
     """Schema for search response."""
+
     id: int
     created_at: datetime
     completed_at: Optional[datetime] = None
-    status: str = 'pending'
-    
+    status: str = "pending"
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class SearchSummary(BaseModel):
     """Schema for search summary with statistics."""
+
     id: int
     query: str
     start_lat: float
@@ -41,37 +42,43 @@ class SearchSummary(BaseModel):
     search_radius: int
     bench_count: int
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class BenchBase(BaseModel):
     """Base schema for bench data."""
+
     provider_id: Optional[str] = None  # Unified ID from OSM or Mapillary
     lat: float
     lng: float
-    tags: Dict[str, Any] = {}
-    source: str = 'osm'  # 'osm' or 'mapillary'
+    tags: dict[str, Any] = {}
+    source: str = "osm"  # 'osm' or 'mapillary'
     external_id: Optional[str] = None  # For Mapillary image IDs
 
 
 class BenchCreate(BenchBase):
     """Schema for creating a new bench."""
+
     search_id: Optional[int] = None  # Nullable for Mapillary benches
-    representative_image_id: Optional[int] = None  # ID of the representative image for this bench
+    representative_image_id: Optional[int] = (
+        None  # ID of the representative image for this bench
+    )
 
 
 class BenchResponse(BenchBase):
     """Schema for bench response."""
+
     id: int
     search_id: Optional[int] = None
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class ImageBase(BaseModel):
     """Base schema for image data."""
+
     heading: int
     filepath: Optional[str] = None
     filename: Optional[str] = None
@@ -82,56 +89,62 @@ class ImageBase(BaseModel):
 
 class ImageCreate(ImageBase):
     """Schema for creating a new image."""
+
     bench_id: int
 
 
 class ImageResponse(ImageBase):
     """Schema for image response."""
+
     id: int
     bench_id: int
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class DetectionBase(BaseModel):
     """Base schema for detection data."""
+
     has_bench: bool
     bench_count: int = 0
     max_confidence: float = 0.0
-    detections: List["DetectionItem"] = []
+    detections: list["DetectionItem"] = []
     detection_success: bool
     detection_error: Optional[str] = None
     model_id: str
     confidence_threshold: float
-    source: str = 'roboflow'  # 'roboflow', 'ultralytics', 'mapillary'
+    source: str = "roboflow"  # 'roboflow', 'ultralytics', 'mapillary'
     external_detection_id: Optional[str] = None  # For Mapillary detection IDs
 
 
 class DetectionCreate(DetectionBase):
     """Schema for creating a new detection."""
+
     image_id: int
 
 
 class DetectionResponse(DetectionBase):
     """Schema for detection response."""
+
     id: int
     image_id: int
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class UltralyticsDetectionBase(BaseModel):
     """Base schema for Ultralytics detection data."""
+
     has_bench: bool
     bench_count: int = 0
     max_confidence: float = 0.0
-    full_response: Dict[str, Any] = {}
-    bench_detections: List[Dict[str, Any]] = []
+    full_response: dict[str, Any] = {}
+    bench_detections: list[dict[str, Any]] = []
     detection_success: bool
     detection_error: Optional[str] = None
-    model_url: Optional[str]= "unknown"
+    model_url: Optional[str] = "unknown"
     confidence_threshold: float
     iou_threshold: float
     image_size: int
@@ -142,42 +155,48 @@ class UltralyticsDetectionBase(BaseModel):
 
 class UltralyticsDetectionCreate(UltralyticsDetectionBase):
     """Schema for creating a new Ultralytics detection."""
+
     image_id: int
 
 
 class UltralyticsDetectionResponse(UltralyticsDetectionBase):
     """Schema for Ultralytics detection response."""
+
     id: int
     image_id: int
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class BenchWithImages(BenchResponse):
     """Schema for bench with its images."""
-    images: List[ImageResponse] = []
-    
+
+    images: list[ImageResponse] = []
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class ImageWithDetections(ImageResponse):
     """Schema for image with its detections."""
-    detections: List[DetectionResponse] = []
-    ultralytics_detections: List[UltralyticsDetectionResponse] = []
-    
+
+    detections: list[DetectionResponse] = []
+    ultralytics_detections: list[UltralyticsDetectionResponse] = []
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class BenchWithDetections(BenchResponse):
     """Schema for bench with all related data."""
-    images: List[ImageWithDetections] = []
-    
+
+    images: list[ImageWithDetections] = []
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class SearchResults(BaseModel):
     """Schema for comprehensive search results."""
+
     search: SearchResponse
     bench_count: int
     total_images: int
@@ -185,17 +204,18 @@ class SearchResults(BaseModel):
     total_detections: int
     images_with_benches: int
     best_confidence: float = 0.0
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class WebBenchData(BaseModel):
     """Schema for web UI bench data."""
+
     id: int
     provider_id: Optional[str] = None  # Unified ID from OSM or Mapillary
     lat: float
     lng: float
-    tags: Dict[str, Any] = {}
+    tags: dict[str, Any] = {}
     source: str  # 'osm' or 'mapillary'
     external_id: Optional[str] = None
     best_confidence: float
@@ -205,8 +225,8 @@ class WebBenchData(BaseModel):
     detection_type: str
     has_segmentation: bool
     image_count: int
-    image_filenames: List[str]
-    image_ids: List[int]
+    image_filenames: list[str]
+    image_ids: list[int]
     distance_meters: int
     distance_km: float
     # Clustering information (optional, only present when serving clustered data)
@@ -220,27 +240,30 @@ class WebBenchData(BaseModel):
 
 class ClusterInfo(BaseModel):
     """Schema for cluster metadata."""
+
     cluster_id: int
     center_lat: float
     center_lng: float
     bench_count: int
     max_distance_meters: float
     avg_confidence: float
-    sources: List[str]  # List of data sources in cluster
+    sources: list[str]  # List of data sources in cluster
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
 
 class ClusteredBenchData(BaseModel):
     """Schema for clustered bench data showing both cluster and individual bench info."""
+
     cluster: ClusterInfo
     representative_bench: WebBenchData  # The "best" bench in the cluster
-    all_benches: List[WebBenchData]  # All benches in the cluster
+    all_benches: list[WebBenchData]  # All benches in the cluster
     distance_to_cluster_center: float  # Distance from query point to cluster center
 
 
 class PaginationInfo(BaseModel):
     """Schema for pagination metadata."""
+
     page: int
     page_size: int
     total_count: int
@@ -250,43 +273,48 @@ class PaginationInfo(BaseModel):
 
 class BenchListResponse(BaseModel):
     """Schema for paginated bench list response."""
-    benches: List[WebBenchData]
+
+    benches: list[WebBenchData]
     pagination: PaginationInfo
 
 
 class ClusteredBenchListResponse(BaseModel):
     """Schema for paginated clustered bench list response."""
-    clustered_benches: List[ClusteredBenchData]
+
+    clustered_benches: list[ClusteredBenchData]
     pagination: PaginationInfo
-    clustering_info: Dict[str, Any] = {}  # Metadata about clustering configuration
+    clustering_info: dict[str, Any] = {}  # Metadata about clustering configuration
 
 
 class SegmentationData(BaseModel):
     """Schema for detection visualization data response (both segmentation and bounding boxes)."""
+
     filename: str
     detection_type: str  # 'segmentation' or 'bounding_box' or 'both'
-    
+
     # Ultralytics segmentation data
-    bench_detections: List[Dict[str, Any]] = []  # Segmentation polygons
-    image_shape: Optional[List[int]] = None
+    bench_detections: list[dict[str, Any]] = []  # Segmentation polygons
+    image_shape: Optional[list[int]] = None
     segmentation_available: bool = False
-    
+
     # Roboflow bounding box data
-    roboflow_detections: List[Dict[str, Any]] = []  # Bounding box coordinates
+    roboflow_detections: list[dict[str, Any]] = []  # Bounding box coordinates
     bounding_box_available: bool = False
-    
+
     # Common metadata
     confidence_score: float = 0.0
-    source: str = 'unknown'  # 'roboflow', 'ultralytics'
+    source: str = "unknown"  # 'roboflow', 'ultralytics'
 
 
 class ImageListResponse(BaseModel):
     """Schema for image list response."""
-    images: List[ImageResponse]
+
+    images: list[ImageResponse]
 
 
 class ConfigResponse(BaseModel):
     """Schema for configuration response."""
+
     default_start_lat: float
     default_start_lng: float
     default_min_confidence: float
@@ -295,12 +323,14 @@ class ConfigResponse(BaseModel):
 
 class SearchListResponse(BaseModel):
     """Schema for search list response."""
-    searches: List[SearchSummary]
+
+    searches: list[SearchSummary]
 
 
 # Source-specific request schemas
 class SourceSearchRequest(BaseModel):
     """Schema for source-specific search request."""
+
     center_lat: float
     center_lng: float
     radius_meters: int = 1000
@@ -310,6 +340,7 @@ class SourceSearchRequest(BaseModel):
 
 class SourceStatistics(BaseModel):
     """Schema for source-specific statistics."""
+
     source: str
     total_benches: int
     total_detections: int
@@ -321,18 +352,20 @@ class SourceStatistics(BaseModel):
 # New models for type-safe dictionary replacements
 class ModelCacheInfo(BaseModel):
     """Schema for model cache information."""
-    cached_models: List[str]
+
+    cached_models: list[str]
     cache_size: int
 
 
 class RoboflowDetectionResult(BaseModel):
     """Schema for Roboflow detection results."""
+
     image_path: str
     success: bool
     has_bench: bool
     bench_count: int
     max_confidence: float
-    detections: List[Dict[str, Any]]
+    detections: list[dict[str, Any]]
     raw_predictions: int
     model_id: str
     confidence_threshold: float
@@ -342,62 +375,67 @@ class RoboflowDetectionResult(BaseModel):
 
 class RoboflowModelInfo(BaseModel):
     """Schema for Roboflow model information."""
+
     model_id: str
     confidence_threshold: float
-    classes: List[str]
+    classes: list[str]
 
 
 class BoundingBox(BaseModel):
     """Standardized bounding box format."""
+
     x1: float  # Left coordinate
     y1: float  # Top coordinate
     x2: float  # Right coordinate
     y2: float  # Bottom coordinate
     width: float  # Computed width
     height: float  # Computed height
-    
+
     def __init__(self, **data):
         # Auto-calculate width and height if not provided
-        if 'width' not in data and 'x1' in data and 'x2' in data:
-            data['width'] = abs(data['x2'] - data['x1'])
-        if 'height' not in data and 'y1' in data and 'y2' in data:
-            data['height'] = abs(data['y2'] - data['y1'])
+        if "width" not in data and "x1" in data and "x2" in data:
+            data["width"] = abs(data["x2"] - data["x1"])
+        if "height" not in data and "y1" in data and "y2" in data:
+            data["height"] = abs(data["y2"] - data["y1"])
         super().__init__(**data)
 
 
 class DetectionItem(BaseModel):
     """Single detection item with standardized format."""
+
     confidence: float
     bbox: BoundingBox
     class_name: str = "bench"
-    segmentation: Optional[List[List[float]]] = None  # Polygon coordinates if available
-    
+    segmentation: Optional[list[list[float]]] = None  # Polygon coordinates if available
+
 
 class StandardDetectionResult(BaseModel):
     """Standardized detection result from any backend."""
+
     image_path: str
     success: bool
     has_bench: bool
     bench_count: int
     max_confidence: float
-    detections: List[DetectionItem]
-    
+    detections: list[DetectionItem]
+
     # Backend information
     winning_backend: str  # 'ultralytics', 'roboflow', 'none'
     winning_model: str
     fallback_used: bool = False
     total_attempts: int = 1
-    
+
     # Error information
     error: Optional[str] = None
-    
+
     # Additional metadata
-    detection_attempts: List[Dict[str, Any]] = []
+    detection_attempts: list[dict[str, Any]] = []
 
 
 # Ultralytics-specific models
 class UltralyticsBox(BaseModel):
     """Ultralytics bounding box in xyxy format."""
+
     x1: float
     y1: float
     x2: float
@@ -406,23 +444,26 @@ class UltralyticsBox(BaseModel):
 
 class UltralyticsSegments(BaseModel):
     """Ultralytics segmentation data."""
-    x: List[float]
-    y: List[float]
+
+    x: list[float]
+    y: list[float]
 
 
 class UltralyticsDetectionItem(BaseModel):
     """Single detection item from Ultralytics."""
+
     class_name: str = Field(alias="class")
     class_id: int
     confidence: float
     box: UltralyticsBox
     segments: Optional[UltralyticsSegments] = None
-    
+
     model_config = ConfigDict(populate_by_name=True)
 
 
 class UltralyticsSpeed(BaseModel):
     """Timing information from Ultralytics."""
+
     inference: Optional[float] = None
     preprocess: Optional[float] = None
     postprocess: Optional[float] = None
@@ -430,52 +471,57 @@ class UltralyticsSpeed(BaseModel):
 
 class UltralyticsImageResult(BaseModel):
     """Results for a single image from Ultralytics API."""
-    results: List[UltralyticsDetectionItem] = []
-    shape: List[int] = []
+
+    results: list[UltralyticsDetectionItem] = []
+    shape: list[int] = []
     speed: Optional[UltralyticsSpeed] = None
 
 
 class UltralyticsApiResponse(BaseModel):
     """Complete Ultralytics API response."""
-    images: List[UltralyticsImageResult] = []
+
+    images: list[UltralyticsImageResult] = []
 
 
 class UltralyticsDetectionResult(BaseModel):
     """Processed Ultralytics detection result."""
+
     image_path: str
     success: bool
     has_bench: bool
     bench_count: int
     max_confidence: float
-    bench_detections: List[UltralyticsDetectionItem]
+    bench_detections: list[UltralyticsDetectionItem]
     full_response: UltralyticsApiResponse
     model_url: str
     confidence_threshold: float
     iou_threshold: float
     image_size: int
     inference_mode: str  # 'local' or 'api'
-    
+
     # Timing information
     inference_time: Optional[float] = None
     preprocess_time: Optional[float] = None
     postprocess_time: Optional[float] = None
-    
+
     # Error information
     error: Optional[str] = None
 
 
 class CacheStatus(BaseModel):
     """Schema for cache status information."""
+
     use_local_inference: bool
-    model_id : str | None
+    model_id: str | None
     model_cached: bool
     cache_key: Optional[str]
     total_cached_models: int
-    all_cached_models: List[str]
+    all_cached_models: list[str]
 
 
 class BenchProcessingResult(BaseModel):
     """Schema for bench processing results."""
+
     bench_added: bool
     images_captured: int
     images_successful: int
@@ -486,6 +532,7 @@ class BenchProcessingResult(BaseModel):
 
 class ProcessingStats(BaseModel):
     """Schema for overall processing statistics."""
+
     benches_processed: int
     benches_added: int
     images_captured: int
@@ -497,6 +544,7 @@ class ProcessingStats(BaseModel):
 
 class PipelineResult(BaseModel):
     """Schema for pipeline execution results."""
+
     success: bool
     search_id: Optional[int] = None
     message: str
@@ -507,6 +555,7 @@ class PipelineResult(BaseModel):
 # Additional response models for FastAPI endpoints
 class HealthResponse(BaseModel):
     """Schema for health check response."""
+
     status: str
     database: str
     mapillary: str
@@ -514,29 +563,32 @@ class HealthResponse(BaseModel):
 
 class ApiInfoResponse(BaseModel):
     """Schema for API information response."""
+
     name: str
     version: str
     description: str
-    supported_sources: List[str]
-    supported_detection_models: List[str]
-    features: List[str]
-    endpoints: Dict[str, str]
-    limits: Dict[str, Any]
+    supported_sources: list[str]
+    supported_detection_models: list[str]
+    features: list[str]
+    endpoints: dict[str, str]
+    limits: dict[str, Any]
 
 
 class MapillaryConfigResponse(BaseModel):
     """Schema for Mapillary configuration response."""
+
     mapillary_enabled: bool
     default_radius_meters: int
     default_limit: int
-    supported_detection_types: List[str]
+    supported_detection_types: list[str]
     max_radius_meters: int
     max_limit: int
-    features: Dict[str, Any]
+    features: dict[str, Any]
 
 
 class ReportResponse(BaseModel):
     """Schema for bench report response."""
+
     success: bool
     report_id: int
     message: str
@@ -547,10 +599,11 @@ class ReportResponse(BaseModel):
 
 class MissingBenchReportResponse(BaseModel):
     """Schema for missing bench report response."""
+
     success: bool
     report_id: int
     message: str
-    location: Dict[str, float]
+    location: dict[str, float]
     location_method: str
     has_image: bool
     created_at: str
@@ -558,50 +611,56 @@ class MissingBenchReportResponse(BaseModel):
 
 class SourceStatsResponse(BaseModel):
     """Schema for source statistics response."""
+
     source: str
     total_benches: int
     total_images: int
     total_detections: int
     avg_confidence: float
     area_filtered: bool
-    area_center: Optional[Dict[str, float]] = None
+    area_center: Optional[dict[str, float]] = None
     area_radius_meters: Optional[int] = None
 
 
 class ErrorResponse(BaseModel):
     """Schema for error response."""
+
     error: str
     detail: Optional[str] = None
 
 
 class BenchCandidateBase(BaseModel):
     """Base schema for bench candidate data."""
+
     provider_id: Optional[str] = None
     lat: float
     lng: float
-    tags: Optional[Dict[str, Any]] = None
-    source: str = 'osm'
+    tags: Optional[dict[str, Any]] = None
+    source: str = "osm"
     external_id: Optional[str] = None
     confidence: Optional[float] = None
 
 
 class BenchCandidateCreate(BenchCandidateBase):
     """Schema for creating a bench candidate."""
+
     search_id: int
 
 
 class BenchCandidateResponse(BenchCandidateBase):
     """Schema for bench candidate response."""
+
     id: int
     search_id: int
     created_at: datetime
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
 class BenchCandidateListResponse(BaseModel):
     """Schema for list of bench candidates response."""
-    candidates: List[BenchCandidateResponse]
+
+    candidates: list[BenchCandidateResponse]
     total_count: int
     search_id: int
     search_query: str

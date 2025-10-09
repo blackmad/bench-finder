@@ -2,114 +2,137 @@
 """
 CLI interface for the bench finder application using Typer.
 """
+
 import logging
-import sys
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional
+
 import typer
 from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
-from bench_finder.config import SEARCH_RADIUS_METERS, MAPILLARY_ACCESS_TOKEN
-from bench_finder.utils import setup_logging
+from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
+from bench_finder.models.schemas import SearchCreate
 from bench_finder.services.database import BenchDatabase
-from bench_finder.models.schemas import SearchCreate, BenchCandidateResponse
-from examples.bench_generator import BenchGenerator
-from examples.overpass_bench_generator import OverpassBenchGenerator
+from bench_finder.utils import setup_logging
 from examples.mapillary_bench_generator import MapillaryBenchGenerator
+from examples.overpass_bench_generator import OverpassBenchGenerator
+
+
+if TYPE_CHECKING:
+    from examples.bench_generator import BenchGenerator
+
 
 # Initialize Typer app and console
 app = typer.Typer(
     name="bench-finder",
     help="Find benches using OSM data, Street View images, and AI detection",
-    no_args_is_help=True
+    no_args_is_help=True,
 )
 console = Console()
 
 
 @app.command("generate-candidates")
 def generate_candidates(
-    query: str = typer.Argument(..., help="Search query (address, location name, etc.)"),
-    radius: int = typer.Option(SEARCH_RADIUS_METERS, "--radius", "-r", help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"),
-    show_table: bool = typer.Option(True, "--show-table/--no-show-table", help="Display results in a table"),
-    output_format: str = typer.Option("table", "--format", help="Output format: table, json, csv")
+    query: str = typer.Argument(
+        ..., help="Search query (address, location name, etc.)"
+    ),
+    radius: int = typer.Option(
+        SEARCH_RADIUS_METERS,
+        "--radius",
+        "-r",
+        help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})",
+    ),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    show_table: bool = typer.Option(
+        True, "--show-table/--no-show-table", help="Display results in a table"
+    ),
+    output_format: str = typer.Option(
+        "table", "--format", help="Output format: table, json, csv"
+    ),
 ):
     """
     Generate bench candidates by running the first 3 phases:
     1. Geocode query
     2. Create search record
     3. Find candidates using OSM and Mapillary
-    
+
     This command only finds potential bench locations without processing images or running detection.
     """
     try:
         # Setup logging
         setup_logging(level=log_level)
         logger = logging.getLogger(__name__)
-        
-        console.print(f"[bold blue]🔍 Generating bench candidates for: '{query}'[/bold blue]")
+
+        console.print(
+            f"[bold blue]🔍 Generating bench candidates for: '{query}'[/bold blue]"
+        )
         console.print(f"[dim]Search radius: {radius}m[/dim]\n")
-        
+
         # Initialize components
         geocoder = Geocoder()
         database = BenchDatabase()
-        
+
         # Phase 1: Geocode the query
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=console
+            console=console,
         ) as progress:
             geocode_task = progress.add_task("Geocoding query...", total=None)
             coordinates = geocoder.geocode_query(query)
             progress.update(geocode_task, description="✅ Geocoding complete")
-        
+
         if not coordinates:
             console.print("[bold red]❌ Failed to geocode query[/bold red]")
             raise typer.Exit(1)
-        
+
         start_lat, start_lng = coordinates
         console.print(f"[green]📍 Location: {start_lat:.6f}, {start_lng:.6f}[/green]\n")
-        
+
         # Phase 2: Create search record in database
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=console
+            console=console,
         ) as progress:
             search_task = progress.add_task("Creating search record...", total=None)
-            search_id = database.create_search(SearchCreate(
-                query=query,
-                start_lat=start_lat,
-                start_lng=start_lng,
-                search_radius=radius
-            ))
+            search_id = database.create_search(
+                SearchCreate(
+                    query=query,
+                    start_lat=start_lat,
+                    start_lng=start_lng,
+                    search_radius=radius,
+                )
+            )
             progress.update(search_task, description="✅ Search record created")
-        
+
         console.print(f"[green]📝 Search ID: {search_id}[/green]\n")
-        
+
         # Phase 3: Find benches using all available generators
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=console
+            console=console,
         ) as progress:
-            candidates_task = progress.add_task("Finding bench candidates...", total=None)
-            
+            candidates_task = progress.add_task(
+                "Finding bench candidates...", total=None
+            )
+
             # Create bench generators
-            generators: List[BenchGenerator] = []
-            
+            generators: list[BenchGenerator] = []
+
             # Always add OSM generator
             try:
                 osm_generator = OverpassBenchGenerator()
                 generators.append(osm_generator)
                 logger.info("Added OpenStreetMap generator")
             except Exception as e:
-                logger.error(f"Failed to initialize OSM generator: {e}")
-            
+                logger.exception(f"Failed to initialize OSM generator: {e}")
+
             # Add Mapillary generator if token is available
             try:
                 if MAPILLARY_ACCESS_TOKEN:
@@ -117,32 +140,40 @@ def generate_candidates(
                     generators.append(mapillary_generator)
                     logger.info("Added Mapillary generator")
                 else:
-                    logger.warning("MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available")
+                    logger.warning(
+                        "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to initialize Mapillary generator: {e}")
-            
+
             if not generators:
-                console.print("[bold red]❌ No bench generators could be initialized[/bold red]")
+                console.print(
+                    "[bold red]❌ No bench generators could be initialized[/bold red]"
+                )
                 raise typer.Exit(1)
-            
+
             # Find candidates using all generators
             all_candidates = []
             generator_results = {}
-            
+
             for generator in generators:
                 try:
                     logger.debug(f"Querying {generator.name} for benches")
-                    candidates = generator.find_benches_near_point(start_lat, start_lng, radius)
+                    candidates = generator.find_benches_near_point(
+                        start_lat, start_lng, radius
+                    )
                     all_candidates.extend(candidates)
                     generator_results[generator.name] = len(candidates)
-                    logger.info(f"{generator.name}: found {len(candidates)} bench candidates")
+                    logger.info(
+                        f"{generator.name}: found {len(candidates)} bench candidates"
+                    )
                 except Exception as e:
-                    logger.error(f"Error querying {generator.name}: {e}")
+                    logger.exception(f"Error querying {generator.name}: {e}")
                     generator_results[generator.name] = 0
-            
+
             # Deduplicate candidates
             deduplicated_candidates = _deduplicate_bench_candidates(all_candidates)
-            
+
             # Store candidates in database
             for candidate in deduplicated_candidates:
                 database.add_bench_candidate(
@@ -153,116 +184,167 @@ def generate_candidates(
                     tags=candidate.tags,
                     source=candidate.source,
                     external_id=candidate.external_id,
-                    confidence=candidate.confidence
+                    confidence=candidate.confidence,
                 )
-            
-            progress.update(candidates_task, description="✅ Bench candidates found and stored")
-        
+
+            progress.update(
+                candidates_task, description="✅ Bench candidates found and stored"
+            )
+
         # Display results
-        console.print(f"\n[bold green]✅ Found {len(deduplicated_candidates)} unique bench candidates[/bold green]")
+        console.print(
+            f"\n[bold green]✅ Found {len(deduplicated_candidates)} unique bench candidates[/bold green]"
+        )
         console.print(f"[dim]Generator results: {generator_results}[/dim]\n")
-        
+
         if show_table and deduplicated_candidates:
             _display_candidates_table(deduplicated_candidates, output_format)
-        
+
         # Get stored candidates from database for verification
         stored_candidates = database.get_bench_candidates(search_id)
-        console.print(f"\n[dim]📊 Stored {len(stored_candidates)} candidates in database (search_id: {search_id})[/dim]")
-        
+        console.print(
+            f"\n[dim]📊 Stored {len(stored_candidates)} candidates in database (search_id: {search_id})[/dim]"
+        )
+
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
         raise typer.Exit(130)
     except Exception as e:
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         raise typer.Exit(1)
 
 
 @app.command("find-benches")
 def find_benches(
-    query: str = typer.Argument(..., help="Search query (address, location name, etc.)"),
-    radius: int = typer.Option(SEARCH_RADIUS_METERS, "--radius", "-r", help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"),
-    backend: Optional[str] = typer.Option(None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"),
-    disable_fallback: bool = typer.Option(False, "--disable-fallback", help="Disable multi-model fallback detection"),
-    no_copy_bench_images: bool = typer.Option(False, "--no-copy-bench-images", help="Disable copying images with detected benches")
+    query: str = typer.Argument(
+        ..., help="Search query (address, location name, etc.)"
+    ),
+    radius: int = typer.Option(
+        SEARCH_RADIUS_METERS,
+        "--radius",
+        "-r",
+        help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})",
+    ),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    backend: Optional[str] = typer.Option(
+        None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"
+    ),
+    disable_fallback: bool = typer.Option(
+        False, "--disable-fallback", help="Disable multi-model fallback detection"
+    ),
+    no_copy_bench_images: bool = typer.Option(
+        False,
+        "--no-copy-bench-images",
+        help="Disable copying images with detected benches",
+    ),
 ):
     """
     Complete bench finding pipeline: find candidates, capture images, and run detection.
-    
+
     This is the full pipeline that includes image capture and AI detection.
     """
     try:
         # Import BenchFinder only when needed to avoid import issues
         from bench_finder.main import BenchFinder
-        
+
         # Setup logging
         setup_logging(level=log_level)
         logger = logging.getLogger(__name__)
-        
+
         # Initialize bench finder with selected backend and fallback setting
         enable_fallback = not disable_fallback
         copy_bench_images = not no_copy_bench_images
         bench_finder = BenchFinder(
-            detection_backend=backend, 
+            detection_backend=backend,
             enable_fallback=enable_fallback,
-            copy_bench_images=copy_bench_images
+            copy_bench_images=copy_bench_images,
         )
-        
-        console.print(f"[bold blue]🔍 BenchFinder starting with query: '{query}' using {bench_finder.detection_backend} backend[/bold blue]")
-        
+
+        console.print(
+            f"[bold blue]🔍 BenchFinder starting with query: '{query}' using {bench_finder.detection_backend} backend[/bold blue]"
+        )
+
         results = bench_finder.find_benches(query, radius)
-        
+
         if results.success:
             console.print(f"[bold green]✅ {results.message}[/bold green]")
-            
+
             if results.search_id:
-                search_results = bench_finder.database.get_search_results(results.search_id)
+                search_results = bench_finder.database.get_search_results(
+                    results.search_id
+                )
                 if search_results:
-                    console.print(f"\n[bold]📊 Summary:[/bold]")
+                    console.print("\n[bold]📊 Summary:[/bold]")
                     console.print(f"   • Search ID: {search_results.search.id}")
                     console.print(f"   • Query: {search_results.search.query}")
-                    console.print(f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})")
-                    console.print(f"   • Search radius: {search_results.search.search_radius}m")
+                    console.print(
+                        f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})"
+                    )
+                    console.print(
+                        f"   • Search radius: {search_results.search.search_radius}m"
+                    )
                     console.print(f"   • Benches found: {search_results.bench_count}")
-                    console.print(f"   • Images captured: {search_results.successful_images}/{search_results.total_images}")
-                    console.print(f"   • Images with benches detected: {search_results.images_with_benches}")
-                    console.print(f"   • Best confidence: {search_results.best_confidence:.2f}")
+                    console.print(
+                        f"   • Images captured: {search_results.successful_images}/{search_results.total_images}"
+                    )
+                    console.print(
+                        f"   • Images with benches detected: {search_results.images_with_benches}"
+                    )
+                    console.print(
+                        f"   • Best confidence: {search_results.best_confidence:.2f}"
+                    )
 
             if results.stats:
                 stats = results.stats
-                console.print(f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected")
-            
+                console.print(
+                    f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected"
+                )
+
             # Show multi-model detection statistics if available
-            if hasattr(bench_finder.detection_client, 'get_detection_stats'):
+            if hasattr(bench_finder.detection_client, "get_detection_stats"):
                 detection_stats = bench_finder.detection_client.get_detection_stats()
-                if not detection_stats.get('no_data', False):
-                    console.print(f"\n[bold]🔍 Detection Statistics:[/bold]")
-                    console.print(f"   • Total model attempts: {detection_stats['total_attempts']}")
-                    if detection_stats.get('ultralytics_attempts', 0) > 0:
-                        success_rate = detection_stats.get('ultralytics_success_rate', 0) * 100
-                        console.print(f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)")
-                    if detection_stats.get('roboflow_attempts', 0) > 0:
-                        success_rate = detection_stats.get('roboflow_success_rate', 0) * 100
-                        console.print(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
-        
+                if not detection_stats.get("no_data", False):
+                    console.print("\n[bold]🔍 Detection Statistics:[/bold]")
+                    console.print(
+                        f"   • Total model attempts: {detection_stats['total_attempts']}"
+                    )
+                    if detection_stats.get("ultralytics_attempts", 0) > 0:
+                        success_rate = (
+                            detection_stats.get("ultralytics_success_rate", 0) * 100
+                        )
+                        console.print(
+                            f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)"
+                        )
+                    if detection_stats.get("roboflow_attempts", 0) > 0:
+                        success_rate = (
+                            detection_stats.get("roboflow_success_rate", 0) * 100
+                        )
+                        console.print(
+                            f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)"
+                        )
+
         else:
             console.print(f"[bold red]❌ {results.error}[/bold red]")
             raise typer.Exit(1)
-        
+
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
         raise typer.Exit(130)
     except Exception as e:
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         raise typer.Exit(1)
 
 
 @app.command("list-candidates")
 def list_candidates(
     search_id: int = typer.Argument(..., help="Search ID to list candidates for"),
-    output_format: str = typer.Option("table", "--format", help="Output format: table, json, csv")
+    output_format: str = typer.Option(
+        "table", "--format", help="Output format: table, json, csv"
+    ),
 ):
     """
     List bench candidates for a specific search ID.
@@ -270,16 +352,20 @@ def list_candidates(
     try:
         database = BenchDatabase()
         candidates = database.get_bench_candidates(search_id)
-        
+
         if not candidates:
-            console.print(f"[yellow]No candidates found for search ID {search_id}[/yellow]")
+            console.print(
+                f"[yellow]No candidates found for search ID {search_id}[/yellow]"
+            )
             return
-        
-        console.print(f"[bold blue]📋 Bench candidates for search ID {search_id}[/bold blue]")
+
+        console.print(
+            f"[bold blue]📋 Bench candidates for search ID {search_id}[/bold blue]"
+        )
         console.print(f"[dim]Found {len(candidates)} candidates[/dim]\n")
-        
+
         _display_candidates_table(candidates, output_format)
-        
+
     except Exception as e:
         console.print(f"[bold red]💥 Error: {e}[/bold red]")
         raise typer.Exit(1)
@@ -288,60 +374,80 @@ def list_candidates(
 @app.command("fetch-images")
 def fetch_images(
     search_id: int = typer.Argument(..., help="Search ID to fetch images for"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"),
-    backend: Optional[str] = typer.Option(None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"),
-    disable_fallback: bool = typer.Option(False, "--disable-fallback", help="Disable multi-model fallback detection"),
-    no_copy_bench_images: bool = typer.Option(False, "--no-copy-bench-images", help="Disable copying images with detected benches"),
-    max_candidates: Optional[int] = typer.Option(None, "--max-candidates", help="Maximum number of candidates to process (for testing)")
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    backend: Optional[str] = typer.Option(
+        None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"
+    ),
+    disable_fallback: bool = typer.Option(
+        False, "--disable-fallback", help="Disable multi-model fallback detection"
+    ),
+    no_copy_bench_images: bool = typer.Option(
+        False,
+        "--no-copy-bench-images",
+        help="Disable copying images with detected benches",
+    ),
+    max_candidates: Optional[int] = typer.Option(
+        None,
+        "--max-candidates",
+        help="Maximum number of candidates to process (for testing)",
+    ),
 ):
     """
     Fetch images and run detection for bench candidates from the database.
-    
+
     This command processes existing bench candidates by:
     1. Loading candidates from the bench_candidates table
     2. Converting them to Bench records
     3. Capturing Street View images
     4. Running AI detection on the images
-    
+
     Use this after running generate-candidates to complete the pipeline.
     """
     # Setup logging first
     setup_logging(level=log_level)
     logger = logging.getLogger(__name__)
-    
+
     try:
         # Import BenchFinder only when needed to avoid import issues
         from bench_finder.main import BenchFinder
-        
+
         # Initialize database and get candidates
         database = BenchDatabase()
         candidates = database.get_bench_candidates(search_id)
-        
+
         if not candidates:
-            console.print(f"[yellow]No candidates found for search ID {search_id}[/yellow]")
+            console.print(
+                f"[yellow]No candidates found for search ID {search_id}[/yellow]"
+            )
             return
-        
+
         # Limit candidates if specified
         if max_candidates and len(candidates) > max_candidates:
             candidates = candidates[:max_candidates]
             console.print(f"[dim]Limited to first {max_candidates} candidates[/dim]")
-        
-        console.print(f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id})[/bold blue]\n")
-        
+
+        console.print(
+            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id})[/bold blue]\n"
+        )
+
         # Initialize bench finder with selected backend and fallback setting
         enable_fallback = not disable_fallback
         copy_bench_images = not no_copy_bench_images
         bench_finder = BenchFinder(
-            detection_backend=backend, 
+            detection_backend=backend,
             enable_fallback=enable_fallback,
-            copy_bench_images=copy_bench_images
+            copy_bench_images=copy_bench_images,
         )
-        
-        console.print(f"[dim]Using {bench_finder.detection_backend} detection backend[/dim]\n")
-        
+
+        console.print(
+            f"[dim]Using {bench_finder.detection_backend} detection backend[/dim]\n"
+        )
+
         # Convert candidates to BenchCandidate objects for processing
         from examples.bench_generator import BenchCandidate as BenchCandidateClass
-        
+
         bench_candidates = []
         for candidate in candidates:
             # Ensure provider_id is always a string
@@ -353,16 +459,18 @@ def fetch_images(
                 tags=candidate.tags or {},
                 source=candidate.source,
                 external_id=candidate.external_id,
-                confidence=candidate.confidence
+                confidence=candidate.confidence,
             )
             bench_candidates.append(bench_candidate)
-        
+
         # Process the candidates using the existing pipeline
         results = bench_finder._process_benches(search_id, bench_candidates)
-        
+
         # Display results
-        console.print(f"\n[bold green]✅ Image fetching and detection complete![/bold green]")
-        console.print(f"[bold]📊 Processing Summary:[/bold]")
+        console.print(
+            "\n[bold green]✅ Image fetching and detection complete![/bold green]"
+        )
+        console.print("[bold]📊 Processing Summary:[/bold]")
         console.print(f"   • Candidates processed: {results.benches_processed}")
         console.print(f"   • Benches added to database: {results.benches_added}")
         console.print(f"   • Images captured: {results.images_captured}")
@@ -370,69 +478,76 @@ def fetch_images(
         console.print(f"   • Detections performed: {results.detections_performed}")
         console.print(f"   • Benches detected: {results.benches_detected}")
         console.print(f"   • Best confidence: {results.best_confidence:.2f}")
-        
+
         # Show multi-model detection statistics if available
-        if hasattr(bench_finder.detection_client, 'get_detection_stats'):
+        if hasattr(bench_finder.detection_client, "get_detection_stats"):
             detection_stats = bench_finder.detection_client.get_detection_stats()
-            if not detection_stats.get('no_data', False):
-                console.print(f"\n[bold]🔍 Detection Statistics:[/bold]")
-                console.print(f"   • Total model attempts: {detection_stats['total_attempts']}")
-                if detection_stats.get('ultralytics_attempts', 0) > 0:
-                    success_rate = detection_stats.get('ultralytics_success_rate', 0) * 100
-                    console.print(f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)")
-                if detection_stats.get('roboflow_attempts', 0) > 0:
-                    success_rate = detection_stats.get('roboflow_success_rate', 0) * 100
-                    console.print(f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)")
-        
+            if not detection_stats.get("no_data", False):
+                console.print("\n[bold]🔍 Detection Statistics:[/bold]")
+                console.print(
+                    f"   • Total model attempts: {detection_stats['total_attempts']}"
+                )
+                if detection_stats.get("ultralytics_attempts", 0) > 0:
+                    success_rate = (
+                        detection_stats.get("ultralytics_success_rate", 0) * 100
+                    )
+                    console.print(
+                        f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)"
+                    )
+                if detection_stats.get("roboflow_attempts", 0) > 0:
+                    success_rate = detection_stats.get("roboflow_success_rate", 0) * 100
+                    console.print(
+                        f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)"
+                    )
+
         # Update search status to completed
-        database.update_search_status(search_id, 'completed')
-        console.print(f"\n[dim]📝 Updated search status to 'completed'[/dim]")
-        
+        database.update_search_status(search_id, "completed")
+        console.print("\n[dim]📝 Updated search status to 'completed'[/dim]")
+
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
         raise typer.Exit(130)
     except Exception as e:
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
-        logger.error(f"Unexpected error: {e}")
+        logger.exception(f"Unexpected error: {e}")
         raise typer.Exit(1)
 
 
-def _deduplicate_bench_candidates(candidates: List) -> List:
+def _deduplicate_bench_candidates(candidates: list) -> list:
     """
     Remove duplicate bench candidates based on proximity.
-    
+
     Two benches are considered duplicates if they are within 10 meters of each other.
     When duplicates are found, prefers the one with higher confidence or from OSM.
     """
     if not candidates:
         return candidates
-    
+
     # Distance threshold for considering two benches as duplicates (meters)
     DUPLICATE_THRESHOLD_METERS = 10
-    
-    unique_candidates: List = []
-    
+
+    unique_candidates: list = []
+
     for candidate in candidates:
         is_duplicate = False
-        
+
         # Check if this candidate is close to any existing unique candidate
         for i, existing in enumerate(unique_candidates):
             distance = _haversine_distance(
-                candidate.lat, candidate.lng,
-                existing.lat, existing.lng
+                candidate.lat, candidate.lng, existing.lat, existing.lng
             )
-            
+
             if distance <= DUPLICATE_THRESHOLD_METERS:
                 is_duplicate = True
-                
+
                 # Replace existing if current candidate is "better"
                 if _is_better_candidate(candidate, existing):
                     unique_candidates[i] = candidate
                 break
-        
+
         if not is_duplicate:
             unique_candidates.append(candidate)
-    
+
     return unique_candidates
 
 
@@ -445,17 +560,17 @@ def _is_better_candidate(candidate1, candidate2) -> bool:
         return True
     if candidate1.confidence is None and candidate2.confidence is not None:
         return False
-    
+
     # If both have confidence, prefer higher confidence
     if candidate1.confidence is not None and candidate2.confidence is not None:
         return candidate1.confidence > candidate2.confidence
-    
+
     # If neither has confidence, prefer OSM (more reliable positioning)
-    if candidate1.source == 'osm' and candidate2.source != 'osm':
+    if candidate1.source == "osm" and candidate2.source != "osm":
         return True
-    if candidate1.source != 'osm' and candidate2.source == 'osm':
+    if candidate1.source != "osm" and candidate2.source == "osm":
         return False
-    
+
     # If same source type, prefer the first one (arbitrary)
     return False
 
@@ -465,22 +580,25 @@ def _haversine_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> f
     Calculate the Haversine distance between two points in meters.
     """
     import math
-    
+
     # Convert decimal degrees to radians
     lat1, lng1, lat2, lng2 = map(math.radians, [lat1, lng1, lat2, lng2])
-    
+
     # Haversine formula
     dlat = lat2 - lat1
     dlng = lng2 - lng1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng/2)**2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+    )
     c = 2 * math.asin(math.sqrt(a))
-    
+
     # Radius of Earth in meters
     R = 6371000
     return R * c
 
 
-def _display_candidates_table(candidates: List, output_format: str = "table"):
+def _display_candidates_table(candidates: list, output_format: str = "table"):
     """
     Display candidates in the specified format.
     """
@@ -493,74 +611,96 @@ def _display_candidates_table(candidates: List, output_format: str = "table"):
         table.add_column("Longitude", style="magenta")
         table.add_column("Confidence", style="yellow")
         table.add_column("Tags", style="dim")
-        
+
         for candidate in candidates:
             # Get provider_id or use a fallback
-            provider_id = getattr(candidate, 'provider_id', None) or f"candidate_{getattr(candidate, 'id', 'unknown')}"
-            
+            provider_id = (
+                getattr(candidate, "provider_id", None)
+                or f"candidate_{getattr(candidate, 'id', 'unknown')}"
+            )
+
             # Get tags as a string
-            tags = getattr(candidate, 'tags', {})
+            tags = getattr(candidate, "tags", {})
             if isinstance(tags, dict):
-                tags_str = ", ".join([f"{k}: {v}" for k, v in list(tags.items())[:2]])  # Show first 2 tags
+                tags_str = ", ".join(
+                    [f"{k}: {v}" for k, v in list(tags.items())[:2]]
+                )  # Show first 2 tags
                 if len(tags) > 2:
                     tags_str += "..."
             else:
                 tags_str = str(tags)[:50] + "..." if len(str(tags)) > 50 else str(tags)
-            
+
             table.add_row(
-                str(getattr(candidate, 'id', 'N/A')),
+                str(getattr(candidate, "id", "N/A")),
                 provider_id,
-                getattr(candidate, 'source', 'unknown'),
+                getattr(candidate, "source", "unknown"),
                 f"{getattr(candidate, 'lat', 0):.6f}",
                 f"{getattr(candidate, 'lng', 0):.6f}",
-                f"{getattr(candidate, 'confidence', 0):.2f}" if getattr(candidate, 'confidence', None) is not None else "N/A",
-                tags_str
+                f"{getattr(candidate, 'confidence', 0):.2f}"
+                if getattr(candidate, "confidence", None) is not None
+                else "N/A",
+                tags_str,
             )
-        
+
         console.print(table)
-    
+
     elif output_format == "json":
         import json
+
         candidates_data = []
         for candidate in candidates:
-            candidates_data.append({
-                "id": getattr(candidate, 'id', None),
-                "provider_id": getattr(candidate, 'provider_id', None),
-                "source": getattr(candidate, 'source', None),
-                "lat": getattr(candidate, 'lat', None),
-                "lng": getattr(candidate, 'lng', None),
-                "confidence": getattr(candidate, 'confidence', None),
-                "tags": getattr(candidate, 'tags', None)
-            })
+            candidates_data.append(
+                {
+                    "id": getattr(candidate, "id", None),
+                    "provider_id": getattr(candidate, "provider_id", None),
+                    "source": getattr(candidate, "source", None),
+                    "lat": getattr(candidate, "lat", None),
+                    "lng": getattr(candidate, "lng", None),
+                    "confidence": getattr(candidate, "confidence", None),
+                    "tags": getattr(candidate, "tags", None),
+                }
+            )
         console.print(json.dumps(candidates_data, indent=2))
-    
+
     elif output_format == "csv":
         import csv
         import io
-        
+
         output = io.StringIO()
         writer = csv.writer(output)
-        
+
         # Write header
-        writer.writerow(["ID", "Provider ID", "Source", "Latitude", "Longitude", "Confidence", "Tags"])
-        
+        writer.writerow(
+            [
+                "ID",
+                "Provider ID",
+                "Source",
+                "Latitude",
+                "Longitude",
+                "Confidence",
+                "Tags",
+            ]
+        )
+
         # Write data
         for candidate in candidates:
-            tags = getattr(candidate, 'tags', {})
+            tags = getattr(candidate, "tags", {})
             tags_str = str(tags) if tags else ""
-            
-            writer.writerow([
-                getattr(candidate, 'id', 'N/A'),
-                getattr(candidate, 'provider_id', 'N/A'),
-                getattr(candidate, 'source', 'unknown'),
-                getattr(candidate, 'lat', 0),
-                getattr(candidate, 'lng', 0),
-                getattr(candidate, 'confidence', 'N/A'),
-                tags_str
-            ])
-        
+
+            writer.writerow(
+                [
+                    getattr(candidate, "id", "N/A"),
+                    getattr(candidate, "provider_id", "N/A"),
+                    getattr(candidate, "source", "unknown"),
+                    getattr(candidate, "lat", 0),
+                    getattr(candidate, "lng", 0),
+                    getattr(candidate, "confidence", "N/A"),
+                    tags_str,
+                ]
+            )
+
         console.print(output.getvalue())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app()
