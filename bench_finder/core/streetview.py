@@ -107,7 +107,9 @@ class StreetViewClient:
                     success=True,
                     file_size=os.path.getsize(filepath),
                     cached=True,
-                    error=None
+                    error=None,
+                    width=int(STREETVIEW_SIZE.split('x')[0]),
+                    height=int(STREETVIEW_SIZE.split('x')[1])
                 )
             
             # Build the Street View Static API URL
@@ -152,7 +154,20 @@ class StreetViewClient:
             except Exception as e:
                 logger.warning(f"Could not verify image {filename}: {e}")
             
-            return None
+            return StreetViewImageCapture(
+                width=width,
+                height=height,
+                filename=filename,
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=filepath,
+                success=True,
+                file_size=os.path.getsize(filepath),
+                cached=False,
+                error=None
+            )
             
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error capturing street view image: {e}")
