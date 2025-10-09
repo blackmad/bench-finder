@@ -89,6 +89,16 @@ class DetectionResult(BaseModel):
     preprocess_time: Optional[float] = Field(default=None, description="Time taken for preprocessing in seconds")
     postprocess_time: Optional[float] = Field(default=None, description="Time taken for postprocessing in seconds")
 
+    @property
+    def area(self) -> float:
+        """Calculate the area of the bounding box."""
+        return sum([d.bbox.area for d in self.detections])
+
+    @property
+    def model_name(self) -> str:
+        """Get the name of the model."""
+        return f"{self.backend_name} {self.model_id}"
+
 
 class DetectionAttempt(BaseModel):
     """Represents a single model detection attempt."""

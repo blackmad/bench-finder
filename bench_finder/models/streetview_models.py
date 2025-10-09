@@ -31,6 +31,11 @@ class StreetViewImageCapture(BaseModel):
         """Check if this is a valid image capture."""
         return self.success and self.filepath is not None and self.filename is not None
 
+    @property
+    def area(self) -> float:
+        """Calculate the area of the image."""
+        return self.width * self.height
+
 
 class StreetViewBatchCaptureResult(BaseModel):
     """Result of capturing multiple Street View images for a bench."""

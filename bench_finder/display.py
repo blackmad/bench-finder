@@ -83,34 +83,45 @@ def display_bench_detection_results(
     
     # Display detection summary
     logger.info(f"\n📊 Detection Summary ({len(bench_detections)} images with benches):")
-    for i, detection_info in enumerate(sorted(bench_detections, key=lambda x: x['pixel_coverage'], reverse=True)):
-        img_result = detection_info['image_result']
-        det_result = detection_info['detection_result']
+    for i, detection_info in enumerate(sorted(bench_detections, key=lambda x: x.area, reverse=True)):
+        image_path = detection_info.image_path
+        streetview_image = next((img for img in image_results if img.filepath == image_path), None)
+        if not streetview_image:
+            logger.warning(f"No streetview image found for {image_path}")
+            continue
+        heading = streetview_image.heading
+        max_confidence = detection_info.max_confidence
+        pixel_coverage = detection_info.area / (streetview_image.width * streetview_image.height)
         is_representative = detection_info == representative_detection
         marker = "🏆" if is_representative else f"{i+1}."
-        print(f"  {marker} Heading {img_result['heading']:3d}°: {det_result.max_confidence:.2f} confidence, "
-              f"{detection_info['pixel_coverage']:.1f}% pixels{'  (REPRESENTATIVE)' if is_representative else ''}")
+        print(f"  {marker} Heading {heading:3d}°: {max_confidence:.2f} confidence, "
+              f"{pixel_coverage:.1f}% pixels{'  (REPRESENTATIVE)' if is_representative else ''}")
     
     # Display representative image with annotations
     if representative_detection:
-        image_result = representative_detection['image_result']
-        detection_result = representative_detection['detection_result']
-        pixel_coverage = representative_detection['pixel_coverage']
-        winning_model = detection_result.winning_model
+        image_path = representative_detection.image_path
+        streetview_image = next((img for img in image_results if img.filepath == image_path), None)
+        if not streetview_image:
+            logger.warning(f"No streetview image found for {image_path}")
+            return
+        heading = streetview_image.heading
+        max_confidence = representative_detection.max_confidence
+        pixel_coverage = representative_detection.area / (streetview_image.area)
+        winning_model = representative_detection.model_name
         
         # Copy image if enabled
         copied_path = None
         if copy_bench_images:
-            copied_path = _copy_bench_image(bench_identifier, image_result, winning_model)
+            copied_path = _copy_bench_image(bench_identifier, image_path, winning_model)
         
         copy_info = f" (copied to {copied_path})" if copied_path else ""
         
-        print(f"🏆 Representative bench image: {image_result['filepath']} "
-              f"(heading {image_result['heading']}°) with {pixel_coverage:.1f}% pixel coverage "
-              f"and confidence {detection_result.max_confidence:.2f} using {winning_model}{copy_info}")
+        print(f"🏆 Representative bench image: {image_path} "
+              f"(heading {heading}°) with {pixel_coverage:.1f}% pixel coverage "
+              f"and confidence {max_confidence:.2f} using {winning_model}{copy_info}")
         
         # Pass StandardDetectionResult object directly to render_detections
-        print(AutoImage(render_detections(image_result['filepath'], detection_result, winning_model)))
+        print(AutoImage(render_detections(image_path, representative_detection, winning_model)))
 
 
 def _copy_bench_image(bench_identifier: str, source_path: str, model_name: str) -> Optional[str]:
