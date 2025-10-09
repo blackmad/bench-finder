@@ -277,7 +277,7 @@ select = [
     "ICN", # flake8-import-conventions
     "G", # flake8-logging-format
     "INP", # flake8-no-pep420
-    "PTH", # flake8-use-pathlib
+    # "PTH", # flake8-use-pathlib
     "ERA", # eradicate
     "PD", # pandas-vet
     "PGH", # pygrep-hooks
@@ -307,6 +307,7 @@ ignore = [
     "Q003", # change outer quotes to avoid escaping inner quotes
     "G004", # logging-format: logging statement uses f-string,
     "PERF203", # try in loop
+    "TRY300", # consider moving to an else block
 ]
 
 [tool.ruff.per-file-ignores]

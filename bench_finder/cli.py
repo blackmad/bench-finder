@@ -20,8 +20,8 @@ from rich.table import Table
 
 from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
-from bench_finder.main import BenchFinder
 from bench_finder.models.schemas import SearchCreate
+from bench_finder.pipeline import BenchFinder
 from bench_finder.services.database import BenchDatabase
 from bench_finder.utils import setup_logging
 from examples.mapillary_bench_generator import MapillaryBenchGenerator
@@ -226,39 +226,23 @@ def find_benches(
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
-    backend: Optional[str] = typer.Option(
-        None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"
-    ),
-    disable_fallback: bool = typer.Option(
-        False, "--disable-fallback", help="Disable multi-model fallback detection"
-    ),
-    no_copy_bench_images: bool = typer.Option(
-        False,
-        "--no-copy-bench-images",
-        help="Disable copying images with detected benches",
-    ),
 ):
     """
-    Complete bench finding pipeline: find candidates, capture images, and run detection.
+    Complete bench finding pipeline: find candidates and capture images.
 
-    This is the full pipeline that includes image capture and AI detection.
+    This pipeline finds bench candidates and captures Street View images.
+    Use 'run-detections' command separately to run AI detection on the captured images.
     """
 
     # Setup logging
     setup_logging(level=log_level)
     logging.getLogger(__name__)
 
-    # Initialize bench finder with selected backend and fallback setting
-    enable_fallback = not disable_fallback
-    copy_bench_images = not no_copy_bench_images
-    bench_finder = BenchFinder(
-        detection_backend=backend,
-        enable_fallback=enable_fallback,
-        copy_bench_images=copy_bench_images,
-    )
+    # Initialize bench finder
+    bench_finder = BenchFinder()
 
     console.print(
-        f"[bold blue]🔍 BenchFinder starting with query: '{query}' using {bench_finder.detection_backend} backend[/bold blue]"
+        f"[bold blue]🔍 BenchFinder starting with query: '{query}'[/bold blue]"
     )
 
     results = bench_finder.find_benches(query, radius)
@@ -282,39 +266,17 @@ def find_benches(
                 console.print(
                     f"   • Images captured: {search_results.successful_images}/{search_results.total_images}"
                 )
-                console.print(
-                    f"   • Images with benches detected: {search_results.images_with_benches}"
-                )
-                console.print(
-                    f"   • Best confidence: {search_results.best_confidence:.2f}"
-                )
-
         if results.stats:
             stats = results.stats
             console.print(
-                f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected"
+                f"   • Processing stats: {stats.benches_added}/{stats.benches_processed} benches processed"
             )
+            console.print(f"   • Images captured: {stats.images_successful}/{stats.images_captured}")
 
-        # Show multi-model detection statistics if available
-        if hasattr(bench_finder.detection_client, "get_detection_stats"):
-            detection_stats = bench_finder.detection_client.get_detection_stats()
-            if not detection_stats.get("no_data", False):
-                console.print("\n[bold]🔍 Detection Statistics:[/bold]")
-                console.print(
-                    f"   • Total model attempts: {detection_stats['total_attempts']}"
-                )
-                if detection_stats.get("ultralytics_attempts", 0) > 0:
-                    success_rate = (
-                        detection_stats.get("ultralytics_success_rate", 0) * 100
-                    )
-                    console.print(
-                        f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)"
-                    )
-                if detection_stats.get("roboflow_attempts", 0) > 0:
-                    success_rate = detection_stats.get("roboflow_success_rate", 0) * 100
-                    console.print(
-                        f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)"
-                    )
+        console.print(
+            "\n[bold blue]💡 Next step: Run 'run-detections' to analyze the captured images with AI[/bold blue]"
+        )
+
 
     else:
         console.print(f"[bold red]❌ {results.error}[/bold red]")
@@ -347,6 +309,143 @@ def list_candidates(
 
     _display_candidates_table(candidates, output_format)
 
+
+
+@app.command("run-detections")
+def run_detections(
+    search_id: Optional[int] = typer.Argument(None, help="Search ID to run detections for (defaults to latest search)"),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    max_candidates: Optional[int] = typer.Option(
+        None,
+        "--max-candidates",
+        help="Maximum number of candidates to process (for testing)",
+    ),
+    backend: Optional[str] = typer.Option(
+        None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"
+    ),
+    disable_fallback: bool = typer.Option(
+        False, "--disable-fallback", help="Disable multi-model fallback detection"
+    ),
+    no_copy_bench_images: bool = typer.Option(
+        False,
+        "--no-copy-bench-images",
+        help="Disable copying images with detected benches",
+    ),
+):
+    """
+    Run AI detection on bench candidates that have images downloaded.
+
+    This command processes existing bench candidates with 'image_download_done' status
+    by running AI detection on their captured images.
+    """
+    # Setup logging first
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Initialize database and get candidates
+        database = BenchDatabase()
+
+        # If no search_id provided, use the latest search
+        if search_id is None:
+            search_id = database.get_latest_search_id()
+            if search_id is None:
+                console.print("[red]No searches found in database. Please run a search first.[/red]")
+                return
+            console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
+
+        # Get candidates with image_download_done status
+        candidates = database.get_bench_candidates_by_status(search_id, "image_download_done")
+
+        if not candidates:
+            console.print(
+                f"[yellow]No candidates with 'image_download_done' status found for search ID {search_id}[/yellow]"
+            )
+            return
+
+        # Limit candidates if specified
+        if max_candidates and len(candidates) > max_candidates:
+            candidates = candidates[:max_candidates]
+            console.print(f"[dim]Limited to first {max_candidates} candidates[/dim]")
+
+        console.print(
+            f"[bold blue]🤖 Running detections on {len(candidates)} bench candidates (search_id: {search_id})[/bold blue]\n"
+        )
+
+        # Initialize detection service
+        from bench_finder.detection import BenchDetector
+
+        enable_fallback = not disable_fallback
+        copy_bench_images = not no_copy_bench_images
+        detector = BenchDetector(
+            detection_backend=backend,
+            enable_fallback=enable_fallback,
+            copy_bench_images=copy_bench_images,
+        )
+
+        console.print("[dim]Detection service initialized[/dim]\n")
+
+        # Convert candidates to BenchCandidate objects for processing
+        from examples.bench_generator import BenchCandidate as BenchCandidateClass
+
+        bench_candidates = []
+        for candidate in candidates:
+            # Ensure provider_id is always a string
+            provider_id = candidate.provider_id or f"candidate_{candidate.id}"
+            bench_candidate = BenchCandidateClass(
+                provider_id=provider_id,
+                lat=candidate.lat,
+                lng=candidate.lng,
+                tags=candidate.tags or {},
+                source=candidate.source,
+                external_id=candidate.external_id,
+                confidence=candidate.confidence,
+            )
+            bench_candidates.append(bench_candidate)
+
+        # Process the candidates using the detection service with progress bar
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                f"🤖 Running detections on {len(bench_candidates)} candidates",
+                total=len(bench_candidates)
+            )
+
+            results = detector.process_benches_with_progress(
+                search_id, bench_candidates, progress, task
+            )
+
+        # Display results
+        console.print(
+            "\n[bold green]✅ Detection complete![/bold green]"
+        )
+        console.print("[bold]📊 Detection Summary:[/bold]")
+        console.print(f"   • Candidates processed: {results.benches_processed}")
+        console.print(f"   • Benches detected: {results.benches_detected}")
+        console.print(f"   • Detections performed: {results.detections_performed}")
+        console.print(f"   • Best confidence: {results.best_confidence:.2f}")
+
+        # Update search status to completed
+        database.update_search_status(search_id, "completed")
+        console.print("\n[dim]📝 Updated search status to 'completed'[/dim]")
+
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130) from None
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1) from e
 
 
 @app.command("fetch-images")
