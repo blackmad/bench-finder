@@ -572,9 +572,9 @@ class BenchFinder:
         
         if detection_results:
             # Sort by pixel coverage (descending), then by confidence (descending)
-            representative_detection = max(detection_results, key=lambda x: (x.pixel_coverage, x.detection_result.max_confidence))
+            representative_detection = max(detection_results, key=lambda x: (x.pixel_coverage, x.max_confidence))
             
-            logger.info(f"🎯 Selected representative image: heading {representative_detection.image_result.heading}° "
+            logger.info(f"🎯 Selected representative image: heading {representative_detection.image_path.heading}° "
                        f"with {representative_detection.pixel_coverage:.1f}% pixel coverage and "
                        f"{representative_detection.detection_result.max_confidence:.2f} confidence")
         
@@ -616,8 +616,8 @@ class BenchFinder:
                 continue
             
             # Store successful detection result
-            winning_backend = detection_info['winning_backend']
-            winning_model = detection_info['winning_model']
+            winning_backend = detection_info.backend_name
+            winning_model = detection_info.model_name
             
             if (hasattr(detection_result, 'bench_detections') and hasattr(detection_result, 'full_response')) or winning_backend == 'ultralytics':
                 # Ultralytics detection format

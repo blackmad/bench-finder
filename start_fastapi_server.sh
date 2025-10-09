@@ -62,12 +62,21 @@ check_dependencies() {
         exit 1
     fi
     
-    # Check required Python packages
-    python3 -c "import fastapi, uvicorn, pydantic" 2>/dev/null || {
-        echo -e "${RED}❌ Required Python packages not installed${NC}"
-        echo -e "${YELLOW}💡 Run: pip install -r requirements.txt${NC}"
-        exit 1
-    }
+    # Check if uv is available
+    if command -v uv &> /dev/null; then
+        echo -e "${BLUE}✅ uv detected - using modern Python tooling${NC}"
+        # Check if virtual environment exists
+        if [ ! -d ".venv" ]; then
+            echo -e "${YELLOW}⚠️  Virtual environment not found. Run: uv sync${NC}"
+        fi
+    else
+        # Fallback to pip
+        python3 -c "import fastapi, uvicorn, pydantic" 2>/dev/null || {
+            echo -e "${RED}❌ Required Python packages not installed${NC}"
+            echo -e "${YELLOW}💡 Run: uv sync (recommended) or pip install -r requirements.txt${NC}"
+            exit 1
+        }
+    fi
     
     # Check if fastapi_server.py exists
     if [ ! -f "fastapi_server.py" ]; then
@@ -101,11 +110,20 @@ start_development() {
         RELOAD_FLAG="--reload"
     fi
     
-    python3 -m uvicorn fastapi_server:app \
-        --host "$HOST" \
-        --port "$PORT" \
-        --log-level "$LOG_LEVEL" \
-        $RELOAD_FLAG
+    # Use uv if available, otherwise fallback to python3
+    if command -v uv &> /dev/null && [ -d ".venv" ]; then
+        uv run uvicorn fastapi_server:app \
+            --host "$HOST" \
+            --port "$PORT" \
+            --log-level "$LOG_LEVEL" \
+            $RELOAD_FLAG
+    else
+        python3 -m uvicorn fastapi_server:app \
+            --host "$HOST" \
+            --port "$PORT" \
+            --log-level "$LOG_LEVEL" \
+            $RELOAD_FLAG
+    fi
 }
 
 start_production() {
@@ -129,26 +147,54 @@ start_production() {
     
     if [ "$WORKERS" -gt 1 ]; then
         # Check if gunicorn is available
-        if python3 -c "import gunicorn" 2>/dev/null; then
-            echo -e "${BLUE}🔀 Starting ${WORKERS} worker processes with Gunicorn...${NC}"
-            python3 -m gunicorn fastapi_server:app \
-                -w "$WORKERS" \
-                -k uvicorn.workers.UvicornWorker \
-                --bind "${HOST}:${PORT}" \
-                --log-level "$LOG_LEVEL" \
-                --access-logfile -
+        if command -v uv &> /dev/null && [ -d ".venv" ]; then
+            # Use uv environment
+            if uv run python -c "import gunicorn" 2>/dev/null; then
+                echo -e "${BLUE}🔀 Starting ${WORKERS} worker processes with Gunicorn...${NC}"
+                uv run gunicorn fastapi_server:app \
+                    -w "$WORKERS" \
+                    -k uvicorn.workers.UvicornWorker \
+                    --bind "${HOST}:${PORT}" \
+                    --log-level "$LOG_LEVEL" \
+                    --access-logfile -
+            else
+                echo -e "${YELLOW}⚠️  Gunicorn not available, falling back to single uvicorn worker${NC}"
+                uv run uvicorn fastapi_server:app \
+                    --host "$HOST" \
+                    --port "$PORT" \
+                    --log-level "$LOG_LEVEL"
+            fi
         else
-            echo -e "${YELLOW}⚠️  Gunicorn not available, falling back to single uvicorn worker${NC}"
+            # Fallback to system python
+            if python3 -c "import gunicorn" 2>/dev/null; then
+                echo -e "${BLUE}🔀 Starting ${WORKERS} worker processes with Gunicorn...${NC}"
+                python3 -m gunicorn fastapi_server:app \
+                    -w "$WORKERS" \
+                    -k uvicorn.workers.UvicornWorker \
+                    --bind "${HOST}:${PORT}" \
+                    --log-level "$LOG_LEVEL" \
+                    --access-logfile -
+            else
+                echo -e "${YELLOW}⚠️  Gunicorn not available, falling back to single uvicorn worker${NC}"
+                python3 -m uvicorn fastapi_server:app \
+                    --host "$HOST" \
+                    --port "$PORT" \
+                    --log-level "$LOG_LEVEL"
+            fi
+        fi
+    else
+        # Single worker
+        if command -v uv &> /dev/null && [ -d ".venv" ]; then
+            uv run uvicorn fastapi_server:app \
+                --host "$HOST" \
+                --port "$PORT" \
+                --log-level "$LOG_LEVEL"
+        else
             python3 -m uvicorn fastapi_server:app \
                 --host "$HOST" \
                 --port "$PORT" \
                 --log-level "$LOG_LEVEL"
         fi
-    else
-        python3 -m uvicorn fastapi_server:app \
-            --host "$HOST" \
-            --port "$PORT" \
-            --log-level "$LOG_LEVEL"
     fi
 }
 

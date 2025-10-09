@@ -40,7 +40,26 @@ bench_finder/
 
 ## Setup
 
-### 1. Install Dependencies
+### Modern Development Setup (Recommended)
+
+For development, we recommend using the modern Python tooling:
+
+```bash
+cd bench_finder
+./setup-dev.sh
+```
+
+This will:
+- Install [uv](https://docs.astral.sh/uv/) for fast package management
+- Set up a virtual environment with all dependencies
+- Configure [Ruff](https://docs.astral.sh/ruff/) for linting and formatting
+- Install pre-commit hooks for code quality
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development setup instructions.
+
+### Traditional Setup
+
+If you prefer the traditional approach:
 
 ```bash
 cd bench_finder

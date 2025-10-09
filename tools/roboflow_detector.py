@@ -43,8 +43,8 @@ def run_inference(client: RoboflowClient, image_path: str) -> Dict[str, Any]:
     """Run inference on the image using RoboflowClient."""
     try:
         result = client.detect_benches_in_image(image_path)
-        if not result['success']:
-            print(f"Error running inference: {result.get('error', 'Unknown error')}")
+        if not result.success:
+            print(f"Error running inference: {result.error}")
             sys.exit(1)
         return result
     except Exception as e:
@@ -56,9 +56,6 @@ def render_detections(image_path: str, result, model_name: str = "Model") -> Ima
     """Draw bounding boxes on the image based on RoboflowClient results."""
     # Load the original image
     image = cv2.imread(image_path)
-    if image is None:
-        print(f"Error: Could not load image from {image_path}")
-        sys.exit(1)
     
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(image)
@@ -80,11 +77,11 @@ def render_detections(image_path: str, result, model_name: str = "Model") -> Ima
     ]
     
     # Extract detections from StandardDetectionResult object
-    detections = result.detections if hasattr(result, 'detections') else []
-    bench_count = result.bench_count if hasattr(result, 'bench_count') else 0
-    max_confidence = result.max_confidence if hasattr(result, 'max_confidence') else 0
-    inference_type = getattr(result, 'inference_type', 'unknown')
-    model_id = getattr(result, 'winning_model', 'unknown')
+    detections = result.detections
+    bench_count = result.bench_count
+    max_confidence = result.max_confidence
+    inference_type = result.inference_type
+    model_id = result.model_id
     
     print(f"\n[{model_name}] Found {bench_count} bench detection(s) using {inference_type} inference ({model_id}):")  
     if bench_count > 0:
@@ -116,7 +113,7 @@ def render_detections(image_path: str, result, model_name: str = "Model") -> Ima
         draw.text((x1, y1-25), label, fill=(255, 255, 255), font=font)
         
         # Handle segmentation masks (if available)
-        if hasattr(detection, 'segmentation') and detection.segmentation:
+        if detection.segmentation:
             # Convert segmentation points to tuples for PIL
             polygon_points = []
             for point_list in detection.segmentation:

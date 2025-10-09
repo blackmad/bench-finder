@@ -10,7 +10,8 @@ images
 .LSOverride
 
 # Icon must end with two 
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -207,6 +208,12 @@ poetry.toml
 
 # ruff
 .ruff_cache/
+
+# uv
+.uv/
+
+# pre-commit
+.pre-commit-config.yaml.bak
 
 # LSP config files
 pyrightconfig.json

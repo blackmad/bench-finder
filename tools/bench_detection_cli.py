@@ -43,9 +43,6 @@ def render_detections(image_path: str, result: DetectionResult, model_name: str 
     """Draw bounding boxes and polygons on the image based on DetectionResult."""
     # Load the original image
     image = cv2.imread(image_path)
-    if image is None:
-        print(f"Error: Could not load image from {image_path}")
-        sys.exit(1)
     
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(image)
@@ -76,8 +73,7 @@ def render_detections(image_path: str, result: DetectionResult, model_name: str 
     print(f"\n[{model_name}] Found {bench_count} bench detection(s) using {backend_name} ({model_id}):")
     if bench_count > 0:
         print(f"  Max confidence: {max_confidence:.2f}")
-        if hasattr(result, 'inference_time') and result.inference_time:
-            print(f"  Inference time: {result.inference_time:.3f}s")
+        print(f"  Inference time: {result.inference_time:.3f}s")
     
     for i, detection in enumerate(detections):
         color = colors[i % len(colors)]

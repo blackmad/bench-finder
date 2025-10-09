@@ -1,0 +1,541 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bench-finder"
+version = "0.1.0"
+description = "AI-powered bench detection and mapping system"
+readme = "docs/README.md"
+requires-python = "==3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Bench Finder Team"},
+]
+keywords = ["ai", "computer-vision", "mapping", "benches", "streetview"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
+
+dependencies = [
+    "aiofiles>=24.1.0",
+    "aiohappyeyeballs>=2.6.1",
+    "aiohttp>=3.10.11",
+    "aiohttp-retry>=2.8.3",
+    "aioice>=0.10.1",
+    "aiortc>=1.9.0",
+    "aiosignal>=1.4.0",
+    "aiosqlite>=0.21.0",
+    "annotated-types>=0.7.0",
+    "anthropic>=0.49.0",
+    "anyio>=4.11.0",
+    "APScheduler>=3.11.0",
+    "asyncua>=1.1.8",
+    "attrs>=25.3.0",
+    "av>=12.3.0",
+    "backoff>=2.2.1",
+    "blinker>=1.9.0",
+    "boto3>=1.35.60",
+    "botocore>=1.35.99",
+    "cachetools>=5.5.2",
+    "certifi>=2025.8.3",
+    "cffi>=2.0.0",
+    "charset-normalizer>=3.4.3",
+    "click>=8.1.8",
+    "coloredlogs>=15.0.1",
+    "commonmark>=0.9.1",
+    "contourpy>=1.3.3",
+    "cryptography>=46.0.2",
+    "cycler>=0.12.1",
+    "Cython>=3.0.12",
+    "dataclasses-json>=0.6.7",
+    "defusedxml>=0.7.1",
+    "deprecation>=2.1.0",
+    "distro>=1.9.0",
+    "dnspython>=2.8.0",
+    "docker>=7.1.0",
+    "fastapi>=0.110.3",
+    "filelock>=3.17.0",
+    "filetype>=1.2.0",
+    "Flask>=3.1.2",
+    "flatbuffers>=25.9.23",
+    "fonttools>=4.60.1",
+    "frozenlist>=1.7.0",
+    "fsspec>=2025.9.0",
+    "geojson>=3.2.0",
+    "google-crc32c>=1.7.1",
+    "googlemaps>=4.10.0",
+    "h11>=0.16.0",
+    "h2>=4.3.0",
+    "hf-xet>=1.1.10",
+    "hpack>=4.1.0",
+    "httpcore>=1.0.9",
+    "httptools>=0.6.4",
+    "httpx>=0.28.1",
+    "huggingface-hub>=0.35.3",
+    "humanfriendly>=10.0",
+    "hyperframe>=6.1.0",
+    "idna>=3.7",
+    "ifaddr>=0.2.0",
+    "imageio>=2.37.0",
+    "iniconfig>=2.1.0",
+    "isodate>=0.7.2",
+    "itsdangerous>=2.2.0",
+    "Jinja2>=3.1.6",
+    "jiter>=0.11.0",
+    "jmespath>=1.0.1",
+    "kiwisolver>=1.4.9",
+    "lazy_loader>=0.4",
+    "lxml>=6.0.2",
+    "MarkupSafe>=3.0.3",
+    "marshmallow>=3.26.1",
+    "matplotlib>=3.10.6",
+    "mock>=5.2.0",
+    "mpmath>=1.3.0",
+    "multidict>=6.6.4",
+    "networkx>=3.5",
+    "numpy>=2.2.6",
+    "nvidia-ml-py>=12.575.51",
+    "onnxruntime>=1.19.2",
+    "onvif-zeep-async>=2.0.0",
+    "openai>=1.109.1",
+    "opencv-contrib-python>=4.10.0.84",
+    "opencv-python>=4.10.0.84",
+    "opencv-python-headless>=4.10.0.84",
+    "overpass>=0.7",
+    "packaging>=24.2",
+    "paho-mqtt>=1.6.1",
+    "pandas>=2.2.3",
+    "pi_heif>=0.22.0",
+    "pillow>=9.11",
+    "pillow-avif-plugin>=1.5.2",
+    "platformdirs>=4.4.0",
+    "pluggy>=1.6.0",
+    "polars>=1.34.0",
+    "polars-runtime-32>=1.34.0",
+    "postgrest>=2.21.1",
+    "prometheus-fastapi-instrumentator>=6.0.0",
+    "prometheus_client>=0.23.1",
+    "propcache>=0.3.2",
+    "protobuf>=6.32.1",
+    "psutil>=7.1.0",
+    "py-cpuinfo>=9.0.0",
+    "pybase64>=1.0.2",
+    "pycparser>=2.23",
+    "pydantic>=2.11.10",
+    "pydantic-settings>=2.7.1",
+    "pydantic_core>=2.33.2",
+    "pydot>=2.0.0",
+    "pyee>=13.0.0",
+    "Pygments>=2.19.2",
+    "PyJWT>=2.10.1",
+    "pylibsrtp>=0.12.0",
+    "pylogix>=1.0.5",
+    "pymodbus>=3.8.3",
+    "pyOpenSSL>=25.3.0",
+    "pyparsing>=3.2.5",
+    "pytest>=8.4.2",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.0.1",
+    "python-multipart>=0.0.6",
+    "pytz>=2025.2",
+    "PyYAML>=6.0.3",
+    "qrcode>=8.0",
+    "realtime>=2.0.6",
+    "redis>=5.0.8",
+    "requests>=2.32.5",
+    "requests-file>=2.1.0",
+    "requests-toolbelt>=1.0.0",
+    "rich>=13.0.1",
+    "roboflow>=1.2.10",
+    "s3transfer>=0.10.4",
+    "scikit-image>=0.24.0",
+    "scipy>=1.16.2",
+    "setuptools>=80.9.0",
+    "shapely>=2.0.7",
+    "shellingham>=1.5.4",
+    "simple-pid>=2.0.1",
+    "six>=1.17.0",
+    "slack_sdk>=3.33.5",
+    "sniffio>=1.3.1",
+    "sortedcontainers>=2.4.0",
+    "SQLAlchemy>=2.0.43",
+    "starlette>=0.37.2",
+    "storage3>=2.21.1",
+    "StrEnum>=0.4.15",
+    "structlog>=24.4.0",
+    "supabase>=2.21.1",
+    "supabase-auth>=2.21.1",
+    "supabase-functions>=2.21.1",
+    "supervision>=0.26.1",
+    "sure>=2.0.1",
+    "sympy>=1.14.0",
+    "term-image>=0.7.2",
+    "tifffile>=2025.9.30",
+    "tldextract>=5.1.3",
+    "tokenizers>=0.21.4",
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "tqdm>=4.67.1",
+    "twilio>=9.3.8",
+    "typer>=0.12.5",
+    "typing-inspect>=0.9.0",
+    "typing-inspection>=0.4.2",
+    "typing_extensions>=4.12.2",
+    "tzdata>=2025.2",
+    "tzlocal>=5.3.1",
+    "ultralytics>=8.3.204",
+    "inference>=0.58.0",
+    "ultralytics-thop>=2.0.17",
+    "urllib3>=2.5.0",
+    "uvicorn>=0.34.0",
+    "uvloop>=0.21.0",
+    "watchfiles>=1.1.0",
+    "websockets>=13.1",
+    "Werkzeug>=3.1.3",
+    "wheel>=0.45.0",
+    "yarl>=1.20.1",
+    "zeep>=4.3.2",
+    "zxing-cpp>=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+    "black>=24.0.0",  # Keep as backup formatter
+    "isort>=5.13.0",  # Keep as backup import sorter
+]
+types = [
+    "types-requests>=2.32.4.20250913",
+    "mypy-extensions>=1.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/bench-finder"
+Repository = "https://github.com/your-org/bench-finder"
+Documentation = "https://github.com/your-org/bench-finder/blob/main/docs/README.md"
+"Bug Tracker" = "https://github.com/your-org/bench-finder/issues"
+
+[project.scripts]
+bench-finder = "bench_finder.cli:main"
+bench-detection = "tools.bench_detection_cli:main"
+unified-bench-search = "tools.unified_bench_search_cli:main"
+
+# Dependency overrides to force specific versions
+[tool.uv]
+override-dependencies = ["pillow>=9.11"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["bench_finder", "api", "tools", "examples"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/bench_finder",
+    "/api",
+    "/tools", 
+    "/examples",
+    "/docs",
+    "/tests",
+    "/pyproject.toml",
+    "/README.md",
+]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "ARG001", # unused-function-args
+    "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
+    "PIE", # flake8-pie
+    "A", # flake8-builtins
+    "COM", # flake8-commas
+    "C90", # mccabe
+    "ICN", # flake8-import-conventions
+    "G", # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate
+    "PD", # pandas-vet
+    "PGH", # pygrep-hooks
+    "PL", # pylint
+    "TRY", # tryceratops
+    "FLY", # flynt
+    "NPY", # numpy
+    "AIR", # airflow
+    "PERF", # perflint
+    "FURB", # refurb
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "B006", # do not use mutable data structures for argument defaults
+    "PLR0913", # too many arguments to function call
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "PLR2004", # magic value used in comparison
+    "TRY003", # avoid specifying long messages outside the exception class
+    "COM812", # missing trailing comma
+    "ISC001", # implicitly concatenated string literals
+    "Q000", # single quotes found but double quotes preferred
+    "Q001", # single quote multiline found but double quotes preferred
+    "Q002", # single quote docstring found but double quotes preferred
+    "Q003", # change outer quotes to avoid escaping inner quotes
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"tests/**/*.py" = [
+    "PLR2004", # Allow magic values in tests
+    "S101", # Allow assert statements in tests
+    "ARG", # Allow unused function arguments in tests
+    "FBT", # Allow boolean positional arguments in tests
+]
+"examples/**/*.py" = [
+    "PLR2004", # Allow magic values in examples
+    "T201", # Allow print statements in examples
+    "ARG", # Allow unused function arguments in examples
+]
+"tools/**/*.py" = [
+    "PLR2004", # Allow magic values in tools
+    "T201", # Allow print statements in tools
+    "ARG", # Allow unused function arguments in tools
+]
+
+[tool.ruff.isort]
+known-first-party = ["bench_finder", "api", "tools", "examples"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic_settings.BaseSettings"]
+
+[tool.ruff.pylint]
+max-args = 10
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+# Ruff format configuration
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=bench_finder",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["bench_finder", "api", "tools"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/env/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+# MyPy configuration (kept for type checking, but ruff will handle most linting)
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "term_image.*",
+    "ultralytics.*",
+    "roboflow.*",
+    "supervision.*",
+    "inference.*",
+    "torch.*",
+    "torchvision.*",
+    "cv2.*",
+    "PIL.*",
+    "skimage.*",
+    "matplotlib.*",
+    "numpy.*",
+    "pandas.*",
+    "scipy.*",
+    "shapely.*",
+    "geojson.*",
+    "googlemaps.*",
+    "overpass.*",
+    "mapillary.*",
+    "supabase.*",
+    "redis.*",
+    "docker.*",
+    "aiortc.*",
+    "av.*",
+    "asyncua.*",
+    "pymodbus.*",
+    "pylogix.*",
+    "onvif_zeep_async.*",
+    "zeep.*",
+    "twilio.*",
+    "slack_sdk.*",
+    "anthropic.*",
+    "openai.*",
+    "huggingface_hub.*",
+    "tokenizers.*",
+    "transformers.*",
+    "accelerate.*",
+    "datasets.*",
+    "evaluate.*",
+    "wandb.*",
+    "tensorboard.*",
+    "mlflow.*",
+    "optuna.*",
+    "ray.*",
+    "dask.*",
+    "celery.*",
+    "rq.*",
+    "apscheduler.*",
+    "croniter.*",
+    "schedule.*",
+    "python_dateutil.*",
+    "pytz.*",
+    "babel.*",
+    "arrow.*",
+    "pendulum.*",
+    "maya.*",
+    "delorean.*",
+    "freezegun.*",
+    "faker.*",
+    "factory_boy.*",
+    "model_bakery.*",
+    "mixer.*",
+    "hypothesis.*",
+    "pytest.*",
+    "pytest_cov.*",
+    "pytest_asyncio.*",
+    "pytest_mock.*",
+    "pytest_xdist.*",
+    "pytest_html.*",
+    "pytest_benchmark.*",
+    "pytest_timeout.*",
+    "pytest_rerunfailures.*",
+    "pytest_instafail.*",
+    "pytest_sugar.*",
+    "pytest_clarity.*",
+    "pytest_console_scripts.*",
+    "pytest_django.*",
+    "pytest_flask.*",
+    "pytest_tornado.*",
+    "pytest_twisted.*",
+    "pytest_aiohttp.*",
+    "pytest_httpx.*",
+    "pytest_requests.*",
+    "pytest_selenium.*",
+    "pytest_playwright.*",
+    "pytest_bdd.*",
+    "pytest_gherkin.*",
+    "pytest_cases.*",
+    "pytest_parametrize.*",
+    "pytest_fixture.*",
+    "pytest_plugins.*",
+    "pytest_hooks.*",
+    "pytest_collection.*",
+    "pytest_runtest.*",
+    "pytest_report.*",
+    "pytest_terminal.*",
+    "pytest_warnings.*",
+    "pytest_assertion.*",
+    "pytest_help.*",
+    "pytest_usage.*",
+    "pytest_version.*",
+    "pytest_config.*",
+    "pytest_cache.*",
+    "pytest_logging.*",
+    "pytest_capture.*",
+    "pytest_skipping.*",
+    "pytest_failures.*",
+    "pytest_setup.*",
+    "pytest_teardown.*",
+    "pytest_finalization.*",
+    "pytest_keyboardinterrupt.*",
+    "pytest_internalerror.*",
+    "pytest_usage.*",
+    "pytest_help.*",
+    "pytest_version.*",
+    "pytest_config.*",
+    "pytest_cache.*",
+    "pytest_logging.*",
+    "pytest_capture.*",
+    "pytest_skipping.*",
+    "pytest_failures.*",
+    "pytest_setup.*",
+    "pytest_teardown.*",
+    "pytest_finalization.*",
+    "pytest_keyboardinterrupt.*",
+    "pytest_internalerror.*",
+]
+ignore_missing_imports = true
