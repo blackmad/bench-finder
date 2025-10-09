@@ -13,6 +13,7 @@ from rich.table import Table
 
 from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
+from bench_finder.main import BenchFinder
 from bench_finder.models.schemas import SearchCreate
 from bench_finder.services.database import BenchDatabase
 from bench_finder.utils import setup_logging
@@ -62,157 +63,146 @@ def generate_candidates(
 
     This command only finds potential bench locations without processing images or running detection.
     """
-    try:
-        # Setup logging
-        setup_logging(level=log_level)
-        logger = logging.getLogger(__name__)
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
 
-        console.print(
-            f"[bold blue]🔍 Generating bench candidates for: '{query}'[/bold blue]"
+    console.print(
+        f"[bold blue]🔍 Generating bench candidates for: '{query}'[/bold blue]"
+    )
+    console.print(f"[dim]Search radius: {radius}m[/dim]\n")
+
+    # Initialize components
+    geocoder = Geocoder()
+    database = BenchDatabase()
+
+    # Phase 1: Geocode the query
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        geocode_task = progress.add_task("Geocoding query...", total=None)
+        coordinates = geocoder.geocode_query(query)
+        progress.update(geocode_task, description="✅ Geocoding complete")
+
+    if not coordinates:
+        console.print("[bold red]❌ Failed to geocode query[/bold red]")
+        raise typer.Exit(1)
+
+    start_lat, start_lng = coordinates
+    console.print(f"[green]📍 Location: {start_lat:.6f}, {start_lng:.6f}[/green]\n")
+
+    # Phase 2: Create search record in database
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        search_task = progress.add_task("Creating search record...", total=None)
+        search_id = database.create_search(
+            SearchCreate(
+                query=query,
+                start_lat=start_lat,
+                start_lng=start_lng,
+                search_radius=radius,
+            )
         )
-        console.print(f"[dim]Search radius: {radius}m[/dim]\n")
+        progress.update(search_task, description="✅ Search record created")
 
-        # Initialize components
-        geocoder = Geocoder()
-        database = BenchDatabase()
+    console.print(f"[green]📝 Search ID: {search_id}[/green]\n")
 
-        # Phase 1: Geocode the query
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            geocode_task = progress.add_task("Geocoding query...", total=None)
-            coordinates = geocoder.geocode_query(query)
-            progress.update(geocode_task, description="✅ Geocoding complete")
+    # Phase 3: Find benches using all available generators
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        candidates_task = progress.add_task("Finding bench candidates...", total=None)
 
-        if not coordinates:
-            console.print("[bold red]❌ Failed to geocode query[/bold red]")
+        # Create bench generators
+        generators: list[BenchGenerator] = []
+
+        # Always add OSM generator
+        try:
+            osm_generator = OverpassBenchGenerator()
+            generators.append(osm_generator)
+            logger.info("Added OpenStreetMap generator")
+        except Exception as e:
+            logger.exception(f"Failed to initialize OSM generator: {e}")
+
+        # Add Mapillary generator if token is available
+        try:
+            if MAPILLARY_ACCESS_TOKEN:
+                mapillary_generator = MapillaryBenchGenerator()
+                generators.append(mapillary_generator)
+                logger.info("Added Mapillary generator")
+            else:
+                logger.warning(
+                    "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to initialize Mapillary generator: {e}")
+
+        if not generators:
+            console.print(
+                "[bold red]❌ No bench generators could be initialized[/bold red]"
+            )
             raise typer.Exit(1)
 
-        start_lat, start_lng = coordinates
-        console.print(f"[green]📍 Location: {start_lat:.6f}, {start_lng:.6f}[/green]\n")
+        # Find candidates using all generators
+        all_candidates = []
+        generator_results = {}
 
-        # Phase 2: Create search record in database
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            search_task = progress.add_task("Creating search record...", total=None)
-            search_id = database.create_search(
-                SearchCreate(
-                    query=query,
-                    start_lat=start_lat,
-                    start_lng=start_lng,
-                    search_radius=radius,
-                )
-            )
-            progress.update(search_task, description="✅ Search record created")
-
-        console.print(f"[green]📝 Search ID: {search_id}[/green]\n")
-
-        # Phase 3: Find benches using all available generators
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            candidates_task = progress.add_task(
-                "Finding bench candidates...", total=None
-            )
-
-            # Create bench generators
-            generators: list[BenchGenerator] = []
-
-            # Always add OSM generator
+        for generator in generators:
             try:
-                osm_generator = OverpassBenchGenerator()
-                generators.append(osm_generator)
-                logger.info("Added OpenStreetMap generator")
-            except Exception as e:
-                logger.exception(f"Failed to initialize OSM generator: {e}")
-
-            # Add Mapillary generator if token is available
-            try:
-                if MAPILLARY_ACCESS_TOKEN:
-                    mapillary_generator = MapillaryBenchGenerator()
-                    generators.append(mapillary_generator)
-                    logger.info("Added Mapillary generator")
-                else:
-                    logger.warning(
-                        "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
-                    )
-            except Exception as e:
-                logger.warning(f"Failed to initialize Mapillary generator: {e}")
-
-            if not generators:
-                console.print(
-                    "[bold red]❌ No bench generators could be initialized[/bold red]"
+                logger.debug(f"Querying {generator.name} for benches")
+                candidates = generator.find_benches_near_point(
+                    start_lat, start_lng, radius
                 )
-                raise typer.Exit(1)
-
-            # Find candidates using all generators
-            all_candidates = []
-            generator_results = {}
-
-            for generator in generators:
-                try:
-                    logger.debug(f"Querying {generator.name} for benches")
-                    candidates = generator.find_benches_near_point(
-                        start_lat, start_lng, radius
-                    )
-                    all_candidates.extend(candidates)
-                    generator_results[generator.name] = len(candidates)
-                    logger.info(
-                        f"{generator.name}: found {len(candidates)} bench candidates"
-                    )
-                except Exception as e:
-                    logger.exception(f"Error querying {generator.name}: {e}")
-                    generator_results[generator.name] = 0
-
-            # Deduplicate candidates
-            deduplicated_candidates = _deduplicate_bench_candidates(all_candidates)
-
-            # Store candidates in database
-            for candidate in deduplicated_candidates:
-                database.add_bench_candidate(
-                    search_id=search_id,
-                    provider_id=candidate.provider_id,
-                    lat=candidate.lat,
-                    lng=candidate.lng,
-                    tags=candidate.tags,
-                    source=candidate.source,
-                    external_id=candidate.external_id,
-                    confidence=candidate.confidence,
+                all_candidates.extend(candidates)
+                generator_results[generator.name] = len(candidates)
+                logger.info(
+                    f"{generator.name}: found {len(candidates)} bench candidates"
                 )
+            except Exception as e:
+                logger.exception(f"Error querying {generator.name}: {e}")
+                generator_results[generator.name] = 0
 
-            progress.update(
-                candidates_task, description="✅ Bench candidates found and stored"
+        # Deduplicate candidates
+        deduplicated_candidates = _deduplicate_bench_candidates(all_candidates)
+
+        # Store candidates in database
+        for candidate in deduplicated_candidates:
+            database.add_bench_candidate(
+                search_id=search_id,
+                provider_id=candidate.provider_id,
+                lat=candidate.lat,
+                lng=candidate.lng,
+                tags=candidate.tags,
+                source=candidate.source,
+                external_id=candidate.external_id,
+                confidence=candidate.confidence,
             )
 
-        # Display results
-        console.print(
-            f"\n[bold green]✅ Found {len(deduplicated_candidates)} unique bench candidates[/bold green]"
-        )
-        console.print(f"[dim]Generator results: {generator_results}[/dim]\n")
-
-        if show_table and deduplicated_candidates:
-            _display_candidates_table(deduplicated_candidates, output_format)
-
-        # Get stored candidates from database for verification
-        stored_candidates = database.get_bench_candidates(search_id)
-        console.print(
-            f"\n[dim]📊 Stored {len(stored_candidates)} candidates in database (search_id: {search_id})[/dim]"
+        progress.update(
+            candidates_task, description="✅ Bench candidates found and stored"
         )
 
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
-        raise typer.Exit(130)
-    except Exception as e:
-        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
-        logger.exception(f"Unexpected error: {e}")
-        raise typer.Exit(1)
+    # Display results
+    console.print(
+        f"\n[bold green]✅ Found {len(deduplicated_candidates)} unique bench candidates[/bold green]"
+    )
+    console.print(f"[dim]Generator results: {generator_results}[/dim]\n")
+
+    if show_table and deduplicated_candidates:
+        _display_candidates_table(deduplicated_candidates, output_format)
+
+    # Get stored candidates from database for verification
+    stored_candidates = database.get_bench_candidates(search_id)
+    console.print(
+        f"\n[dim]📊 Stored {len(stored_candidates)} candidates in database (search_id: {search_id})[/dim]"
+    )
 
 
 @app.command("find-benches")
@@ -246,96 +236,81 @@ def find_benches(
 
     This is the full pipeline that includes image capture and AI detection.
     """
-    try:
-        # Import BenchFinder only when needed to avoid import issues
-        from bench_finder.main import BenchFinder
 
-        # Setup logging
-        setup_logging(level=log_level)
-        logger = logging.getLogger(__name__)
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
 
-        # Initialize bench finder with selected backend and fallback setting
-        enable_fallback = not disable_fallback
-        copy_bench_images = not no_copy_bench_images
-        bench_finder = BenchFinder(
-            detection_backend=backend,
-            enable_fallback=enable_fallback,
-            copy_bench_images=copy_bench_images,
-        )
+    # Initialize bench finder with selected backend and fallback setting
+    enable_fallback = not disable_fallback
+    copy_bench_images = not no_copy_bench_images
+    bench_finder = BenchFinder(
+        detection_backend=backend,
+        enable_fallback=enable_fallback,
+        copy_bench_images=copy_bench_images,
+    )
 
-        console.print(
-            f"[bold blue]🔍 BenchFinder starting with query: '{query}' using {bench_finder.detection_backend} backend[/bold blue]"
-        )
+    console.print(
+        f"[bold blue]🔍 BenchFinder starting with query: '{query}' using {bench_finder.detection_backend} backend[/bold blue]"
+    )
 
-        results = bench_finder.find_benches(query, radius)
+    results = bench_finder.find_benches(query, radius)
 
-        if results.success:
-            console.print(f"[bold green]✅ {results.message}[/bold green]")
+    if results.success:
+        console.print(f"[bold green]✅ {results.message}[/bold green]")
 
-            if results.search_id:
-                search_results = bench_finder.database.get_search_results(
-                    results.search_id
-                )
-                if search_results:
-                    console.print("\n[bold]📊 Summary:[/bold]")
-                    console.print(f"   • Search ID: {search_results.search.id}")
-                    console.print(f"   • Query: {search_results.search.query}")
-                    console.print(
-                        f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})"
-                    )
-                    console.print(
-                        f"   • Search radius: {search_results.search.search_radius}m"
-                    )
-                    console.print(f"   • Benches found: {search_results.bench_count}")
-                    console.print(
-                        f"   • Images captured: {search_results.successful_images}/{search_results.total_images}"
-                    )
-                    console.print(
-                        f"   • Images with benches detected: {search_results.images_with_benches}"
-                    )
-                    console.print(
-                        f"   • Best confidence: {search_results.best_confidence:.2f}"
-                    )
-
-            if results.stats:
-                stats = results.stats
+        if results.search_id:
+            search_results = bench_finder.database.get_search_results(results.search_id)
+            if search_results:
+                console.print("\n[bold]📊 Summary:[/bold]")
+                console.print(f"   • Search ID: {search_results.search.id}")
+                console.print(f"   • Query: {search_results.search.query}")
                 console.print(
-                    f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected"
+                    f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})"
+                )
+                console.print(
+                    f"   • Search radius: {search_results.search.search_radius}m"
+                )
+                console.print(f"   • Benches found: {search_results.bench_count}")
+                console.print(
+                    f"   • Images captured: {search_results.successful_images}/{search_results.total_images}"
+                )
+                console.print(
+                    f"   • Images with benches detected: {search_results.images_with_benches}"
+                )
+                console.print(
+                    f"   • Best confidence: {search_results.best_confidence:.2f}"
                 )
 
-            # Show multi-model detection statistics if available
-            if hasattr(bench_finder.detection_client, "get_detection_stats"):
-                detection_stats = bench_finder.detection_client.get_detection_stats()
-                if not detection_stats.get("no_data", False):
-                    console.print("\n[bold]🔍 Detection Statistics:[/bold]")
-                    console.print(
-                        f"   • Total model attempts: {detection_stats['total_attempts']}"
+        if results.stats:
+            stats = results.stats
+            console.print(
+                f"   • Processing stats: {stats.benches_detected}/{stats.benches_processed} benches detected"
+            )
+
+        # Show multi-model detection statistics if available
+        if hasattr(bench_finder.detection_client, "get_detection_stats"):
+            detection_stats = bench_finder.detection_client.get_detection_stats()
+            if not detection_stats.get("no_data", False):
+                console.print("\n[bold]🔍 Detection Statistics:[/bold]")
+                console.print(
+                    f"   • Total model attempts: {detection_stats['total_attempts']}"
+                )
+                if detection_stats.get("ultralytics_attempts", 0) > 0:
+                    success_rate = (
+                        detection_stats.get("ultralytics_success_rate", 0) * 100
                     )
-                    if detection_stats.get("ultralytics_attempts", 0) > 0:
-                        success_rate = (
-                            detection_stats.get("ultralytics_success_rate", 0) * 100
-                        )
-                        console.print(
-                            f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)"
-                        )
-                    if detection_stats.get("roboflow_attempts", 0) > 0:
-                        success_rate = (
-                            detection_stats.get("roboflow_success_rate", 0) * 100
-                        )
-                        console.print(
-                            f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)"
-                        )
+                    console.print(
+                        f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)"
+                    )
+                if detection_stats.get("roboflow_attempts", 0) > 0:
+                    success_rate = detection_stats.get("roboflow_success_rate", 0) * 100
+                    console.print(
+                        f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)"
+                    )
 
-        else:
-            console.print(f"[bold red]❌ {results.error}[/bold red]")
-            raise typer.Exit(1)
-
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
-        raise typer.Exit(130)
-    except Exception as e:
-        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
-        logger.exception(f"Unexpected error: {e}")
+    else:
+        console.print(f"[bold red]❌ {results.error}[/bold red]")
         raise typer.Exit(1)
 
 
@@ -410,9 +385,6 @@ def fetch_images(
     logger = logging.getLogger(__name__)
 
     try:
-        # Import BenchFinder only when needed to avoid import issues
-        from bench_finder.main import BenchFinder
-
         # Initialize database and get candidates
         database = BenchDatabase()
         candidates = database.get_bench_candidates(search_id)

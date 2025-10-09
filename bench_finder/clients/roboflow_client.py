@@ -6,11 +6,10 @@ Supports both local inference (default) and cloud API as fallback.
 import base64
 import json
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 import cv2
 import requests
-from inference import Model  # type: ignore[import-untyped]
 
 from ..models.schemas import (
     CacheStatus,
@@ -39,7 +38,7 @@ from ..config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_M
 logger = logging.getLogger(__name__)
 
 # Global model cache to avoid reinitializing models
-_MODEL_CACHE: dict[str, Model] = {}
+_MODEL_CACHE: dict[str, Any] = {}
 
 
 def get_cache_info() -> ModelCacheInfo:
