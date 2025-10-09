@@ -166,7 +166,7 @@ class MapillaryBenchService:
                     f"Successfully committed {len(stored_benches)} Mapillary benches"
                 )
 
-            except Exception:
+            except Exception as e:
                 logger.exception(
                     f"Error during Mapillary bench storage, rolling back: {e}"
                 )

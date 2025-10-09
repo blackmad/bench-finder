@@ -162,7 +162,7 @@ try:
         print(
             f"   - Supports area search method exists: {hasattr(OverpassBenchGenerator, 'supports_area_search')}"
         )
-    except Exception:
+    except Exception as e:
         print(f"❌ OverpassBenchGenerator validation failed: {e}")
 
     # Test deduplication logic from BenchFinder
@@ -197,7 +197,7 @@ try:
         unique = finder._deduplicate_bench_candidates(candidates)
         print(f"✅ Deduplication works: {len(candidates)} -> {len(unique)} candidates")
 
-    except Exception:
+    except Exception as e:
         print(f"❌ BenchFinder deduplication test failed: {e}")
 
     print("\n🎉 Core architecture validation completed successfully!")
@@ -217,6 +217,6 @@ try:
 except ImportError as e:
     print(f"❌ Import failed: {e}")
     sys.exit(1)
-except Exception:
+except Exception as e:
     print(f"❌ Test failed: {e}")
     sys.exit(1)

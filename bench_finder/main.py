@@ -141,7 +141,7 @@ class BenchFinder:
                 logger.warning(
                     "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
                 )
-        except Exception:
+        except Exception as e:
             logger.warning(f"Failed to initialize Mapillary generator: {e}")
 
         if not generators:
@@ -183,7 +183,7 @@ class BenchFinder:
             logger.debug(f"Copied bench image to: {output_path}")
             return output_path
 
-        except Exception:
+        except Exception as e:
             logger.warning(f"Failed to copy bench image {image_path}: {e}")
             return None
 
@@ -242,7 +242,7 @@ class BenchFinder:
             logger.debug("No pixels found - returning 0.0% coverage")
             return 0.0
 
-        except Exception:
+        except Exception as e:
             logger.debug(f"Failed to calculate pixel coverage for {image_path}: {e}")
             return 0.0
 
@@ -304,7 +304,7 @@ class BenchFinder:
                 search_id, f"Successfully processed {len(benches)} benches", results
             )
 
-        except Exception:
+        except Exception as e:
             logger.exception("Bench finding pipeline failed")
             if "search_id" in locals():
                 self.database.update_search_status(search_id, "failed")
@@ -513,7 +513,7 @@ class BenchFinder:
 
                 progress.update()
 
-            except Exception:
+            except Exception as e:
                 bench_id = bench.provider_id
                 logger.exception(
                     f"Failed to process bench {bench_id}: {type(e).__name__}: {e}"
@@ -585,7 +585,7 @@ class BenchFinder:
             else:
                 logger.warning(f"Failed to add bench {bench.provider_id} to database")
                 return result
-        except Exception:
+        except Exception as e:
             raise RuntimeError(
                 f"Failed to add bench {bench.provider_id} to database: {e}"
             ) from e
@@ -600,7 +600,7 @@ class BenchFinder:
                 lng,
                 bench_identifier,  # Use validated coordinates
             )
-        except Exception:
+        except Exception as e:
             raise RuntimeError(
                 f"Failed to capture images for bench {bench.provider_id}: {e}"
             ) from e
@@ -631,7 +631,7 @@ class BenchFinder:
                 if image_capture.success and image_capture.filepath:
                     successful_images.append(image_capture)
 
-            except Exception:
+            except Exception as e:
                 logger.exception(
                     f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}: {e}, type: {type(e).__name__}"
                 )
@@ -668,7 +668,7 @@ class BenchFinder:
                     f"Pixel coverage: {pixel_coverage:.1f}%"
                 )
 
-            except Exception:
+            except Exception as e:
                 logger.exception(
                     f"Detection failed for bench {bench.provider_id}, image {image_result.filepath}: {type(e).__name__}: {e}"
                 )

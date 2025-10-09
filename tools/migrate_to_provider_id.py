@@ -32,7 +32,7 @@ def migrate_database():
 
         shutil.copy2(DATABASE_PATH, backup_path)
         print("Backup created successfully")
-    except Exception:
+    except Exception as e:
         print(f"Failed to create backup: {e}")
         return False
 
@@ -159,7 +159,7 @@ def migrate_database():
 
         return True
 
-    except Exception:
+    except Exception as e:
         print(f"Migration failed: {e}")
         cursor.execute("ROLLBACK")
         return False

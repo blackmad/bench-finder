@@ -421,7 +421,7 @@ class ClusteredBenchService:
                     clustering_info=clustering_info,
                 )
 
-        except Exception:
+        except Exception as e:
             logger.exception("Failed to get clustered benches")
             # Return empty response on error
             return ClusteredBenchListResponse(
@@ -541,7 +541,7 @@ class ClusteredBenchService:
                     clustering_info=clustering_info,
                 )
 
-        except Exception:
+        except Exception as e:
             logger.exception("Failed to get clustered benches in bbox")
             return ClusteredBenchListResponse(
                 clustered_benches=[],

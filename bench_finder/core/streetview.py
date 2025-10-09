@@ -171,7 +171,7 @@ class StreetViewClient:
                 with Image.open(filepath) as img:
                     width, height = img.size
                     logger.debug(f"Saved image {filename}: {width}x{height}")
-            except Exception:
+            except Exception as e:
                 logger.warning(f"Could not verify image {filename}: {e}")
 
             return StreetViewImageCapture(
@@ -294,7 +294,7 @@ class StreetViewClient:
                 elif filepath:
                     # File doesn't exist, but this isn't really an error
                     logger.debug(f"File already removed or doesn't exist: {filepath}")
-            except Exception:
+            except Exception as e:
                 failed_count += 1
                 error_msg = f"Could not remove image file {filepath}: {e}"
                 errors.append(error_msg)

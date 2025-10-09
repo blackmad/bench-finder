@@ -50,7 +50,7 @@ if MAPILLARY_ACCESS_TOKEN:
         print(
             f"✅ Mapillary integration enabled (image downloading: {'ON' if MAPILLARY_DOWNLOAD_IMAGES else 'OFF'})"
         )
-    except Exception:
+    except Exception as e:
         print(f"⚠️ Mapillary integration failed: {e}")
 else:
     print("ℹ️ Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
@@ -295,7 +295,7 @@ def get_high_confidence_benches_filtered(
 
             return BenchListResponse(benches=benches, pagination=pagination)
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting filtered benches: {e}")
         return BenchListResponse(
             benches=[],
@@ -521,7 +521,7 @@ def get_high_confidence_benches(
 
             return BenchListResponse(benches=benches, pagination=pagination)
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting high confidence benches: {e}")
         return BenchListResponse(
             benches=[],
@@ -593,7 +593,7 @@ def api_searches():
             result = SearchListResponse(searches=searches)
             return jsonify(result.model_dump())
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting searches: {e}")
         return jsonify(SearchListResponse(searches=[]).model_dump())
 
@@ -709,7 +709,7 @@ def api_image_segmentation(image_id: int):
             )
             return jsonify(result.model_dump())
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting detection data: {e}")
         return jsonify({"error": "Failed to retrieve detection data"}), 500
 
@@ -748,7 +748,7 @@ def api_bench_images(bench_id: int):
             result = ImageListResponse(images=images)
             return jsonify(result.model_dump())
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting bench images: {e}")
         return jsonify({"error": "Failed to retrieve bench images"}), 500
 
@@ -798,7 +798,7 @@ def api_mapillary_search():
 
         return jsonify(result.model_dump())
 
-    except Exception:
+    except Exception as e:
         return jsonify({"error": f"Search failed: {e!s}"}), 500
 
 
@@ -845,7 +845,7 @@ def api_benches_by_source(source: str):
         )
         return jsonify(result.model_dump())
 
-    except Exception:
+    except Exception as e:
         return jsonify({"error": f"Failed to get benches: {e!s}"}), 500
 
 
@@ -977,7 +977,7 @@ def api_random_bench():
 
             return jsonify({"bench": random_bench.model_dump()})
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting random bench: {e}")
         return jsonify({"error": "Failed to get random bench"}), 500
 
@@ -1192,7 +1192,7 @@ def api_benches_in_bbox():
                 }
             )
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting benches in bbox: {e}")
         return jsonify({"error": "Failed to get benches in bounding box"}), 500
 
@@ -1227,7 +1227,7 @@ def api_statistics_by_source(source: str):
             }
         )
 
-    except Exception:
+    except Exception as e:
         return jsonify({"error": f"Failed to get statistics: {e!s}"}), 500
 
 

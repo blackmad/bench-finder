@@ -215,7 +215,7 @@ class OverpassClient(BaseLocationClient):
             # Convert first element to bench
             return OSMBench.from_osm_element(overpass_response.elements[0])
 
-        except Exception:
+        except Exception as e:
             logger.exception(
                 f"Error getting bench details for provider_id {provider_id}: {e}"
             )

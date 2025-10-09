@@ -62,7 +62,7 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 
             for attempt in range(max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except Exception:
+                except Exception as e:
                     if attempt == max_retries:
                         logger.exception(
                             f"{func.__name__} failed after {max_retries} retries: {e}"

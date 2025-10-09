@@ -97,7 +97,7 @@ class RoboflowClient(DetectionClient):
                     logger.info(
                         f"Local inference model loaded and cached successfully: {self.model_id}"
                     )
-                except Exception:
+                except Exception as e:
                     logger.warning(
                         f"Failed to load local model: {e}. Falling back to cloud API."
                     )
@@ -171,7 +171,7 @@ class RoboflowClient(DetectionClient):
         except FileNotFoundError:
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
-        except Exception:
+        except Exception as e:
             logger.exception(
                 f"Unexpected error in local inference for {image_path}: {e}"
             )
@@ -228,7 +228,7 @@ class RoboflowClient(DetectionClient):
         except requests.exceptions.RequestException as e:
             logger.exception("Network error calling Roboflow API")
             return self._create_error_result(image_path, f"Network error: {e}")
-        except Exception:
+        except Exception as e:
             logger.exception(
                 f"Unexpected error in cloud inference for {image_path}: {e}"
             )
@@ -318,7 +318,7 @@ class RoboflowClient(DetectionClient):
 
             return result
 
-        except Exception:
+        except Exception as e:
             logger.exception(f"Error processing detection result for {image_path}")
             return self._create_error_result(image_path, f"Processing error: {e}")
 
@@ -386,7 +386,7 @@ class RoboflowClient(DetectionClient):
                 "classes": ["bench"],  # This model is specifically for bench detection
                 "backend": "RoboflowClient",
             }
-        except Exception:
+        except Exception as e:
             logger.exception("Error getting model info")
             return {"error": str(e)}
 

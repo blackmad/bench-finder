@@ -129,7 +129,7 @@ def test_combined_generators():
                 logger.info("Added Mapillary generator")
             else:
                 logger.info("Skipping Mapillary generator (no token)")
-        except Exception:
+        except Exception as e:
             logger.warning(f"Failed to add Mapillary generator: {e}")
 
         if not generators:

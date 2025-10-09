@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
             print(
                 f"✅ Mapillary integration enabled (image downloading: {'ON' if MAPILLARY_DOWNLOAD_IMAGES else 'OFF'})"
             )
-        except Exception:
+        except Exception as e:
             print(f"⚠️ Mapillary integration failed: {e}")
             mapillary_service = None
     else:
@@ -347,7 +347,7 @@ async def health_check():
             database="connected",
             mapillary="enabled" if mapillary_service else "disabled",
         )
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Service unhealthy: {e!s}",
@@ -581,7 +581,7 @@ def get_high_confidence_benches_filtered(
 
             return BenchListResponse(benches=benches, pagination=pagination)
 
-    except Exception:
+    except Exception as e:
         print(f"Error getting high confidence benches: {e}")
         return BenchListResponse(
             benches=[],
@@ -694,7 +694,7 @@ async def get_benches(
             sort_by=sort_by,
         )
         return result
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve benches: {e!s}",
@@ -790,7 +790,7 @@ async def get_benches_by_source(
         )
         return result
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get benches for source {source}: {e!s}",
@@ -966,7 +966,7 @@ async def get_random_bench(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get random bench: {e!s}",
@@ -1257,7 +1257,7 @@ async def get_benches_in_bbox(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get benches in bounding box: {e!s}",
@@ -1313,7 +1313,7 @@ async def get_searches():
 
             return SearchListResponse(searches=searches)
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve searches: {e!s}",
@@ -1450,7 +1450,7 @@ async def serve_image(filename: str = Path(..., description="Image filename")):
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to serve image: {e!s}",
@@ -1598,7 +1598,7 @@ async def get_image_segmentation(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve detection data: {e!s}",
@@ -1678,7 +1678,7 @@ async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve bench images: {e!s}",
@@ -1750,7 +1750,7 @@ async def search_mapillary(
         # Convert result to dict for JSON response
         return result.model_dump()
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Mapillary search failed: {e!s}",
@@ -1830,7 +1830,7 @@ async def get_stored_mapillary(
 
         return result
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get stored Mapillary data: {e!s}",
@@ -1894,7 +1894,7 @@ async def get_mapillary_statistics(
 
         return stats.model_dump()
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get Mapillary statistics: {e!s}",
@@ -1959,7 +1959,7 @@ async def refresh_mapillary_image(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to refresh detections: {e!s}",
@@ -2093,7 +2093,7 @@ async def report_bad_bench(
 
                         try:
                             shutil.copy2(source_path, dest_path)
-                        except Exception:
+                        except Exception as e:
                             print(f"Warning: Failed to copy reported image: {e}")
                             reported_image_filename = None
 
@@ -2145,7 +2145,7 @@ async def report_bad_bench(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to submit report: {e!s}",
@@ -2260,7 +2260,7 @@ async def report_missing_bench(
 
                 image.save(image_path, "JPEG", quality=85, optimize=True)
 
-            except Exception:
+            except Exception as e:
                 print(f"Warning: Failed to process uploaded image: {e}")
                 uploaded_image_filename = None
 
@@ -2314,7 +2314,7 @@ async def report_missing_bench(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to submit missing bench report: {e!s}",
@@ -2443,7 +2443,7 @@ async def get_statistics_by_source(
                 area_radius_meters=radius_meters if center_lat is not None else None,
             )
 
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get statistics for source {source}: {e!s}",

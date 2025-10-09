@@ -141,7 +141,7 @@ def generate_candidates(
                 logger.warning(
                     "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
                 )
-        except Exception:
+        except Exception as e:
             logger.warning(f"Failed to initialize Mapillary generator: {e}")
 
         if not generators:
@@ -324,26 +324,22 @@ def list_candidates(
     """
     List bench candidates for a specific search ID.
     """
-    try:
-        database = BenchDatabase()
-        candidates = database.get_bench_candidates(search_id)
+    database = BenchDatabase()
+    candidates = database.get_bench_candidates(search_id)
 
-        if not candidates:
-            console.print(
-                f"[yellow]No candidates found for search ID {search_id}[/yellow]"
-            )
-            return
-
+    if not candidates:
         console.print(
-            f"[bold blue]📋 Bench candidates for search ID {search_id}[/bold blue]"
+            f"[yellow]No candidates found for search ID {search_id}[/yellow]"
         )
-        console.print(f"[dim]Found {len(candidates)} candidates[/dim]\n")
+        return
 
-        _display_candidates_table(candidates, output_format)
+    console.print(
+        f"[bold blue]📋 Bench candidates for search ID {search_id}[/bold blue]"
+    )
+    console.print(f"[dim]Found {len(candidates)} candidates[/dim]\n")
 
-    except Exception:
-        console.print(f"[bold red]💥 Error: {e}[/bold red]")
-        raise typer.Exit(1)
+    _display_candidates_table(candidates, output_format)
+
 
 
 @app.command("fetch-images")
@@ -352,17 +348,6 @@ def fetch_images(
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
-    backend: Optional[str] = typer.Option(
-        None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"
-    ),
-    disable_fallback: bool = typer.Option(
-        False, "--disable-fallback", help="Disable multi-model fallback detection"
-    ),
-    no_copy_bench_images: bool = typer.Option(
-        False,
-        "--no-copy-bench-images",
-        help="Disable copying images with detected benches",
-    ),
     max_candidates: Optional[int] = typer.Option(
         None,
         "--max-candidates",
@@ -370,15 +355,16 @@ def fetch_images(
     ),
 ):
     """
-    Fetch images and run detection for bench candidates from the database.
+    Download and cache images for bench candidates from the database.
 
     This command processes existing bench candidates by:
     1. Loading candidates from the bench_candidates table
     2. Converting them to Bench records
     3. Capturing Street View images
-    4. Running AI detection on the images
+    4. Storing images in the database
 
-    Use this after running generate-candidates to complete the pipeline.
+    Use this after running generate-candidates to download images.
+    Detection can be run separately if needed.
     """
     # Setup logging first
     setup_logging(level=log_level)
@@ -413,18 +399,12 @@ def fetch_images(
             f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id})[/bold blue]\n"
         )
 
-        # Initialize bench finder with selected backend and fallback setting
-        enable_fallback = not disable_fallback
-        copy_bench_images = not no_copy_bench_images
-        bench_finder = BenchFinder(
-            detection_backend=backend,
-            enable_fallback=enable_fallback,
-            copy_bench_images=copy_bench_images,
-        )
+        # Initialize image download service
+        from bench_finder.services.image_download_service import ImageDownloadService
 
-        console.print(
-            f"[dim]Using {bench_finder.detection_backend} detection backend[/dim]\n"
-        )
+        image_service = ImageDownloadService()
+
+        console.print("[dim]Image download service initialized[/dim]\n")
 
         # Convert candidates to BenchCandidate objects for processing
         from examples.bench_generator import BenchCandidate as BenchCandidateClass
@@ -444,42 +424,20 @@ def fetch_images(
             )
             bench_candidates.append(bench_candidate)
 
-        # Process the candidates using the existing pipeline
-        results = bench_finder._process_benches(search_id, bench_candidates)
+        # Process the candidates using the image download service
+        results = image_service.process_benches(search_id, bench_candidates)
 
         # Display results
         console.print(
-            "\n[bold green]✅ Image fetching and detection complete![/bold green]"
+            "\n[bold green]✅ Image downloading complete![/bold green]"
         )
-        console.print("[bold]📊 Processing Summary:[/bold]")
+        console.print("[bold]📊 Download Summary:[/bold]")
         console.print(f"   • Candidates processed: {results.benches_processed}")
         console.print(f"   • Benches added to database: {results.benches_added}")
         console.print(f"   • Images captured: {results.images_captured}")
         console.print(f"   • Images successful: {results.images_successful}")
-        console.print(f"   • Detections performed: {results.detections_performed}")
-        console.print(f"   • Benches detected: {results.benches_detected}")
-        console.print(f"   • Best confidence: {results.best_confidence:.2f}")
 
-        # Show multi-model detection statistics if available
-        if hasattr(bench_finder.detection_client, "get_detection_stats"):
-            detection_stats = bench_finder.detection_client.get_detection_stats()
-            if not detection_stats.get("no_data", False):
-                console.print("\n[bold]🔍 Detection Statistics:[/bold]")
-                console.print(
-                    f"   • Total model attempts: {detection_stats['total_attempts']}"
-                )
-                if detection_stats.get("ultralytics_attempts", 0) > 0:
-                    success_rate = (
-                        detection_stats.get("ultralytics_success_rate", 0) * 100
-                    )
-                    console.print(
-                        f"   • Ultralytics: {detection_stats['ultralytics_successes']}/{detection_stats['ultralytics_attempts']} ({success_rate:.1f}%)"
-                    )
-                if detection_stats.get("roboflow_attempts", 0) > 0:
-                    success_rate = detection_stats.get("roboflow_success_rate", 0) * 100
-                    console.print(
-                        f"   • Roboflow: {detection_stats['roboflow_successes']}/{detection_stats['roboflow_attempts']} ({success_rate:.1f}%)"
-                    )
+        console.print("\n[dim]💡 Note: This command only downloads and caches images. Run detection separately if needed.[/dim]")
 
         # Update search status to completed
         database.update_search_status(search_id, "completed")
@@ -488,7 +446,7 @@ def fetch_images(
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
         raise typer.Exit(130)
-    except Exception:
+    except Exception as e:
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
         logger.exception("Unexpected error")
         raise typer.Exit(1)
@@ -628,20 +586,7 @@ def _display_candidates_table(candidates: list, output_format: str = "table"):
     elif output_format == "json":
         import json
 
-        candidates_data = []
-        for candidate in candidates:
-            candidates_data.append(
-                {
-                    "id": getattr(candidate, "id", None),
-                    "provider_id": getattr(candidate, "provider_id", None),
-                    "source": getattr(candidate, "source", None),
-                    "lat": getattr(candidate, "lat", None),
-                    "lng": getattr(candidate, "lng", None),
-                    "confidence": getattr(candidate, "confidence", None),
-                    "tags": getattr(candidate, "tags", None),
-                }
-            )
-        console.print(json.dumps(candidates_data, indent=2))
+        console.print(json.dumps(candidates, indent=2))
 
     elif output_format == "csv":
         import csv

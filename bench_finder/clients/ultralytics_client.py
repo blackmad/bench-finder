@@ -109,7 +109,7 @@ class UltralyticsClient(DetectionClient):
                 # Save to our models directory
                 model.save(self.local_model_path)
                 logger.info(f"Model downloaded and saved to {self.local_model_path}")
-            except Exception:
+            except Exception as e:
                 logger.exception(
                     f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}: {e}"
                 )
@@ -161,7 +161,7 @@ class UltralyticsClient(DetectionClient):
         except FileNotFoundError:
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
-        except Exception:
+        except Exception as e:
             logger.exception(f"Unexpected error analyzing image {image_path}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
 
@@ -226,7 +226,7 @@ class UltralyticsClient(DetectionClient):
         except requests.exceptions.RequestException as e:
             logger.exception("Network error calling Ultralytics API")
             return self._create_error_result(image_path, f"Network error: {e}")
-        except Exception:
+        except Exception as e:
             logger.exception(f"Unexpected error analyzing image {image_path}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
 
@@ -342,7 +342,7 @@ class UltralyticsClient(DetectionClient):
 
             return result_data
 
-        except Exception:
+        except Exception as e:
             logger.exception(
                 f"Error processing local detection result for {image_path}: {e}"
             )
@@ -455,7 +455,7 @@ class UltralyticsClient(DetectionClient):
 
             return result_data
 
-        except Exception:
+        except Exception as e:
             logger.exception(f"Error processing detection result for {image_path}")
             return self._create_error_result(image_path, f"Processing error: {e}")
 
@@ -534,7 +534,7 @@ class UltralyticsClient(DetectionClient):
                 "api_endpoint": self.inference_url if not self.use_local else None,
                 "backend": "UltralyticsClient",
             }
-        except Exception:
+        except Exception as e:
             logger.exception("Error getting model info")
             return {"error": str(e)}
 

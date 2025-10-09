@@ -108,7 +108,7 @@ def migrate_database():
                 "CREATE INDEX IF NOT EXISTS idx_detections_external_id ON detections (external_detection_id)"
             )
             logger.info("✅ Created new indexes")
-        except Exception:
+        except Exception as e:
             logger.warning(f"Some indexes may already exist: {e}")
 
         # Make OSM-specific columns nullable (this is more complex in SQLite)

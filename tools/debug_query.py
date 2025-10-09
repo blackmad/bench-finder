@@ -30,7 +30,7 @@ def debug_database():
                             f"SELECT COUNT(*) FROM {table}"
                         ).fetchone()[0]
                         print(f"   {table}: {count} records")
-                    except Exception:
+                    except Exception as e:
                         print(f"   {table}: Error counting - {e}")
 
             # Check detection data specifically
@@ -51,7 +51,7 @@ def debug_database():
                         f"   Roboflow detections: {row[0]} total, {row[1]} with benches"
                     )
                     print(f"   Roboflow confidence range: {row[3]} - {row[2]}")
-            except Exception:
+            except Exception as e:
                 print(f"   Roboflow detections: Error - {e}")
 
             # Ultralytics detections (if table exists)
@@ -70,7 +70,7 @@ def debug_database():
                             f"   Ultralytics detections: {row[0]} total, {row[1]} with benches"
                         )
                         print(f"   Ultralytics confidence range: {row[3]} - {row[2]}")
-                except Exception:
+                except Exception as e:
                     print(f"   Ultralytics detections: Error - {e}")
 
             # Test the original simple query
@@ -108,7 +108,7 @@ def debug_database():
                 count = cursor.fetchone()[0]
                 print(f"   Original query (any confidence): {count} results")
 
-            except Exception:
+            except Exception as e:
                 print(f"   Original query error: {e}")
 
             # Test the new broken query
@@ -148,7 +148,7 @@ def debug_database():
                     count = cursor.fetchone()[0]
                     print(f"   New query (Ultralytics only): {count} results")
 
-            except Exception:
+            except Exception as e:
                 print(f"   New query error: {e}")
 
             # Check image success rates
@@ -162,10 +162,10 @@ def debug_database():
                 row = cursor.fetchone()
                 if row:
                     print(f"   Images: {row[1]}/{row[0]} successful captures")
-            except Exception:
+            except Exception as e:
                 print(f"   Image analysis error: {e}")
 
-    except Exception:
+    except Exception as e:
         print(f"❌ Database error: {e}")
 
 

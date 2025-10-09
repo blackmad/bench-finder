@@ -61,7 +61,7 @@ class OverpassBenchGenerator(BenchGenerator):
                     candidate = self._convert_osm_bench_to_candidate(osm_bench)
                     if candidate:
                         bench_candidates.append(candidate)
-                except Exception:
+                except Exception as e:
                     logger.warning(f"Failed to convert OSM bench to candidate: {e}")
                     continue
 

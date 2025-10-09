@@ -215,7 +215,7 @@ class MapillaryBenchGenerator(BenchGenerator):
                 )
                 candidates.append(candidate)
 
-            except Exception:
+            except Exception as e:
                 logger.warning(
                     f"Failed to convert Mapillary detection to candidate: {e}"
                 )
@@ -254,7 +254,7 @@ class MapillaryBenchGenerator(BenchGenerator):
                 result = self.mapillary_client.download_image(image_id)
                 if result:
                     download_results.append(result)
-            except Exception:
+            except Exception as e:
                 logger.warning(f"Failed to download Mapillary image {image_id}: {e}")
 
         success_count = sum(1 for r in download_results if r.get("success", False))
@@ -360,7 +360,7 @@ class MapillaryBenchGenerator(BenchGenerator):
                     else:
                         logger.debug(f"Chunk {chunks_processed + 1} found no images")
 
-                except Exception:
+                except Exception as e:
                     logger.warning(f"Error searching chunk {chunks_processed + 1}: {e}")
 
                 chunks_processed += 1

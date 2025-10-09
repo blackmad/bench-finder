@@ -626,7 +626,7 @@ def main():
             print(f"Total clusters: {stats['total_clusters']}")
             print(f"Average benches per cluster: {stats['avg_benches_per_cluster']}")
 
-    except Exception:
+    except Exception as e:
         print(f"❌ Error: {e}")
         sys.exit(1)
 

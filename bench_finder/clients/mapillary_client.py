@@ -356,7 +356,7 @@ class MapillaryBenchDetector(BaseLocationClient):
             return MapillaryImageDownloadResult(
                 success=False, image_id=image_id, error=str(e)
             )
-        except Exception:
+        except Exception as e:
             logger.exception(f"Unexpected error downloading image {image_id}")
             return MapillaryImageDownloadResult(
                 success=False, image_id=image_id, error=str(e)

@@ -124,7 +124,7 @@ class MultiModelRoboflowClient:
                         f"❌ {model_name} failed: {result.error or 'Unknown error'}"
                     )
 
-            except Exception:
+            except Exception as e:
                 logger.exception(
                     f"Error with Roboflow model {model_name} - id {model_id}: {e}"
                 )
@@ -304,7 +304,7 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                     logger.debug(
                         f"❌ Ultralytics failed: {ultralytics_result.error or 'Unknown error'}"
                     )
-            except Exception:
+            except Exception as e:
                 logger.exception("❌ Ultralytics detection failed")
                 attempt = DetectionAttempt(
                     model_type="ultralytics",

@@ -76,7 +76,7 @@ class MapillaryDetection(BaseModel):
                 f"Geometry decoding not fully implemented for: {self.geometry_encoded[:50]}..."
             )
             return None
-        except Exception:
+        except Exception as e:
             logger.warning(f"Failed to decode geometry: {e}")
             return None
 

@@ -52,7 +52,7 @@ def run_inference(client: RoboflowClient, image_path: str) -> dict[str, Any]:
             print(f"Error running inference: {result.error}")
             sys.exit(1)
         return result
-    except Exception:
+    except Exception as e:
         print(f"Error running inference: {e}")
         sys.exit(1)
 
@@ -176,7 +176,7 @@ def display_image_in_terminal(image_path: str, model_name: str = "Model") -> Non
         print("=" * 60)
         print(img)
         print("=" * 60)
-    except Exception:
+    except Exception as e:
         print(f"Error displaying image in terminal: {e}")
         print(f"Annotated image available at: {image_path}")
 

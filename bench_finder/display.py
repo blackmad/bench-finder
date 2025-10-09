@@ -44,7 +44,7 @@ def create_combined_image_display(
                     (target_width, target_height), PILImage.Resampling.LANCZOS
                 )
                 valid_images.append(img_resized)
-            except Exception:
+            except Exception as e:
                 logger.warning(
                     f"Failed to load image {img_result.get('filepath', 'unknown')}: {e}"
                 )
@@ -187,7 +187,7 @@ def _copy_bench_image(
         shutil.copy2(source_path, dest_path)
         return str(dest_path)
 
-    except Exception:
+    except Exception as e:
         logger.warning(f"Failed to copy bench image: {e}")
         return None
 
