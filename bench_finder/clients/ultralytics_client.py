@@ -109,7 +109,7 @@ class UltralyticsClient(DetectionClient):
                 # Save to our models directory
                 model.save(self.local_model_path)
                 logger.info(f"Model downloaded and saved to {self.local_model_path}")
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}: {e}"
                 )
@@ -161,8 +161,8 @@ class UltralyticsClient(DetectionClient):
         except FileNotFoundError:
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
-        except Exception as e:
-            logger.exception(f"Unexpected error analyzing image {image_path}: {e}")
+        except Exception:
+            logger.exception(f"Unexpected error analyzing image {image_path}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
 
     def _detect_benches_api(self, image_path: str) -> DetectionResult:
@@ -214,7 +214,7 @@ class UltralyticsClient(DetectionClient):
             try:
                 result = response.json()
             except json.JSONDecodeError as e:
-                logger.exception(f"Failed to parse Ultralytics response: {e}")
+                logger.exception("Failed to parse Ultralytics response")
                 return self._create_error_result(image_path, f"JSON decode error: {e}")
 
             # Process the detection results
@@ -224,10 +224,10 @@ class UltralyticsClient(DetectionClient):
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
         except requests.exceptions.RequestException as e:
-            logger.exception(f"Network error calling Ultralytics API: {e}")
+            logger.exception("Network error calling Ultralytics API")
             return self._create_error_result(image_path, f"Network error: {e}")
-        except Exception as e:
-            logger.exception(f"Unexpected error analyzing image {image_path}: {e}")
+        except Exception:
+            logger.exception(f"Unexpected error analyzing image {image_path}")
             return self._create_error_result(image_path, f"Unexpected error: {e}")
 
     def _process_local_detection_result(
@@ -342,7 +342,7 @@ class UltralyticsClient(DetectionClient):
 
             return result_data
 
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Error processing local detection result for {image_path}: {e}"
             )
@@ -455,8 +455,8 @@ class UltralyticsClient(DetectionClient):
 
             return result_data
 
-        except Exception as e:
-            logger.exception(f"Error processing detection result for {image_path}: {e}")
+        except Exception:
+            logger.exception(f"Error processing detection result for {image_path}")
             return self._create_error_result(image_path, f"Processing error: {e}")
 
     def _create_error_result(self, image_path: str, error: str) -> DetectionResult:
@@ -534,8 +534,8 @@ class UltralyticsClient(DetectionClient):
                 "api_endpoint": self.inference_url if not self.use_local else None,
                 "backend": "UltralyticsClient",
             }
-        except Exception as e:
-            logger.exception(f"Error getting model info: {e}")
+        except Exception:
+            logger.exception("Error getting model info")
             return {"error": str(e)}
 
     def detect_benches_with_class_filter(

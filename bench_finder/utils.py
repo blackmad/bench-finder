@@ -62,7 +62,7 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 
             for attempt in range(max_retries + 1):
                 try:
                     return func(*args, **kwargs)
-                except Exception as e:
+                except Exception:
                     if attempt == max_retries:
                         logger.exception(
                             f"{func.__name__} failed after {max_retries} retries: {e}"
@@ -99,9 +99,9 @@ def log_execution_time(func: Callable[P, T]) -> Callable[P, T]:
             execution_time = time.time() - start_time
             logger.debug(f"{func.__name__} completed in {execution_time:.2f}s")
             return result
-        except Exception as e:
+        except Exception:
             execution_time = time.time() - start_time
-            logger.exception(f"{func.__name__} failed after {execution_time:.2f}s: {e}")
+            logger.exception(f"{func.__name__} failed after {execution_time:.2f}s")
             raise
 
     return wrapper

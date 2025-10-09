@@ -147,7 +147,7 @@ def display_image_in_terminal(image_path: str, model_name: str = "Model") -> Non
         print("=" * 80)
         print(img)
         print("=" * 80)
-    except Exception as e:
+    except Exception:
         print(f"Error displaying image in terminal: {e}")
         print(f"Annotated image available at: {image_path}")
 
@@ -176,7 +176,7 @@ def test_roboflow_local(image_path: str, output_dir: str) -> Optional[str]:
         else:
             print(f"  ❌ Failed: {result.error}")
             return None
-    except Exception as e:
+    except Exception:
         print(f"  ❌ Error: {e}")
         return None
 
@@ -210,7 +210,7 @@ def test_roboflow_cloud(image_path: str, output_dir: str) -> Optional[str]:
             else:
                 print(f"  ❌ Failed: {result.error}")
             return None
-    except Exception as e:
+    except Exception:
         print(f"  ❌ Error: {e}")
         return None
 
@@ -230,7 +230,7 @@ def test_ultralytics_local(image_path: str, output_dir: str) -> Optional[str]:
         else:
             print(f"  ❌ Failed: {result.error}")
             return None
-    except Exception as e:
+    except Exception:
         print(f"  ❌ Error: {e}")
         return None
 
@@ -258,7 +258,7 @@ def test_ultralytics_cloud(image_path: str, output_dir: str) -> Optional[str]:
         else:
             print(f"  ❌ Failed: {result.error}")
             return None
-    except Exception as e:
+    except Exception:
         print(f"  ❌ Error: {e}")
         return None
 
@@ -280,7 +280,7 @@ def test_multi_model(image_path: str, output_dir: str) -> Optional[str]:
         else:
             print(f"  ❌ Failed: {result.error}")
             return None
-    except Exception as e:
+    except Exception:
         print(f"  ❌ Error: {e}")
         return None
 

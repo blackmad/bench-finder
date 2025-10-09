@@ -87,7 +87,7 @@ def detect(
         results = model.infer(image)
     except Exception as e:
         typer.echo(f"Error running inference: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     # Load the results into the supervision Detections API
     try:
@@ -96,7 +96,7 @@ def detect(
         )
     except Exception as e:
         typer.echo(f"Error processing detection results: {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     # Filter detections by confidence
     if confidence > 0 and detections.confidence is not None:

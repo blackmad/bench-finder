@@ -66,7 +66,7 @@ def api_mapillary_search():
 
         return jsonify(result.model_dump())
 
-    except Exception as e:
+    except Exception:
         return jsonify({"error": f"Search failed: {e!s}"}), 500
 
 
@@ -110,7 +110,7 @@ def api_mapillary_stored():
 
         return jsonify(result)
 
-    except Exception as e:
+    except Exception:
         return jsonify({"error": f"Failed to get stored detections: {e!s}"}), 500
 
 
@@ -136,7 +136,7 @@ def api_mapillary_statistics():
 
         return jsonify(stats.model_dump())
 
-    except Exception as e:
+    except Exception:
         return jsonify({"error": f"Failed to get statistics: {e!s}"}), 500
 
 
@@ -156,7 +156,7 @@ def api_mapillary_refresh(mapillary_image_id: str):
 
         return jsonify(result.model_dump())
 
-    except Exception as e:
+    except Exception:
         return jsonify({"error": f"Failed to refresh detections: {e!s}"}), 500
 
 

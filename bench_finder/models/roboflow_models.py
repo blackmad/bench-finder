@@ -151,7 +151,7 @@ class RoboflowDetectionResult(BaseModel):
                 inference_time=raw_response.time,
             )
 
-        except Exception as e:
+        except Exception:
             return cls.create_error_result(
                 image_path=image_path,
                 error=f"Failed to process response: {e!s}",

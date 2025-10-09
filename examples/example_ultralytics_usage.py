@@ -160,8 +160,8 @@ def demonstrate_ultralytics_detection(image_path: str):
 
         return result
 
-    except Exception as e:
-        logger.exception(f"Error in demonstration: {e}")
+    except Exception:
+        logger.exception("Error in demonstration")
         raise
 
 
@@ -200,8 +200,8 @@ def demonstrate_batch_processing(image_paths: list):
 
         return results
 
-    except Exception as e:
-        logger.exception(f"Error in batch demonstration: {e}")
+    except Exception:
+        logger.exception("Error in batch demonstration")
         raise
 
 

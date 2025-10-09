@@ -146,14 +146,14 @@ class OverpassClient(BaseLocationClient):
                 total_count=len(benches),
             )
 
-        except requests.exceptions.RequestException as e:
-            logger.exception(f"HTTP error querying Overpass API: {e}")
+        except requests.exceptions.RequestException:
+            logger.exception("HTTP error querying Overpass API")
             raise
-        except json.JSONDecodeError as e:
-            logger.exception(f"JSON decode error from Overpass API: {e}")
+        except json.JSONDecodeError:
+            logger.exception("JSON decode error from Overpass API")
             raise
-        except Exception as e:
-            logger.exception(f"Unexpected error querying Overpass API: {e}")
+        except Exception:
+            logger.exception("Unexpected error querying Overpass API")
             raise
 
     def get_item_details(self, provider_id: str) -> Optional[dict]:
@@ -215,7 +215,7 @@ class OverpassClient(BaseLocationClient):
             # Convert first element to bench
             return OSMBench.from_osm_element(overpass_response.elements[0])
 
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Error getting bench details for provider_id {provider_id}: {e}"
             )

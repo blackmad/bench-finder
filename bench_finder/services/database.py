@@ -94,8 +94,8 @@ class BenchDatabase:
                 )
                 return search.id  # type: ignore
 
-        except Exception as e:
-            logger.exception(f"Error creating search record: {e}")
+        except Exception:
+            logger.exception("Error creating search record")
             raise
 
     def add_bench(self, bench_data: BenchCreate) -> int:
@@ -146,8 +146,8 @@ class BenchDatabase:
                 )
                 return bench.id  # type: ignore
 
-        except Exception as e:
-            logger.exception(f"Error adding bench record: {e}")
+        except Exception:
+            logger.exception("Error adding bench record")
             raise
 
     def add_image(self, image_data: ImageCreate) -> int:
@@ -180,8 +180,8 @@ class BenchDatabase:
                 )
                 return image.id  # type: ignore
 
-        except Exception as e:
-            logger.exception(f"Error adding image record: {e}")
+        except Exception:
+            logger.exception("Error adding image record")
             raise
 
     def add_detection(self, detection_data: DetectionCreate) -> int:
@@ -216,8 +216,8 @@ class BenchDatabase:
                 )
                 return detection.id  # type: ignore
 
-        except Exception as e:
-            logger.exception(f"Error adding detection record: {e}")
+        except Exception:
+            logger.exception("Error adding detection record")
             raise
 
     def add_ultralytics_detection(
@@ -260,8 +260,8 @@ class BenchDatabase:
                 )
                 return detection.id  # type: ignore
 
-        except Exception as e:
-            logger.exception(f"Error adding Ultralytics detection record: {e}")
+        except Exception:
+            logger.exception("Error adding Ultralytics detection record")
             raise
 
     def update_search_status(
@@ -289,8 +289,8 @@ class BenchDatabase:
                 else:
                     logger.warning(f"Search {search_id} not found for status update")
 
-        except Exception as e:
-            logger.exception(f"Error updating search status: {e}")
+        except Exception:
+            logger.exception("Error updating search status")
             raise
 
     def get_search_results(self, search_id: int) -> Optional[SearchResults]:
@@ -367,8 +367,8 @@ class BenchDatabase:
                     else 0.0,
                 )
 
-        except Exception as e:
-            logger.exception(f"Error getting search results: {e}")
+        except Exception:
+            logger.exception("Error getting search results")
             return None
 
     def get_benches_with_detections(self, search_id: int) -> list[BenchWithDetections]:
@@ -431,8 +431,8 @@ class BenchDatabase:
 
                 return result
 
-        except Exception as e:
-            logger.exception(f"Error getting benches with detections: {e}")
+        except Exception:
+            logger.exception("Error getting benches with detections")
             return []
 
     def add_bench_candidate(
@@ -479,8 +479,8 @@ class BenchDatabase:
                 logger.debug(f"Added bench candidate: {provider_id} from {source}")
                 return candidate.id  # type: ignore
 
-        except Exception as e:
-            logger.exception(f"Error adding bench candidate: {e}")
+        except Exception:
+            logger.exception("Error adding bench candidate")
             return None
 
     def get_bench_candidates(self, search_id: int) -> list[BenchCandidate]:
@@ -502,8 +502,8 @@ class BenchDatabase:
                 )
                 return candidates
 
-        except Exception as e:
-            logger.exception(f"Error getting bench candidates: {e}")
+        except Exception:
+            logger.exception("Error getting bench candidates")
             return []
 
     def get_bench_candidate_count(self, search_id: int) -> int:
@@ -525,9 +525,29 @@ class BenchDatabase:
                 )
                 return count
 
-        except Exception as e:
-            logger.exception(f"Error getting bench candidate count: {e}")
+        except Exception:
+            logger.exception("Error getting bench candidate count")
             return 0
+
+    def get_latest_search_id(self) -> Optional[int]:
+        """
+        Get the ID of the most recently created search.
+
+        Returns:
+            The latest search ID, or None if no searches exist
+        """
+        try:
+            with self.get_session() as session:
+                latest_search = (
+                    session.query(Search)
+                    .order_by(Search.id.desc())
+                    .first()
+                )
+                return latest_search.id if latest_search else None
+
+        except Exception:
+            logger.exception("Error getting latest search ID")
+            return None
 
     def close(self):
         """Close database connection if needed."""

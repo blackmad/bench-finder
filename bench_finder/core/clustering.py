@@ -122,8 +122,8 @@ class BenchClusterer:
                 conn.commit()
                 logger.info("Clustered benches table and indexes created/verified")
 
-        except Exception as e:
-            logger.exception(f"Failed to create clustering tables: {e}")
+        except Exception:
+            logger.exception("Failed to create clustering tables")
             raise
 
     @staticmethod
@@ -223,8 +223,8 @@ class BenchClusterer:
                 )
                 return benches
 
-        except Exception as e:
-            logger.exception(f"Failed to get bench data for clustering: {e}")
+        except Exception:
+            logger.exception("Failed to get bench data for clustering")
             raise
 
     def _cluster_benches(self, benches: list[BenchData]) -> list[BenchCluster]:
@@ -379,8 +379,8 @@ class BenchClusterer:
                 conn.commit()
                 logger.info(f"Saved {len(clusters)} clusters to database")
 
-        except Exception as e:
-            logger.exception(f"Failed to save clusters to database: {e}")
+        except Exception:
+            logger.exception("Failed to save clusters to database")
             raise
 
     def cluster_all_benches(self, min_confidence: float = 0.5) -> int:
@@ -416,8 +416,8 @@ class BenchClusterer:
             )
             return len(clusters)
 
-        except Exception as e:
-            logger.exception(f"Failed to cluster all benches: {e}")
+        except Exception:
+            logger.exception("Failed to cluster all benches")
             raise
 
     def get_cluster_by_bench_id(self, bench_id: int) -> Optional[BenchCluster]:
@@ -464,8 +464,8 @@ class BenchClusterer:
 
                 return None
 
-        except Exception as e:
-            logger.exception(f"Failed to get cluster for bench {bench_id}: {e}")
+        except Exception:
+            logger.exception(f"Failed to get cluster for bench {bench_id}")
             return None
 
     def get_all_clusters(self) -> list[BenchCluster]:
@@ -503,8 +503,8 @@ class BenchClusterer:
 
                 return clusters
 
-        except Exception as e:
-            logger.exception(f"Failed to get all clusters: {e}")
+        except Exception:
+            logger.exception("Failed to get all clusters")
             raise
 
     def get_clustering_stats(self) -> dict[str, any]:
@@ -562,8 +562,8 @@ class BenchClusterer:
                     "clustering_distance_meters": self.cluster_distance_meters,
                 }
 
-        except Exception as e:
-            logger.exception(f"Failed to get clustering stats: {e}")
+        except Exception:
+            logger.exception("Failed to get clustering stats")
             raise
 
 
@@ -626,7 +626,7 @@ def main():
             print(f"Total clusters: {stats['total_clusters']}")
             print(f"Average benches per cluster: {stats['avg_benches_per_cluster']}")
 
-    except Exception as e:
+    except Exception:
         print(f"❌ Error: {e}")
         sys.exit(1)
 

@@ -33,8 +33,8 @@ def migrate_database():
 
         shutil.copy2(DATABASE_PATH, backup_path)
         logger.info("✅ Database backup created")
-    except Exception as e:
-        logger.exception(f"Failed to create backup: {e}")
+    except Exception:
+        logger.exception("Failed to create backup")
         return False
 
     try:
@@ -108,7 +108,7 @@ def migrate_database():
                 "CREATE INDEX IF NOT EXISTS idx_detections_external_id ON detections (external_detection_id)"
             )
             logger.info("✅ Created new indexes")
-        except Exception as e:
+        except Exception:
             logger.warning(f"Some indexes may already exist: {e}")
 
         # Make OSM-specific columns nullable (this is more complex in SQLite)
@@ -135,8 +135,8 @@ def migrate_database():
         conn.close()
         return True
 
-    except Exception as e:
-        logger.exception(f"❌ Migration failed: {e}")
+    except Exception:
+        logger.exception("❌ Migration failed")
 
         # Attempt to restore backup
         try:
@@ -188,8 +188,8 @@ def verify_migration():
         conn.close()
         return True
 
-    except Exception as e:
-        logger.exception(f"❌ Migration verification failed: {e}")
+    except Exception:
+        logger.exception("❌ Migration verification failed")
         return False
 
 

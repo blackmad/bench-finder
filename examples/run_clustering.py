@@ -53,7 +53,7 @@ def run_clustering():
 
         return True
 
-    except Exception as e:
+    except Exception:
         print(f"❌ Clustering failed: {e}")
         return False
 
@@ -118,7 +118,7 @@ def test_clustered_service():
 
         return True
 
-    except Exception as e:
+    except Exception:
         print(f"❌ Testing failed: {e}")
         return False
 
@@ -159,7 +159,7 @@ def main():
             for key, value in stats.items():
                 print(f"   {key.replace('_', ' ').title()}: {value}")
 
-        except Exception as e:
+        except Exception:
             print(f"❌ Failed to get statistics: {e}")
 
     elif command == "test":

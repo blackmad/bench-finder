@@ -59,11 +59,11 @@ class Geocoder:
 
             return (lat, lng)
 
-        except googlemaps.exceptions.ApiError as e:
-            logger.exception(f"Google Maps API error geocoding '{query}': {e}")
+        except googlemaps.exceptions.ApiError:
+            logger.exception(f"Google Maps API error geocoding '{query}'")
             raise
-        except Exception as e:
-            logger.exception(f"Unexpected error geocoding '{query}': {e}")
+        except Exception:
+            logger.exception(f"Unexpected error geocoding '{query}'")
             raise
 
     def reverse_geocode(self, lat: float, lng: float) -> Optional[str]:
@@ -99,6 +99,6 @@ class Geocoder:
                 f"Google Maps API error reverse geocoding {lat}, {lng}: {e}"
             )
             return None
-        except Exception as e:
-            logger.exception(f"Unexpected error reverse geocoding {lat}, {lng}: {e}")
+        except Exception:
+            logger.exception(f"Unexpected error reverse geocoding {lat}, {lng}")
             return None

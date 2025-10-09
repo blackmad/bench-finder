@@ -119,9 +119,9 @@ class MapillaryBenchGenerator(BenchGenerator):
             )
             return unique_candidates
 
-        except Exception as e:
+        except Exception:
             self._update_stats(success=False)
-            logger.exception(f"Mapillary bench search failed: {e}")
+            logger.exception("Mapillary bench search failed")
             raise
 
     def find_benches_in_area(
@@ -169,9 +169,9 @@ class MapillaryBenchGenerator(BenchGenerator):
             )
             return unique_candidates
 
-        except Exception as e:
+        except Exception:
             self._update_stats(success=False)
-            logger.exception(f"Mapillary area search failed: {e}")
+            logger.exception("Mapillary area search failed")
             raise
 
     def _convert_mapillary_image_to_candidates(
@@ -215,7 +215,7 @@ class MapillaryBenchGenerator(BenchGenerator):
                 )
                 candidates.append(candidate)
 
-            except Exception as e:
+            except Exception:
                 logger.warning(
                     f"Failed to convert Mapillary detection to candidate: {e}"
                 )
@@ -254,7 +254,7 @@ class MapillaryBenchGenerator(BenchGenerator):
                 result = self.mapillary_client.download_image(image_id)
                 if result:
                     download_results.append(result)
-            except Exception as e:
+            except Exception:
                 logger.warning(f"Failed to download Mapillary image {image_id}: {e}")
 
         success_count = sum(1 for r in download_results if r.get("success", False))
@@ -360,7 +360,7 @@ class MapillaryBenchGenerator(BenchGenerator):
                     else:
                         logger.debug(f"Chunk {chunks_processed + 1} found no images")
 
-                except Exception as e:
+                except Exception:
                     logger.warning(f"Error searching chunk {chunks_processed + 1}: {e}")
 
                 chunks_processed += 1

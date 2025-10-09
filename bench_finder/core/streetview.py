@@ -77,8 +77,8 @@ class StreetViewClient:
                 else:
                     logger.warning(f"Failed to capture image at heading {heading}°")
 
-            except Exception as e:
-                logger.exception(f"Error capturing image at heading {heading}°: {e}")
+            except Exception:
+                logger.exception(f"Error capturing image at heading {heading}°")
 
         # Create batch result from individual capture results
         batch_result = StreetViewBatchCaptureResult.from_capture_results(
@@ -171,7 +171,7 @@ class StreetViewClient:
                 with Image.open(filepath) as img:
                     width, height = img.size
                     logger.debug(f"Saved image {filename}: {width}x{height}")
-            except Exception as e:
+            except Exception:
                 logger.warning(f"Could not verify image {filename}: {e}")
 
             return StreetViewImageCapture(
@@ -189,11 +189,11 @@ class StreetViewClient:
                 error=None,
             )
 
-        except requests.exceptions.RequestException as e:
-            logger.exception(f"Network error capturing street view image: {e}")
+        except requests.exceptions.RequestException:
+            logger.exception("Network error capturing street view image")
             return None
-        except Exception as e:
-            logger.exception(f"Unexpected error capturing street view image: {e}")
+        except Exception:
+            logger.exception("Unexpected error capturing street view image")
             return None
 
     def get_street_view_metadata(
@@ -259,8 +259,8 @@ class StreetViewClient:
                     requested_location=requested_location, metadata=metadata
                 )
 
-        except Exception as e:
-            logger.exception(f"Error getting street view metadata: {e}")
+        except Exception:
+            logger.exception("Error getting street view metadata")
 
             # Return error response
             error_metadata = StreetViewMetadata(
@@ -294,7 +294,7 @@ class StreetViewClient:
                 elif filepath:
                     # File doesn't exist, but this isn't really an error
                     logger.debug(f"File already removed or doesn't exist: {filepath}")
-            except Exception as e:
+            except Exception:
                 failed_count += 1
                 error_msg = f"Could not remove image file {filepath}: {e}"
                 errors.append(error_msg)

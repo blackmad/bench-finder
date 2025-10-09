@@ -128,7 +128,7 @@ def generate_candidates(
             osm_generator = OverpassBenchGenerator()
             generators.append(osm_generator)
             logger.info("Added OpenStreetMap generator")
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to initialize OSM generator")
 
         # Add Mapillary generator if token is available
@@ -141,7 +141,7 @@ def generate_candidates(
                 logger.warning(
                     "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
                 )
-        except Exception as e:
+        except Exception:
             logger.warning(f"Failed to initialize Mapillary generator: {e}")
 
         if not generators:
@@ -165,8 +165,8 @@ def generate_candidates(
                 logger.info(
                     f"{generator.name}: found {len(candidates)} bench candidates"
                 )
-            except Exception as e:
-                logger.exception(f"Error querying {generator.name}: {e}")
+            except Exception:
+                logger.exception(f"Error querying {generator.name}")
                 generator_results[generator.name] = 0
 
         # Deduplicate candidates
@@ -239,7 +239,7 @@ def find_benches(
 
     # Setup logging
     setup_logging(level=log_level)
-    logger = logging.getLogger(__name__)
+    logging.getLogger(__name__)
 
     # Initialize bench finder with selected backend and fallback setting
     enable_fallback = not disable_fallback
@@ -341,14 +341,14 @@ def list_candidates(
 
         _display_candidates_table(candidates, output_format)
 
-    except Exception as e:
+    except Exception:
         console.print(f"[bold red]💥 Error: {e}[/bold red]")
         raise typer.Exit(1)
 
 
 @app.command("fetch-images")
 def fetch_images(
-    search_id: int = typer.Argument(..., help="Search ID to fetch images for"),
+    search_id: Optional[int] = typer.Argument(None, help="Search ID to fetch images for (defaults to latest search)"),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
@@ -387,6 +387,15 @@ def fetch_images(
     try:
         # Initialize database and get candidates
         database = BenchDatabase()
+
+        # If no search_id provided, use the latest search
+        if search_id is None:
+            search_id = database.get_latest_search_id()
+            if search_id is None:
+                console.print("[red]No searches found in database. Please run a search first.[/red]")
+                return
+            console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
+
         candidates = database.get_bench_candidates(search_id)
 
         if not candidates:
@@ -479,9 +488,9 @@ def fetch_images(
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
         raise typer.Exit(130)
-    except Exception as e:
+    except Exception:
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
-        logger.exception(f"Unexpected error: {e}")
+        logger.exception("Unexpected error")
         raise typer.Exit(1)
 
 

@@ -144,8 +144,8 @@ def test_ultralytics_client():
             logger.info("  - Run inference locally without API calls")
             logger.info("  - Provide faster inference for multiple images")
             logger.info("  - Work offline without internet connection")
-        except Exception as e:
-            logger.exception(f"✗ Local mode test failed: {e}")
+        except Exception:
+            logger.exception("✗ Local mode test failed")
 
         # Test API mode (if configured)
         logger.info("\n" + "=" * 60)
@@ -184,8 +184,8 @@ def test_ultralytics_client():
 
             logger.info("✓ API mode testing completed successfully!")
 
-        except Exception as e:
-            logger.exception(f"✗ API mode test failed: {e}")
+        except Exception:
+            logger.exception("✗ API mode test failed")
             logger.info("This is expected if API key is not configured")
 
         logger.info("\n" + "=" * 60)
@@ -197,8 +197,8 @@ def test_ultralytics_client():
 
         return True
 
-    except Exception as e:
-        logger.exception(f"✗ Test harness failed with unexpected error: {e}")
+    except Exception:
+        logger.exception("✗ Test harness failed with unexpected error")
         return False
 
 
@@ -259,8 +259,8 @@ def test_pydantic_models():
 
         return True
 
-    except Exception as e:
-        logger.exception(f"✗ Pydantic model test failed: {e}")
+    except Exception:
+        logger.exception("✗ Pydantic model test failed")
         return False
 
 
@@ -283,11 +283,11 @@ def install_ultralytics():
         logger.info("✓ ultralytics package installed successfully")
         return True
     except subprocess.CalledProcessError as e:
-        logger.exception(f"✗ Failed to install ultralytics: {e}")
+        logger.exception("✗ Failed to install ultralytics")
         logger.exception(f"Error output: {e.stderr}")
         return False
-    except Exception as e:
-        logger.exception(f"✗ Unexpected error installing ultralytics: {e}")
+    except Exception:
+        logger.exception("✗ Unexpected error installing ultralytics")
         return False
 
 

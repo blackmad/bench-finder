@@ -211,7 +211,7 @@ def test_chunking_logic():
         print("\n✅ Chunking logic test completed successfully!")
         return True
 
-    except Exception as e:
+    except Exception:
         print(f"❌ Test failed: {e}")
         import traceback
 

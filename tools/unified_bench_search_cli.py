@@ -72,8 +72,8 @@ def search_with_osm(lat: float, lng: float, radius: int) -> Optional[object]:
         logger.info(f"✅ OSM search completed in {processing_time:.1f}ms")
         return result
 
-    except Exception as e:
-        logger.exception(f"❌ OSM search failed: {e}")
+    except Exception:
+        logger.exception("❌ OSM search failed")
         return None
 
 
@@ -95,8 +95,8 @@ def search_with_mapillary(
         logger.info(f"✅ Mapillary search completed in {processing_time:.1f}ms")
         return result
 
-    except Exception as e:
-        logger.exception(f"❌ Mapillary search failed: {e}")
+    except Exception:
+        logger.exception("❌ Mapillary search failed")
         return None
 
 
@@ -253,8 +253,8 @@ Examples:
     try:
         lat, lng = parse_coordinates(args.coordinates)
         logger.info(f"Search coordinates: {lat:.6f}, {lng:.6f}")
-    except ValueError as e:
-        logger.exception(f"Invalid coordinates: {e}")
+    except ValueError:
+        logger.exception("Invalid coordinates")
         sys.exit(1)
 
     # Get Mapillary token

@@ -128,8 +128,8 @@ class BenchFinder:
             osm_generator = OverpassBenchGenerator()
             generators.append(osm_generator)
             logger.info("Added OpenStreetMap generator")
-        except Exception as e:
-            logger.exception(f"Failed to initialize OSM generator: {e}")
+        except Exception:
+            logger.exception("Failed to initialize OSM generator")
 
         # Add Mapillary generator if token is available
         try:
@@ -141,7 +141,7 @@ class BenchFinder:
                 logger.warning(
                     "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
                 )
-        except Exception as e:
+        except Exception:
             logger.warning(f"Failed to initialize Mapillary generator: {e}")
 
         if not generators:
@@ -183,7 +183,7 @@ class BenchFinder:
             logger.debug(f"Copied bench image to: {output_path}")
             return output_path
 
-        except Exception as e:
+        except Exception:
             logger.warning(f"Failed to copy bench image {image_path}: {e}")
             return None
 
@@ -242,7 +242,7 @@ class BenchFinder:
             logger.debug("No pixels found - returning 0.0% coverage")
             return 0.0
 
-        except Exception as e:
+        except Exception:
             logger.debug(f"Failed to calculate pixel coverage for {image_path}: {e}")
             return 0.0
 
@@ -304,8 +304,8 @@ class BenchFinder:
                 search_id, f"Successfully processed {len(benches)} benches", results
             )
 
-        except Exception as e:
-            logger.exception(f"Bench finding pipeline failed: {e}")
+        except Exception:
+            logger.exception("Bench finding pipeline failed")
             if "search_id" in locals():
                 self.database.update_search_status(search_id, "failed")
             return self._create_error_result(f"Pipeline failed: {e}")
@@ -338,8 +338,8 @@ class BenchFinder:
                 logger.info(
                     f"{generator.name}: found {len(candidates)} bench candidates"
                 )
-            except Exception as e:
-                logger.exception(f"Error querying {generator.name}: {e}")
+            except Exception:
+                logger.exception(f"Error querying {generator.name}")
                 generator_results[generator.name] = 0
 
         logger.info(
@@ -513,7 +513,7 @@ class BenchFinder:
 
                 progress.update()
 
-            except Exception as e:
+            except Exception:
                 bench_id = bench.provider_id
                 logger.exception(
                     f"Failed to process bench {bench_id}: {type(e).__name__}: {e}"
@@ -585,7 +585,7 @@ class BenchFinder:
             else:
                 logger.warning(f"Failed to add bench {bench.provider_id} to database")
                 return result
-        except Exception as e:
+        except Exception:
             raise RuntimeError(
                 f"Failed to add bench {bench.provider_id} to database: {e}"
             ) from e
@@ -600,7 +600,7 @@ class BenchFinder:
                 lng,
                 bench_identifier,  # Use validated coordinates
             )
-        except Exception as e:
+        except Exception:
             raise RuntimeError(
                 f"Failed to capture images for bench {bench.provider_id}: {e}"
             ) from e
@@ -631,7 +631,7 @@ class BenchFinder:
                 if image_capture.success and image_capture.filepath:
                     successful_images.append(image_capture)
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}: {e}, type: {type(e).__name__}"
                 )
@@ -668,7 +668,7 @@ class BenchFinder:
                     f"Pixel coverage: {pixel_coverage:.1f}%"
                 )
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     f"Detection failed for bench {bench.provider_id}, image {image_result.filepath}: {type(e).__name__}: {e}"
                 )

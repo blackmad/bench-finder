@@ -199,8 +199,8 @@ class ClusteredBenchService:
 
                 return bench_details
 
-        except Exception as e:
-            logger.exception(f"Failed to get bench details: {e}")
+        except Exception:
+            logger.exception("Failed to get bench details")
             return {}
 
     def _build_clustered_bench_data(
@@ -307,8 +307,8 @@ class ClusteredBenchService:
                 distance_to_cluster_center=cluster_distance,
             )
 
-        except Exception as e:
-            logger.exception(f"Failed to build clustered bench data: {e}")
+        except Exception:
+            logger.exception("Failed to build clustered bench data")
             return None
 
     def get_clustered_benches_filtered(
@@ -421,8 +421,8 @@ class ClusteredBenchService:
                     clustering_info=clustering_info,
                 )
 
-        except Exception as e:
-            logger.exception(f"Failed to get clustered benches: {e}")
+        except Exception:
+            logger.exception("Failed to get clustered benches")
             # Return empty response on error
             return ClusteredBenchListResponse(
                 clustered_benches=[],
@@ -541,8 +541,8 @@ class ClusteredBenchService:
                     clustering_info=clustering_info,
                 )
 
-        except Exception as e:
-            logger.exception(f"Failed to get clustered benches in bbox: {e}")
+        except Exception:
+            logger.exception("Failed to get clustered benches in bbox")
             return ClusteredBenchListResponse(
                 clustered_benches=[],
                 pagination=PaginationInfo(
@@ -561,6 +561,6 @@ class ClusteredBenchService:
         try:
             stats = self.clusterer.get_clustering_stats()
             return stats["total_clusters"] > 0
-        except Exception as e:
-            logger.exception(f"Failed to check clustering availability: {e}")
+        except Exception:
+            logger.exception("Failed to check clustering availability")
             return False

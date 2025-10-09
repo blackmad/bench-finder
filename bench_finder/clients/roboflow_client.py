@@ -11,6 +11,7 @@ from typing import Any, Optional
 import cv2
 import requests
 
+from ..config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 from ..models.schemas import (
     CacheStatus,
     ModelCacheInfo,
@@ -21,9 +22,6 @@ from .base_detection_client import (
     DetectionItem,
     DetectionResult,
 )
-
-
-from ..config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
 
 logger = logging.getLogger(__name__)
@@ -99,7 +97,7 @@ class RoboflowClient(DetectionClient):
                     logger.info(
                         f"Local inference model loaded and cached successfully: {self.model_id}"
                     )
-                except Exception as e:
+                except Exception:
                     logger.warning(
                         f"Failed to load local model: {e}. Falling back to cloud API."
                     )
@@ -173,7 +171,7 @@ class RoboflowClient(DetectionClient):
         except FileNotFoundError:
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Unexpected error in local inference for {image_path}: {e}"
             )
@@ -218,7 +216,7 @@ class RoboflowClient(DetectionClient):
             try:
                 result = response.json()
             except json.JSONDecodeError as e:
-                logger.exception(f"Failed to parse Roboflow response: {e}")
+                logger.exception("Failed to parse Roboflow response")
                 return self._create_error_result(image_path, f"JSON decode error: {e}")
 
             # Process the detection results
@@ -228,9 +226,9 @@ class RoboflowClient(DetectionClient):
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
         except requests.exceptions.RequestException as e:
-            logger.exception(f"Network error calling Roboflow API: {e}")
+            logger.exception("Network error calling Roboflow API")
             return self._create_error_result(image_path, f"Network error: {e}")
-        except Exception as e:
+        except Exception:
             logger.exception(
                 f"Unexpected error in cloud inference for {image_path}: {e}"
             )
@@ -320,8 +318,8 @@ class RoboflowClient(DetectionClient):
 
             return result
 
-        except Exception as e:
-            logger.exception(f"Error processing detection result for {image_path}: {e}")
+        except Exception:
+            logger.exception(f"Error processing detection result for {image_path}")
             return self._create_error_result(image_path, f"Processing error: {e}")
 
     def _create_error_result(self, image_path: str, error: str) -> DetectionResult:
@@ -388,8 +386,8 @@ class RoboflowClient(DetectionClient):
                 "classes": ["bench"],  # This model is specifically for bench detection
                 "backend": "RoboflowClient",
             }
-        except Exception as e:
-            logger.exception(f"Error getting model info: {e}")
+        except Exception:
+            logger.exception("Error getting model info")
             return {"error": str(e)}
 
     def get_cache_status(self) -> CacheStatus:

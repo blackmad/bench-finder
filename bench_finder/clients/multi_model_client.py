@@ -124,7 +124,7 @@ class MultiModelRoboflowClient:
                         f"❌ {model_name} failed: {result.error or 'Unknown error'}"
                     )
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     f"Error with Roboflow model {model_name} - id {model_id}: {e}"
                 )
@@ -211,8 +211,8 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                         "⚠️  Ultralytics disabled: no API key or local inference not enabled"
                     )
                     self.enable_ultralytics = False
-            except Exception as e:
-                logger.exception(f"❌ Failed to initialize Ultralytics client: {e}")
+            except Exception:
+                logger.exception("❌ Failed to initialize Ultralytics client")
                 self.enable_ultralytics = False
 
         # Initialize Roboflow fallback client if enabled
@@ -227,8 +227,8 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                         "⚠️  Roboflow fallback disabled: no API key or models configured"
                     )
                     self.enable_roboflow_fallback = False
-            except Exception as e:
-                logger.exception(f"❌ Failed to initialize Roboflow client: {e}")
+            except Exception:
+                logger.exception("❌ Failed to initialize Roboflow client")
                 self.enable_roboflow_fallback = False
 
         if not self.enable_ultralytics and not self.enable_roboflow_fallback:
@@ -304,8 +304,8 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                     logger.debug(
                         f"❌ Ultralytics failed: {ultralytics_result.error or 'Unknown error'}"
                     )
-            except Exception as e:
-                logger.exception(f"❌ Ultralytics detection failed: {e}")
+            except Exception:
+                logger.exception("❌ Ultralytics detection failed")
                 attempt = DetectionAttempt(
                     model_type="ultralytics",
                     model_id="ultralytics",
@@ -357,8 +357,8 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                 else:
                     logger.debug("❌ All fallback models failed to detect bench")
 
-            except Exception as e:
-                logger.exception(f"❌ Roboflow fallback failed: {e}")
+            except Exception:
+                logger.exception("❌ Roboflow fallback failed")
 
         # Step 3: If no model detected a bench, create a comprehensive failure result
         if final_result is None:

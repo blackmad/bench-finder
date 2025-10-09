@@ -180,8 +180,8 @@ class MapillaryBenchDetector(BaseLocationClient):
             )
             return result
 
-        except requests.RequestException as e:
-            logger.exception(f"Error fetching Mapillary images: {e}")
+        except requests.RequestException:
+            logger.exception("Error fetching Mapillary images")
             # Return empty search result
             center_lat = (bbox[1] + bbox[3]) / 2
             center_lng = (bbox[0] + bbox[2]) / 2
@@ -233,8 +233,8 @@ class MapillaryBenchDetector(BaseLocationClient):
 
             return []
 
-        except requests.RequestException as e:
-            logger.exception(f"Error fetching detections for image {image_id}: {e}")
+        except requests.RequestException:
+            logger.exception(f"Error fetching detections for image {image_id}")
             return []
 
     def search_benches_by_location(
@@ -352,12 +352,12 @@ class MapillaryBenchDetector(BaseLocationClient):
             )
 
         except requests.RequestException as e:
-            logger.exception(f"Error downloading image {image_id}: {e}")
+            logger.exception(f"Error downloading image {image_id}")
             return MapillaryImageDownloadResult(
                 success=False, image_id=image_id, error=str(e)
             )
-        except Exception as e:
-            logger.exception(f"Unexpected error downloading image {image_id}: {e}")
+        except Exception:
+            logger.exception(f"Unexpected error downloading image {image_id}")
             return MapillaryImageDownloadResult(
                 success=False, image_id=image_id, error=str(e)
             )

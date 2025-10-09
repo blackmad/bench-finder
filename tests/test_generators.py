@@ -20,8 +20,8 @@ try:
     from config import MAPILLARY_ACCESS_TOKEN
     from mapillary_bench_generator import MapillaryBenchGenerator
     from overpass_bench_generator import OverpassBenchGenerator
-except ImportError as e:
-    logger.exception(f"Failed to import required modules: {e}")
+except ImportError:
+    logger.exception("Failed to import required modules")
     sys.exit(1)
 
 
@@ -58,8 +58,8 @@ def test_osm_generator():
 
         return len(candidates) > 0
 
-    except Exception as e:
-        logger.exception(f"OSM generator test failed: {e}")
+    except Exception:
+        logger.exception("OSM generator test failed")
         return False
 
 
@@ -101,8 +101,8 @@ def test_mapillary_generator():
 
         return True  # Pass even if no candidates found (Mapillary data might be sparse)
 
-    except Exception as e:
-        logger.exception(f"Mapillary generator test failed: {e}")
+    except Exception:
+        logger.exception("Mapillary generator test failed")
         return False
 
 
@@ -118,8 +118,8 @@ def test_combined_generators():
             osm_gen = OverpassBenchGenerator()
             generators.append(osm_gen)
             logger.info("Added OSM generator")
-        except Exception as e:
-            logger.exception(f"Failed to add OSM generator: {e}")
+        except Exception:
+            logger.exception("Failed to add OSM generator")
 
         # Add Mapillary generator if available
         try:
@@ -129,7 +129,7 @@ def test_combined_generators():
                 logger.info("Added Mapillary generator")
             else:
                 logger.info("Skipping Mapillary generator (no token)")
-        except Exception as e:
+        except Exception:
             logger.warning(f"Failed to add Mapillary generator: {e}")
 
         if not generators:
@@ -155,8 +155,8 @@ def test_combined_generators():
                 all_candidates.extend(candidates)
                 generator_results[generator.name] = len(candidates)
                 logger.info(f"{generator.name}: {len(candidates)} candidates")
-            except Exception as e:
-                logger.exception(f"Error with {generator.name}: {e}")
+            except Exception:
+                logger.exception(f"Error with {generator.name}")
                 generator_results[generator.name] = 0
 
         logger.info(f"Total candidates from all generators: {len(all_candidates)}")
@@ -174,8 +174,8 @@ def test_combined_generators():
 
         return len(all_candidates) > 0
 
-    except Exception as e:
-        logger.exception(f"Combined generators test failed: {e}")
+    except Exception:
+        logger.exception("Combined generators test failed")
         return False
 
 
@@ -200,8 +200,8 @@ def main():
                 passed += 1
             else:
                 logger.error(f"❌ {test_name} test failed")
-        except Exception as e:
-            logger.exception(f"💥 {test_name} test crashed: {e}")
+        except Exception:
+            logger.exception(f"💥 {test_name} test crashed")
 
     logger.info("\n--- Test Results ---")
     logger.info(f"Passed: {passed}/{total} tests")

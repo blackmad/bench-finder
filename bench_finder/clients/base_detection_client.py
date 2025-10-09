@@ -232,7 +232,7 @@ class DetectionClient(ABC):
 
             return True
 
-        except Exception as e:
+        except Exception:
             self.logger.warning(f"Image validation failed for {image_path}: {e}")
             return False
 

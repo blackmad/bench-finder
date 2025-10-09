@@ -166,7 +166,7 @@ class MapillaryBenchService:
                     f"Successfully committed {len(stored_benches)} Mapillary benches"
                 )
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     f"Error during Mapillary bench storage, rolling back: {e}"
                 )
@@ -299,8 +299,8 @@ class MapillaryBenchService:
                 db_bench, distance, image_filenames, image_ids
             )
 
-        except Exception as e:
-            logger.exception(f"Error storing Mapillary bench {api_image.image_id}: {e}")
+        except Exception:
+            logger.exception(f"Error storing Mapillary bench {api_image.image_id}")
             return None
 
     def _calculate_distance(

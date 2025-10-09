@@ -61,7 +61,7 @@ class OverpassBenchGenerator(BenchGenerator):
                     candidate = self._convert_osm_bench_to_candidate(osm_bench)
                     if candidate:
                         bench_candidates.append(candidate)
-                except Exception as e:
+                except Exception:
                     logger.warning(f"Failed to convert OSM bench to candidate: {e}")
                     continue
 
@@ -69,9 +69,9 @@ class OverpassBenchGenerator(BenchGenerator):
             logger.info(f"Found {len(bench_candidates)} OSM benches")
             return bench_candidates
 
-        except Exception as e:
+        except Exception:
             self._update_stats(success=False)
-            logger.exception(f"OSM bench search failed: {e}")
+            logger.exception("OSM bench search failed")
             raise
 
     def _convert_osm_bench_to_candidate(self, osm_bench) -> BenchCandidate:
