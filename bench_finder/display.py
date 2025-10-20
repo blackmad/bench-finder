@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 from PIL import Image as PILImage
-from term_image.image import AutoImage  # type: ignore[import-untyped]
+from term_image.image import AutoImage
 
 from bench_finder.clients.base_detection_client import DetectionResult
 from bench_finder.models.streetview_models import StreetViewImageCapture

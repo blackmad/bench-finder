@@ -10,11 +10,13 @@ import sqlite3
 import sys
 from pathlib import Path
 
+
 # Add the project root to the Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from bench_finder.config import DATABASE_PATH
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +66,7 @@ def migrate_database():
         cursor.execute("SELECT COUNT(*) FROM bench_candidates")
         total_count = cursor.fetchone()[0]
 
-        logger.info(f"Migration completed successfully:")
+        logger.info("Migration completed successfully:")
         logger.info(f"  - Total candidates: {total_count}")
         logger.info(f"  - Candidates with 'pending' status: {pending_count}")
 

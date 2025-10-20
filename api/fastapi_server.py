@@ -8,6 +8,7 @@ import json
 import math
 import os
 from contextlib import asynccontextmanager, suppress
+from datetime import datetime
 from typing import Any, Optional, Union
 
 import uvicorn
@@ -49,6 +50,30 @@ PAGE_SIZE = 20
 
 # Global mapillary service instance
 mapillary_service = None
+
+
+class EnhancedErrorResponse(BaseModel):
+    """Enhanced error response with detailed debugging information."""
+
+    error: str = Field(..., description="Human-readable error message")
+
+    error_code: Optional[str] = Field(
+        default=None,
+        description="Machine-readable error code for programmatic handling",
+    )
+
+    detail: Optional[str] = Field(
+        default=None, description="Additional error details and context"
+    )
+
+    suggestions: Optional[list[str]] = Field(
+        default=None, description="Suggested actions to resolve the error"
+    )
+
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="When the error occurred"
+    )
+
 
 
 # Enhanced Pydantic models for FastAPI with OpenAPI documentation
@@ -283,7 +308,7 @@ if os.path.exists(IMAGES_DIR):
 
 # Global exception handlers
 @app.exception_handler(ValueError)
-async def value_error_handler(request: Request, exc: ValueError):
+async def value_error_handler(_request: Request, exc: ValueError):
     """Handle ValueError exceptions with proper HTTP status."""
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -351,16 +376,10 @@ async def health_check():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Service unhealthy: {e!s}",
-        )
+        ) from e
 
 
-# Import the enhanced schemas
-from .fastapi_schemas import (
-    BboxBenchResponse,
-    EnhancedErrorResponse,
-    MapillarySearchRequest,
-    RandomBenchResponse,
-)
+
 
 
 # Utility function for bench data processing (shared with Flask version)
@@ -698,7 +717,7 @@ async def get_benches(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve benches: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -794,7 +813,7 @@ async def get_benches_by_source(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get benches for source {source}: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -970,7 +989,7 @@ async def get_random_bench(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get random bench: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1261,7 +1280,7 @@ async def get_benches_in_bbox(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get benches in bounding box: {e!s}",
-        )
+        ) from e
 
 
 # SEARCH AND CONFIGURATION ENDPOINTS
@@ -1317,7 +1336,7 @@ async def get_searches():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve searches: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1454,7 +1473,7 @@ async def serve_image(filename: str = Path(..., description="Image filename")):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to serve image: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1602,7 +1621,7 @@ async def get_image_segmentation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve detection data: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1682,7 +1701,7 @@ async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve bench images: {e!s}",
-        )
+        ) from e
 
 
 # MAPILLARY ENDPOINTS
@@ -1754,7 +1773,7 @@ async def search_mapillary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Mapillary search failed: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1834,7 +1853,7 @@ async def get_stored_mapillary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get stored Mapillary data: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1898,7 +1917,7 @@ async def get_mapillary_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get Mapillary statistics: {e!s}",
-        )
+        ) from e
 
 
 @app.put(
@@ -1963,7 +1982,7 @@ async def refresh_mapillary_image(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to refresh detections: {e!s}",
-        )
+        ) from e
 
 
 @app.get(
@@ -2149,7 +2168,7 @@ async def report_bad_bench(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to submit report: {e!s}",
-        )
+        ) from e
 
 
 @app.post(
@@ -2318,7 +2337,7 @@ async def report_missing_bench(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to submit missing bench report: {e!s}",
-        )
+        ) from e
 
 
 # STATISTICS ENDPOINTS
@@ -2447,7 +2466,7 @@ async def get_statistics_by_source(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get statistics for source {source}: {e!s}",
-        )
+        ) from e
 
 
 if __name__ == "__main__":

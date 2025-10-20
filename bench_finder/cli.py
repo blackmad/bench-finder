@@ -29,7 +29,7 @@ from examples.overpass_bench_generator import OverpassBenchGenerator
 
 
 if TYPE_CHECKING:
-    from examples.bench_generator import BenchGenerator
+    from examples.bench_generator import BenchCandidate, BenchGenerator
 
 
 # Initialize Typer app and console
@@ -158,7 +158,7 @@ def generate_candidates(
             raise typer.Exit(1)
 
         # Find candidates using all generators
-        all_candidates = []
+        all_candidates: list[BenchCandidate] = []
         generator_results = {}
 
         for generator in generators:

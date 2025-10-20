@@ -8,12 +8,36 @@ of the bench finding pipeline, focusing on running AI models on captured images.
 import logging
 import os
 import shutil
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
+
+from rich.progress import (
+    Progress,
+)
+from term_image.image import AutoImage
+
+from tools.bench_detection_cli import render_detections
+
+
+# Set environment variables to suppress inference model dependency warnings
+os.environ.setdefault("CORE_MODEL_PE_ENABLED", "False")
+os.environ.setdefault("PALIGEMMA_ENABLED", "False")
+os.environ.setdefault("FLORENCE2_ENABLED", "False")
+os.environ.setdefault("QWEN_2_5_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_SAM_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_SAM2_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_CLIP_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_GAZE_ENABLED", "False")
+os.environ.setdefault("SMOLVLM2_ENABLED", "False")
+os.environ.setdefault("DEPTH_ESTIMATION_ENABLED", "False")
+os.environ.setdefault("MOONDREAM2_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_TROCR_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_GROUNDINGDINO_ENABLED", "False")
+os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
 from PIL import Image as PILImage
 
 from bench_finder.clients.base_detection_client import DetectionClient, DetectionResult
-from bench_finder.clients.multi_model_client import MultiModelDetectionClient
+from bench_finder.clients.multi_model_client import UnifiedMultiModelDetectionClient
 from bench_finder.clients.roboflow_client import RoboflowClient
 from bench_finder.clients.ultralytics_client import UltralyticsClient
 from bench_finder.config import DETECTION_BACKEND
@@ -30,10 +54,6 @@ from bench_finder.models.schemas import (
 )
 from bench_finder.services.database import BenchDatabase
 from examples.bench_generator import BenchCandidate
-
-
-if TYPE_CHECKING:
-    from bench_finder.models.streetview_models import StreetViewImageCapture
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +91,7 @@ class BenchDetector:
         self.detection_client: DetectionClient
         if self.detection_backend == "multi":
             logger.info("Initializing multi-model detection client with fallback")
-            self.detection_client = MultiModelDetectionClient()
+            self.detection_client = UnifiedMultiModelDetectionClient()
         elif self.detection_backend == "ultralytics":
             logger.info("Initializing Ultralytics detection backend (no fallback)")
             self.detection_client = UltralyticsClient()
@@ -189,7 +209,7 @@ class BenchDetector:
             return 0.0
 
     def process_benches_with_progress(
-        self, search_id: int, benches: list[BenchCandidate], progress, task
+        self, search_id: int, benches: list[BenchCandidate], progress: Progress, task
     ) -> ProcessingStats:
         """
         Process each bench: run detection on existing images.
@@ -287,7 +307,7 @@ class BenchDetector:
                 # Get all images for this bench
                 images = session.query(Image).filter(
                     Image.bench_id == db_bench.id,
-                    Image.capture_success == True
+                    Image.capture_success is True
                 ).all()
 
                 if not images:
@@ -297,7 +317,7 @@ class BenchDetector:
                 result.images_captured = len(images)
                 result.images_successful = len(images)
 
-        except Exception as e:
+        except Exception:
             logger.exception(f"Failed to get images for bench {bench.provider_id}")
             return result
 
@@ -306,6 +326,7 @@ class BenchDetector:
 
         # Phase 1: Run detection on all successful images and calculate pixel coverage
         detection_results: list[DetectionResult] = []
+        pixel_coverage_results: list[float] = []
         successful_images = []
 
         for image in images:
@@ -325,6 +346,7 @@ class BenchDetector:
                 )
 
                 detection_results.append(detection_result)
+                pixel_coverage_results.append(pixel_coverage)
                 result.detections_performed += 1
                 successful_images.append(image)
 
@@ -341,7 +363,7 @@ class BenchDetector:
                     f"Pixel coverage: {pixel_coverage:.1f}%"
                 )
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
                     f"Detection failed for bench {bench.provider_id}, image {image.filepath}"
                 )
@@ -350,15 +372,21 @@ class BenchDetector:
         representative_detection = None
 
         if detection_results:
-            # Sort by pixel coverage (descending), then by confidence (descending)
-            representative_detection = max(
-                detection_results, key=lambda x: (x.pixel_coverage, x.max_confidence)
-            )
+            # Find the index with highest pixel coverage, then highest confidence
+            best_index = 0
+            for i, (detection_result, pixel_coverage) in enumerate(zip(detection_results, pixel_coverage_results)):
+                current_best_coverage = pixel_coverage_results[best_index]
+                current_best_confidence = detection_results[best_index].max_confidence
+
+                if (pixel_coverage > current_best_coverage or
+                    (pixel_coverage == current_best_coverage and detection_result.max_confidence > current_best_confidence)):
+                    best_index = i
+            representative_detection = detection_results[best_index]
 
             logger.info(
-                f"🎯 Selected representative image: heading {representative_detection.image_path.heading}° "
-                f"with {representative_detection.pixel_coverage:.1f}% pixel coverage and "
-                f"{representative_detection.detection_result.max_confidence:.2f} confidence"
+                f"🎯 Selected representative image: heading {successful_images[best_index].heading}° "
+                f"with {pixel_coverage_results[best_index]:.1f}% pixel coverage and "
+                f"{detection_results[best_index].max_confidence:.2f} confidence"
             )
 
         # Phase 3: Save all detection results to database and display representative image
@@ -366,60 +394,12 @@ class BenchDetector:
             image = successful_images[i]
             image_id = image.id
 
-            if detection_result is None:
-                # Handle detection failure
-                error = "Detection failed"
-                if self.detection_backend == "ultralytics":
-                    self.database.add_ultralytics_detection(
-                        UltralyticsDetectionCreate(
-                            image_id=image_id,
-                            has_bench=False,
-                            bench_count=0,
-                            max_confidence=0.0,
-                            bench_detections=[],
-                            detection_success=False,
-                            detection_error=error,
-                            model_url=getattr(
-                                self.detection_client, "model_url", "unknown"
-                            ),
-                            confidence_threshold=getattr(
-                                self.detection_client, "confidence_threshold", 0.0
-                            ),
-                            iou_threshold=getattr(
-                                self.detection_client, "iou_threshold", 0.0
-                            ),
-                            image_size=getattr(
-                                self.detection_client, "image_size", 640
-                            ),
-                        )
-                    )
-                else:  # roboflow
-                    self.database.add_detection(
-                        DetectionCreate(
-                            image_id=image_id,
-                            has_bench=False,
-                            bench_count=0,
-                            max_confidence=0.0,
-                            detections=[],  # Empty list for failed detections
-                            detection_success=False,
-                            detection_error=error,
-                            model_id=getattr(
-                                self.detection_client, "model_id", "unknown"
-                            ),
-                            confidence_threshold=getattr(
-                                self.detection_client, "confidence_threshold", 0.0
-                            ),
-                        )
-                    )
-                continue
 
             # Store successful detection result
             if (
                 hasattr(detection_result, "bench_detections")
                 and hasattr(detection_result, "full_response")
             ) or self.detection_backend == "ultralytics":
-                # Ultralytics detection format
-                model_url = getattr(self.detection_client, "model_url", "unknown")
                 self.database.add_ultralytics_detection(
                     UltralyticsDetectionCreate(
                         image_id=image_id,
@@ -427,29 +407,17 @@ class BenchDetector:
                         bench_count=detection_result.bench_count,
                         max_confidence=detection_result.max_confidence,
                         full_response=getattr(detection_result, "full_response", {}),
-                        bench_detections=getattr(
-                            detection_result, "bench_detections", []
-                        ),
+                        bench_detections=detection_result.detections,
                         detection_success=True,
                         detection_error=None,
-                        model_url=model_url,
-                        confidence_threshold=getattr(
-                            self.detection_client, "confidence_threshold", 0.0
-                        ),
-                        iou_threshold=getattr(
-                            self.detection_client, "iou_threshold", 0.0
-                        ),
-                        image_size=getattr(self.detection_client, "image_size", 640),
+                        model_url=detection_result.model_id,
+                        confidence_threshold=self.detection_client.confidence_threshold,
+                        iou_threshold=0,
+                        image_size=640,
                         # Enhanced metadata for multi-model tracking
-                        inference_time=getattr(
-                            detection_result, "inference_time", None
-                        ),
-                        preprocess_time=getattr(
-                            detection_result, "preprocess_time", None
-                        ),
-                        postprocess_time=getattr(
-                            detection_result, "postprocess_time", None
-                        ),
+                        inference_time=detection_result.inference_time,
+                        preprocess_time=detection_result.preprocess_time,
+                        postprocess_time=detection_result.postprocess_time,
                     )
                 )
             else:
@@ -477,8 +445,8 @@ class BenchDetector:
 
             # Display and copy only the representative image
             if detection_result == representative_detection:
-                winning_model = getattr(detection_result, "winning_model", self.detection_backend)
-                pixel_coverage = getattr(detection_result, "pixel_coverage", 0.0)
+                winning_model = detection_result.backend_name
+                pixel_coverage = detection_result.pix
 
                 # Log detection success with model information
                 logger.info(
@@ -499,11 +467,6 @@ class BenchDetector:
                     f"(heading {image.heading}°) with {pixel_coverage:.1f}% pixel coverage "
                     f"and confidence {detection_result.max_confidence:.2f} using {winning_model}{copy_info}"
                 )
-
-                # Import here to avoid circular imports
-                from term_image.image import AutoImage
-                from tools.roboflow_detector import render_detections
-
                 # Pass StandardDetectionResult object directly to render_detections
                 print(
                     AutoImage(

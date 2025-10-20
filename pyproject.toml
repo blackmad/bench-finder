@@ -308,6 +308,7 @@ ignore = [
     "G004", # logging-format: logging statement uses f-string,
     "PERF203", # try in loop
     "TRY300", # consider moving to an else block
+    "TRY301", # raise to an inner function
 ]
 
 [tool.ruff.per-file-ignores]

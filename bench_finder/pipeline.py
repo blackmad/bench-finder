@@ -8,7 +8,7 @@ Detection is handled separately by the BenchDetector class.
 
 import logging
 import math
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
@@ -23,8 +23,6 @@ from bench_finder.utils import log_execution_time, retry_on_failure
 from examples.bench_generator import BenchCandidate, BenchGenerator
 from examples.mapillary_bench_generator import MapillaryBenchGenerator
 from examples.overpass_bench_generator import OverpassBenchGenerator
-
-
 
 
 logger = logging.getLogger(__name__)
