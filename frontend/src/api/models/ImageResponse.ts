@@ -40,4 +40,3 @@ export type ImageResponse = {
      */
     created_at: string;
 };
-

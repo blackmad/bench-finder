@@ -25,7 +25,7 @@ The following React hooks rules are enforced:
 
 ✅ **`useHookAtTopLevel`**: Prevents calling hooks conditionally or inside loops
 - Catches hooks in `if` statements
-- Catches hooks in `for/while` loops  
+- Catches hooks in `for/while` loops
 - Catches hooks called outside React components
 - Set to **error** level (fails build)
 
@@ -64,7 +64,7 @@ The setup includes automatic enforcement via:
 ## Verification Test Results
 
 ✅ **Conditional hooks detected**: `useState` inside `if` statement
-✅ **Hooks in loops detected**: `useEffect` inside `for` loop  
+✅ **Hooks in loops detected**: `useEffect` inside `for` loop
 ✅ **Hooks outside components detected**: `useState` at module level
 ✅ **Clean codebase**: No Rules of Hooks violations found in actual code
 
@@ -76,7 +76,7 @@ if (condition) {
   const [state] = useState(0) // Error: useHookAtTopLevel
 }
 
-// ❌ Hook in loop - CAUGHT  
+// ❌ Hook in loop - CAUGHT
 for (let i = 0; i < 3; i++) {
   useEffect(() => {}, []) // Error: useHookAtTopLevel
 }

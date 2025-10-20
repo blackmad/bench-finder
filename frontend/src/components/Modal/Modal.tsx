@@ -120,7 +120,7 @@ const NavigationArrow = styled.button<{ direction: "prev" | "next" }>`
   justify-content: center;
   min-width: 48px;
   min-height: 48px;
-  
+
   /* Ensure arrows are visible */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(4px);
@@ -133,7 +133,7 @@ const NavigationArrow = styled.button<{ direction: "prev" | "next" }>`
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-    
+
     &:hover {
       transform: translateY(-50%);
       background: rgba(0, 0, 0, 0.8);

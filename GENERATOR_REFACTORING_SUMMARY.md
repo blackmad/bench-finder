@@ -59,7 +59,7 @@ Successfully refactored `bench_finder.py` to use a flexible generator pattern th
 - Source tracking enables quality assessment
 - Confidence scores allow prioritization
 
-### Maintainability  
+### Maintainability
 - Clear separation of concerns
 - Structured data reduces bugs
 - Comprehensive error handling
@@ -90,7 +90,7 @@ results = bench_finder.find_benches("Times Square, NYC")
 class MyCustomBenchGenerator(BenchGenerator):
     def get_source_identifier(self) -> str:
         return "custom"
-    
+
     def find_benches_near_point(self, lat, lng, radius):
         # Implementation here
         return [BenchCandidate(...)]
@@ -108,7 +108,7 @@ class MyCustomBenchGenerator(BenchGenerator):
 ### Results
 ```
 ✅ Successfully imported bench generator modules
-✅ Created BenchCandidate: test_123 at (40.7359, -73.9911)  
+✅ Created BenchCandidate: test_123 at (40.7359, -73.9911)
 ✅ Created GeneratorStats: Test Generator, success rate: 80.0%
 ✅ OverpassBenchGenerator class definition is valid
 🎉 Core architecture validation completed successfully!
@@ -120,7 +120,7 @@ class MyCustomBenchGenerator(BenchGenerator):
 - No changes needed - existing CLI usage remains the same
 - Additional bench sources are automatically included if available
 
-### For Developers  
+### For Developers
 - `bench_finder.py` constructor now accepts `bench_generators` parameter
 - Bench dictionaries now include `source` field for tracking origin
 - Deduplication happens automatically in `_find_nearby_benches()`
@@ -145,7 +145,7 @@ class MyCustomBenchGenerator(BenchGenerator):
 3. **User submissions**: Crowd-sourced additions
 4. **Historical data**: Time-based bench tracking
 
-### Advanced Features  
+### Advanced Features
 1. **Weighted scoring**: Combine confidence from multiple sources
 2. **Temporal filtering**: Only recent Mapillary detections
 3. **Machine learning**: Predict bench locations from patterns

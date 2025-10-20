@@ -9,4 +9,3 @@ export type SearchListResponse = {
      */
     searches: Array<SearchSummary>;
 };
-

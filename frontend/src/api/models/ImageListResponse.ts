@@ -9,4 +9,3 @@ export type ImageListResponse = {
      */
     images: Array<ImageResponse>;
 };
-

@@ -29,10 +29,10 @@ const CardsContainer = styled.div`
   width: 100%;
   padding: ${({ theme }) => theme.spacing[8]} ${({ theme }) => theme.spacing[5]};
   background: ${({ theme }) => theme.colors.backgroundSecondary};
-  
+
   /* Ensure minimum width for grid layout */
   min-width: 0; /* Allow flexbox shrinking */
-  
+
   @media (max-width: 640px) {
     padding: ${({ theme }) => theme.spacing[6]} ${({ theme }) => theme.spacing[4]};
   }
@@ -43,25 +43,25 @@ const BenchGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: ${({ theme }) => theme.spacing[6]};
   margin-bottom: ${({ theme }) => theme.spacing[10]};
-  
+
   /* Mobile: Single column for very small screens */
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
     gap: ${({ theme }) => theme.spacing[4]};
   }
-  
+
   /* Tablet: Smaller minimum card width */
   @media (min-width: 641px) and (max-width: 1023px) {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: ${({ theme }) => theme.spacing[5]};
   }
-  
+
   /* Desktop: Default card size */
   @media (min-width: 1024px) {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: ${({ theme }) => theme.spacing[6]};
   }
-  
+
   /* Large desktop: Larger minimum card width */
   @media (min-width: 1280px) {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -155,10 +155,10 @@ const CardsPage: React.FC = () => {
 
   // Load initial data when filters change or when navigating to cards view
   useEffect(() => {
-    const hasNoData = state.clusteredMode 
+    const hasNoData = state.clusteredMode
       ? (state.clusteredBenches?.length || 0) === 0
       : (state.benches?.length || 0) === 0
-      
+
     if (hasNoData && !state.loading && state.config) {
       loadMoreBenches()
     }
@@ -174,7 +174,7 @@ const CardsPage: React.FC = () => {
   const handleImageClick = useCallback(
     (bench: WebBenchData, imageUrl: string, imageId: number) => {
       // In clustered mode, find the index in representative benches, otherwise use all benches
-      const benchesForIndex = state.clusteredMode && state.clusteredBenches?.length > 0 
+      const benchesForIndex = state.clusteredMode && state.clusteredBenches?.length > 0
         ? state.clusteredBenches.map(cluster => cluster.representative_bench)
         : state.benches
       const benchIndex = benchesForIndex?.findIndex((b) => b.id === bench.id) || 0
@@ -203,10 +203,10 @@ const CardsPage: React.FC = () => {
   const handleModalNavigate = useCallback(
     (direction: "prev" | "next") => {
       // In clustered mode, navigate through representative benches
-      const benchesForNavigation = state.clusteredMode && state.clusteredBenches?.length > 0 
+      const benchesForNavigation = state.clusteredMode && state.clusteredBenches?.length > 0
         ? state.clusteredBenches.map(cluster => cluster.representative_bench)
         : state.benches
-        
+
       if (!benchesForNavigation || benchesForNavigation.length === 0) return
 
       let newIndex =
@@ -245,7 +245,7 @@ const CardsPage: React.FC = () => {
   )
 
   // Determine which benches to display
-  const benchesToDisplay = state.clusteredMode && state.clusteredBenches?.length > 0 
+  const benchesToDisplay = state.clusteredMode && state.clusteredBenches?.length > 0
     ? state.clusteredBenches.map(cluster => cluster.representative_bench)
     : state.benches
 

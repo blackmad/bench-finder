@@ -20,4 +20,3 @@ export type MapillarySearchRequest = {
      */
     limit?: number;
 };
-

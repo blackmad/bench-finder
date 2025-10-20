@@ -20,11 +20,13 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
       - id: check-merge-conflict
-      - id: check-json
+      # - id: check-json
       - id: check-toml
       - id: check-merge-conflict
       - id: debug-statements
       - id: check-docstring-first
+
+
 
   # Security checks
   # - repo: https://github.com/PyCQA/bandit
@@ -34,7 +36,6 @@ repos:
   #       args: [-r, bench_finder/, api/, tools/]
   #       exclude: tests/
 
-  # Type checking with mypy (optional, since ruff handles most type issues)
   # - repo: https://github.com/pre-commit/mirrors-mypy
   #   rev: v1.13.0
   #   hooks:

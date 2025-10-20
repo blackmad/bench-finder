@@ -76,4 +76,3 @@ export type WebBenchData = {
      */
     distance_km: number;
 };
-

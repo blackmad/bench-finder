@@ -61,7 +61,7 @@ sqlite3 data/benches.db
 ### Core Pipeline (bench_finder.py)
 The main `BenchFinder` class orchestrates a 5-step pipeline:
 1. **Geocoding**: Convert location queries to coordinates using Google Maps API
-2. **Discovery**: Find nearby benches using OpenStreetMap Overpass API  
+2. **Discovery**: Find nearby benches using OpenStreetMap Overpass API
 3. **Image Capture**: Take Street View images at 4 headings (0°, 90°, 180°, 270°)
 4. **Detection**: Use AI models (Roboflow or Ultralytics) to detect benches in images
 5. **Storage**: Save all results to SQLite database with full metadata

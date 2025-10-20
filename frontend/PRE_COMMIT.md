@@ -29,7 +29,7 @@ Two pre-commit hooks have been set up:
 ## Commands
 
 - `npm run generate-api` - Generate from live server
-- `npm run generate-schema` - Generate local schema and then API client  
+- `npm run generate-schema` - Generate local schema and then API client
 - `npm run precommit:api` - Pre-commit friendly generation (won't fail if server is down)
 - `npm run dev:with-api` - Start development with auto API generation
 
@@ -80,8 +80,8 @@ npm uninstall husky lint-staged
 
 ## Benefits
 
-✅ **Always in sync**: API client matches your backend  
-✅ **Type safety**: No runtime errors from API changes  
-✅ **Team consistency**: Everyone gets the same generated code  
-✅ **Zero maintenance**: Happens automatically on commits  
+✅ **Always in sync**: API client matches your backend
+✅ **Type safety**: No runtime errors from API changes
+✅ **Team consistency**: Everyone gets the same generated code
+✅ **Zero maintenance**: Happens automatically on commits
 ✅ **Fail-safe**: Won't block commits if generation fails

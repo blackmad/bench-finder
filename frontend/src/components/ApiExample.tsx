@@ -303,7 +303,7 @@ const RefreshButton = styled.button`
   padding: 0.5rem 1rem;
   border-radius: 4px;
   cursor: pointer;
-  
+
   &:hover {
     background: #c53030;
   }
@@ -366,7 +366,7 @@ const ConfidenceDetails = styled.div`
   gap: 0.5rem;
   font-size: 0.75rem;
   color: #718096;
-  
+
   span {
     background: #edf2f7;
     padding: 0.125rem 0.25rem;
@@ -383,11 +383,11 @@ const RandomButton = styled.button`
   cursor: pointer;
   font-weight: 500;
   margin-bottom: 1rem;
-  
+
   &:hover:not(:disabled) {
     background: #3182ce;
   }
-  
+
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
@@ -399,12 +399,12 @@ const RandomBenchCard = styled.div`
   border: 1px solid #81e6d9;
   border-radius: 8px;
   padding: 1rem;
-  
+
   h4 {
     margin: 0 0 0.5rem 0;
     color: #234e52;
   }
-  
+
   p {
     margin: 0.25rem 0;
     color: #2d3748;
@@ -432,12 +432,12 @@ const InfoBox = styled.div`
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 1.5rem;
-  
+
   ul {
     margin: 1rem 0;
     padding-left: 1.5rem;
   }
-  
+
   li {
     margin: 0.5rem 0;
     color: #4a5568;
@@ -452,7 +452,7 @@ const CodeExample = styled.pre`
   overflow-x: auto;
   font-size: 0.85rem;
   margin-top: 1rem;
-  
+
   // Syntax highlighting
   .keyword { color: #f56565; }
   .string { color: #68d391; }

@@ -327,7 +327,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       })
 
       setIsSuccess(true)
-      
+
       // Auto-close after 3 seconds
       setTimeout(() => {
         onClose()

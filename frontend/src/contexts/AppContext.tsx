@@ -302,7 +302,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       let benches: WebBenchData[]
       let clusteredBenches: ClusteredBenchData[]
       let hasNext: boolean
-      
+
       if ("benches" in response) {
         // BenchListResponse
         benches = Array.isArray(response.benches) ? response.benches : []

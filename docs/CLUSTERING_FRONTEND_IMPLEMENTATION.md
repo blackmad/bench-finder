@@ -8,7 +8,7 @@ The frontend has been successfully updated to support and display clustered benc
 
 ### 1. OpenAPI Schema Updates
 - **File**: `openapi.json`
-- **Changes**: 
+- **Changes**:
   - Added `clustered` parameter (boolean, default: true) to the `/api/benches/bbox` endpoint
   - Updated response schema to support union of `BboxBenchResponse` and `ClusteredBenchListResponse`
   - Added complete schema definitions for:
@@ -21,11 +21,11 @@ The frontend has been successfully updated to support and display clustered benc
 - **Result**: New types and API methods now include clustering support
 - **New Types Generated**:
   - `ClusterInfo.ts`
-  - `ClusteredBenchData.ts` 
+  - `ClusteredBenchData.ts`
   - `ClusteredBenchListResponse.ts`
 
 ### 3. Frontend API Services Updates
-- **Files**: 
+- **Files**:
   - `src/services/api.ts`
   - `src/services/benchApi.ts`
 - **Changes**:
@@ -67,7 +67,7 @@ interface MapData {
 - Clustering status indicator when active
 
 ### 5. Visual Improvements
-- **Cluster Markers**: 
+- **Cluster Markers**:
   - Green background with white number showing bench count
   - Larger size (32px) to distinguish from individual benches
   - Red highlight when selected
@@ -99,7 +99,7 @@ if ('clustered_benches' in response) {
     clusteringInfo: response.clustering_info
   })
 } else {
-  // Handle individual response  
+  // Handle individual response
   setMapData({
     type: 'individual',
     benches: response.benches,

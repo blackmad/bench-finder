@@ -32,4 +32,3 @@ export type SearchSummary = {
      */
     created_at: string;
 };
-

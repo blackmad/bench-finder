@@ -24,4 +24,3 @@ export type PaginationInfo = {
      */
     has_next: boolean;
 };
-

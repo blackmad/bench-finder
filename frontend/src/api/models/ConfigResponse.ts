@@ -20,4 +20,3 @@ export type ConfigResponse = {
      */
     page_size: number;
 };
-

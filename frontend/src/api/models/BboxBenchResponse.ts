@@ -21,4 +21,3 @@ export type BboxBenchResponse = {
      */
     query_info?: Record<string, any>;
 };
-

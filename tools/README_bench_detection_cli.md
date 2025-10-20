@@ -87,7 +87,7 @@ The tool provides:
 ================================================================================
 ✅ Successful: 3/5
   - Roboflow Local
-  - Roboflow Cloud  
+  - Roboflow Cloud
   - Ultralytics Local
 
 ❌ Failed: 2

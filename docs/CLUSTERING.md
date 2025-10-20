@@ -7,7 +7,7 @@ The bench clustering system de-duplicates nearby benches by grouping them into c
 The clustering system consists of several key components:
 
 1. **Clustering Algorithm** (`clustering.py`) - Groups benches within a configurable distance
-2. **Clustered Bench Service** (`clustered_bench_service.py`) - Serves clustered data through API endpoints  
+2. **Clustered Bench Service** (`clustered_bench_service.py`) - Serves clustered data through API endpoints
 3. **API Integration** - Modified endpoints that serve clustered or individual bench data
 4. **Database Schema** - New `clustered_benches` table to store cluster information
 
@@ -147,7 +147,7 @@ The clustering distance can be adjusted when creating the clusterer:
 # More aggressive clustering (larger distance)
 clusterer = BenchClusterer(cluster_distance_meters=10.0)
 
-# Conservative clustering (smaller distance) 
+# Conservative clustering (smaller distance)
 clusterer = BenchClusterer(cluster_distance_meters=3.0)
 ```
 
@@ -158,7 +158,7 @@ clusterer = BenchClusterer(cluster_distance_meters=3.0)
 - **Better Performance**: Fewer data points to render and process
 - **Logical Grouping**: Related benches (e.g., multiple benches in a park) are grouped together
 
-### For Developers  
+### For Developers
 - **API Flexibility**: Choose between clustered or individual data per request
 - **Backward Compatibility**: Existing code continues to work
 - **Rich Metadata**: Cluster information provides additional context
@@ -252,7 +252,7 @@ python run_clustering.py stats
    ```bash
    # Run clustering first
    python run_clustering.py
-   
+
    # Update API calls to use clustered=true
    curl "/api/benches?clustered=true"
    ```
@@ -275,7 +275,7 @@ python run_clustering.py stats
 curl "http://localhost:8000/api/benches?clustered=true&min_confidence=0.8&page_size=10"
 ```
 
-### Get Individual Benches  
+### Get Individual Benches
 ```bash
 curl "http://localhost:8000/api/benches?clustered=false&min_confidence=0.8&page_size=10"
 ```

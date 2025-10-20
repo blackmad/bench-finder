@@ -24,7 +24,7 @@ The bench finder now supports Mapillary as a data source for finding benches wit
    ```bash
    # Optional: Set image size (default: 2048px)
    export MAPILLARY_IMAGE_SIZE=2048
-   
+
    # Optional: Enable/disable image downloading (default: true)
    export MAPILLARY_DOWNLOAD_IMAGES=true
    ```

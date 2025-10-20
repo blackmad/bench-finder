@@ -97,7 +97,7 @@ const Badge = styled.div<{
   font-size: ${({ theme }) => theme.typography.sizes.xs};
   font-weight: ${({ theme }) => theme.typography.weights.semibold};
   text-transform: uppercase;
-  
+
   ${({ $variant, theme }) => {
     switch ($variant) {
       case "confidence":
@@ -311,16 +311,16 @@ const HoverMap = styled.div`
     opacity: 1;
     transform: translateY(0);
   }
-  
+
   /* Ensure leaflet controls don't show in minimap */
   .leaflet-control-container {
     display: none !important;
   }
-  
+
   .leaflet-attribution-flag {
     display: none !important;
   }
-  
+
   .leaflet-control-attribution {
     display: none !important;
   }

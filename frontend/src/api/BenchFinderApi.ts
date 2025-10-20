@@ -43,4 +43,3 @@ export class BenchFinderApi {
         this.statistics = new StatisticsService(this.request);
     }
 }
-

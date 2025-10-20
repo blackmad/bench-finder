@@ -235,7 +235,7 @@ const Stats = styled.div`
 const CoordinatesGroup = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing[3]};
-  
+
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
     display: none;
   }

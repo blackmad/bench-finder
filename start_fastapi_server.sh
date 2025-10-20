@@ -55,13 +55,13 @@ show_help() {
 
 check_dependencies() {
     echo -e "${BLUE}🔍 Checking dependencies...${NC}"
-    
+
     # Check Python
     if ! command -v python3 &> /dev/null; then
         echo -e "${RED}❌ Python 3 is required but not installed${NC}"
         exit 1
     fi
-    
+
     # Check if uv is available
     if command -v uv &> /dev/null; then
         echo -e "${BLUE}✅ uv detected - using modern Python tooling${NC}"
@@ -77,18 +77,18 @@ check_dependencies() {
             exit 1
         }
     fi
-    
+
     # Check if fastapi_server.py exists
     if [ ! -f "fastapi_server.py" ]; then
         echo -e "${RED}❌ fastapi_server.py not found${NC}"
         exit 1
     fi
-    
+
     # Check database file
     if [ ! -f "*.db" ] && [ ! -f "*bench*.db" ]; then
         echo -e "${YELLOW}⚠️  No database file found - the server may not work properly${NC}"
     fi
-    
+
     echo -e "${GREEN}✅ All dependencies check passed${NC}"
 }
 
@@ -104,12 +104,12 @@ start_development() {
     echo "   - Log level: ${LOG_LEVEL}"
     echo "   - Single worker process"
     echo ""
-    
+
     RELOAD_FLAG=""
     if [ "$RELOAD" = true ]; then
         RELOAD_FLAG="--reload"
     fi
-    
+
     # Use uv if available, otherwise fallback to python3
     if command -v uv &> /dev/null && [ -d ".venv" ]; then
         uv run uvicorn fastapi_server:app \
@@ -144,7 +144,7 @@ start_production() {
     echo "   - Configure environment variables for security"
     echo "   - Use a process manager (systemd, supervisor, etc.)"
     echo ""
-    
+
     if [ "$WORKERS" -gt 1 ]; then
         # Check if gunicorn is available
         if command -v uv &> /dev/null && [ -d ".venv" ]; then

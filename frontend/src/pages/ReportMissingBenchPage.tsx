@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  ArrowLeft, MapPin, Camera, Send, Check, AlertCircle, 
+import {
+  ArrowLeft, MapPin, Camera, Send, Check, AlertCircle,
   Crosshair, Map as MapIcon, Smartphone, Image as ImageIcon
 } from 'lucide-react'
 import styled from 'styled-components'
@@ -130,7 +130,7 @@ const StatusMessage = styled.div<{ $type: 'info' | 'success' | 'error' }>`
   padding: ${({ theme }) => theme.spacing[3]} ${({ theme }) => theme.spacing[4]};
   border-radius: ${({ theme }) => theme.borderRadius.md};
   font-size: ${({ theme }) => theme.typography.sizes.sm};
-  
+
   ${({ $type, theme }) => {
     switch ($type) {
       case 'success':
@@ -183,7 +183,7 @@ const MapInstructions = styled.div`
   box-shadow: ${({ theme }) => theme.shadows.sm};
   z-index: 1000;
   text-align: center;
-  
+
   p {
     margin: 0;
     color: ${({ theme }) => theme.colors.textSecondary};
@@ -390,7 +390,7 @@ const ReportMissingBenchPage: React.FC = () => {
   const handleModeChange = async (newMode: Mode) => {
     setMode(newMode)
     setStatusMessage(null)
-    
+
     if (newMode === 'gps') {
       if (userLocation) {
         setLocation(userLocation)
@@ -414,11 +414,11 @@ const ReportMissingBenchPage: React.FC = () => {
 
   const handleCaptureImage = async () => {
     try {
-      const result = await captureImage({ 
-        preferCamera: true, 
-        maxWidth: 1920, 
-        maxHeight: 1920, 
-        quality: 0.8 
+      const result = await captureImage({
+        preferCamera: true,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.8
       })
       setCapturedImage(result)
       setStatusMessage({ type: 'success', text: 'Photo captured successfully!' })
@@ -514,8 +514,8 @@ const ReportMissingBenchPage: React.FC = () => {
 
           {statusMessage && (
             <StatusMessage $type={statusMessage.type}>
-              {statusMessage.type === 'error' ? <AlertCircle size={16} /> : 
-               statusMessage.type === 'success' ? <Check size={16} /> : 
+              {statusMessage.type === 'error' ? <AlertCircle size={16} /> :
+               statusMessage.type === 'success' ? <Check size={16} /> :
                <MapPin size={16} />}
               {statusMessage.text}
             </StatusMessage>
@@ -542,8 +542,8 @@ const ReportMissingBenchPage: React.FC = () => {
                 <Marker position={[location.lat, location.lng]} />
               )}
               {userLocation && userLocation !== location && (
-                <Marker 
-                  position={[userLocation.lat, userLocation.lng]} 
+                <Marker
+                  position={[userLocation.lat, userLocation.lng]}
                   icon={L.divIcon({
                     html: '📱',
                     className: 'user-location-marker',

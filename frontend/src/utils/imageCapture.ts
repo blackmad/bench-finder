@@ -37,7 +37,7 @@ export async function compressImage(
       try {
         // Calculate new dimensions
         let { width, height } = img;
-        
+
         if (width > height) {
           if (width > maxWidth) {
             height = (height * maxWidth) / width;
@@ -54,7 +54,7 @@ export async function compressImage(
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        
+
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           reject(new Error('Failed to get canvas context'));
@@ -108,7 +108,7 @@ export function captureImage(
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    
+
     if (options.preferCamera) {
       input.capture = 'environment'; // Use rear camera on mobile
     }
@@ -190,7 +190,7 @@ export function supportsCameraCapture(): boolean {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  
+
   // Check if capture attribute is supported
   return 'capture' in input && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
 }

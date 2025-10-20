@@ -33,8 +33,8 @@ Replace your old API calls with the new type-safe client:
 // OLD (manual axios calls)
 import { api } from './services/api'
 
-const response = await api.get('/api/benches', { 
-  params: { page: 0, min_confidence: 0.8 } 
+const response = await api.get('/api/benches', {
+  params: { page: 0, min_confidence: 0.8 }
 })
 
 // NEW (type-safe generated client)
@@ -404,8 +404,8 @@ function ErrorBoundary({ children }: { children: React.ReactNode }) {
     <ErrorBoundary
       fallbackRender={({ error }) => (
         <div>
-          {error instanceof ApiError 
-            ? `API Error: ${error.message}` 
+          {error instanceof ApiError
+            ? `API Error: ${error.message}`
             : 'Unexpected Error'
           }
         </div>

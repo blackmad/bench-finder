@@ -18,7 +18,7 @@ Enhanced the MapillaryBenchGenerator to automatically break down large search ar
 
 ### 3. **Overlap and Deduplication**
 - **Small overlap**: 0.0001° (~10m) between adjacent chunks prevents missing detections at boundaries
-- **Image-level deduplication**: Removes duplicate images that may appear in overlapping chunks  
+- **Image-level deduplication**: Removes duplicate images that may appear in overlapping chunks
 - **Candidate-level deduplication**: Prevents duplicate bench candidates from same images
 
 ### 4. **Comprehensive Logging**
@@ -33,7 +33,7 @@ Enhanced the MapillaryBenchGenerator to automatically break down large search ar
 
 ```python
 # Calculate area dimensions in meters
-lat_meters = (max_lat - min_lat) * 111000  
+lat_meters = (max_lat - min_lat) * 111000
 lng_meters = (max_lng - min_lng) * 111000 * math.cos(math.radians(center_lat))
 
 # Determine number of chunks needed
@@ -79,7 +79,7 @@ candidates = generator.find_benches_near_point(40.7812, -73.9665, radius=1000)
 # → Automatically breaks into 5×4 = 20 chunks
 
 # Small area search uses single call
-candidates = generator.find_benches_near_point(40.7812, -73.9665, radius=50) 
+candidates = generator.find_benches_near_point(40.7812, -73.9665, radius=50)
 # → Uses single API call (no chunking needed)
 ```
 
@@ -94,7 +94,7 @@ MAPILLARY_API_LIMIT_PER_REQUEST=500  # Lower per-request limits
 
 ```
 INFO: Large search area (500m radius) - breaking into chunks of 200m
-DEBUG: Search area: 1000m x 758m  
+DEBUG: Search area: 1000m x 758m
 INFO: Breaking search area into 5x4 = 20 chunks
 DEBUG: Searching chunk 1/20: (-73.9956, 40.7314) to (-73.9933, 40.7333)
 DEBUG: Chunk 1 found 3 images
@@ -117,7 +117,7 @@ INFO: Found 0 unique Mapillary benches from 60 images
 - **API rate limiting**: Better compliance with API rate limits
 
 ### Data Quality
-- **Complete coverage**: Overlaps ensure no gaps at chunk boundaries  
+- **Complete coverage**: Overlaps ensure no gaps at chunk boundaries
 - **Deduplication**: Prevents duplicate processing of same images/benches
 - **Source tracking**: Maintains full audit trail of which chunks found which data
 

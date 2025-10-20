@@ -155,7 +155,7 @@ const GlobalStyles = createGlobalStyle`
     body {
       background: white;
     }
-    
+
     .no-print {
       display: none !important;
     }

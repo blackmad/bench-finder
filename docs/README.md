@@ -156,7 +156,7 @@ The SQLite database stores comprehensive results across four main tables:
 ### Tables
 
 1. **searches** - Search queries and metadata
-2. **benches** - OSM bench data and coordinates  
+2. **benches** - OSM bench data and coordinates
 3. **images** - Street View image capture results
 4. **detections** - AI detection results with confidence scores
 
@@ -166,13 +166,13 @@ The SQLite database stores comprehensive results across four main tables:
 -- Get all successful detections with high confidence
 SELECT s.query, b.lat, b.lng, d.max_confidence, i.filepath
 FROM searches s
-JOIN benches b ON s.id = b.search_id  
+JOIN benches b ON s.id = b.search_id
 JOIN images i ON b.id = i.bench_id
 JOIN detections d ON i.id = d.image_id
 WHERE d.has_bench = 1 AND d.max_confidence > 0.8;
 
 -- Search statistics
-SELECT 
+SELECT
     s.query,
     s.bench_count,
     COUNT(i.id) as total_images,
@@ -180,7 +180,7 @@ SELECT
     MAX(d.max_confidence) as best_confidence
 FROM searches s
 LEFT JOIN benches b ON s.id = b.search_id
-LEFT JOIN images i ON b.id = i.bench_id  
+LEFT JOIN images i ON b.id = i.bench_id
 LEFT JOIN detections d ON i.id = d.image_id
 GROUP BY s.id;
 ```
@@ -194,7 +194,7 @@ The application follows a modular architecture with clear separation of concerns
 - **BenchFinder**: Main orchestrator class
 - **Geocoder**: Google Geocoding API wrapper
 - **OverpassClient**: OpenStreetMap data fetching
-- **StreetViewClient**: Google Street View image capture  
+- **StreetViewClient**: Google Street View image capture
 - **RoboflowClient**: AI-powered bench detection
 - **BenchDatabase**: SQLite data persistence
 
@@ -275,7 +275,7 @@ Enable detailed logging to troubleshoot issues:
 ### Optimization Tips
 
 - Use smaller image sizes to reduce API costs
-- Implement local caching for repeat queries  
+- Implement local caching for repeat queries
 - Batch process multiple locations
 - Consider parallel processing for image analysis
 
@@ -303,7 +303,7 @@ Potential future features that could be added to this async web project:
 
 - **Real-time Processing**: WebSocket updates for long-running operations
 - **Map Visualization**: Interactive maps showing bench locations and detection results
-- **Batch Processing**: Queue system for processing multiple locations  
+- **Batch Processing**: Queue system for processing multiple locations
 - **API Endpoints**: REST API for integration with other applications
 - **Result Analytics**: Statistical analysis and reporting dashboard
 - **User Management**: Multi-user support with saved searches

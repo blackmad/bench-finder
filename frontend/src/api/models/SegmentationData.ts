@@ -40,4 +40,3 @@ export type SegmentationData = {
      */
     source?: string;
 };
-
