@@ -184,7 +184,9 @@ class MapillaryBenchGenerator(BenchGenerator):
     ) -> list[MapillaryImage]:
         lat_meters = (max_lat - min_lat) * 111000
         lng_meters = (
-            (max_lng - min_lng) * 111000 * math.cos(math.radians((min_lat + max_lat) / 2))
+            (max_lng - min_lng)
+            * 111000
+            * math.cos(math.radians((min_lat + max_lat) / 2))
         )
 
         logger.debug(f"Search area: {lat_meters:.0f}m x {lng_meters:.0f}m")
@@ -205,13 +207,21 @@ class MapillaryBenchGenerator(BenchGenerator):
 
         for lat_i in range(lat_chunks):
             for lng_i in range(lng_chunks):
-                chunk_min_lat = min_lat + (lat_i * lat_step) - (overlap_deg if lat_i > 0 else 0)
-                chunk_max_lat = min_lat + ((lat_i + 1) * lat_step) + (
-                    overlap_deg if lat_i < lat_chunks - 1 else 0
+                chunk_min_lat = (
+                    min_lat + (lat_i * lat_step) - (overlap_deg if lat_i > 0 else 0)
                 )
-                chunk_min_lng = min_lng + (lng_i * lng_step) - (overlap_deg if lng_i > 0 else 0)
-                chunk_max_lng = min_lng + ((lng_i + 1) * lng_step) + (
-                    overlap_deg if lng_i < lng_chunks - 1 else 0
+                chunk_max_lat = (
+                    min_lat
+                    + ((lat_i + 1) * lat_step)
+                    + (overlap_deg if lat_i < lat_chunks - 1 else 0)
+                )
+                chunk_min_lng = (
+                    min_lng + (lng_i * lng_step) - (overlap_deg if lng_i > 0 else 0)
+                )
+                chunk_max_lng = (
+                    min_lng
+                    + ((lng_i + 1) * lng_step)
+                    + (overlap_deg if lng_i < lng_chunks - 1 else 0)
                 )
 
                 chunk_min_lat = max(chunk_min_lat, min_lat)
@@ -249,7 +259,9 @@ class MapillaryBenchGenerator(BenchGenerator):
         logger.info(f"After deduplication: {len(unique_images)} unique images")
         return unique_images
 
-    def _deduplicate_images_by_id(self, images: list[MapillaryImage]) -> list[MapillaryImage]:
+    def _deduplicate_images_by_id(
+        self, images: list[MapillaryImage]
+    ) -> list[MapillaryImage]:
         seen_ids = set()
         unique_images: list[MapillaryImage] = []
         for image in images:
@@ -260,7 +272,9 @@ class MapillaryBenchGenerator(BenchGenerator):
                 logger.debug(f"Skipping duplicate image: {image.image_id}")
         return unique_images
 
-    def _deduplicate_by_image_id(self, candidates: list[BenchCandidate]) -> list[BenchCandidate]:
+    def _deduplicate_by_image_id(
+        self, candidates: list[BenchCandidate]
+    ) -> list[BenchCandidate]:
         seen_image_ids = set()
         unique_candidates: list[BenchCandidate] = []
         for candidate in candidates:

@@ -110,9 +110,7 @@ class UltralyticsClient(DetectionClient):
                 model.save(self.local_model_path)
                 logger.info(f"Model downloaded and saved to {self.local_model_path}")
             except Exception:
-                logger.exception(
-                    f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}"
-                )
+                logger.exception(f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}")
                 raise
 
     def detect_benches_in_image(self, image_path: str) -> DetectionResult:

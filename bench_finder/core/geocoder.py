@@ -94,9 +94,7 @@ class Geocoder:
             return formatted_address
 
         except googlemaps.exceptions.ApiError:
-            logger.exception(
-                f"Google Maps API error reverse geocoding {lat}, {lng}"
-            )
+            logger.exception(f"Google Maps API error reverse geocoding {lat}, {lng}")
             return None
         except Exception:
             logger.exception(f"Unexpected error reverse geocoding {lat}, {lng}")

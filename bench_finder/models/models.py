@@ -379,7 +379,6 @@ class BenchCandidate(Base):
 
     __tablename__ = "bench_candidates"
 
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     search_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("searches.id"), nullable=False

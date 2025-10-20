@@ -3,13 +3,16 @@
 Entry point for the bench finder application.
 This script delegates to the main bench_finder module.
 """
+
 import sys
 from pathlib import Path
+
 
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from cli import main
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())

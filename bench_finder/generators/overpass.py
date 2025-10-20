@@ -31,7 +31,9 @@ class OverpassBenchGenerator(BenchGenerator):
             logger.debug(
                 f"Searching OSM for benches near {lat}, {lng} (radius: {radius}m)"
             )
-            search_result = self.overpass_client.find_benches_near_point(lat, lng, radius)
+            search_result = self.overpass_client.find_benches_near_point(
+                lat, lng, radius
+            )
 
             bench_candidates: list[BenchCandidate] = []
             for osm_bench in search_result.benches:
@@ -70,4 +72,6 @@ class OverpassBenchGenerator(BenchGenerator):
     def find_benches_in_area(
         self, min_lng: float, min_lat: float, max_lng: float, max_lat: float, **kwargs
     ) -> list[BenchCandidate]:
-        return super().find_benches_in_area(min_lng, min_lat, max_lng, max_lat, **kwargs)
+        return super().find_benches_in_area(
+            min_lng, min_lat, max_lng, max_lat, **kwargs
+        )

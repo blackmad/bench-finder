@@ -392,26 +392,27 @@ class BenchDatabase:
                 for bench in benches:
                     # Get images with their detections
                     images_with_detections = [
-                            ImageWithDetections(
-                                id=image.id,
-                                bench_id=image.bench_id,
-                                heading=image.heading,
-                                filepath=image.filepath,
-                                filename=image.filename,
-                                file_size=image.file_size,
-                                capture_success=image.capture_success,
-                                capture_error=image.capture_error,
-                                created_at=image.created_at,
-                                detections=[
-                                    DetectionResponse.model_validate(d)
-                                    for d in image.detections
-                                ],
-                                ultralytics_detections=[
-                                    UltralyticsDetectionResponse.model_validate(d)
-                                    for d in image.ultralytics_detections
-                                ],
-                            )
-                        for image in bench.images]
+                        ImageWithDetections(
+                            id=image.id,
+                            bench_id=image.bench_id,
+                            heading=image.heading,
+                            filepath=image.filepath,
+                            filename=image.filename,
+                            file_size=image.file_size,
+                            capture_success=image.capture_success,
+                            capture_error=image.capture_error,
+                            created_at=image.created_at,
+                            detections=[
+                                DetectionResponse.model_validate(d)
+                                for d in image.detections
+                            ],
+                            ultralytics_detections=[
+                                UltralyticsDetectionResponse.model_validate(d)
+                                for d in image.ultralytics_detections
+                            ],
+                        )
+                        for image in bench.images
+                    ]
 
                     bench_with_detections = BenchWithDetections(
                         id=bench.id,
@@ -540,9 +541,11 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
-                candidate = session.query(BenchCandidate).filter(
-                    BenchCandidate.id == candidate_id
-                ).first()
+                candidate = (
+                    session.query(BenchCandidate)
+                    .filter(BenchCandidate.id == candidate_id)
+                    .first()
+                )
 
                 if candidate:
                     candidate.status = status
@@ -554,10 +557,14 @@ class BenchDatabase:
                     return False
 
         except Exception:
-            logger.exception(f"Error updating candidate {candidate_id} status to {status}")
+            logger.exception(
+                f"Error updating candidate {candidate_id} status to {status}"
+            )
             return False
 
-    def get_bench_candidates_by_status(self, search_id: int, status: str) -> list[BenchCandidate]:
+    def get_bench_candidates_by_status(
+        self, search_id: int, status: str
+    ) -> list[BenchCandidate]:
         """
         Get bench candidates for a search filtered by status.
 
@@ -574,7 +581,7 @@ class BenchDatabase:
                     session.query(BenchCandidate)
                     .filter(
                         BenchCandidate.search_id == search_id,
-                        BenchCandidate.status == status
+                        BenchCandidate.status == status,
                     )
                     .all()
                 )
@@ -593,11 +600,7 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
-                latest_search = (
-                    session.query(Search)
-                    .order_by(Search.id.desc())
-                    .first()
-                )
+                latest_search = session.query(Search).order_by(Search.id.desc()).first()
                 return latest_search.id if latest_search else None
 
         except Exception:

@@ -1,15 +1,15 @@
 repos:
   # # Ruff for linting and formatting
-  # - repo: https://github.com/astral-sh/ruff-pre-commit
-  #   rev: v0.8.4
-  #   hooks:
-  #     # Run the linter
-  #     - id: ruff
-  #       args: [--fix, --exit-non-zero-on-fix]
-  #       pass_filenames: true
-  #     # Run the formatter
-  #     - id: ruff-format
-  #       pass_filenames: true
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        pass_filenames: true
+      # Run the formatter
+      - id: ruff-format
+        pass_filenames: true
 
   # Additional useful hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

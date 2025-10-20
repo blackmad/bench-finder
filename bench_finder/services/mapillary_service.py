@@ -168,9 +168,7 @@ class MapillaryBenchService:
                 )
 
             except Exception:
-                logger.exception(
-                    "Error during Mapillary bench storage, rolling back"
-                )
+                logger.exception("Error during Mapillary bench storage, rolling back")
                 session.rollback()
                 raise
 

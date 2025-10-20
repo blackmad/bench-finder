@@ -12,9 +12,6 @@ import tempfile
 from typing import Optional
 
 import cv2
-from PIL import Image, ImageDraw, ImageFont
-from term_image.image import ITerm2Image, from_file
-from term_image.utils import get_terminal_name_version
 
 # # Add the project root to the Python path
 # project_root = Path(__file__).parent.parent
@@ -26,11 +23,15 @@ from clients.base_detection_client import (
 from clients.multi_model_client import UnifiedMultiModelDetectionClient
 from clients.roboflow_client import RoboflowClient
 from clients.ultralytics_client import UltralyticsClient
+from PIL import Image, ImageDraw, ImageFont
+from term_image.image import ITerm2Image, from_file
+from term_image.utils import get_terminal_name_version
 
 
 # Force iTerm2 image support for warp
 if get_terminal_name_version()[0] == "warp":
     ITerm2Image.is_supported = lambda *_: True
+
 
 def render_detections(
     image_path: str, result: DetectionResult, model_name: str = "Model"

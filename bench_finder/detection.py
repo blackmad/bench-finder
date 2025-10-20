@@ -297,23 +297,32 @@ class BenchDetector:
                 from models.models import Bench, Image
 
                 # Find the bench by provider_id and search_id
-                db_bench = session.query(Bench).filter(
-                    Bench.provider_id == bench.provider_id,
-                    Bench.search_id == search_id
-                ).first()
+                db_bench = (
+                    session.query(Bench)
+                    .filter(
+                        Bench.provider_id == bench.provider_id,
+                        Bench.search_id == search_id,
+                    )
+                    .first()
+                )
 
                 if not db_bench:
                     logger.warning(f"Bench {bench.provider_id} not found in database")
                     return result
 
                 # Get all images for this bench
-                images = session.query(Image).filter(
-                    Image.bench_id == db_bench.id,
-                    Image.capture_success is True
-                ).all()
+                images = (
+                    session.query(Image)
+                    .filter(
+                        Image.bench_id == db_bench.id, Image.capture_success is True
+                    )
+                    .all()
+                )
 
                 if not images:
-                    logger.warning(f"No successful images found for bench {bench.provider_id}")
+                    logger.warning(
+                        f"No successful images found for bench {bench.provider_id}"
+                    )
                     return result
 
                 result.images_captured = len(images)
@@ -376,12 +385,16 @@ class BenchDetector:
         if detection_results:
             # Find the index with highest pixel coverage, then highest confidence
             best_index = 0
-            for i, (detection_result, pixel_coverage) in enumerate(zip(detection_results, pixel_coverage_results)):
+            for i, (detection_result, pixel_coverage) in enumerate(
+                zip(detection_results, pixel_coverage_results)
+            ):
                 current_best_coverage = pixel_coverage_results[best_index]
                 current_best_confidence = detection_results[best_index].max_confidence
 
-                if (pixel_coverage > current_best_coverage or
-                    (pixel_coverage == current_best_coverage and detection_result.max_confidence > current_best_confidence)):
+                if pixel_coverage > current_best_coverage or (
+                    pixel_coverage == current_best_coverage
+                    and detection_result.max_confidence > current_best_confidence
+                ):
                     best_index = i
             representative_detection = detection_results[best_index]
 
@@ -395,7 +408,6 @@ class BenchDetector:
         for i, detection_result in enumerate(detection_results):
             image = successful_images[i]
             image_id = image.id
-
 
             # Store successful detection result
             if (
@@ -518,20 +530,33 @@ class BenchDetector:
         try:
             with self.database.get_session() as session:
                 from models.models import BenchCandidate
-                candidate = session.query(BenchCandidate).filter(
-                    BenchCandidate.provider_id == bench.provider_id,
-                    BenchCandidate.search_id == search_id
-                ).first()
+
+                candidate = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.provider_id == bench.provider_id,
+                        BenchCandidate.search_id == search_id,
+                    )
+                    .first()
+                )
 
                 if candidate:
                     # Only update status if it's not already detection_done
                     if candidate.status != BenchCandidateStatus.DETECTION_DONE:
-                        self.database.update_bench_candidate_status(candidate.id, BenchCandidateStatus.DETECTION_DONE)
-                        logger.debug(f"Updated candidate {candidate.id} status to detection_done")
+                        self.database.update_bench_candidate_status(
+                            candidate.id, BenchCandidateStatus.DETECTION_DONE
+                        )
+                        logger.debug(
+                            f"Updated candidate {candidate.id} status to detection_done"
+                        )
                     else:
-                        logger.debug(f"Candidate {candidate.id} already has status detection_done, skipping update")
+                        logger.debug(
+                            f"Candidate {candidate.id} already has status detection_done, skipping update"
+                        )
                 else:
-                    logger.warning(f"Could not find candidate with provider_id {bench.provider_id} to update status")
+                    logger.warning(
+                        f"Could not find candidate with provider_id {bench.provider_id} to update status"
+                    )
         except Exception as e:
             logger.warning(f"Failed to update candidate status: {e}")
 

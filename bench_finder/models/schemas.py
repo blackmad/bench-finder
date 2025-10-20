@@ -122,7 +122,9 @@ class DetectionBase(BaseModel):
     detection_error: Optional[str] = None
     model_id: str
     confidence_threshold: float
-    source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics', 'mapillary'
+    source: DetectionSource = (
+        DetectionSource.ROBOFLOW
+    )  # 'roboflow', 'ultralytics', 'mapillary'
     external_detection_id: Optional[str] = None  # For Mapillary detection IDs
 
 

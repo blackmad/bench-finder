@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from clients.mapillary_client import MapillaryBenchDetector
 from clients.overpass_client import OverpassClient
 from config import SEARCH_RADIUS_METERS
+
 from models.unified_models import CombinedSearchResult
 
 

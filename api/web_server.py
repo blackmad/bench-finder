@@ -17,7 +17,6 @@ from config import (
 )
 from database import BenchDatabase
 from flask import Flask, jsonify, render_template, request, send_from_directory
-from models.enums import DataSource, DetectionSource
 from schemas import (
     BenchListResponse,
     ConfigResponse,
@@ -30,11 +29,12 @@ from schemas import (
     SourceSearchRequest,
     WebBenchData,
 )
-
 from services.mapillary_service import (
     get_mapillary_service,
     initialize_mapillary_service,
 )
+
+from models.enums import DataSource, DetectionSource
 
 
 app = Flask(__name__)
@@ -44,7 +44,6 @@ DEFAULT_START_LAT = 52.3613577  # Amsterdam, Netherlands (matches actual data)
 DEFAULT_START_LNG = 4.8666322
 DEFAULT_MIN_CONFIDENCE = 0.8
 PAGE_SIZE = 20
-
 
 
 if MAPILLARY_ACCESS_TOKEN:

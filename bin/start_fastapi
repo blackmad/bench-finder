@@ -3,53 +3,52 @@
 Production-ready startup script for the FastAPI Bench Finder server.
 Provides both development and production configurations.
 """
+
+import argparse
 import os
 import sys
-import argparse
 from pathlib import Path
+
 import uvicorn
 
 
 def get_app_config():
     """Get application configuration from environment variables."""
     return {
-        'host': os.getenv('HOST', '0.0.0.0'),
-        'port': int(os.getenv('PORT', '8866')),
-        'workers': int(os.getenv('WORKERS', '1')),
-        'log_level': os.getenv('LOG_LEVEL', 'info').lower(),
-        'reload': os.getenv('RELOAD', 'false').lower() == 'true',
+        "host": os.getenv("HOST", "0.0.0.0"),
+        "port": int(os.getenv("PORT", "8866")),
+        "workers": int(os.getenv("WORKERS", "1")),
+        "log_level": os.getenv("LOG_LEVEL", "info").lower(),
+        "reload": os.getenv("RELOAD", "false").lower() == "true",
     }
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Start the FastAPI Bench Finder server')
-    parser.add_argument(
-        '--mode',
-        choices=['dev', 'prod'],
-        default='dev',
-        help='Server mode: dev (development) or prod (production)'
+    parser = argparse.ArgumentParser(
+        description="Start the FastAPI Bench Finder server"
     )
     parser.add_argument(
-        '--host',
-        default=None,
-        help='Host to bind to (overrides environment)'
+        "--mode",
+        choices=["dev", "prod"],
+        default="dev",
+        help="Server mode: dev (development) or prod (production)",
     )
     parser.add_argument(
-        '--port',
+        "--host", default=None, help="Host to bind to (overrides environment)"
+    )
+    parser.add_argument(
+        "--port", type=int, default=None, help="Port to bind to (overrides environment)"
+    )
+    parser.add_argument(
+        "--workers",
         type=int,
         default=None,
-        help='Port to bind to (overrides environment)'
+        help="Number of worker processes (production mode only)",
     )
     parser.add_argument(
-        '--workers',
-        type=int,
-        default=None,
-        help='Number of worker processes (production mode only)'
-    )
-    parser.add_argument(
-        '--reload',
-        action='store_true',
-        help='Enable auto-reload on code changes (development only)'
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload on code changes (development only)",
     )
 
     args = parser.parse_args()
@@ -57,13 +56,13 @@ def main():
 
     # Override config with command line arguments
     if args.host:
-        config['host'] = args.host
+        config["host"] = args.host
     if args.port:
-        config['port'] = args.port
+        config["port"] = args.port
     if args.workers:
-        config['workers'] = args.workers
+        config["workers"] = args.workers
     if args.reload:
-        config['reload'] = True
+        config["reload"] = True
 
     # Ensure the FastAPI server module is importable
     current_dir = Path(__file__).parent
@@ -76,27 +75,27 @@ def main():
     print(f"📚 API Docs: http://{config['host']}:{config['port']}/docs")
     print(f"🔄 Redoc: http://{config['host']}:{config['port']}/redoc")
 
-    if args.mode == 'dev':
+    if args.mode == "dev":
         print("\n🔧 Development Configuration:")
         print(f"   - Hot reload: {'✅' if config['reload'] else '❌'}")
         print(f"   - Log level: {config['log_level']}")
-        print(f"   - Single worker process")
+        print("   - Single worker process")
 
         # Development server with hot reload
         uvicorn.run(
             "api.fastapi_server:app",
-            host=config['host'],
-            port=config['port'],
-            reload=config['reload'],
-            log_level=config['log_level'],
-            access_log=True
+            host=config["host"],
+            port=config["port"],
+            reload=config["reload"],
+            log_level=config["log_level"],
+            access_log=True,
         )
 
     else:  # production mode
         print("\n🏭 Production Configuration:")
         print(f"   - Workers: {config['workers']}")
         print(f"   - Log level: {config['log_level']}")
-        print(f"   - Hot reload: disabled")
+        print("   - Hot reload: disabled")
         print("\n⚠️  Production mode recommendations:")
         print("   - Use a reverse proxy (nginx, caddy, etc.)")
         print("   - Set up proper logging and monitoring")
@@ -104,11 +103,10 @@ def main():
         print("   - Use a process manager (systemd, supervisor, etc.)")
 
         # Production server configuration
-        if config['workers'] > 1:
+        if config["workers"] > 1:
             print(f"\n🔀 Starting {config['workers']} worker processes...")
             # For multiple workers, we need to use Gunicorn with uvicorn workers
             try:
-                import gunicorn.app.wsgiapp
                 from gunicorn.app.base import BaseApplication
 
                 class StandaloneApplication(BaseApplication):
@@ -118,8 +116,11 @@ def main():
                         super().__init__()
 
                     def load_config(self):
-                        config = {key: value for key, value in self.options.items()
-                                if key in self.cfg.settings and value is not None}
+                        config = {
+                            key: value
+                            for key, value in self.options.items()
+                            if key in self.cfg.settings and value is not None
+                        }
                         for key, value in config.items():
                             self.cfg.set(key.lower(), value)
 
@@ -127,34 +128,37 @@ def main():
                         return self.application
 
                 options = {
-                    'bind': f"{config['host']}:{config['port']}",
-                    'workers': config['workers'],
-                    'worker_class': 'uvicorn.workers.UvicornWorker',
-                    'log_level': config['log_level'],
-                    'access_log': True,
-                    'preload_app': True,
+                    "bind": f"{config['host']}:{config['port']}",
+                    "workers": config["workers"],
+                    "worker_class": "uvicorn.workers.UvicornWorker",
+                    "log_level": config["log_level"],
+                    "access_log": True,
+                    "preload_app": True,
                 }
 
                 from api.fastapi_server import app
+
                 StandaloneApplication(app, options).run()
 
             except ImportError:
-                print("⚠️  Gunicorn not available, falling back to single uvicorn worker")
+                print(
+                    "⚠️  Gunicorn not available, falling back to single uvicorn worker"
+                )
                 uvicorn.run(
                     "api.fastapi_server:app",
-                    host=config['host'],
-                    port=config['port'],
-                    log_level=config['log_level'],
-                    access_log=True
+                    host=config["host"],
+                    port=config["port"],
+                    log_level=config["log_level"],
+                    access_log=True,
                 )
         else:
             # Single worker production server
             uvicorn.run(
                 "api.fastapi_server:app",
-                host=config['host'],
-                port=config['port'],
-                log_level=config['log_level'],
-                access_log=True
+                host=config["host"],
+                port=config["port"],
+                log_level=config["log_level"],
+                access_log=True,
             )
 
 

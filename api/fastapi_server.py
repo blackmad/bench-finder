@@ -12,14 +12,20 @@ from datetime import datetime
 from typing import Any, Optional, Union
 
 import uvicorn
+from config import DATABASE_PATH, IMAGES_DIR
 from fastapi import Body, Depends, FastAPI, HTTPException, Path, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from services.clustered_bench_service import ClusteredBenchService
+from services.database import BenchDatabase
+from services.mapillary_service import (
+    get_mapillary_service,
+    initialize_mapillary_service,
+)
 
-from config import DATABASE_PATH, IMAGES_DIR
-from models.enums import DataSource, DetectionSource, BenchReportType, LocationMethod
+from models.enums import BenchReportType, DataSource, DetectionSource, LocationMethod
 from models.schemas import (
     ApiInfoResponse,
     BenchListResponse,
@@ -39,12 +45,6 @@ from models.schemas import (
     SourceStatsResponse,
     WebBenchData,
 )
-from services.clustered_bench_service import ClusteredBenchService
-from services.database import BenchDatabase
-from services.mapillary_service import (
-    get_mapillary_service,
-    initialize_mapillary_service,
-)
 
 
 # Configuration constants
@@ -52,7 +52,6 @@ DEFAULT_START_LAT = 52.3613577  # Amsterdam, Netherlands (matches actual data)
 DEFAULT_START_LNG = 4.8666322
 DEFAULT_MIN_CONFIDENCE = 0.8
 PAGE_SIZE = 20
-
 
 
 class EnhancedErrorResponse(BaseModel):
@@ -76,7 +75,6 @@ class EnhancedErrorResponse(BaseModel):
     timestamp: datetime = Field(
         default_factory=datetime.utcnow, description="When the error occurred"
     )
-
 
 
 # Enhanced Pydantic models for FastAPI with OpenAPI documentation
@@ -376,9 +374,6 @@ async def health_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Service unhealthy: {e!s}",
         ) from e
-
-
-
 
 
 # Utility function for bench data processing (shared with Flask version)
@@ -1389,7 +1384,11 @@ async def get_api_info():
         version="2.0.0",
         description="A comprehensive API for discovering and analyzing public benches using computer vision",
         supported_sources=[DataSource.OSM, DataSource.MAPILLARY],
-        supported_detection_models=[DetectionSource.ROBOFLOW, DetectionSource.ULTRALYTICS, DetectionSource.MAPILLARY],
+        supported_detection_models=[
+            DetectionSource.ROBOFLOW,
+            DetectionSource.ULTRALYTICS,
+            DetectionSource.MAPILLARY,
+        ],
         features=[
             "spatial_search",
             "confidence_filtering",
@@ -2040,7 +2039,9 @@ async def get_mapillary_config():
 )
 async def report_bad_bench(
     bench_id: int = Path(..., gt=0, description="Bench ID to report"),
-    report_type: BenchReportType = Body(BenchReportType.BAD_DETECTION, description="Type of report"),
+    report_type: BenchReportType = Body(
+        BenchReportType.BAD_DETECTION, description="Type of report"
+    ),
     description: Optional[str] = Body(
         None, description="Optional description of the issue"
     ),
@@ -2237,7 +2238,6 @@ async def report_missing_bench(
         from datetime import datetime
 
         from PIL import Image
-
         from services.database import BenchDatabase
 
         db = BenchDatabase()

@@ -64,7 +64,6 @@ class RoboflowClient(DetectionClient):
         # Initialize base class with confidence threshold
         super().__init__(confidence_threshold or ROBOFLOW_CONFIDENCE_THRESHOLD)
 
-
         # Import local inference dependencies
         try:
             from inference import get_model
@@ -172,9 +171,7 @@ class RoboflowClient(DetectionClient):
             logger.exception(f"Image file not found: {image_path}")
             return self._create_error_result(image_path, "File not found")
         except Exception as e:
-            logger.exception(
-                f"Unexpected error in local inference for {image_path}"
-            )
+            logger.exception(f"Unexpected error in local inference for {image_path}")
             return self._create_error_result(image_path, f"Local inference error: {e}")
 
     def _detect_benches_cloud(self, image_path: str) -> DetectionResult:
@@ -229,9 +226,7 @@ class RoboflowClient(DetectionClient):
             logger.exception("Network error calling Roboflow API")
             return self._create_error_result(image_path, f"Network error: {e}")
         except Exception as e:
-            logger.exception(
-                f"Unexpected error in cloud inference for {image_path}"
-            )
+            logger.exception(f"Unexpected error in cloud inference for {image_path}")
             return self._create_error_result(image_path, f"Cloud inference error: {e}")
 
     def _process_detection_result(

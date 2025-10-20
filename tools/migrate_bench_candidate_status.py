@@ -34,7 +34,7 @@ def migrate_database():
         cursor.execute("PRAGMA table_info(bench_candidates)")
         columns = [column[1] for column in cursor.fetchall()]
 
-        if 'status' in columns:
+        if "status" in columns:
             logger.info("Status column already exists, skipping migration")
             return True
 
@@ -70,7 +70,7 @@ def migrate_database():
 
     except Exception:
         logger.exception("Migration failed")
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.rollback()
             conn.close()
         return False
@@ -80,7 +80,7 @@ def main():
     """Main migration function."""
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     logger.info("Starting bench_candidates status migration")

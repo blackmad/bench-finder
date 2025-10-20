@@ -33,7 +33,9 @@ class ImageDownloadService:
         self.streetview_client = StreetViewClient()
         self.database = BenchDatabase()
 
-        logger.info("ImageDownloadService initialized for image downloading and caching")
+        logger.info(
+            "ImageDownloadService initialized for image downloading and caching"
+        )
 
     def process_benches(
         self, search_id: int, benches: list[BenchCandidate]
@@ -259,20 +261,36 @@ class ImageDownloadService:
         try:
             with self.database.get_session() as session:
                 from models.models import BenchCandidate
-                candidate = session.query(BenchCandidate).filter(
-                    BenchCandidate.provider_id == bench.provider_id,
-                    BenchCandidate.search_id == search_id
-                ).first()
+
+                candidate = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.provider_id == bench.provider_id,
+                        BenchCandidate.search_id == search_id,
+                    )
+                    .first()
+                )
 
                 if candidate:
                     # Only update status if it's not already image_download_done or detection_done
-                    if candidate.status not in [BenchCandidateStatus.IMAGE_DOWNLOAD_DONE, BenchCandidateStatus.DETECTION_DONE]:
-                        self.database.update_bench_candidate_status(candidate.id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE)
-                        logger.debug(f"Updated candidate {candidate.id} status to image_download_done")
+                    if candidate.status not in [
+                        BenchCandidateStatus.IMAGE_DOWNLOAD_DONE,
+                        BenchCandidateStatus.DETECTION_DONE,
+                    ]:
+                        self.database.update_bench_candidate_status(
+                            candidate.id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE
+                        )
+                        logger.debug(
+                            f"Updated candidate {candidate.id} status to image_download_done"
+                        )
                     else:
-                        logger.debug(f"Candidate {candidate.id} already has status {candidate.status}, skipping update")
+                        logger.debug(
+                            f"Candidate {candidate.id} already has status {candidate.status}, skipping update"
+                        )
                 else:
-                    logger.warning(f"Could not find candidate with provider_id {bench.provider_id} to update status")
+                    logger.warning(
+                        f"Could not find candidate with provider_id {bench.provider_id} to update status"
+                    )
         except Exception as e:
             logger.warning(f"Failed to update candidate status: {e}")
 

@@ -75,6 +75,7 @@ def detect(
     # Load the pre-trained model
     try:
         from inference import get_model
+
         model = get_model(model_id=model_id)
     except Exception as e:
         typer.echo(f"Error loading model '{model_id}': {e}", err=True)

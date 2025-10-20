@@ -224,9 +224,7 @@ def list_candidates(
     candidates = database.get_bench_candidates(search_id)
 
     if not candidates:
-        console.print(
-            f"[yellow]No candidates found for search ID {search_id}[/yellow]"
-        )
+        console.print(f"[yellow]No candidates found for search ID {search_id}[/yellow]")
         return
 
     console.print(
@@ -237,10 +235,11 @@ def list_candidates(
     _display_candidates_table(candidates, output_format)
 
 
-
 @app.command("run-detections")
 def run_detections(
-    search_id: Optional[int] = typer.Argument(None, help="Search ID to run detections for (defaults to latest search)"),
+    search_id: Optional[int] = typer.Argument(
+        None, help="Search ID to run detections for (defaults to latest search)"
+    ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
@@ -279,12 +278,16 @@ def run_detections(
         if search_id is None:
             search_id = database.get_latest_search_id()
             if search_id is None:
-                console.print("[red]No searches found in database. Please run a search first.[/red]")
+                console.print(
+                    "[red]No searches found in database. Please run a search first.[/red]"
+                )
                 return
             console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
 
         # Get candidates with image_download_done status
-        candidates = database.get_bench_candidates_by_status(search_id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE)
+        candidates = database.get_bench_candidates_by_status(
+            search_id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE
+        )
 
         if not candidates:
             console.print(
@@ -342,7 +345,7 @@ def run_detections(
         ) as progress:
             task = progress.add_task(
                 f"🤖 Running detections on {len(bench_candidates)} candidates",
-                total=len(bench_candidates)
+                total=len(bench_candidates),
             )
 
             results = detector.process_benches_with_progress(
@@ -350,9 +353,7 @@ def run_detections(
             )
 
         # Display results
-        console.print(
-            "\n[bold green]✅ Detection complete![/bold green]"
-        )
+        console.print("\n[bold green]✅ Detection complete![/bold green]")
         console.print("[bold]📊 Detection Summary:[/bold]")
         console.print(f"   • Candidates processed: {results.benches_processed}")
         console.print(f"   • Benches detected: {results.benches_detected}")
@@ -374,7 +375,9 @@ def run_detections(
 
 @app.command("fetch-images")
 def fetch_images(
-    search_id: Optional[int] = typer.Argument(None, help="Search ID to fetch images for (defaults to latest search)"),
+    search_id: Optional[int] = typer.Argument(
+        None, help="Search ID to fetch images for (defaults to latest search)"
+    ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
@@ -413,7 +416,9 @@ def fetch_images(
         if search_id is None:
             search_id = database.get_latest_search_id()
             if search_id is None:
-                console.print("[red]No searches found in database. Please run a search first.[/red]")
+                console.print(
+                    "[red]No searches found in database. Please run a search first.[/red]"
+                )
                 return
             console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
 
@@ -445,7 +450,6 @@ def fetch_images(
 
         console.print("[dim]Image download service initialized[/dim]\n")
 
-
         bench_candidates = []
         for candidate in candidates:
             # Ensure provider_id is always a string
@@ -474,7 +478,7 @@ def fetch_images(
         ) as progress:
             task = progress.add_task(
                 f"📸 Downloading images for {len(bench_candidates)} candidates",
-                total=len(bench_candidates)
+                total=len(bench_candidates),
             )
 
             results = image_service.process_benches_with_progress(
@@ -482,16 +486,16 @@ def fetch_images(
             )
 
         # Display results
-        console.print(
-            "\n[bold green]✅ Image downloading complete![/bold green]"
-        )
+        console.print("\n[bold green]✅ Image downloading complete![/bold green]")
         console.print("[bold]📊 Download Summary:[/bold]")
         console.print(f"   • Candidates processed: {results.benches_processed}")
         console.print(f"   • Benches added to database: {results.benches_added}")
         console.print(f"   • Images captured: {results.images_captured}")
         console.print(f"   • Images successful: {results.images_successful}")
 
-        console.print("\n[dim]💡 Note: This command only downloads and caches images. Run detection separately if needed.[/dim]")
+        console.print(
+            "\n[dim]💡 Note: This command only downloads and caches images. Run detection separately if needed.[/dim]"
+        )
 
         # Update search status to completed
         database.update_search_status(search_id, "completed")
