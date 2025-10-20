@@ -7,6 +7,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .enums import DataSource
+
 
 class UnifiedBenchTags(BaseModel):
     """Unified tags for bench data from any source."""
@@ -33,7 +35,7 @@ class UnifiedBench(BaseModel):
     """Unified bench model that can represent data from any source."""
 
     provider_id: str = Field(..., description="Unique provider ID")
-    source: str = Field(..., description="Data source: 'osm', 'mapillary'")
+    source: DataSource = Field(..., description="Data source: 'osm', 'mapillary'")
     external_id: str = Field(..., description="External system ID")
     lat: float = Field(..., description="Bench latitude")
     lng: float = Field(..., description="Bench longitude")
@@ -62,7 +64,7 @@ class UnifiedBench(BaseModel):
         """Create UnifiedBench from OSMBench."""
         return cls(
             provider_id=osm_bench.provider_id,
-            source="osm",
+            source=DataSource.OSM,
             external_id=osm_bench.external_id,
             lat=osm_bench.lat,
             lng=osm_bench.lng,
@@ -82,7 +84,7 @@ class UnifiedBench(BaseModel):
         """Create UnifiedBench from MapillaryDetection."""
         return cls(
             provider_id=f"mapillary_{detection.detection_id}",
-            source="mapillary",
+            source=DataSource.MAPILLARY,
             external_id=detection.detection_id,
             lat=image_coords[1],  # Mapillary uses (lng, lat) format
             lng=image_coords[0],
@@ -234,7 +236,7 @@ class CombinedSearchResult(BaseModel):
         """Get list of sources that returned results."""
         sources = []
         if self.osm_result and self.osm_result.has_benches:
-            sources.append("osm")
+            sources.append(DataSource.OSM)
         if self.mapillary_result and self.mapillary_result.has_benches:
-            sources.append("mapillary")
+            sources.append(DataSource.MAPILLARY)
         return sources

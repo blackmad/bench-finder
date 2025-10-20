@@ -7,6 +7,8 @@ import logging
 from typing import Optional
 
 import typer
+from config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
+from core.geocoder import Geocoder
 from generators.bench_generator import BenchCandidate, BenchGenerator
 from generators.mapillary import MapillaryBenchGenerator
 from generators.overpass import OverpassBenchGenerator
@@ -20,12 +22,12 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.table import Table
-
-from config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
-from core.geocoder import Geocoder
-from models.schemas import SearchCreate
 from services.database import BenchDatabase
 from utils import setup_logging
+
+from models.schemas import SearchCreate
+
+from .models.enums import BenchCandidateStatus
 
 
 # Initialize Typer app and console
@@ -282,7 +284,7 @@ def run_detections(
             console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
 
         # Get candidates with image_download_done status
-        candidates = database.get_bench_candidates_by_status(search_id, "image_download_done")
+        candidates = database.get_bench_candidates_by_status(search_id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE)
 
         if not candidates:
             console.print(
@@ -382,7 +384,7 @@ def fetch_images(
         help="Maximum number of candidates to process (for testing)",
     ),
     status: str = typer.Option(
-        "pending",
+        BenchCandidateStatus.PENDING,
         "--status",
         help="Process candidates with this status (pending, image_download_done, detection_done, or all)",
     ),

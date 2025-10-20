@@ -5,12 +5,14 @@ Tries Ultralytics first, then falls back to multiple Roboflow models.
 
 import logging
 
-from ..config import (
+from config import (
     ROBOFLOW_API_KEY,
     ROBOFLOW_MODELS,
     ULTRALYTICS_API_KEY,
     ULTRALYTICS_USE_LOCAL,
 )
+
+from ..models.enums import DetectionSource
 from .base_detection_client import (
     DetectionAttempt,
     DetectionResult,
@@ -97,7 +99,7 @@ class MultiModelRoboflowClient:
 
                 # Record the attempt
                 attempt = DetectionAttempt(
-                    model_type="roboflow",
+                    model_type=DetectionSource.ROBOFLOW,
                     model_id=model_id,
                     success=result.success,
                     has_bench=result.has_bench,
@@ -129,7 +131,7 @@ class MultiModelRoboflowClient:
                     f"Error with Roboflow model {model_name} - id {model_id}"
                 )
                 attempt = DetectionAttempt(
-                    model_type="roboflow",
+                    model_type=DetectionSource.ROBOFLOW,
                     model_id=model_id,
                     success=False,
                     has_bench=False,
@@ -264,7 +266,7 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                 )
 
                 attempt = DetectionAttempt(
-                    model_type="ultralytics",
+                    model_type=DetectionSource.ULTRALYTICS,
                     model_id="ultralytics",
                     success=ultralytics_result.success,
                     has_bench=ultralytics_result.has_bench,
@@ -307,7 +309,7 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
             except Exception as e:
                 logger.exception("❌ Ultralytics detection failed")
                 attempt = DetectionAttempt(
-                    model_type="ultralytics",
+                    model_type=DetectionSource.ULTRALYTICS,
                     model_id="ultralytics",
                     success=False,
                     has_bench=False,

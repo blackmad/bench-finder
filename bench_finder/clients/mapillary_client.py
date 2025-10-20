@@ -7,11 +7,11 @@ import os
 from typing import Optional
 
 import requests
-
 from clients.base_location_client import (
     BaseLocationClient,
     LocationSearchResult,
 )
+
 from models.mapillary_models import (
     MapillaryDetection,
     MapillaryDetectionStatistics,

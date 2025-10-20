@@ -12,15 +12,18 @@ import logging
 import math
 from typing import Optional
 
-from ..config import DATABASE_PATH
-from ..core.clustering import BenchClusterer
-from ..models.schemas import (
+from config import DATABASE_PATH
+from core.clustering import BenchClusterer
+
+from models.schemas import (
     ClusteredBenchData,
     ClusteredBenchListResponse,
     ClusterInfo,
     PaginationInfo,
     WebBenchData,
 )
+
+from ..models.enums import DataSource, DetectionSource
 from .database import BenchDatabase
 
 
@@ -160,18 +163,18 @@ class ClusteredBenchService:
                     )
 
                     # Determine detection type based on source and confidence
-                    if row["source"] == "mapillary":
-                        detection_type = "mapillary"
+                    if row["source"] == DataSource.MAPILLARY:
+                        detection_type = DetectionSource.MAPILLARY
                     elif (
                         ultralytics_conf > 0
                         and ultralytics_conf >= roboflow_conf * 0.95
                     ):
-                        detection_type = "ultralytics"
+                        detection_type = DetectionSource.ULTRALYTICS
                     else:
                         detection_type = (
-                            "roboflow"
+                            DetectionSource.ROBOFLOW
                             if roboflow_conf > ultralytics_conf
-                            else "ultralytics"
+                            else DetectionSource.ULTRALYTICS
                         )
 
                     bench_data = WebBenchData(
@@ -180,7 +183,7 @@ class ClusteredBenchService:
                         lat=row["lat"],
                         lng=row["lng"],
                         tags=tags,
-                        source=row["source"] or "osm",
+                        source=row["source"] or DataSource.OSM,
                         external_id=row["external_id"],
                         best_confidence=round(best_confidence, 3),
                         roboflow_confidence=round(roboflow_conf, 3),

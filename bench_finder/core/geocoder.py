@@ -6,7 +6,6 @@ import logging
 from typing import Optional
 
 import googlemaps
-
 from config import GOOGLE_MAPS_API_KEY
 
 

@@ -17,6 +17,7 @@ from config import (
 )
 from database import BenchDatabase
 from flask import Flask, jsonify, render_template, request, send_from_directory
+from models.enums import DataSource, DetectionSource
 from schemas import (
     BenchListResponse,
     ConfigResponse,
@@ -253,15 +254,15 @@ def get_high_confidence_benches_filtered(
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
                 # Determine detection type based on source and confidence
-                if row["source"] == "mapillary":
-                    detection_type = "mapillary"
+                if row["source"] == DataSource.MAPILLARY:
+                    detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
-                    detection_type = "ultralytics"
+                    detection_type = DetectionSource.ULTRALYTICS
                 else:
                     detection_type = (
-                        "roboflow"
+                        DetectionSource.ROBOFLOW
                         if roboflow_conf > ultralytics_conf
-                        else "ultralytics"
+                        else DetectionSource.ULTRALYTICS
                     )
 
                 bench_data = WebBenchData(
@@ -270,7 +271,7 @@ def get_high_confidence_benches_filtered(
                     lat=row["lat"],
                     lng=row["lng"],
                     tags=tags,
-                    source=row["source"] or "osm",
+                    source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
@@ -479,15 +480,15 @@ def get_high_confidence_benches(
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
                 # Determine detection type based on source and confidence
-                if row["source"] == "mapillary":
-                    detection_type = "mapillary"
+                if row["source"] == DataSource.MAPILLARY:
+                    detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
-                    detection_type = "ultralytics"
+                    detection_type = DetectionSource.ULTRALYTICS
                 else:
                     detection_type = (
-                        "roboflow"
+                        DetectionSource.ROBOFLOW
                         if roboflow_conf > ultralytics_conf
-                        else "ultralytics"
+                        else DetectionSource.ULTRALYTICS
                     )
 
                 bench_data = WebBenchData(
@@ -496,7 +497,7 @@ def get_high_confidence_benches(
                     lat=row["lat"],
                     lng=row["lng"],
                     tags=tags,
-                    source=row["source"] or "osm",
+                    source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
@@ -659,7 +660,7 @@ def api_image_segmentation(image_id: int):
                 max_confidence = max(
                     max_confidence, ultralytics_row["max_confidence"] or 0.0
                 )
-                detection_sources.append("ultralytics")
+                detection_sources.append(DetectionSource.ULTRALYTICS)
 
             # Try to get Roboflow bounding box data
             roboflow_query = """
@@ -681,7 +682,7 @@ def api_image_segmentation(image_id: int):
                 max_confidence = max(
                     max_confidence, roboflow_row["max_confidence"] or 0.0
                 )
-                detection_sources.append("roboflow")
+                detection_sources.append(DetectionSource.ROBOFLOW)
 
             # Check if we have any detection data
             if not bench_detections and not roboflow_detections:
@@ -693,10 +694,10 @@ def api_image_segmentation(image_id: int):
                 source = "both"
             elif bench_detections:
                 detection_type = "segmentation"
-                source = "ultralytics"
+                source = DetectionSource.ULTRALYTICS
             else:
                 detection_type = "bounding_box"
-                source = "roboflow"
+                source = DetectionSource.ROBOFLOW
 
             result = SegmentationData(
                 filename=filename,
@@ -787,7 +788,7 @@ def api_mapillary_search():
             center_lng=data["center_lng"],
             radius_meters=data.get("radius_meters", 1000),
             limit=data.get("limit", 1000),
-            source="mapillary",
+            source=DataSource.MAPILLARY,
         )
 
         # Search and store bench detections
@@ -821,13 +822,13 @@ def api_benches_by_source(source: str):
         page_size = min(page_size, 50)
 
         # For Mapillary, use the service if available
-        if source == "mapillary" and get_mapillary_service():
+        if source == DataSource.MAPILLARY and get_mapillary_service():
             benches = get_mapillary_service().get_stored_benches(
                 center_lat=start_lat,
                 center_lng=start_lng,
                 radius_meters=2000,  # Larger radius for stored data
                 limit=page_size,
-                source="mapillary",
+                source=DataSource.MAPILLARY,
             )
 
             pagination = PaginationInfo(
@@ -959,7 +960,7 @@ def api_random_bench():
                         lat=bench_row["lat"],
                         lng=bench_row["lng"],
                         tags=tags,
-                        source=bench_row["source"] or "osm",
+                        source=bench_row["source"] or DataSource.OSM,
                         external_id=bench_row["external_id"],
                         best_confidence=min_confidence,  # Approximate
                         roboflow_confidence=0,
@@ -1147,15 +1148,15 @@ def api_benches_in_bbox():
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
                 # Determine detection type based on source and confidence
-                if row["source"] == "mapillary":
-                    detection_type = "mapillary"
+                if row["source"] == DataSource.MAPILLARY:
+                    detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
-                    detection_type = "ultralytics"
+                    detection_type = DetectionSource.ULTRALYTICS
                 else:
                     detection_type = (
-                        "roboflow"
+                        DetectionSource.ROBOFLOW
                         if roboflow_conf > ultralytics_conf
-                        else "ultralytics"
+                        else DetectionSource.ULTRALYTICS
                     )
 
                 bench_data = WebBenchData(
@@ -1164,7 +1165,7 @@ def api_benches_in_bbox():
                     lat=row["lat"],
                     lng=row["lng"],
                     tags=tags,
-                    source=row["source"] or "osm",
+                    source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
@@ -1207,12 +1208,12 @@ def api_statistics_by_source(source: str):
         center_lng = request.args.get("center_lng", type=float)
         radius_meters = request.args.get("radius_meters", type=int)
 
-        if source == "mapillary" and get_mapillary_service():
+        if source == DataSource.MAPILLARY and get_mapillary_service():
             stats = get_mapillary_service().get_detection_statistics(
                 center_lat=center_lat,
                 center_lng=center_lng,
                 radius_meters=radius_meters,
-                source="mapillary",
+                source=DataSource.MAPILLARY,
             )
             return jsonify(stats.model_dump())
 

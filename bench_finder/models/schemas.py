@@ -7,6 +7,14 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .enums import (
+    BenchReportType,
+    DataSource,
+    DetectionSource,
+    LocationMethod,
+    SearchStatus,
+)
+
 
 class SearchBase(BaseModel):
     """Base schema for search operations."""
@@ -27,7 +35,7 @@ class SearchResponse(SearchBase):
     id: int
     created_at: datetime
     completed_at: Optional[datetime] = None
-    status: str = "pending"
+    status: SearchStatus = SearchStatus.PENDING
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,7 +61,7 @@ class BenchBase(BaseModel):
     lat: float
     lng: float
     tags: dict[str, Any] = {}
-    source: str = "osm"  # 'osm' or 'mapillary'
+    source: DataSource = DataSource.OSM  # 'osm' or 'mapillary'
     external_id: Optional[str] = None  # For Mapillary image IDs
 
 
@@ -114,7 +122,7 @@ class DetectionBase(BaseModel):
     detection_error: Optional[str] = None
     model_id: str
     confidence_threshold: float
-    source: str = "roboflow"  # 'roboflow', 'ultralytics', 'mapillary'
+    source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics', 'mapillary'
     external_detection_id: Optional[str] = None  # For Mapillary detection IDs
 
 
@@ -216,13 +224,13 @@ class WebBenchData(BaseModel):
     lat: float
     lng: float
     tags: dict[str, Any] = {}
-    source: str  # 'osm' or 'mapillary'
+    source: DataSource  # 'osm' or 'mapillary'
     external_id: Optional[str] = None
     best_confidence: float
     roboflow_confidence: float = 0.0
     ultralytics_confidence: float = 0.0
     mapillary_confidence: float = 0.0
-    detection_type: str
+    detection_type: DetectionSource
     has_segmentation: bool
     image_count: int
     image_filenames: list[str]
@@ -247,7 +255,7 @@ class ClusterInfo(BaseModel):
     bench_count: int
     max_distance_meters: float
     avg_confidence: float
-    sources: list[str]  # List of data sources in cluster
+    sources: list[DataSource]  # List of data sources in cluster
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -303,7 +311,7 @@ class SegmentationData(BaseModel):
 
     # Common metadata
     confidence_score: float = 0.0
-    source: str = "unknown"  # 'roboflow', 'ultralytics'
+    source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics'
 
 
 class ImageListResponse(BaseModel):
@@ -335,13 +343,13 @@ class SourceSearchRequest(BaseModel):
     center_lng: float
     radius_meters: int = 1000
     limit: int = 1000
-    source: str  # 'osm', 'mapillary'
+    source: DataSource  # 'osm', 'mapillary'
 
 
 class SourceStatistics(BaseModel):
     """Schema for source-specific statistics."""
 
-    source: str
+    source: DataSource
     total_benches: int
     total_detections: int
     avg_detections_per_bench: float
@@ -567,8 +575,8 @@ class ApiInfoResponse(BaseModel):
     name: str
     version: str
     description: str
-    supported_sources: list[str]
-    supported_detection_models: list[str]
+    supported_sources: list[DataSource]
+    supported_detection_models: list[DetectionSource]
     features: list[str]
     endpoints: dict[str, str]
     limits: dict[str, Any]
@@ -580,7 +588,7 @@ class MapillaryConfigResponse(BaseModel):
     mapillary_enabled: bool
     default_radius_meters: int
     default_limit: int
-    supported_detection_types: list[str]
+    supported_detection_types: list[DetectionSource]
     max_radius_meters: int
     max_limit: int
     features: dict[str, Any]
@@ -593,7 +601,7 @@ class ReportResponse(BaseModel):
     report_id: int
     message: str
     bench_id: int
-    report_type: str
+    report_type: BenchReportType
     created_at: str
 
 
@@ -604,7 +612,7 @@ class MissingBenchReportResponse(BaseModel):
     report_id: int
     message: str
     location: dict[str, float]
-    location_method: str
+    location_method: LocationMethod
     has_image: bool
     created_at: str
 
@@ -612,7 +620,7 @@ class MissingBenchReportResponse(BaseModel):
 class SourceStatsResponse(BaseModel):
     """Schema for source statistics response."""
 
-    source: str
+    source: DataSource
     total_benches: int
     total_images: int
     total_detections: int
@@ -636,7 +644,7 @@ class BenchCandidateBase(BaseModel):
     lat: float
     lng: float
     tags: Optional[dict[str, Any]] = None
-    source: str = "osm"
+    source: DataSource = DataSource.OSM
     external_id: Optional[str] = None
     confidence: Optional[float] = None
 

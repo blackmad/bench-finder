@@ -17,6 +17,8 @@ from term_image.image import AutoImage
 
 from tools.bench_detection_cli import render_detections
 
+from .models.enums import BenchCandidateStatus
+
 
 # Set environment variables to suppress inference model dependency warnings
 os.environ.setdefault("CORE_MODEL_PE_ENABLED", "False")
@@ -34,9 +36,6 @@ os.environ.setdefault("CORE_MODEL_TROCR_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_GROUNDINGDINO_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
-from generators.bench_generator import BenchCandidate
-from PIL import Image as PILImage
-
 from clients.base_detection_client import DetectionClient, DetectionResult
 from clients.multi_model_client import UnifiedMultiModelDetectionClient
 from clients.roboflow_client import RoboflowClient
@@ -47,13 +46,16 @@ from display import (
     display_bench_detection_results,
     display_no_bench_detected,
 )
+from generators.bench_generator import BenchCandidate
+from PIL import Image as PILImage
+from services.database import BenchDatabase
+
 from models.schemas import (
     BenchProcessingResult,
     DetectionCreate,
     ProcessingStats,
     UltralyticsDetectionCreate,
 )
-from services.database import BenchDatabase
 
 
 logger = logging.getLogger(__name__)
@@ -523,8 +525,8 @@ class BenchDetector:
 
                 if candidate:
                     # Only update status if it's not already detection_done
-                    if candidate.status != "detection_done":
-                        self.database.update_bench_candidate_status(candidate.id, "detection_done")
+                    if candidate.status != BenchCandidateStatus.DETECTION_DONE:
+                        self.database.update_bench_candidate_status(candidate.id, BenchCandidateStatus.DETECTION_DONE)
                         logger.debug(f"Updated candidate {candidate.id} status to detection_done")
                     else:
                         logger.debug(f"Candidate {candidate.id} already has status detection_done, skipping update")

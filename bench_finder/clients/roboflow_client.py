@@ -10,12 +10,13 @@ from typing import Any, Optional
 
 import cv2
 import requests
+from config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
-from ..config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
-from ..models.schemas import (
+from models.schemas import (
     CacheStatus,
     ModelCacheInfo,
 )
+
 from .base_detection_client import (
     BoundingBox,
     DetectionClient,

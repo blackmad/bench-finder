@@ -5,6 +5,7 @@ OpenStreetMap Overpass bench generator implementation.
 import logging
 
 from clients.overpass_client import OverpassClient
+
 from models.overpass_models import OSMBench
 
 from .bench_generator import BenchCandidate, BenchGenerator

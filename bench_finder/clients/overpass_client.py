@@ -7,12 +7,12 @@ import logging
 from typing import Optional
 
 import requests
-
 from clients.base_location_client import (
     BaseLocationClient,
     LocationSearchResult,
 )
 from config import OVERPASS_TIMEOUT, OVERPASS_URL, SEARCH_RADIUS_METERS
+
 from models.overpass_models import (
     OSMBench,
     OverpassResponse,

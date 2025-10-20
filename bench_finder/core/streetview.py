@@ -6,16 +6,16 @@ import logging
 import os
 
 import requests
-from PIL import Image
-
-from ..config import (
+from config import (
     GOOGLE_MAPS_API_KEY,
     IMAGES_DIR,
     STREETVIEW_FOV,
     STREETVIEW_HEADINGS,
     STREETVIEW_SIZE,
 )
-from ..models.streetview_models import (
+from PIL import Image
+
+from models.streetview_models import (
     StreetViewBatchCaptureResult,
     StreetViewCleanupResult,
     StreetViewImageCapture,

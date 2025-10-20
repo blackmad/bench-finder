@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from config import DATABASE_PATH, IMAGES_DIR
+from models.enums import DataSource, DetectionSource, BenchReportType, LocationMethod
 from models.schemas import (
     ApiInfoResponse,
     BenchListResponse,
@@ -554,15 +555,15 @@ def get_high_confidence_benches_filtered(
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
                 # Determine detection type based on source and confidence
-                if row["source"] == "mapillary":
-                    detection_type = "mapillary"
+                if row["source"] == DataSource.MAPILLARY:
+                    detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
-                    detection_type = "ultralytics"
+                    detection_type = DetectionSource.ULTRALYTICS
                 else:
                     detection_type = (
-                        "roboflow"
+                        DetectionSource.ROBOFLOW
                         if roboflow_conf > ultralytics_conf
-                        else "ultralytics"
+                        else DetectionSource.ULTRALYTICS
                     )
 
                 bench_data = WebBenchData(
@@ -571,7 +572,7 @@ def get_high_confidence_benches_filtered(
                     lat=row["lat"],
                     lng=row["lng"],
                     tags=tags,
-                    source=row["source"] or "osm",
+                    source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
@@ -776,7 +777,7 @@ async def get_benches_by_source(
     try:
         # For Mapillary, use the service if available
         service = get_mapillary_service()
-        if source == "mapillary" and service:
+        if source == DataSource.MAPILLARY and service:
             # Use Mapillary service for stored benches
             benches_data = service.get_stored_benches(
                 center_lat=start_lat,
@@ -1223,15 +1224,15 @@ async def get_benches_in_bbox(
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
                 # Determine detection type based on source and confidence
-                if row["source"] == "mapillary":
-                    detection_type = "mapillary"
+                if row["source"] == DataSource.MAPILLARY:
+                    detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
-                    detection_type = "ultralytics"
+                    detection_type = DetectionSource.ULTRALYTICS
                 else:
                     detection_type = (
-                        "roboflow"
+                        DetectionSource.ROBOFLOW
                         if roboflow_conf > ultralytics_conf
-                        else "ultralytics"
+                        else DetectionSource.ULTRALYTICS
                     )
 
                 bench_data = WebBenchData(
@@ -1240,7 +1241,7 @@ async def get_benches_in_bbox(
                     lat=row["lat"],
                     lng=row["lng"],
                     tags=tags,
-                    source=row["source"] or "osm",
+                    source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
@@ -1387,8 +1388,8 @@ async def get_api_info():
         name="Bench Finder API",
         version="2.0.0",
         description="A comprehensive API for discovering and analyzing public benches using computer vision",
-        supported_sources=["osm", "mapillary"],
-        supported_detection_models=["roboflow", "ultralytics", "mapillary"],
+        supported_sources=[DataSource.OSM, DataSource.MAPILLARY],
+        supported_detection_models=[DetectionSource.ROBOFLOW, DetectionSource.ULTRALYTICS, DetectionSource.MAPILLARY],
         features=[
             "spatial_search",
             "confidence_filtering",
@@ -1560,7 +1561,7 @@ async def get_image_segmentation(
                 max_confidence = max(
                     max_confidence, ultralytics_row["max_confidence"] or 0.0
                 )
-                detection_sources.append("ultralytics")
+                detection_sources.append(DetectionSource.ULTRALYTICS)
 
             # Try to get Roboflow bounding box data
             roboflow_query = """
@@ -1582,7 +1583,7 @@ async def get_image_segmentation(
                 max_confidence = max(
                     max_confidence, roboflow_row["max_confidence"] or 0.0
                 )
-                detection_sources.append("roboflow")
+                detection_sources.append(DetectionSource.ROBOFLOW)
 
             # Check if we have any detection data
             if not bench_detections and not roboflow_detections:
@@ -1597,10 +1598,10 @@ async def get_image_segmentation(
                 source = "both"
             elif bench_detections:
                 detection_type = "segmentation"
-                source = "ultralytics"
+                source = DetectionSource.ULTRALYTICS
             else:
                 detection_type = "bounding_box"
-                source = "roboflow"
+                source = DetectionSource.ROBOFLOW
 
             return SegmentationData(
                 filename=filename,
@@ -2039,7 +2040,7 @@ async def get_mapillary_config():
 )
 async def report_bad_bench(
     bench_id: int = Path(..., gt=0, description="Bench ID to report"),
-    report_type: str = Body("bad_detection", description="Type of report"),
+    report_type: BenchReportType = Body(BenchReportType.BAD_DETECTION, description="Type of report"),
     description: Optional[str] = Body(
         None, description="Optional description of the issue"
     ),
@@ -2195,7 +2196,7 @@ async def report_missing_bench(
     lng: float = Body(..., ge=-180.0, le=180.0, description="Bench longitude"),
     description: Optional[str] = Body(None, description="Description of the bench"),
     location_method: str = Body(
-        "gps", description="How location was determined (gps, map_click)"
+        LocationMethod.GPS, description="How location was determined (gps, map_click)"
     ),
     user_location_lat: Optional[float] = Body(None, description="User's GPS latitude"),
     user_location_lng: Optional[float] = Body(None, description="User's GPS longitude"),
@@ -2396,13 +2397,13 @@ async def get_statistics_by_source(
     """
     try:
         service = get_mapillary_service()
-        if source == "mapillary" and service:
+        if source == DataSource.MAPILLARY and service:
             # Use Mapillary service for comprehensive stats
             stats = service.get_detection_statistics(
                 center_lat=center_lat,
                 center_lng=center_lng,
                 radius_meters=radius_meters,
-                source="mapillary",
+                source=DataSource.MAPILLARY,
             )
             return stats.model_dump()
 

@@ -7,17 +7,19 @@ for bench candidates without any detection logic.
 
 import logging
 
-from generators.bench_generator import BenchCandidate
-
 from core.streetview import StreetViewClient
+from generators.bench_generator import BenchCandidate
+from services.database import BenchDatabase
+from utils import ProgressTracker
+
 from models.schemas import (
     BenchCreate,
     BenchProcessingResult,
     ImageCreate,
     ProcessingStats,
 )
-from services.database import BenchDatabase
-from utils import ProgressTracker
+
+from ..models.enums import BenchCandidateStatus
 
 
 logger = logging.getLogger(__name__)
@@ -264,8 +266,8 @@ class ImageDownloadService:
 
                 if candidate:
                     # Only update status if it's not already image_download_done or detection_done
-                    if candidate.status not in ["image_download_done", "detection_done"]:
-                        self.database.update_bench_candidate_status(candidate.id, "image_download_done")
+                    if candidate.status not in [BenchCandidateStatus.IMAGE_DOWNLOAD_DONE, BenchCandidateStatus.DETECTION_DONE]:
+                        self.database.update_bench_candidate_status(candidate.id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE)
                         logger.debug(f"Updated candidate {candidate.id} status to image_download_done")
                     else:
                         logger.debug(f"Candidate {candidate.id} already has status {candidate.status}, skipping update")

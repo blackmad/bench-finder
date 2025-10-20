@@ -5,10 +5,10 @@ Display and visualization utilities for bench finder results.
 import logging
 from typing import Optional
 
+from clients.base_detection_client import DetectionResult
 from PIL import Image as PILImage
 from term_image.image import AutoImage
 
-from clients.base_detection_client import DetectionResult
 from models.streetview_models import StreetViewImageCapture
 from tools.roboflow_detector import render_detections
 

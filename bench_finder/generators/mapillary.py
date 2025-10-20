@@ -15,6 +15,7 @@ from config import (
     MAPILLARY_API_LIMIT_PER_REQUEST,
     MAPILLARY_MAX_CHUNK_SIZE_METERS,
 )
+
 from models.enums import DataSource
 
 from .bench_generator import BenchCandidate, BenchGenerator

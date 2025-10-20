@@ -15,8 +15,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from ..config import DATABASE_PATH
-from ..services.database import BenchDatabase
+from config import DATABASE_PATH
+from services.database import BenchDatabase
+
+from ..models.enums import DataSource
 
 
 logger = logging.getLogger(__name__)
@@ -212,7 +214,7 @@ class BenchClusterer:
                         lat=row["lat"],
                         lng=row["lng"],
                         best_confidence=row["best_confidence"],
-                        source=row["source"] or "osm",
+                        source=row["source"] or DataSource.OSM,
                         provider_id=row["provider_id"] or str(row["id"]),
                         image_count=row["image_count"] or 0,
                     )

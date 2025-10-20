@@ -7,10 +7,10 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from config import DATABASE_PATH
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from config import DATABASE_PATH
 from models.models import (
     Base,
     Bench,
