@@ -3,6 +3,7 @@ Mapillary service for integrating bench detections with the existing database.
 """
 
 import logging
+from threading import Lock
 from typing import Optional
 
 from mapillary_client import MapillaryBenchDetector
@@ -166,9 +167,9 @@ class MapillaryBenchService:
                     f"Successfully committed {len(stored_benches)} Mapillary benches"
                 )
 
-            except Exception as e:
+            except Exception:
                 logger.exception(
-                    f"Error during Mapillary bench storage, rolling back: {e}"
+                    "Error during Mapillary bench storage, rolling back"
                 )
                 session.rollback()
                 raise
@@ -514,3 +515,41 @@ def create_mapillary_service(
 ) -> MapillaryBenchService:
     """Create a Mapillary service instance."""
     return MapillaryBenchService(database_path, mapillary_access_token)
+
+
+# --- Singleton helpers -----------------------------------------------------
+_mapillary_service_singleton: Optional[MapillaryBenchService] = None
+_singleton_lock: Lock = Lock()
+
+
+def initialize_mapillary_service(
+    database_path: str,
+    mapillary_access_token: str,
+    images_dir: str = "images",
+) -> MapillaryBenchService:
+    """Initialize or return the singleton Mapillary service.
+
+    Thread-safe. Subsequent calls return the same instance.
+    """
+    global _mapillary_service_singleton  # noqa: PLW0603
+    if _mapillary_service_singleton is not None:
+        return _mapillary_service_singleton
+
+    with _singleton_lock:
+        if _mapillary_service_singleton is None:
+            _mapillary_service_singleton = MapillaryBenchService(
+                database_path, mapillary_access_token, images_dir
+            )
+    return _mapillary_service_singleton
+
+
+def get_mapillary_service() -> Optional[MapillaryBenchService]:
+    """Get the singleton Mapillary service if initialized, else None."""
+    return _mapillary_service_singleton
+
+
+def reset_mapillary_service_for_testing() -> None:
+    """Reset the singleton (intended for tests)."""
+    global _mapillary_service_singleton  # noqa: PLW0603
+    with _singleton_lock:
+        _mapillary_service_singleton = None

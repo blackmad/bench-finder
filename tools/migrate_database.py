@@ -143,8 +143,8 @@ def migrate_database():
             logger.info("Attempting to restore backup...")
             shutil.copy2(backup_path, DATABASE_PATH)
             logger.info("✅ Backup restored")
-        except Exception as restore_error:
-            logger.exception(f"❌ Failed to restore backup: {restore_error}")
+        except Exception:
+            logger.exception("❌ Failed to restore backup")
 
         return False
 

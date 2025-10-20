@@ -499,8 +499,6 @@ class BenchDetector:
                 [{"filepath": img.filepath} for img in successful_images]
             )
             if combined_img:
-                from term_image.image import AutoImage
-
                 print(AutoImage(combined_img))
             else:
                 print(

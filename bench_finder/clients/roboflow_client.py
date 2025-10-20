@@ -39,7 +39,6 @@ def get_cache_info() -> ModelCacheInfo:
 
 def clear_model_cache() -> None:
     """Clear the global model cache to free up memory."""
-    global _MODEL_CACHE
     cached_count = len(_MODEL_CACHE)
     _MODEL_CACHE.clear()
     logger.info(f"Cleared model cache ({cached_count} models removed)")
@@ -173,7 +172,7 @@ class RoboflowClient(DetectionClient):
             return self._create_error_result(image_path, "File not found")
         except Exception as e:
             logger.exception(
-                f"Unexpected error in local inference for {image_path}: {e}"
+                f"Unexpected error in local inference for {image_path}"
             )
             return self._create_error_result(image_path, f"Local inference error: {e}")
 
@@ -230,7 +229,7 @@ class RoboflowClient(DetectionClient):
             return self._create_error_result(image_path, f"Network error: {e}")
         except Exception as e:
             logger.exception(
-                f"Unexpected error in cloud inference for {image_path}: {e}"
+                f"Unexpected error in cloud inference for {image_path}"
             )
             return self._create_error_result(image_path, f"Cloud inference error: {e}")
 

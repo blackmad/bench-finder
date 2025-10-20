@@ -8,21 +8,16 @@ This script tests that both OSM and Mapillary generators work correctly together
 import logging
 import sys
 
+from config import MAPILLARY_ACCESS_TOKEN
+from mapillary_bench_generator import MapillaryBenchGenerator
+from overpass_bench_generator import OverpassBenchGenerator
+
 
 # Setup basic logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-try:
-    from bench_generator import BenchCandidate, BenchGenerator
-    from config import MAPILLARY_ACCESS_TOKEN
-    from mapillary_bench_generator import MapillaryBenchGenerator
-    from overpass_bench_generator import OverpassBenchGenerator
-except ImportError:
-    logger.exception("Failed to import required modules")
-    sys.exit(1)
 
 
 def test_osm_generator():

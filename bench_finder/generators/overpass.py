@@ -52,9 +52,6 @@ class OverpassBenchGenerator(BenchGenerator):
             raise
 
     def _convert_osm_bench_to_candidate(self, osm_bench: OSMBench) -> BenchCandidate:
-        if not isinstance(osm_bench, OSMBench):
-            raise ValueError(f"Expected OSMBench object, got {type(osm_bench)}")
-
         tags_dict = osm_bench.tags.model_dump() if osm_bench.tags else {}
         return BenchCandidate(
             provider_id=osm_bench.provider_id,

@@ -30,7 +30,7 @@ def setup_logging(level: Union[str, None] = None, format_str: Union[str, None] =
     # Convert string level to logging constant
     numeric_level = getattr(logging, level.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError(f"Invalid log level: {level}")
+        raise TypeError(f"Invalid log level: {level}")
 
     # Configure root logger
     logging.basicConfig(level=numeric_level, format=format_str, stream=sys.stdout)
@@ -65,7 +65,7 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 
                 except Exception as e:
                     if attempt == max_retries:
                         logger.exception(
-                            f"{func.__name__} failed after {max_retries} retries: {e}"
+                            f"{func.__name__} failed after {max_retries} retries"
                         )
                         raise
 

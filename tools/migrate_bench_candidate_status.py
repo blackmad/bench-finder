@@ -10,11 +10,6 @@ import sqlite3
 import sys
 from pathlib import Path
 
-
-# Add the project root to the Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
 from bench_finder.config import DATABASE_PATH
 
 
@@ -73,8 +68,8 @@ def migrate_database():
         conn.close()
         return True
 
-    except Exception as e:
-        logger.exception(f"Migration failed: {e}")
+    except Exception:
+        logger.exception("Migration failed")
         if 'conn' in locals():
             conn.rollback()
             conn.close()

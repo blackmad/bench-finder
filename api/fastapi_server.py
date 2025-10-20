@@ -40,6 +40,10 @@ from bench_finder.models.schemas import (
 )
 from bench_finder.services.clustered_bench_service import ClusteredBenchService
 from bench_finder.services.database import BenchDatabase
+from bench_finder.services.mapillary_service import (
+    get_mapillary_service,
+    initialize_mapillary_service,
+)
 
 
 # Configuration constants
@@ -48,8 +52,6 @@ DEFAULT_START_LNG = 4.8666322
 DEFAULT_MIN_CONFIDENCE = 0.8
 PAGE_SIZE = 20
 
-# Global mapillary service instance
-mapillary_service = None
 
 
 class EnhancedErrorResponse(BaseModel):
@@ -180,10 +182,9 @@ class RandomBenchResponse(BaseModel):
 
 # Application lifecycle management
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Manage application lifecycle - startup and shutdown events."""
     # Startup
-    global mapillary_service
 
     print("🚀 Starting Bench Finder FastAPI server...")
     print(f"📁 Database: {DATABASE_PATH}")
@@ -194,9 +195,7 @@ async def lifespan(app: FastAPI):
 
     if MAPILLARY_ACCESS_TOKEN:
         try:
-            from bench_finder.services.mapillary_service import MapillaryBenchService
-
-            mapillary_service = MapillaryBenchService(
+            initialize_mapillary_service(
                 DATABASE_PATH, MAPILLARY_ACCESS_TOKEN, IMAGES_DIR
             )
             print(
@@ -204,9 +203,8 @@ async def lifespan(app: FastAPI):
             )
         except Exception as e:
             print(f"⚠️ Mapillary integration failed: {e}")
-            mapillary_service = None
     else:
-        print("ℹ️ Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
+        print("Info: Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
 
     # Ensure required directories exist
     os.makedirs("templates", exist_ok=True)
@@ -370,7 +368,7 @@ async def health_check():
         return HealthResponse(
             status="healthy",
             database="connected",
-            mapillary="enabled" if mapillary_service else "disabled",
+            mapillary="enabled" if get_mapillary_service() else "disabled",
         )
     except Exception as e:
         raise HTTPException(
@@ -777,9 +775,10 @@ async def get_benches_by_source(
     """
     try:
         # For Mapillary, use the service if available
-        if source == "mapillary" and mapillary_service:
+        service = get_mapillary_service()
+        if source == "mapillary" and service:
             # Use Mapillary service for stored benches
-            benches_data = mapillary_service.get_stored_benches(
+            benches_data = service.get_stored_benches(
                 center_lat=start_lat,
                 center_lng=start_lng,
                 radius_meters=2000,  # Larger radius for stored data
@@ -1751,7 +1750,8 @@ async def search_mapillary(
     - Result limit: 1 - 5000 images
     - API rate limits apply per Mapillary's terms
     """
-    if not mapillary_service:
+    service = get_mapillary_service()
+    if not service:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Mapillary integration is not available. Please configure MAPILLARY_ACCESS_TOKEN.",
@@ -1759,7 +1759,7 @@ async def search_mapillary(
 
     try:
         # Perform the search using the Mapillary service
-        result = mapillary_service.search_and_store_benches(
+        result = service.search_and_store_benches(
             center_lat=search_request.center_lat,
             center_lng=search_request.center_lng,
             radius_meters=search_request.radius_meters,
@@ -1821,7 +1821,8 @@ async def get_stored_mapillary(
     - No API rate limit consumption
     - Supports larger radius searches than live API
     """
-    if not mapillary_service:
+    service = get_mapillary_service()
+    if not service:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Mapillary integration is not available",
@@ -1829,7 +1830,7 @@ async def get_stored_mapillary(
 
     try:
         # Get stored detections from the service
-        images = mapillary_service.get_stored_benches(
+        images = service.get_stored_benches(
             center_lat=center_lat,
             center_lng=center_lng,
             radius_meters=radius_meters,
@@ -1899,7 +1900,8 @@ async def get_mapillary_statistics(
     - Performance monitoring and reporting
     - Research and analysis workflows
     """
-    if not mapillary_service:
+    service = get_mapillary_service()
+    if not service:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Mapillary integration is not available",
@@ -1907,7 +1909,7 @@ async def get_mapillary_statistics(
 
     try:
         # Get statistics from the Mapillary service
-        stats = mapillary_service.get_detection_statistics(
+        stats = service.get_detection_statistics(
             center_lat=center_lat, center_lng=center_lng, radius_meters=radius_meters
         )
 
@@ -1958,7 +1960,8 @@ async def refresh_mapillary_image(
     **Rate Limiting:**
     Use sparingly as each call consumes API quota.
     """
-    if not mapillary_service:
+    service = get_mapillary_service()
+    if not service:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Mapillary integration is not available",
@@ -1966,7 +1969,7 @@ async def refresh_mapillary_image(
 
     try:
         # Refresh detections for the specific image
-        result = mapillary_service.refresh_detections_for_image(mapillary_image_id)
+        result = service.refresh_detections_for_image(mapillary_image_id)
 
         if result is None:
             raise HTTPException(
@@ -2003,17 +2006,17 @@ async def get_mapillary_config():
     - API limits and constraints
     """
     return MapillaryConfigResponse(
-        mapillary_enabled=mapillary_service is not None,
+        mapillary_enabled=get_mapillary_service() is not None,
         default_radius_meters=1000,
         default_limit=1000,
         supported_detection_types=["object--bench"],
         max_radius_meters=10000,
         max_limit=5000,
         features={
-            "search_and_store": mapillary_service is not None,
-            "stored_data_retrieval": mapillary_service is not None,
-            "statistics": mapillary_service is not None,
-            "image_refresh": mapillary_service is not None,
+            "search_and_store": get_mapillary_service() is not None,
+            "stored_data_retrieval": get_mapillary_service() is not None,
+            "statistics": get_mapillary_service() is not None,
+            "image_refresh": get_mapillary_service() is not None,
         },
     )
 
@@ -2392,9 +2395,10 @@ async def get_statistics_by_source(
     only for the specified geographic area.
     """
     try:
-        if source == "mapillary" and mapillary_service:
+        service = get_mapillary_service()
+        if source == "mapillary" and service:
             # Use Mapillary service for comprehensive stats
-            stats = mapillary_service.get_detection_statistics(
+            stats = service.get_detection_statistics(
                 center_lat=center_lat,
                 center_lng=center_lng,
                 radius_meters=radius_meters,

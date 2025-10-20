@@ -72,7 +72,7 @@ class DetectionItem(BaseModel):
     class Config:
         """Pydantic configuration."""
 
-        json_encoders = {
+        json_encoders = {  # noqa: RUF012
             BoundingBox: lambda v: {
                 "x1": v.x1,
                 "y1": v.y1,

@@ -78,7 +78,7 @@ def detect(
         model = get_model(model_id=model_id)
     except Exception as e:
         typer.echo(f"Error loading model '{model_id}': {e}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     typer.echo("Running inference...")
 

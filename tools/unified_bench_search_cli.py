@@ -53,7 +53,7 @@ def parse_coordinates(coord_str: str) -> tuple[float, float]:
         lng = float(parts[1].strip())
         return lat, lng
     except ValueError as e:
-        raise ValueError(f"Invalid coordinate values: {e}")
+        raise ValueError("Invalid coordinate values") from e
 
 
 def search_with_osm(lat: float, lng: float, radius: int) -> Optional[object]:
@@ -309,7 +309,7 @@ Examples:
         logger.info("✅ Search completed successfully with results")
         sys.exit(0)
     else:
-        logger.info("ℹ️  Search completed but no benches found")
+        logger.info("[sad]  Search completed but no benches found")
         sys.exit(1)
 
 

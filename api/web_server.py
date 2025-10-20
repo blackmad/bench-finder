@@ -3,11 +3,18 @@
 Web server for displaying bench finder results in an attractive infinite scrolling grid.
 """
 
+import contextlib
 import json
 import math
 import os
+from typing import Optional
 
-from config import DATABASE_PATH, IMAGES_DIR
+from config import (
+    DATABASE_PATH,
+    IMAGES_DIR,
+    MAPILLARY_ACCESS_TOKEN,
+    MAPILLARY_DOWNLOAD_IMAGES,
+)
 from database import BenchDatabase
 from flask import Flask, jsonify, render_template, request, send_from_directory
 from schemas import (
@@ -23,6 +30,11 @@ from schemas import (
     WebBenchData,
 )
 
+from bench_finder.services.mapillary_service import (
+    get_mapillary_service,
+    initialize_mapillary_service,
+)
+
 
 app = Flask(__name__)
 
@@ -32,28 +44,18 @@ DEFAULT_START_LNG = 4.8666322
 DEFAULT_MIN_CONFIDENCE = 0.8
 PAGE_SIZE = 20
 
-# Try to initialize Mapillary service if token is available
-mapillary_service = None
-import contextlib
-from typing import Optional
-
-from config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
 
 
 if MAPILLARY_ACCESS_TOKEN:
     try:
-        from mapillary_service import MapillaryBenchService
-
-        mapillary_service = MapillaryBenchService(
-            DATABASE_PATH, MAPILLARY_ACCESS_TOKEN, IMAGES_DIR
-        )
+        initialize_mapillary_service(DATABASE_PATH, MAPILLARY_ACCESS_TOKEN, IMAGES_DIR)
         print(
             f"✅ Mapillary integration enabled (image downloading: {'ON' if MAPILLARY_DOWNLOAD_IMAGES else 'OFF'})"
         )
     except Exception as e:
         print(f"⚠️ Mapillary integration failed: {e}")
 else:
-    print("ℹ️ Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
+    print("Info: Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
 
 
 def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -768,7 +770,7 @@ def api_config():
 @app.route("/api/mapillary/search", methods=["POST"])
 def api_mapillary_search():
     """Search for bench detections using Mapillary API and store in database."""
-    if not mapillary_service:
+    if not get_mapillary_service():
         return jsonify({"error": "Mapillary integration not available"}), 503
 
     try:
@@ -789,7 +791,7 @@ def api_mapillary_search():
         )
 
         # Search and store bench detections
-        result = mapillary_service.search_and_store_benches(
+        result = get_mapillary_service().search_and_store_benches(
             center_lat=search_request.center_lat,
             center_lng=search_request.center_lng,
             radius_meters=search_request.radius_meters,
@@ -819,8 +821,8 @@ def api_benches_by_source(source: str):
         page_size = min(page_size, 50)
 
         # For Mapillary, use the service if available
-        if source == "mapillary" and mapillary_service:
-            benches = mapillary_service.get_stored_benches(
+        if source == "mapillary" and get_mapillary_service():
+            benches = get_mapillary_service().get_stored_benches(
                 center_lat=start_lat,
                 center_lng=start_lng,
                 radius_meters=2000,  # Larger radius for stored data
@@ -1205,8 +1207,8 @@ def api_statistics_by_source(source: str):
         center_lng = request.args.get("center_lng", type=float)
         radius_meters = request.args.get("radius_meters", type=int)
 
-        if source == "mapillary" and mapillary_service:
-            stats = mapillary_service.get_detection_statistics(
+        if source == "mapillary" and get_mapillary_service():
+            stats = get_mapillary_service().get_detection_statistics(
                 center_lat=center_lat,
                 center_lng=center_lng,
                 radius_meters=radius_meters,

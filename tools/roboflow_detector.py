@@ -136,7 +136,7 @@ def render_detections(
             polygon_points = []
             for point_list in detection.segmentation:
                 if len(point_list) >= 2:
-                    polygon_points.append((point_list[0], point_list[1]))
+                    polygon_points.append((point_list[0], point_list[1]))  # noqa: PERF401
 
             if polygon_points:
                 # Draw segmentation mask

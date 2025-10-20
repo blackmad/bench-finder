@@ -126,7 +126,7 @@ class MultiModelRoboflowClient:
 
             except Exception as e:
                 logger.exception(
-                    f"Error with Roboflow model {model_name} - id {model_id}: {e}"
+                    f"Error with Roboflow model {model_name} - id {model_id}"
                 )
                 attempt = DetectionAttempt(
                     model_type="roboflow",

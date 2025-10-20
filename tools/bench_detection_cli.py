@@ -9,7 +9,6 @@ import argparse
 import os
 import sys
 import tempfile
-from pathlib import Path
 from typing import Optional
 
 import cv2
@@ -17,15 +16,9 @@ from PIL import Image, ImageDraw, ImageFont
 from term_image.image import ITerm2Image, from_file
 from term_image.utils import get_terminal_name_version
 
-
-# Force iTerm2 image support for warp
-if get_terminal_name_version()[0] == "warp":
-    ITerm2Image.is_supported = lambda *_: True
-
-# Add the project root to the Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
+# # Add the project root to the Python path
+# project_root = Path(__file__).parent.parent
+# sys.path.insert(0, str(project_root))
 # Import our detection clients
 from bench_finder.clients.base_detection_client import (
     DetectionResult,
@@ -34,6 +27,10 @@ from bench_finder.clients.multi_model_client import UnifiedMultiModelDetectionCl
 from bench_finder.clients.roboflow_client import RoboflowClient
 from bench_finder.clients.ultralytics_client import UltralyticsClient
 
+
+# Force iTerm2 image support for warp
+if get_terminal_name_version()[0] == "warp":
+    ITerm2Image.is_supported = lambda *_: True
 
 def render_detections(
     image_path: str, result: DetectionResult, model_name: str = "Model"
@@ -115,7 +112,7 @@ def render_detections(
             polygon_points = []
             for coord in detection.polygon.coordinates:
                 if len(coord) >= 2:
-                    polygon_points.append((int(coord[0]), int(coord[1])))
+                    polygon_points.append((int(coord[0]), int(coord[1])))  # noqa: PERF401
 
             if polygon_points:
                 # Draw segmentation polygon
@@ -157,11 +154,13 @@ def test_roboflow_local(image_path: str, output_dir: str) -> Optional[str]:
     print("\n🔧 Testing Roboflow Local Inference...")
     try:
         # Check if local inference is available
-        try:
-            import supervision as sv
-            from inference import get_model
-        except ImportError as e:
-            print(f"  ⚠️  Local inference not available: {e}")
+        import importlib.util
+
+        supervision_spec = importlib.util.find_spec("supervision")
+        inference_spec = importlib.util.find_spec("inference")
+
+        if supervision_spec is None or inference_spec is None:
+            print("  ⚠️  Local inference not available: missing modules.")
             print("  💡 Install with: pip install inference supervision")
             return None
 

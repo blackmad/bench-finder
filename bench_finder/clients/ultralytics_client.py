@@ -67,10 +67,10 @@ class UltralyticsClient(DetectionClient):
             from ultralytics import YOLO
 
             self.YOLO = YOLO
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "ultralytics package is required for local inference. Install with: pip install ultralytics"
-            )
+            ) from e
 
         self.models_dir = Path(ULTRALYTICS_MODELS_DIR)
         self.models_dir.mkdir(exist_ok=True)
@@ -109,9 +109,9 @@ class UltralyticsClient(DetectionClient):
                 # Save to our models directory
                 model.save(self.local_model_path)
                 logger.info(f"Model downloaded and saved to {self.local_model_path}")
-            except Exception as e:
+            except Exception:
                 logger.exception(
-                    f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}: {e}"
+                    f"Failed to download model {ULTRALYTICS_LOCAL_MODEL}"
                 )
                 raise
 
@@ -344,7 +344,7 @@ class UltralyticsClient(DetectionClient):
 
         except Exception as e:
             logger.exception(
-                f"Error processing local detection result for {image_path}: {e}"
+                f"Error processing local detection result for {image_path}"
             )
             return self._create_error_result(image_path, f"Processing error: {e}")
 

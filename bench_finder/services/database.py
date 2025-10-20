@@ -92,7 +92,7 @@ class BenchDatabase:
                 logger.info(
                     f"Created search record {search.id} for query: {search_data.query}"
                 )
-                return search.id  # type: ignore
+                return search.id
 
         except Exception:
             logger.exception("Error creating search record")
@@ -126,7 +126,7 @@ class BenchDatabase:
                     logger.debug(
                         f"Bench {bench_data.provider_id} already exists as record {existing_bench.id}"
                     )
-                    return existing_bench.id  # type: ignore
+                    return existing_bench.id
 
                 bench = Bench(
                     search_id=bench_data.search_id,
@@ -144,7 +144,7 @@ class BenchDatabase:
                 logger.debug(
                     f"Added bench {bench_data.provider_id} as record {bench.id}"
                 )
-                return bench.id  # type: ignore
+                return bench.id
 
         except Exception:
             logger.exception("Error adding bench record")
@@ -178,7 +178,7 @@ class BenchDatabase:
                 logger.debug(
                     f"Added image record {image.id} for bench {image_data.bench_id}, heading {image_data.heading}"
                 )
-                return image.id  # type: ignore
+                return image.id
 
         except Exception:
             logger.exception("Error adding image record")
@@ -214,7 +214,7 @@ class BenchDatabase:
                 logger.debug(
                     f"Added detection record {detection.id} for image {detection_data.image_id}"
                 )
-                return detection.id  # type: ignore
+                return detection.id
 
         except Exception:
             logger.exception("Error adding detection record")
@@ -258,7 +258,7 @@ class BenchDatabase:
                 logger.debug(
                     f"Added Ultralytics detection record {detection.id} for image {detection_data.image_id}"
                 )
-                return detection.id  # type: ignore
+                return detection.id
 
         except Exception:
             logger.exception("Error adding Ultralytics detection record")
@@ -282,8 +282,8 @@ class BenchDatabase:
             with self.get_session() as session:
                 search = session.query(Search).filter(Search.id == search_id).first()
                 if search:
-                    search.status = status  # type: ignore
-                    search.completed_at = completed_at  # type: ignore
+                    search.status = status
+                    search.completed_at = completed_at
                     session.commit()
                     logger.debug(f"Updated search {search_id} status to {status}")
                 else:
@@ -391,9 +391,7 @@ class BenchDatabase:
                 result = []
                 for bench in benches:
                     # Get images with their detections
-                    images_with_detections = []
-                    for image in bench.images:
-                        images_with_detections.append(
+                    images_with_detections = [
                             ImageWithDetections(
                                 id=image.id,
                                 bench_id=image.bench_id,
@@ -413,7 +411,7 @@ class BenchDatabase:
                                     for d in image.ultralytics_detections
                                 ],
                             )
-                        )
+                        for image in bench.images]
 
                     bench_with_detections = BenchWithDetections(
                         id=bench.id,
@@ -477,7 +475,7 @@ class BenchDatabase:
                 session.add(candidate)
                 session.commit()
                 logger.debug(f"Added bench candidate: {provider_id} from {source}")
-                return candidate.id  # type: ignore
+                return candidate.id
 
         except Exception:
             logger.exception("Error adding bench candidate")
