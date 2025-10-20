@@ -18,8 +18,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from bench_finder.config import DATABASE_PATH, IMAGES_DIR
-from bench_finder.models.schemas import (
+from config import DATABASE_PATH, IMAGES_DIR
+from models.schemas import (
     ApiInfoResponse,
     BenchListResponse,
     ClusteredBenchListResponse,
@@ -38,9 +38,9 @@ from bench_finder.models.schemas import (
     SourceStatsResponse,
     WebBenchData,
 )
-from bench_finder.services.clustered_bench_service import ClusteredBenchService
-from bench_finder.services.database import BenchDatabase
-from bench_finder.services.mapillary_service import (
+from services.clustered_bench_service import ClusteredBenchService
+from services.database import BenchDatabase
+from services.mapillary_service import (
     get_mapillary_service,
     initialize_mapillary_service,
 )
@@ -191,7 +191,7 @@ async def lifespan(_app: FastAPI):
     print(f"🖼️  Images directory: {IMAGES_DIR}")
 
     # Try to initialize Mapillary service if token is available
-    from bench_finder.config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
+    from config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
 
     if MAPILLARY_ACCESS_TOKEN:
         try:
@@ -2073,7 +2073,7 @@ async def report_bad_bench(
         import shutil
         from datetime import datetime
 
-        from bench_finder.services.database import BenchDatabase
+        from services.database import BenchDatabase
 
         db = BenchDatabase()
 
@@ -2237,7 +2237,7 @@ async def report_missing_bench(
 
         from PIL import Image
 
-        from bench_finder.services.database import BenchDatabase
+        from services.database import BenchDatabase
 
         db = BenchDatabase()
 

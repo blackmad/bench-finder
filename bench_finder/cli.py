@@ -21,11 +21,11 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
-from bench_finder.core.geocoder import Geocoder
-from bench_finder.models.schemas import SearchCreate
-from bench_finder.services.database import BenchDatabase
-from bench_finder.utils import setup_logging
+from config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
+from core.geocoder import Geocoder
+from models.schemas import SearchCreate
+from services.database import BenchDatabase
+from utils import setup_logging
 
 
 # Initialize Typer app and console
@@ -300,7 +300,7 @@ def run_detections(
         )
 
         # Initialize detection service
-        from bench_finder.detection import BenchDetector
+        from detection import BenchDetector
 
         enable_fallback = not disable_fallback
         copy_bench_images = not no_copy_bench_images
@@ -437,7 +437,7 @@ def fetch_images(
         )
 
         # Initialize image download service
-        from bench_finder.services.image_download_service import ImageDownloadService
+        from services.image_download_service import ImageDownloadService
 
         image_service = ImageDownloadService()
 

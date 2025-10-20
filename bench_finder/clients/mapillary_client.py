@@ -8,11 +8,11 @@ from typing import Optional
 
 import requests
 
-from bench_finder.clients.base_location_client import (
+from clients.base_location_client import (
     BaseLocationClient,
     LocationSearchResult,
 )
-from bench_finder.models.mapillary_models import (
+from models.mapillary_models import (
     MapillaryDetection,
     MapillaryDetectionStatistics,
     MapillaryImage,
@@ -21,7 +21,7 @@ from bench_finder.models.mapillary_models import (
     MapillaryMapFeaturesResponse,
     MapillarySearchResult,
 )
-from bench_finder.models.unified_models import UnifiedBench, UnifiedSearchResult
+from models.unified_models import UnifiedBench, UnifiedSearchResult
 
 
 logger = logging.getLogger(__name__)

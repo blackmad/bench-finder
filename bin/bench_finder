@@ -9,7 +9,7 @@ from pathlib import Path
 # Add project root to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from bench_finder.cli import main
+from cli import main
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -14,10 +14,10 @@ from typing import Optional
 # Add the project root to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from bench_finder.clients.mapillary_client import MapillaryBenchDetector
-from bench_finder.clients.overpass_client import OverpassClient
-from bench_finder.config import SEARCH_RADIUS_METERS
-from bench_finder.models.unified_models import CombinedSearchResult
+from clients.mapillary_client import MapillaryBenchDetector
+from clients.overpass_client import OverpassClient
+from config import SEARCH_RADIUS_METERS
+from models.unified_models import CombinedSearchResult
 
 
 # Configure logging

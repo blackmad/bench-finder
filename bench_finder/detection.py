@@ -37,23 +37,23 @@ os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 from generators.bench_generator import BenchCandidate
 from PIL import Image as PILImage
 
-from bench_finder.clients.base_detection_client import DetectionClient, DetectionResult
-from bench_finder.clients.multi_model_client import UnifiedMultiModelDetectionClient
-from bench_finder.clients.roboflow_client import RoboflowClient
-from bench_finder.clients.ultralytics_client import UltralyticsClient
-from bench_finder.config import DETECTION_BACKEND
-from bench_finder.display import (
+from clients.base_detection_client import DetectionClient, DetectionResult
+from clients.multi_model_client import UnifiedMultiModelDetectionClient
+from clients.roboflow_client import RoboflowClient
+from clients.ultralytics_client import UltralyticsClient
+from config import DETECTION_BACKEND
+from display import (
     create_combined_image_display,
     display_bench_detection_results,
     display_no_bench_detected,
 )
-from bench_finder.models.schemas import (
+from models.schemas import (
     BenchProcessingResult,
     DetectionCreate,
     ProcessingStats,
     UltralyticsDetectionCreate,
 )
-from bench_finder.services.database import BenchDatabase
+from services.database import BenchDatabase
 
 
 logger = logging.getLogger(__name__)
@@ -292,7 +292,7 @@ class BenchDetector:
         # Find the bench in the database to get its images
         try:
             with self.database.get_session() as session:
-                from bench_finder.models.models import Bench, Image
+                from models.models import Bench, Image
 
                 # Find the bench by provider_id and search_id
                 db_bench = session.query(Bench).filter(
@@ -515,7 +515,7 @@ class BenchDetector:
         # Update candidate status to detection_done
         try:
             with self.database.get_session() as session:
-                from bench_finder.models.models import BenchCandidate
+                from models.models import BenchCandidate
                 candidate = session.query(BenchCandidate).filter(
                     BenchCandidate.provider_id == bench.provider_id,
                     BenchCandidate.search_id == search_id

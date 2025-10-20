@@ -20,12 +20,12 @@ from term_image.utils import get_terminal_name_version
 # project_root = Path(__file__).parent.parent
 # sys.path.insert(0, str(project_root))
 # Import our detection clients
-from bench_finder.clients.base_detection_client import (
+from clients.base_detection_client import (
     DetectionResult,
 )
-from bench_finder.clients.multi_model_client import UnifiedMultiModelDetectionClient
-from bench_finder.clients.roboflow_client import RoboflowClient
-from bench_finder.clients.ultralytics_client import UltralyticsClient
+from clients.multi_model_client import UnifiedMultiModelDetectionClient
+from clients.roboflow_client import RoboflowClient
+from clients.ultralytics_client import UltralyticsClient
 
 
 # Force iTerm2 image support for warp
@@ -185,7 +185,7 @@ def test_roboflow_cloud(image_path: str, output_dir: str) -> Optional[str]:
     print("\n☁️  Testing Roboflow Cloud API...")
     try:
         # Check if API key is available
-        from bench_finder.config import ROBOFLOW_API_KEY
+        from config import ROBOFLOW_API_KEY
 
         if not ROBOFLOW_API_KEY:
             print("  ⚠️  ROBOFLOW_API_KEY not set")
@@ -239,7 +239,7 @@ def test_ultralytics_cloud(image_path: str, output_dir: str) -> Optional[str]:
     print("\n☁️  Testing Ultralytics Cloud API...")
     try:
         # Check if API key is available
-        from bench_finder.config import ULTRALYTICS_API_KEY
+        from config import ULTRALYTICS_API_KEY
 
         if not ULTRALYTICS_API_KEY:
             print("  ⚠️  ULTRALYTICS_API_KEY not set")

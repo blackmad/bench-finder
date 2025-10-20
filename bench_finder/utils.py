@@ -8,7 +8,7 @@ import sys
 import time
 from typing import Callable, ParamSpec, TypeVar, Union
 
-from .config import LOG_FORMAT, LOG_LEVEL
+from config import LOG_FORMAT, LOG_LEVEL
 
 
 # Type variables for decorator type preservation

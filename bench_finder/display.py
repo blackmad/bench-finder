@@ -8,8 +8,8 @@ from typing import Optional
 from PIL import Image as PILImage
 from term_image.image import AutoImage
 
-from bench_finder.clients.base_detection_client import DetectionResult
-from bench_finder.models.streetview_models import StreetViewImageCapture
+from clients.base_detection_client import DetectionResult
+from models.streetview_models import StreetViewImageCapture
 from tools.roboflow_detector import render_detections
 
 

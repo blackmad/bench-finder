@@ -27,7 +27,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.sql import func
 
-from bench_finder.models.enums import (
+from models.enums import (
     BenchCandidateStatus,
     BenchReportStatus,
     BenchReportType,

@@ -221,9 +221,9 @@ result = client.search_near_point_unified(lat, lng, radius)
 Use the unified interface for better consistency and type safety:
 
 ```python
-from bench_finder.clients.overpass_client import OverpassClient
-from bench_finder.clients.mapillary_client import MapillaryBenchDetector
-from bench_finder.models.unified_models import CombinedSearchResult
+from clients.overpass_client import OverpassClient
+from clients.mapillary_client import MapillaryBenchDetector
+from models.unified_models import CombinedSearchResult
 
 # Search both sources
 osm_client = OverpassClient()

@@ -8,17 +8,17 @@ from typing import Optional
 
 import requests
 
-from bench_finder.clients.base_location_client import (
+from clients.base_location_client import (
     BaseLocationClient,
     LocationSearchResult,
 )
-from bench_finder.config import OVERPASS_TIMEOUT, OVERPASS_URL, SEARCH_RADIUS_METERS
-from bench_finder.models.overpass_models import (
+from config import OVERPASS_TIMEOUT, OVERPASS_URL, SEARCH_RADIUS_METERS
+from models.overpass_models import (
     OSMBench,
     OverpassResponse,
     OverpassSearchResult,
 )
-from bench_finder.models.unified_models import UnifiedBench, UnifiedSearchResult
+from models.unified_models import UnifiedBench, UnifiedSearchResult
 
 
 logger = logging.getLogger(__name__)

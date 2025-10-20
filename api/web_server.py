@@ -30,7 +30,7 @@ from schemas import (
     WebBenchData,
 )
 
-from bench_finder.services.mapillary_service import (
+from services.mapillary_service import (
     get_mapillary_service,
     initialize_mapillary_service,
 )

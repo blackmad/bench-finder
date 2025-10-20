@@ -10,7 +10,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from bench_finder.config import DATABASE_PATH
+from config import DATABASE_PATH
 
 
 logger = logging.getLogger(__name__)

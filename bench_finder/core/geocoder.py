@@ -7,7 +7,7 @@ from typing import Optional
 
 import googlemaps
 
-from ..config import GOOGLE_MAPS_API_KEY
+from config import GOOGLE_MAPS_API_KEY
 
 
 logger = logging.getLogger(__name__)

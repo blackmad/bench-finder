@@ -10,8 +10,8 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..config import DATABASE_PATH
-from ..models.models import (
+from config import DATABASE_PATH
+from models.models import (
     Base,
     Bench,
     BenchCandidate,
@@ -22,7 +22,7 @@ from ..models.models import (
     create_database_engine,
     create_database_session,
 )
-from ..models.schemas import (
+from models.schemas import (
     BenchCreate,
     BenchWithDetections,
     DetectionCreate,

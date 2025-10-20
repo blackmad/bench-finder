@@ -9,15 +9,15 @@ import logging
 
 from generators.bench_generator import BenchCandidate
 
-from bench_finder.core.streetview import StreetViewClient
-from bench_finder.models.schemas import (
+from core.streetview import StreetViewClient
+from models.schemas import (
     BenchCreate,
     BenchProcessingResult,
     ImageCreate,
     ProcessingStats,
 )
-from bench_finder.services.database import BenchDatabase
-from bench_finder.utils import ProgressTracker
+from services.database import BenchDatabase
+from utils import ProgressTracker
 
 
 logger = logging.getLogger(__name__)
@@ -256,7 +256,7 @@ class ImageDownloadService:
         # We need to find the candidate ID from the database
         try:
             with self.database.get_session() as session:
-                from bench_finder.models.models import BenchCandidate
+                from models.models import BenchCandidate
                 candidate = session.query(BenchCandidate).filter(
                     BenchCandidate.provider_id == bench.provider_id,
                     BenchCandidate.search_id == search_id
