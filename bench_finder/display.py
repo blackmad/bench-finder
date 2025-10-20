@@ -10,7 +10,7 @@ from PIL import Image as PILImage
 from term_image.image import AutoImage
 
 from models.streetview_models import StreetViewImageCapture
-from tools.roboflow_detector import render_detections
+from tools.bench_detection_cli import render_detections
 
 
 logger = logging.getLogger(__name__)

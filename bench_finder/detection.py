@@ -15,9 +15,8 @@ from rich.progress import (
 )
 from term_image.image import AutoImage
 
+from models.enums import BenchCandidateStatus
 from tools.bench_detection_cli import render_detections
-
-from .models.enums import BenchCandidateStatus
 
 
 # Set environment variables to suppress inference model dependency warnings

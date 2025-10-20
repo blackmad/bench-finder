@@ -11,6 +11,7 @@ from config import DATABASE_PATH
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from models.enums import BenchCandidateStatus, SearchStatus
 from models.models import (
     Base,
     Bench,
@@ -265,7 +266,10 @@ class BenchDatabase:
             raise
 
     def update_search_status(
-        self, search_id: int, status: str, completed_at: Optional[datetime] = None
+        self,
+        search_id: int,
+        status: SearchStatus,
+        completed_at: Optional[datetime] = None,
     ):
         """
         Update the status of a search record.
@@ -563,7 +567,9 @@ class BenchDatabase:
             return False
 
     def get_bench_candidates_by_status(
-        self, search_id: int, status: str
+        self,
+        status: BenchCandidateStatus,
+        search_id: Optional[int] = None,
     ) -> list[BenchCandidate]:
         """
         Get bench candidates for a search filtered by status.
@@ -575,21 +581,14 @@ class BenchDatabase:
         Returns:
             List of BenchCandidate objects with the specified status
         """
-        try:
-            with self.get_session() as session:
-                candidates = (
-                    session.query(BenchCandidate)
-                    .filter(
-                        BenchCandidate.search_id == search_id,
-                        BenchCandidate.status == status,
-                    )
-                    .all()
-                )
-                return candidates
 
-        except Exception:
-            logger.exception(f"Error getting bench candidates with status {status}")
-            return []
+        with self.get_session() as session:
+            query = session.query(BenchCandidate)
+            if search_id:
+                query = query.filter(BenchCandidate.search_id == search_id)
+            query = query.filter(BenchCandidate.status == status)
+            candidates = query.all()
+            return candidates
 
     def get_latest_search_id(self) -> Optional[int]:
         """

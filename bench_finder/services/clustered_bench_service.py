@@ -14,7 +14,9 @@ from typing import Optional
 
 from config import DATABASE_PATH
 from core.clustering import BenchClusterer
+from database import BenchDatabase
 
+from models.enums import DataSource, DetectionSource
 from models.schemas import (
     ClusteredBenchData,
     ClusteredBenchListResponse,
@@ -22,9 +24,6 @@ from models.schemas import (
     PaginationInfo,
     WebBenchData,
 )
-
-from ..models.enums import DataSource, DetectionSource
-from .database import BenchDatabase
 
 
 logger = logging.getLogger(__name__)

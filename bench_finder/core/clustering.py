@@ -18,7 +18,7 @@ from typing import Optional
 from config import DATABASE_PATH
 from services.database import BenchDatabase
 
-from ..models.enums import DataSource
+from models.enums import DataSource
 
 
 logger = logging.getLogger(__name__)

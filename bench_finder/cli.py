@@ -25,9 +25,8 @@ from rich.table import Table
 from services.database import BenchDatabase
 from utils import setup_logging
 
+from models.enums import BenchCandidateStatus, SearchStatus
 from models.schemas import SearchCreate
-
-from .models.enums import BenchCandidateStatus
 
 
 # Initialize Typer app and console
@@ -274,19 +273,9 @@ def run_detections(
         # Initialize database and get candidates
         database = BenchDatabase()
 
-        # If no search_id provided, use the latest search
-        if search_id is None:
-            search_id = database.get_latest_search_id()
-            if search_id is None:
-                console.print(
-                    "[red]No searches found in database. Please run a search first.[/red]"
-                )
-                return
-            console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
-
         # Get candidates with image_download_done status
         candidates = database.get_bench_candidates_by_status(
-            search_id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE
+            BenchCandidateStatus.IMAGE_DOWNLOAD_DONE, search_id
         )
 
         if not candidates:
@@ -361,7 +350,7 @@ def run_detections(
         console.print(f"   • Best confidence: {results.best_confidence:.2f}")
 
         # Update search status to completed
-        database.update_search_status(search_id, "completed")
+        database.update_search_status(search_id, SearchStatus.COMPLETED)
         console.print("\n[dim]📝 Updated search status to 'completed'[/dim]")
 
     except KeyboardInterrupt:

@@ -40,7 +40,7 @@ class MapillaryBenchGenerator(BenchGenerator):
             access_token=self.access_token, images_dir=IMAGES_DIR
         )
 
-    def get_source_identifier(self) -> str:
+    def get_source_identifier(self) -> DataSource:
         return DataSource.MAPILLARY
 
     def supports_area_search(self) -> bool:

@@ -12,14 +12,13 @@ from generators.bench_generator import BenchCandidate
 from services.database import BenchDatabase
 from utils import ProgressTracker
 
+from models.enums import BenchCandidateStatus
 from models.schemas import (
     BenchCreate,
     BenchProcessingResult,
     ImageCreate,
     ProcessingStats,
 )
-
-from ..models.enums import BenchCandidateStatus
 
 
 logger = logging.getLogger(__name__)

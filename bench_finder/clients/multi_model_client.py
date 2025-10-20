@@ -12,7 +12,8 @@ from config import (
     ULTRALYTICS_USE_LOCAL,
 )
 
-from ..models.enums import DetectionSource
+from models.enums import DetectionSource
+
 from .base_detection_client import (
     DetectionAttempt,
     DetectionResult,

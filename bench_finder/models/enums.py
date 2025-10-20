@@ -20,7 +20,8 @@ class BenchCandidateStatus(StrEnum):
 
 class SearchStatus(StrEnum):
     PENDING = "pending"
-    # Add more states later if needed
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class BenchReportType(StrEnum):

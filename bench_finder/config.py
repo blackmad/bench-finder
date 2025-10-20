@@ -23,7 +23,7 @@ except (ImportError, ValueError, OSError):
     # or when term_image is not available
     pass
 
-# Load environment variables from .env file
+# Load environment variables from env file
 load_dotenv()
 
 # API Keys - These should be set as environment variables

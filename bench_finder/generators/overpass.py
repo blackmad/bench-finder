@@ -6,6 +6,7 @@ import logging
 
 from clients.overpass_client import OverpassClient
 
+from models.enums import DataSource
 from models.overpass_models import OSMBench
 
 from .bench_generator import BenchCandidate, BenchGenerator
@@ -21,8 +22,8 @@ class OverpassBenchGenerator(BenchGenerator):
         super().__init__("OpenStreetMap Overpass")
         self.overpass_client = OverpassClient()
 
-    def get_source_identifier(self) -> str:
-        return "osm"
+    def get_source_identifier(self) -> DataSource:
+        return DataSource.OSM
 
     def find_benches_near_point(
         self, lat: float, lng: float, radius: int = 1000
