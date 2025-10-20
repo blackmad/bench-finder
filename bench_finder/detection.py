@@ -34,6 +34,7 @@ os.environ.setdefault("CORE_MODEL_TROCR_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_GROUNDINGDINO_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
+from generators.bench_generator import BenchCandidate
 from PIL import Image as PILImage
 
 from bench_finder.clients.base_detection_client import DetectionClient, DetectionResult
@@ -53,7 +54,6 @@ from bench_finder.models.schemas import (
     UltralyticsDetectionCreate,
 )
 from bench_finder.services.database import BenchDatabase
-from examples.bench_generator import BenchCandidate
 
 
 logger = logging.getLogger(__name__)

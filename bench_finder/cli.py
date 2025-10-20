@@ -4,9 +4,12 @@ CLI interface for the bench finder application using Typer.
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import typer
+from generators.bench_generator import BenchCandidate, BenchGenerator
+from generators.mapillary import MapillaryBenchGenerator
+from generators.overpass import OverpassBenchGenerator
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -21,15 +24,8 @@ from rich.table import Table
 from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
 from bench_finder.models.schemas import SearchCreate
-from bench_finder.pipeline import BenchFinder
 from bench_finder.services.database import BenchDatabase
 from bench_finder.utils import setup_logging
-from examples.mapillary_bench_generator import MapillaryBenchGenerator
-from examples.overpass_bench_generator import OverpassBenchGenerator
-
-
-if TYPE_CHECKING:
-    from examples.bench_generator import BenchCandidate, BenchGenerator
 
 
 # Initialize Typer app and console
@@ -212,77 +208,6 @@ def generate_candidates(
     )
 
 
-@app.command("find-benches")
-def find_benches(
-    query: str = typer.Argument(
-        ..., help="Search query (address, location name, etc.)"
-    ),
-    radius: int = typer.Option(
-        SEARCH_RADIUS_METERS,
-        "--radius",
-        "-r",
-        help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})",
-    ),
-    log_level: str = typer.Option(
-        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
-    ),
-):
-    """
-    Complete bench finding pipeline: find candidates and capture images.
-
-    This pipeline finds bench candidates and captures Street View images.
-    Use 'run-detections' command separately to run AI detection on the captured images.
-    """
-
-    # Setup logging
-    setup_logging(level=log_level)
-    logging.getLogger(__name__)
-
-    # Initialize bench finder
-    bench_finder = BenchFinder()
-
-    console.print(
-        f"[bold blue]🔍 BenchFinder starting with query: '{query}'[/bold blue]"
-    )
-
-    results = bench_finder.find_benches(query, radius)
-
-    if results.success:
-        console.print(f"[bold green]✅ {results.message}[/bold green]")
-
-        if results.search_id:
-            search_results = bench_finder.database.get_search_results(results.search_id)
-            if search_results:
-                console.print("\n[bold]📊 Summary:[/bold]")
-                console.print(f"   • Search ID: {search_results.search.id}")
-                console.print(f"   • Query: {search_results.search.query}")
-                console.print(
-                    f"   • Location: ({search_results.search.start_lat}, {search_results.search.start_lng})"
-                )
-                console.print(
-                    f"   • Search radius: {search_results.search.search_radius}m"
-                )
-                console.print(f"   • Benches found: {search_results.bench_count}")
-                console.print(
-                    f"   • Images captured: {search_results.successful_images}/{search_results.total_images}"
-                )
-        if results.stats:
-            stats = results.stats
-            console.print(
-                f"   • Processing stats: {stats.benches_added}/{stats.benches_processed} benches processed"
-            )
-            console.print(f"   • Images captured: {stats.images_successful}/{stats.images_captured}")
-
-        console.print(
-            "\n[bold blue]💡 Next step: Run 'run-detections' to analyze the captured images with AI[/bold blue]"
-        )
-
-
-    else:
-        console.print(f"[bold red]❌ {results.error}[/bold red]")
-        raise typer.Exit(1)
-
-
 @app.command("list-candidates")
 def list_candidates(
     search_id: int = typer.Argument(..., help="Search ID to list candidates for"),
@@ -387,14 +312,11 @@ def run_detections(
 
         console.print("[dim]Detection service initialized[/dim]\n")
 
-        # Convert candidates to BenchCandidate objects for processing
-        from examples.bench_generator import BenchCandidate as BenchCandidateClass
-
         bench_candidates = []
         for candidate in candidates:
             # Ensure provider_id is always a string
             provider_id = candidate.provider_id or f"candidate_{candidate.id}"
-            bench_candidate = BenchCandidateClass(
+            bench_candidate = BenchCandidate(
                 provider_id=provider_id,
                 lat=candidate.lat,
                 lng=candidate.lng,
@@ -521,14 +443,12 @@ def fetch_images(
 
         console.print("[dim]Image download service initialized[/dim]\n")
 
-        # Convert candidates to BenchCandidate objects for processing
-        from examples.bench_generator import BenchCandidate as BenchCandidateClass
 
         bench_candidates = []
         for candidate in candidates:
             # Ensure provider_id is always a string
             provider_id = candidate.provider_id or f"candidate_{candidate.id}"
-            bench_candidate = BenchCandidateClass(
+            bench_candidate = BenchCandidate(
                 provider_id=provider_id,
                 lat=candidate.lat,
                 lng=candidate.lng,

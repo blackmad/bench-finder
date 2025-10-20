@@ -17,6 +17,7 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -25,6 +26,17 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 from sqlalchemy.sql import func
+
+from bench_finder.models.enums import (
+    BenchCandidateStatus,
+    BenchReportStatus,
+    BenchReportType,
+    DataSource,
+    DetectionSource,
+    LocationMethod,
+    MissingBenchReportStatus,
+    SearchStatus,
+)
 
 
 class Base(DeclarativeBase):
@@ -43,7 +55,9 @@ class Search(Base):
     search_radius: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    status: Mapped[str] = mapped_column(String, default="pending")
+    status: Mapped[SearchStatus] = mapped_column(
+        SAEnum(SearchStatus, name="search_status"), default=SearchStatus.PENDING
+    )
 
     # Relationships
     benches: Mapped[list["Bench"]] = relationship(
@@ -71,8 +85,8 @@ class Bench(Base):
     tags: Mapped[Optional[dict]] = mapped_column(
         JSON
     )  # JSON column for OSM tags or Mapillary metadata
-    source: Mapped[str] = mapped_column(
-        String, nullable=False, default="osm"
+    source: Mapped[DataSource] = mapped_column(
+        SAEnum(DataSource, name="bench_source"), nullable=False, default=DataSource.OSM
     )  # 'osm' or 'mapillary'
     external_id: Mapped[Optional[str]] = mapped_column(
         String, nullable=True
@@ -169,8 +183,10 @@ class Detection(Base):
     detection_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     model_id: Mapped[str] = mapped_column(String, nullable=False)
     confidence_threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    source: Mapped[str] = mapped_column(
-        String, nullable=False, default="roboflow"
+    source: Mapped[DetectionSource] = mapped_column(
+        SAEnum(DetectionSource, name="detection_source"),
+        nullable=False,
+        default=DetectionSource.ROBOFLOW,
     )  # 'roboflow', 'ultralytics', 'mapillary'
     external_detection_id: Mapped[Optional[str]] = mapped_column(
         String, nullable=True
@@ -250,8 +266,10 @@ class BenchReport(Base):
     image_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("images.id"), nullable=True
     )  # The specific image being reported
-    report_type: Mapped[str] = mapped_column(
-        String, nullable=False, default="bad_detection"
+    report_type: Mapped[BenchReportType] = mapped_column(
+        SAEnum(BenchReportType, name="bench_report_type"),
+        nullable=False,
+        default=BenchReportType.BAD_DETECTION,
     )  # 'bad_detection', 'incorrect_location', etc.
     description: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True
@@ -272,8 +290,9 @@ class BenchReport(Base):
     extra_metadata: Mapped[Optional[dict]] = mapped_column(
         JSON, nullable=True
     )  # Additional metadata (device info, etc.)
-    status: Mapped[str] = mapped_column(
-        String, default="pending"
+    status: Mapped[BenchReportStatus] = mapped_column(
+        SAEnum(BenchReportStatus, name="bench_report_status"),
+        default=BenchReportStatus.PENDING,
     )  # 'pending', 'reviewed', 'resolved', 'dismissed'
     admin_notes: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True
@@ -319,8 +338,10 @@ class MissingBenchReport(Base):
         Float, nullable=True
     )  # User's GPS location when reporting
     user_location_lng: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    location_method: Mapped[str] = mapped_column(
-        String, nullable=False, default="gps"
+    location_method: Mapped[LocationMethod] = mapped_column(
+        SAEnum(LocationMethod, name="location_method"),
+        nullable=False,
+        default=LocationMethod.GPS,
     )  # 'gps', 'map_click'
     uploaded_image_filename: Mapped[Optional[str]] = mapped_column(
         String, nullable=True
@@ -331,8 +352,9 @@ class MissingBenchReport(Base):
     extra_metadata: Mapped[Optional[dict]] = mapped_column(
         JSON, nullable=True
     )  # Additional metadata (device info, etc.)
-    status: Mapped[str] = mapped_column(
-        String, default="pending"
+    status: Mapped[MissingBenchReportStatus] = mapped_column(
+        SAEnum(MissingBenchReportStatus, name="missing_bench_report_status"),
+        default=MissingBenchReportStatus.PENDING,
     )  # 'pending', 'verified', 'added', 'dismissed'
     admin_notes: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True
@@ -357,6 +379,7 @@ class BenchCandidate(Base):
 
     __tablename__ = "bench_candidates"
 
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     search_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("searches.id"), nullable=False
@@ -369,8 +392,10 @@ class BenchCandidate(Base):
     tags: Mapped[Optional[dict]] = mapped_column(
         JSON
     )  # JSON column for OSM tags or Mapillary metadata
-    source: Mapped[str] = mapped_column(
-        String, nullable=False, default="osm"
+    source: Mapped[DataSource] = mapped_column(
+        SAEnum(DataSource, name="bench_candidate_source"),
+        nullable=False,
+        default=DataSource.OSM,
     )  # 'osm' or 'mapillary'
     external_id: Mapped[Optional[str]] = mapped_column(
         String, nullable=True
@@ -378,8 +403,10 @@ class BenchCandidate(Base):
     confidence: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True
     )  # Confidence score if available from source
-    status: Mapped[str] = mapped_column(
-        String, nullable=False, default="pending"
+    status: Mapped[BenchCandidateStatus] = mapped_column(
+        SAEnum(BenchCandidateStatus, name="bench_candidate_status"),
+        nullable=False,
+        default=BenchCandidateStatus.PENDING,
     )  # Processing status: pending, image_download_done, detection_done
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 

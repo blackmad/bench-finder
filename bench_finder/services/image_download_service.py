@@ -7,6 +7,8 @@ for bench candidates without any detection logic.
 
 import logging
 
+from generators.bench_generator import BenchCandidate
+
 from bench_finder.core.streetview import StreetViewClient
 from bench_finder.models.schemas import (
     BenchCreate,
@@ -16,7 +18,6 @@ from bench_finder.models.schemas import (
 )
 from bench_finder.services.database import BenchDatabase
 from bench_finder.utils import ProgressTracker
-from examples.bench_generator import BenchCandidate
 
 
 logger = logging.getLogger(__name__)

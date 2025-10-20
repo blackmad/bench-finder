@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from bench_finder.models.enums import DataSource
+
 
 @dataclass
 class BenchCandidate:
@@ -16,7 +18,7 @@ class BenchCandidate:
     provider_id: str  # Unique identifier for this bench from this source
     lat: float
     lng: float
-    source: str  # Source identifier (e.g., 'osm', 'mapillary')
+    source: DataSource  # Source identifier (e.g., 'osm', 'mapillary')
     external_id: Optional[str] = None  # Original ID from the source system
     tags: dict[str, Any] = None  # Additional metadata/tags
     confidence: Optional[float] = None  # Confidence score if available
@@ -81,7 +83,7 @@ class BenchGenerator(ABC):
         """
 
     @abstractmethod
-    def get_source_identifier(self) -> str:
+    def get_source_identifier(self) -> DataSource:
         """
         Get the source identifier string for this generator.
 
