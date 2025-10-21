@@ -15,7 +15,7 @@ from models.enums import DataSource
 class BenchCandidate:
     """Represents a bench found by a generator."""
 
-    provider_id: str  # Unique identifier for this bench from this source
+    provider_id: DataSource  # Unique identifier for this bench from this source
     lat: float
     lng: float
     source: DataSource  # Source identifier (e.g., 'osm', 'mapillary')

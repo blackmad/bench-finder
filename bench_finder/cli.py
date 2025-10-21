@@ -338,7 +338,7 @@ def run_detections(
             )
 
             results = detector.process_benches_with_progress(
-                search_id, bench_candidates, progress, task
+                bench_candidates, progress, task
             )
 
         # Display results

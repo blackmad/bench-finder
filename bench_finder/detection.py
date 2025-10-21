@@ -8,6 +8,7 @@ of the bench finding pipeline, focusing on running AI models on captured images.
 import logging
 import os
 import shutil
+from pathlib import Path
 from typing import Optional
 
 from rich.progress import (
@@ -15,8 +16,8 @@ from rich.progress import (
 )
 from term_image.image import AutoImage
 
+from bench_finder.tools.bench_detection_cli import render_detections
 from models.enums import BenchCandidateStatus
-from tools.bench_detection_cli import render_detections
 
 
 # Set environment variables to suppress inference model dependency warnings
@@ -210,13 +211,12 @@ class BenchDetector:
             return 0.0
 
     def process_benches_with_progress(
-        self, search_id: int, benches: list[BenchCandidate], progress: Progress, task
+        self, benches: list[BenchCandidate], progress: Progress, task
     ) -> ProcessingStats:
         """
         Process each bench: run detection on existing images.
 
         Args:
-            search_id: Database search ID
             benches: List of bench candidates from various sources (OSM, Mapillary, etc.)
             progress: Rich Progress object
             task: Rich Progress task ID
@@ -236,7 +236,7 @@ class BenchDetector:
 
         for bench in benches:
             try:
-                result = self._process_single_bench(search_id, bench)
+                result = self._process_single_bench(bench)
 
                 stats.benches_processed += 1
                 if result.bench_added:
@@ -268,14 +268,11 @@ class BenchDetector:
 
         return stats
 
-    def _process_single_bench(
-        self, search_id: int, bench: BenchCandidate
-    ) -> BenchProcessingResult:
+    def _process_single_bench(self, bench: BenchCandidate) -> BenchProcessingResult:
         """
         Process a single bench: run detection on existing images.
 
         Args:
-            search_id: Database search ID
             bench: Bench candidate from any source (OSM, Mapillary, etc.)
 
         Returns:
@@ -295,12 +292,11 @@ class BenchDetector:
             with self.database.get_session() as session:
                 from models.models import Bench, Image
 
-                # Find the bench by provider_id and search_id
+                # Find the bench by provider_id
                 db_bench = (
                     session.query(Bench)
                     .filter(
                         Bench.provider_id == bench.provider_id,
-                        Bench.search_id == search_id,
                     )
                     .first()
                 )
@@ -312,9 +308,7 @@ class BenchDetector:
                 # Get all images for this bench
                 images = (
                     session.query(Image)
-                    .filter(
-                        Image.bench_id == db_bench.id, Image.capture_success is True
-                    )
+                    .where(Image.bench_id == db_bench.id, Image.capture_success)
                     .all()
                 )
 
@@ -341,18 +335,19 @@ class BenchDetector:
 
         for image in images:
             try:
-                if not image.filepath or not os.path.exists(image.filepath):
-                    logger.warning(f"Image file not found: {image.filepath}")
+                filepath = Path(__file__).parent.parent / image.filepath
+                if not filepath or not filepath.exists():
+                    logger.warning(f"Image file not found: {filepath}")
                     continue
 
-                logger.debug(f"Running detection on {image.filepath}")
+                logger.debug(f"Running detection on {filepath}")
                 detection_result = self.detection_client.detect_benches_in_image(
-                    image.filepath
+                    str(filepath)
                 )
 
                 # Calculate pixel coverage
                 pixel_coverage = self._calculate_pixel_coverage(
-                    detection_result, image.filepath
+                    detection_result, str(filepath)
                 )
 
                 detection_results.append(detection_result)
@@ -435,24 +430,17 @@ class BenchDetector:
                 )
             else:
                 # Roboflow detection format
-                model_id = getattr(
-                    detection_result,
-                    "winning_model_id",
-                    getattr(self.detection_client, "model_id", "unknown"),
-                )
                 self.database.add_detection(
                     DetectionCreate(
                         image_id=image_id,
                         has_bench=detection_result.has_bench,
                         bench_count=detection_result.bench_count,
                         max_confidence=detection_result.max_confidence,
-                        detections=getattr(detection_result, "detections", []),
+                        detections=detection_result.detections,
                         detection_success=True,
                         detection_error=None,
-                        model_id=model_id,
-                        confidence_threshold=getattr(
-                            self.detection_client, "confidence_threshold", 0.0
-                        ),
+                        model_id=detection_result.model_id,
+                        confidence_threshold=0.0,
                     )
                 )
 
@@ -534,7 +522,6 @@ class BenchDetector:
                     session.query(BenchCandidate)
                     .filter(
                         BenchCandidate.provider_id == bench.provider_id,
-                        BenchCandidate.search_id == search_id,
                     )
                     .first()
                 )
