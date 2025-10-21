@@ -19,7 +19,6 @@ from models.models import (
     Detection,
     Image,
     Search,
-    UltralyticsDetection,
     create_database_engine,
     create_database_session,
 )
@@ -33,8 +32,6 @@ from models.schemas import (
     SearchCreate,
     SearchResponse,
     SearchResults,
-    UltralyticsDetectionCreate,
-    UltralyticsDetectionResponse,
 )
 
 
@@ -207,6 +204,17 @@ class BenchDatabase:
                     detection_error=detection_data.detection_error,
                     model_id=detection_data.model_id,
                     confidence_threshold=detection_data.confidence_threshold,
+                    source=detection_data.source,
+                    external_detection_id=detection_data.external_detection_id,
+                    # Ultralytics-specific fields
+                    full_response=detection_data.full_response,
+                    bench_detections=detection_data.bench_detections,
+                    model_url=detection_data.model_url,
+                    iou_threshold=detection_data.iou_threshold,
+                    image_size=detection_data.image_size,
+                    inference_time=detection_data.inference_time,
+                    preprocess_time=detection_data.preprocess_time,
+                    postprocess_time=detection_data.postprocess_time,
                 )
                 session.add(detection)
                 session.commit()
@@ -219,50 +227,6 @@ class BenchDatabase:
 
         except Exception:
             logger.exception("Error adding detection record")
-            raise
-
-    def add_ultralytics_detection(
-        self, detection_data: UltralyticsDetectionCreate
-    ) -> int:
-        """
-        Add an Ultralytics detection record to the database.
-
-        Args:
-            detection_data: UltralyticsDetectionCreate schema with detection results
-
-        Returns:
-            The ID of the created detection record
-        """
-        try:
-            with self.get_session() as session:
-                detection = UltralyticsDetection(
-                    image_id=detection_data.image_id,
-                    has_bench=detection_data.has_bench,
-                    bench_count=detection_data.bench_count,
-                    max_confidence=detection_data.max_confidence,
-                    full_response=detection_data.full_response,
-                    bench_detections=detection_data.bench_detections,
-                    detection_success=detection_data.detection_success,
-                    detection_error=detection_data.detection_error,
-                    model_url=detection_data.model_url,
-                    confidence_threshold=detection_data.confidence_threshold,
-                    iou_threshold=detection_data.iou_threshold,
-                    image_size=detection_data.image_size,
-                    inference_time=detection_data.inference_time,
-                    preprocess_time=detection_data.preprocess_time,
-                    postprocess_time=detection_data.postprocess_time,
-                )
-                session.add(detection)
-                session.commit()
-                session.refresh(detection)
-
-                logger.debug(
-                    f"Added Ultralytics detection record {detection.id} for image {detection_data.image_id}"
-                )
-                return detection.id
-
-        except Exception:
-            logger.exception("Error adding Ultralytics detection record")
             raise
 
     def update_search_status(
@@ -409,10 +373,6 @@ class BenchDatabase:
                             detections=[
                                 DetectionResponse.model_validate(d)
                                 for d in image.detections
-                            ],
-                            ultralytics_detections=[
-                                UltralyticsDetectionResponse.model_validate(d)
-                                for d in image.ultralytics_detections
                             ],
                         )
                         for image in bench.images

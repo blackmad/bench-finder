@@ -124,6 +124,27 @@ class DetectionResult(BaseModel):
         default=None, description="Time taken for postprocessing in seconds"
     )
 
+    # Source information
+    source: str = Field(
+        default="roboflow",
+        description="Source of the detection (roboflow, ultralytics, mapillary)",
+    )
+
+    # Ultralytics-specific fields (optional)
+    full_response: Optional[dict] = Field(
+        default=None, description="Full response from Ultralytics API"
+    )
+    bench_detections: Optional[list[dict]] = Field(
+        default=None, description="Bench-specific detections from Ultralytics"
+    )
+    model_url: Optional[str] = Field(default=None, description="URL of the model used")
+    iou_threshold: Optional[float] = Field(
+        default=None, description="IoU threshold used for NMS"
+    )
+    image_size: Optional[int] = Field(
+        default=None, description="Image size used for inference"
+    )
+
     @property
     def area(self) -> float:
         """Calculate the area of the bounding box."""

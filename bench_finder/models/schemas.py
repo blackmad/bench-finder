@@ -127,6 +127,16 @@ class DetectionBase(BaseModel):
     )  # 'roboflow', 'ultralytics', 'mapillary'
     external_detection_id: Optional[str] = None  # For Mapillary detection IDs
 
+    # Ultralytics-specific fields (optional for backward compatibility)
+    full_response: Optional[dict[str, Any]] = None
+    bench_detections: Optional[list[dict[str, Any]]] = None
+    model_url: Optional[str] = None
+    iou_threshold: Optional[float] = None
+    image_size: Optional[int] = None
+    inference_time: Optional[float] = None
+    preprocess_time: Optional[float] = None
+    postprocess_time: Optional[float] = None
+
 
 class DetectionCreate(DetectionBase):
     """Schema for creating a new detection."""
@@ -136,41 +146,6 @@ class DetectionCreate(DetectionBase):
 
 class DetectionResponse(DetectionBase):
     """Schema for detection response."""
-
-    id: int
-    image_id: int
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class UltralyticsDetectionBase(BaseModel):
-    """Base schema for Ultralytics detection data."""
-
-    has_bench: bool
-    bench_count: int = 0
-    max_confidence: float = 0.0
-    full_response: dict[str, Any] = {}
-    bench_detections: list[dict[str, Any]] = []
-    detection_success: bool
-    detection_error: Optional[str] = None
-    model_url: Optional[str] = "unknown"
-    confidence_threshold: float
-    iou_threshold: float
-    image_size: int
-    inference_time: Optional[float] = None
-    preprocess_time: Optional[float] = None
-    postprocess_time: Optional[float] = None
-
-
-class UltralyticsDetectionCreate(UltralyticsDetectionBase):
-    """Schema for creating a new Ultralytics detection."""
-
-    image_id: int
-
-
-class UltralyticsDetectionResponse(UltralyticsDetectionBase):
-    """Schema for Ultralytics detection response."""
 
     id: int
     image_id: int
@@ -191,7 +166,6 @@ class ImageWithDetections(ImageResponse):
     """Schema for image with its detections."""
 
     detections: list[DetectionResponse] = []
-    ultralytics_detections: list[UltralyticsDetectionResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 

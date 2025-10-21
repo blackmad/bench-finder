@@ -54,7 +54,6 @@ from models.schemas import (
     BenchProcessingResult,
     DetectionCreate,
     ProcessingStats,
-    UltralyticsDetectionCreate,
 )
 
 
@@ -403,46 +402,30 @@ class BenchDetector:
             image = successful_images[i]
             image_id = image.id
 
-            # Store successful detection result
-            if (
-                hasattr(detection_result, "bench_detections")
-                and hasattr(detection_result, "full_response")
-            ) or self.detection_backend == "ultralytics":
-                self.database.add_ultralytics_detection(
-                    UltralyticsDetectionCreate(
-                        image_id=image_id,
-                        has_bench=detection_result.has_bench,
-                        bench_count=detection_result.bench_count,
-                        max_confidence=detection_result.max_confidence,
-                        full_response=getattr(detection_result, "full_response", {}),
-                        bench_detections=detection_result.detections,
-                        detection_success=True,
-                        detection_error=None,
-                        model_url=detection_result.model_id,
-                        confidence_threshold=self.detection_client.confidence_threshold,
-                        iou_threshold=0,
-                        image_size=640,
-                        # Enhanced metadata for multi-model tracking
-                        inference_time=detection_result.inference_time,
-                        preprocess_time=detection_result.preprocess_time,
-                        postprocess_time=detection_result.postprocess_time,
-                    )
+            # Store successful detection result using unified DetectionCreate
+            self.database.add_detection(
+                DetectionCreate(
+                    image_id=image_id,
+                    has_bench=detection_result.has_bench,
+                    bench_count=detection_result.bench_count,
+                    max_confidence=detection_result.max_confidence,
+                    detections=detection_result.detections,
+                    detection_success=True,
+                    detection_error=None,
+                    model_id=detection_result.model_id,
+                    confidence_threshold=self.detection_client.confidence_threshold,
+                    source=detection_result.source,
+                    # Ultralytics-specific fields (optional)
+                    full_response=detection_result.full_response,
+                    bench_detections=detection_result.bench_detections,
+                    model_url=detection_result.model_url,
+                    iou_threshold=detection_result.iou_threshold,
+                    image_size=detection_result.image_size,
+                    inference_time=detection_result.inference_time,
+                    preprocess_time=detection_result.preprocess_time,
+                    postprocess_time=detection_result.postprocess_time,
                 )
-            else:
-                # Roboflow detection format
-                self.database.add_detection(
-                    DetectionCreate(
-                        image_id=image_id,
-                        has_bench=detection_result.has_bench,
-                        bench_count=detection_result.bench_count,
-                        max_confidence=detection_result.max_confidence,
-                        detections=detection_result.detections,
-                        detection_success=True,
-                        detection_error=None,
-                        model_id=detection_result.model_id,
-                        confidence_threshold=0.0,
-                    )
-                )
+            )
 
             # Display and copy only the representative image
             if detection_result == representative_detection:

@@ -301,6 +301,7 @@ class RoboflowClient(DetectionClient):
                 backend_name="RoboflowClient",
                 model_id=self.model_id or "unknown",
                 confidence_threshold=self.confidence_threshold,
+                source="roboflow",
             )
 
             if has_bench:
@@ -329,6 +330,7 @@ class RoboflowClient(DetectionClient):
             backend_name="RoboflowClient",
             model_id=self.model_id,
             confidence_threshold=self.confidence_threshold,
+            source="roboflow",
             error=error,
         )
 

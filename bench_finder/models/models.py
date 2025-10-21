@@ -148,9 +148,6 @@ class Image(Base):
     detections: Mapped[list["Detection"]] = relationship(
         "Detection", back_populates="image", cascade="all, delete-orphan"
     )
-    ultralytics_detections: Mapped[list["UltralyticsDetection"]] = relationship(
-        "UltralyticsDetection", back_populates="image", cascade="all, delete-orphan"
-    )
 
     # Indexes
     __table_args__ = (
@@ -191,6 +188,17 @@ class Detection(Base):
     external_detection_id: Mapped[Optional[str]] = mapped_column(
         String, nullable=True
     )  # For Mapillary detection IDs
+
+    # Ultralytics-specific fields (optional for backward compatibility)
+    full_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    bench_detections: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    model_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    iou_threshold: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    image_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    inference_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    preprocess_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    postprocess_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
     # Relationships
@@ -207,51 +215,6 @@ class Detection(Base):
 
     def __repr__(self):
         return f"<Detection(id={self.id}, image_id={self.image_id}, confidence={self.max_confidence})>"
-
-
-class UltralyticsDetection(Base):
-    """Model for Ultralytics detection results with segmentation."""
-
-    __tablename__ = "ultralytics_detections"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    image_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("images.id"), nullable=False
-    )
-    has_bench: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    bench_count: Mapped[int] = mapped_column(Integer, default=0)
-    max_confidence: Mapped[float] = mapped_column(Float, default=0.0)
-    full_response: Mapped[Optional[dict]] = mapped_column(
-        JSON
-    )  # JSON column for complete Ultralytics API response
-    bench_detections: Mapped[Optional[dict]] = mapped_column(
-        JSON
-    )  # JSON column for bench-specific detections with segmentation
-    detection_success: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    detection_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    model_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    confidence_threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    iou_threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    image_size: Mapped[int] = mapped_column(Integer, nullable=False)
-    inference_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    preprocess_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    postprocess_time: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
-
-    # Relationships
-    image: Mapped["Image"] = relationship(
-        "Image", back_populates="ultralytics_detections"
-    )
-
-    # Indexes
-    __table_args__ = (
-        Index("idx_ultralytics_detections_image_id", "image_id"),
-        Index("idx_ultralytics_detections_has_bench", "has_bench"),
-        Index("idx_ultralytics_detections_confidence", "max_confidence"),
-    )
-
-    def __repr__(self):
-        return f"<UltralyticsDetection(id={self.id}, image_id={self.image_id}, confidence={self.max_confidence})>"
 
 
 class BenchReport(Base):

@@ -320,9 +320,14 @@ class UltralyticsClient(DetectionClient):
                 if self.local_model_path
                 else "local",
                 confidence_threshold=self.confidence_threshold,
+                source="ultralytics",
                 inference_time=timing_info.get("inference_time"),
                 preprocess_time=timing_info.get("preprocess_time"),
                 postprocess_time=timing_info.get("postprocess_time"),
+                # Ultralytics-specific fields
+                model_url=str(self.local_model_path) if self.local_model_path else None,
+                iou_threshold=self.iou_threshold,
+                image_size=self.image_size,
             )
 
             if has_bench:
@@ -433,9 +438,16 @@ class UltralyticsClient(DetectionClient):
                 backend_name="UltralyticsClient",
                 model_id=self.model_url or "unknown",
                 confidence_threshold=self.confidence_threshold,
+                source="ultralytics",
                 inference_time=timing_info.get("inference_time"),
                 preprocess_time=timing_info.get("preprocess_time"),
                 postprocess_time=timing_info.get("postprocess_time"),
+                # Ultralytics-specific fields
+                full_response=api_result,
+                bench_detections=[d.dict() for d in bench_detections],
+                model_url=self.model_url,
+                iou_threshold=self.iou_threshold,
+                image_size=self.image_size,
             )
 
             if has_bench:
@@ -471,6 +483,7 @@ class UltralyticsClient(DetectionClient):
             if self.use_local
             else self.model_url or "unknown",
             confidence_threshold=self.confidence_threshold,
+            source="ultralytics",
             error=error,
         )
 
