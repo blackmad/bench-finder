@@ -66,7 +66,7 @@ class MultiModelRoboflowClient:
 
     def detect_benches_in_image(
         self, image_path: str
-    ) -> tuple[dict, list[DetectionAttempt]]:
+    ) -> tuple[DetectionResult, list[DetectionAttempt]]:
         """
         Try detecting benches using multiple Roboflow models until one succeeds.
 
@@ -114,11 +114,28 @@ class MultiModelRoboflowClient:
                     logger.info(
                         f"✅ Bench detected by {model_name}: confidence {result.max_confidence:.2f}"
                     )
-                    # Convert Pydantic model to dict and add metadata
-                    best_result = result.model_dump()
-                    best_result["winning_model"] = model_name
-                    best_result["winning_model_id"] = model_id
-                    best_result["model_attempts"] = len(attempts)
+                    # Create DetectionResult with metadata
+                    best_result = DetectionResult(
+                        image_path=result.image_path,
+                        success=result.success,
+                        has_bench=result.has_bench,
+                        bench_count=result.bench_count,
+                        max_confidence=result.max_confidence,
+                        detections=result.detections,
+                        backend_name="roboflow",
+                        model_id=model_id,
+                        confidence_threshold=confidence_threshold,
+                        error=result.error,
+                        inference_time=result.inference_time,
+                        preprocess_time=result.preprocess_time,
+                        postprocess_time=result.postprocess_time,
+                        source="roboflow",
+                        full_response=result.full_response,
+                        bench_detections=result.bench_detections,
+                        model_url=result.model_url,
+                        iou_threshold=result.iou_threshold,
+                        image_size=result.image_size,
+                    )
                     break
                 elif result.success:
                     logger.debug(f"❌ No bench detected by {model_name}")
@@ -146,32 +163,34 @@ class MultiModelRoboflowClient:
         if best_result is None:
             if attempts:
                 # Use the last attempt's result, but mark it as the "best" available
-                attempts[-1]
-                best_result = {
-                    "image_path": image_path,
-                    "success": False,
-                    "has_bench": False,
-                    "bench_count": 0,
-                    "max_confidence": 0.0,
-                    "detections": [],
-                    "error": f"No bench detected by any of {len(self.models_config)} Roboflow models",
-                    "winning_model": "none",
-                    "winning_model_id": "none",
-                    "model_attempts": len(attempts),
-                }
+                last_attempt = attempts[-1]
+                best_result = DetectionResult(
+                    image_path=image_path,
+                    success=False,
+                    has_bench=False,
+                    bench_count=0,
+                    max_confidence=0.0,
+                    detections=[],
+                    backend_name="roboflow",
+                    model_id=last_attempt.model_id,
+                    confidence_threshold=0.0,
+                    error=f"No bench detected by any of {len(self.models_config)} Roboflow models",
+                    source="roboflow",
+                )
             else:
-                best_result = {
-                    "image_path": image_path,
-                    "success": False,
-                    "has_bench": False,
-                    "bench_count": 0,
-                    "max_confidence": 0.0,
-                    "detections": [],
-                    "error": "All Roboflow models failed",
-                    "winning_model": "none",
-                    "winning_model_id": "none",
-                    "model_attempts": 0,
-                }
+                best_result = DetectionResult(
+                    image_path=image_path,
+                    success=False,
+                    has_bench=False,
+                    bench_count=0,
+                    max_confidence=0.0,
+                    detections=[],
+                    backend_name="roboflow",
+                    model_id=None,
+                    confidence_threshold=0.0,
+                    error="All Roboflow models failed",
+                    source="roboflow",
+                )
 
         return best_result, attempts
 
@@ -334,33 +353,36 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
         ):
             logger.debug("🔄 Falling back to Roboflow models...")
             try:
-                roboflow_result_dict, roboflow_attempts = (
+                roboflow_result, roboflow_attempts = (
                     self.roboflow_client.detect_benches_in_image(image_path)
                 )
                 detection_attempts.extend(roboflow_attempts)
 
-                if roboflow_result_dict.get("success") and roboflow_result_dict.get(
-                    "has_bench"
-                ):
+                if roboflow_result.success and roboflow_result.has_bench:
                     logger.info(
-                        f"✅ Fallback successful: {roboflow_result_dict.get('winning_model')} detected bench"
+                        f"✅ Fallback successful: {roboflow_result.model_id} detected bench"
                     )
-                    # Create a DetectionResult from the Roboflow result
-                    # Note: This is a simplified conversion - in practice you'd want to properly convert
-                    # the Roboflow result format to DetectionResult
+                    # Convert DetectionResult to MultiModelDetectionResult
                     final_result = MultiModelDetectionResult(
-                        image_path=image_path,
-                        success=roboflow_result_dict.get("success", False),
-                        has_bench=roboflow_result_dict.get("has_bench", False),
-                        bench_count=roboflow_result_dict.get("bench_count", 0),
-                        max_confidence=roboflow_result_dict.get("max_confidence", 0.0),
-                        detections=[],  # Would need proper conversion here
-                        backend_name="RoboflowClient",
-                        model_id=roboflow_result_dict.get(
-                            "winning_model_id", "unknown"
-                        ),
-                        confidence_threshold=self.confidence_threshold,
-                        source="roboflow",
+                        image_path=roboflow_result.image_path,
+                        success=roboflow_result.success,
+                        has_bench=roboflow_result.has_bench,
+                        bench_count=roboflow_result.bench_count,
+                        max_confidence=roboflow_result.max_confidence,
+                        detections=roboflow_result.detections,
+                        backend_name=roboflow_result.backend_name,
+                        model_id=roboflow_result.model_id,
+                        confidence_threshold=roboflow_result.confidence_threshold,
+                        source=roboflow_result.source,
+                        inference_time=roboflow_result.inference_time,
+                        preprocess_time=roboflow_result.preprocess_time,
+                        postprocess_time=roboflow_result.postprocess_time,
+                        error=roboflow_result.error,
+                        full_response=roboflow_result.full_response,
+                        bench_detections=roboflow_result.bench_detections,
+                        model_url=roboflow_result.model_url,
+                        iou_threshold=roboflow_result.iou_threshold,
+                        image_size=roboflow_result.image_size,
                         fallback_used=True,
                         total_attempts=len(detection_attempts),
                         detection_attempts=detection_attempts,
@@ -381,10 +403,10 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                 bench_count=0,
                 max_confidence=0.0,
                 detections=[],
-                backend_name="none",
-                model_id="none",
+                backend_name="multi_model",
+                model_id=None,
                 confidence_threshold=self.confidence_threshold,
-                source="none",
+                source="multi_model",
                 fallback_used=len(detection_attempts) > 1,
                 total_attempts=len(detection_attempts),
                 detection_attempts=detection_attempts,

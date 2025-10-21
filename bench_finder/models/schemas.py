@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .detection_models import DetectionItem
 from .enums import (
     BenchReportType,
     DataSource,
@@ -117,7 +118,7 @@ class DetectionBase(BaseModel):
     has_bench: bool
     bench_count: int = 0
     max_confidence: float = 0.0
-    detections: list["DetectionItem"] = []
+    detections: list[DetectionItem] = []
     detection_success: bool
     detection_error: Optional[str] = None
     model_id: str
@@ -365,32 +366,7 @@ class RoboflowModelInfo(BaseModel):
     classes: list[str]
 
 
-class BoundingBox(BaseModel):
-    """Standardized bounding box format."""
-
-    x1: float  # Left coordinate
-    y1: float  # Top coordinate
-    x2: float  # Right coordinate
-    y2: float  # Bottom coordinate
-    width: float  # Computed width
-    height: float  # Computed height
-
-    def __init__(self, **data):
-        # Auto-calculate width and height if not provided
-        if "width" not in data and "x1" in data and "x2" in data:
-            data["width"] = abs(data["x2"] - data["x1"])
-        if "height" not in data and "y1" in data and "y2" in data:
-            data["height"] = abs(data["y2"] - data["y1"])
-        super().__init__(**data)
-
-
-class DetectionItem(BaseModel):
-    """Single detection item with standardized format."""
-
-    confidence: float
-    bbox: BoundingBox
-    class_name: str = "bench"
-    segmentation: Optional[list[list[float]]] = None  # Polygon coordinates if available
+# BoundingBox and DetectionItem are now imported from detection_models
 
 
 class StandardDetectionResult(BaseModel):
