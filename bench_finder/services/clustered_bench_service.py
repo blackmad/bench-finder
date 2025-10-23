@@ -16,11 +16,12 @@ from config import DATABASE_PATH
 from core.clustering import BenchClusterer
 from database import BenchDatabase
 
-from models.enums import DataSource, DetectionSource
-from models.schemas import (
+from models import (
     ClusteredBenchData,
     ClusteredBenchListResponse,
     ClusterInfo,
+    DataSource,
+    DetectionSource,
     PaginationInfo,
     WebBenchData,
 )

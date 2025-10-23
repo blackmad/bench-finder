@@ -10,6 +10,7 @@ class DetectionSource(StrEnum):
     ROBOFLOW = "roboflow"
     ULTRALYTICS = "ultralytics"
     MAPILLARY = "mapillary"
+    MULTI_MODEL = "multi_model"
 
 
 class BenchCandidateStatus(StrEnum):

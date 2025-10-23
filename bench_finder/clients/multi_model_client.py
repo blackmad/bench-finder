@@ -5,6 +5,10 @@ Tries Ultralytics first, then falls back to multiple Roboflow models.
 
 import logging
 
+from clients.base_detection_client import (
+    MultiModelDetectionClient,
+    MultiModelDetectionResult,
+)
 from config import (
     ROBOFLOW_API_KEY,
     ROBOFLOW_MODELS,
@@ -12,14 +16,12 @@ from config import (
     ULTRALYTICS_USE_LOCAL,
 )
 
-from models.enums import DetectionSource
-
-from .base_detection_client import (
+from models import (
     DetectionAttempt,
     DetectionResult,
-    MultiModelDetectionClient,
-    MultiModelDetectionResult,
+    DetectionSource,
 )
+
 from .roboflow_client import RoboflowClient
 from .ultralytics_client import UltralyticsClient
 
@@ -130,8 +132,8 @@ class MultiModelRoboflowClient:
                         preprocess_time=result.preprocess_time,
                         postprocess_time=result.postprocess_time,
                         source="roboflow",
-                        full_response=result.full_response,
-                        bench_detections=result.bench_detections,
+                        # full_response=result.full_response,
+                        # bench_detections=result.bench_detections,
                         model_url=result.model_url,
                         iou_threshold=result.iou_threshold,
                         image_size=result.image_size,
@@ -316,8 +318,8 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                         postprocess_time=ultralytics_result.postprocess_time,
                         error=ultralytics_result.error,
                         # Ultralytics-specific fields
-                        full_response=ultralytics_result.full_response,
-                        bench_detections=ultralytics_result.bench_detections,
+                        # full_response=ultralytics_result.full_response,
+                        # bench_detections=ultralytics_result.bench_detections,
                         model_url=ultralytics_result.model_url,
                         iou_threshold=ultralytics_result.iou_threshold,
                         image_size=ultralytics_result.image_size,
@@ -378,8 +380,8 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                         preprocess_time=roboflow_result.preprocess_time,
                         postprocess_time=roboflow_result.postprocess_time,
                         error=roboflow_result.error,
-                        full_response=roboflow_result.full_response,
-                        bench_detections=roboflow_result.bench_detections,
+                        # full_response=roboflow_result.full_response,
+                        # bench_detections=roboflow_result.bench_detections,
                         model_url=roboflow_result.model_url,
                         iou_threshold=roboflow_result.iou_threshold,
                         image_size=roboflow_result.image_size,
@@ -404,9 +406,9 @@ class UnifiedMultiModelDetectionClient(MultiModelDetectionClient):
                 max_confidence=0.0,
                 detections=[],
                 backend_name="multi_model",
-                model_id=None,
+                model_id="unknown",
                 confidence_threshold=self.confidence_threshold,
-                source="multi_model",
+                source=DetectionSource.MULTI_MODEL,
                 fallback_used=len(detection_attempts) > 1,
                 total_attempts=len(detection_attempts),
                 detection_attempts=detection_attempts,

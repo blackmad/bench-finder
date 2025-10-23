@@ -12,17 +12,15 @@ import cv2
 import requests
 from config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
-from models.schemas import (
+from models import (
+    BoundingBox,
     CacheStatus,
+    DetectionItem,
+    DetectionResult,
     ModelCacheInfo,
 )
 
-from .base_detection_client import (
-    BoundingBox,
-    DetectionClient,
-    DetectionItem,
-    DetectionResult,
-)
+from .base_detection_client import DetectionClient
 
 
 logger = logging.getLogger(__name__)

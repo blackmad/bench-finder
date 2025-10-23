@@ -25,8 +25,7 @@ from rich.table import Table
 from services.database import BenchDatabase
 from utils import setup_logging
 
-from models.enums import BenchCandidateStatus, SearchStatus
-from models.schemas import SearchCreate
+from models import BenchCandidateStatus, SearchCreate, SearchStatus
 
 
 # Initialize Typer app and console
@@ -362,6 +361,99 @@ def run_detections(
         raise typer.Exit(1) from e
 
 
+@app.command("reset-detections")
+def reset_detections(
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    confirm: bool = typer.Option(False, "--confirm", help="Skip confirmation prompt"),
+):
+    """
+    Reset detection results by clearing the detections table and resetting bench candidate statuses.
+
+    This command will:
+    1. Clear all records from the detections table
+    2. Reset bench candidate status from DETECTION_DONE to IMAGE_DOWNLOAD_DONE
+
+    Use this when you want to re-run detections on existing bench candidates.
+    """
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Initialize database
+        database = BenchDatabase()
+
+        # Get counts before reset
+        with database.get_session() as session:
+            from models import BenchCandidate, Detection
+
+            detection_count = session.query(Detection).count()
+            candidate_count = (
+                session.query(BenchCandidate)
+                .filter(BenchCandidate.status == BenchCandidateStatus.DETECTION_DONE)
+                .count()
+            )
+
+        if detection_count == 0 and candidate_count == 0:
+            console.print("[yellow]No detections or candidates to reset.[/yellow]")
+            return
+
+        # Show what will be reset
+        console.print("[bold blue]🔄 Reset Detections[/bold blue]")
+        console.print("[dim]This will:[/dim]")
+        console.print(f"[dim]  • Clear {detection_count} detection records[/dim]")
+        console.print(
+            f"[dim]  • Reset {candidate_count} bench candidates from DETECTION_DONE to IMAGE_DOWNLOAD_DONE[/dim]\n"
+        )
+
+        # Confirmation prompt
+        if not confirm and not typer.confirm("Are you sure you want to proceed?"):
+            console.print("[yellow]Operation cancelled.[/yellow]")
+            return
+
+        # Clear detections table
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            clear_task = progress.add_task("Clearing detections table...", total=None)
+            cleared_count = database.clear_detections_table()
+            progress.update(clear_task, description="✅ Detections table cleared")
+
+        # Reset bench candidate statuses
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            reset_task = progress.add_task(
+                "Resetting bench candidate statuses...", total=None
+            )
+            reset_count = database.reset_bench_candidate_detection_status()
+            progress.update(reset_task, description="✅ Bench candidate statuses reset")
+
+        # Display results
+        console.print("\n[bold green]✅ Reset complete![/bold green]")
+        console.print(f"[green]  • Cleared {cleared_count} detection records[/green]")
+        console.print(
+            f"[green]  • Reset {reset_count} bench candidates to IMAGE_DOWNLOAD_DONE status[/green]"
+        )
+        console.print(
+            "\n[dim]💡 You can now re-run detections using the run-detections command.[/dim]"
+        )
+
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130) from None
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1) from e
+
+
 @app.command("fetch-images")
 def fetch_images(
     search_id: Optional[int] = typer.Argument(
@@ -673,6 +765,11 @@ def _display_candidates_table(candidates: list, output_format: str = "table"):
             )
 
         console.print(output.getvalue())
+
+
+def main():
+    """Main entry point for the CLI."""
+    app()
 
 
 if __name__ == "__main__":

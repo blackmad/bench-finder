@@ -5,98 +5,13 @@ All detection clients should inherit from this base class.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from models.detection_models import DetectionItem
+from models import DetectionAttempt, DetectionResult
 
 
 logger = logging.getLogger(__name__)
-
-
-class DetectionResult(BaseModel):
-    """Unified detection result from any backend."""
-
-    image_path: str = Field(description="Path to the analyzed image")
-    success: bool = Field(description="Whether the detection was successful")
-    has_bench: bool = Field(description="Whether any benches were detected")
-    bench_count: int = Field(ge=0, description="Number of benches detected")
-    max_confidence: float = Field(
-        ge=0.0, le=1.0, description="Highest confidence score among all detections"
-    )
-    detections: list[DetectionItem] = Field(
-        default_factory=list, description="List of all detections"
-    )
-
-    # Backend information
-    backend_name: str = Field(description="Name of the detection backend used")
-    model_id: str | None = Field(description="ID of the model used")
-    confidence_threshold: float = Field(
-        ge=0.0, le=1.0, description="Confidence threshold used"
-    )
-
-    # Error information
-    error: Optional[str] = Field(
-        default=None, description="Error message if detection failed"
-    )
-
-    # Additional metadata
-    inference_time: Optional[float] = Field(
-        default=None, description="Time taken for inference in seconds"
-    )
-    preprocess_time: Optional[float] = Field(
-        default=None, description="Time taken for preprocessing in seconds"
-    )
-    postprocess_time: Optional[float] = Field(
-        default=None, description="Time taken for postprocessing in seconds"
-    )
-
-    # Source information
-    source: str = Field(
-        default="roboflow",
-        description="Source of the detection (roboflow, ultralytics, mapillary)",
-    )
-
-    # Ultralytics-specific fields (optional)
-    full_response: Optional[dict] = Field(
-        default=None, description="Full response from Ultralytics API"
-    )
-    bench_detections: Optional[list[dict]] = Field(
-        default=None, description="Bench-specific detections from Ultralytics"
-    )
-    model_url: Optional[str] = Field(default=None, description="URL of the model used")
-    iou_threshold: Optional[float] = Field(
-        default=None, description="IoU threshold used for NMS"
-    )
-    image_size: Optional[int] = Field(
-        default=None, description="Image size used for inference"
-    )
-
-    @property
-    def area(self) -> float:
-        """Calculate the area of the bounding box."""
-        return sum([d.bbox.area for d in self.detections])
-
-    @property
-    def model_name(self) -> str:
-        """Get the name of the model."""
-        return f"{self.backend_name} {self.model_id}"
-
-
-class DetectionAttempt(BaseModel):
-    """Represents a single model detection attempt."""
-
-    model_type: str = Field(
-        description="Type of model (e.g., 'ultralytics', 'roboflow')"
-    )
-    model_id: str = Field(description="ID of the specific model")
-    success: bool = Field(description="Whether the attempt was successful")
-    has_bench: bool = Field(description="Whether a bench was detected")
-    confidence: float = Field(ge=0.0, le=1.0, description="Maximum confidence score")
-    error: Optional[str] = Field(
-        default=None, description="Error message if attempt failed"
-    )
 
 
 class MultiModelDetectionResult(DetectionResult):

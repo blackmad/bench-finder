@@ -20,13 +20,14 @@ from config import (
     ULTRALYTICS_USE_LOCAL,
 )
 
-from .base_detection_client import (
+from models import (
     BoundingBox,
-    DetectionClient,
     DetectionItem,
     DetectionResult,
     Polygon,
 )
+
+from .base_detection_client import DetectionClient
 
 
 logger = logging.getLogger(__name__)

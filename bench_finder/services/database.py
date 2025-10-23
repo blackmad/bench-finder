@@ -11,28 +11,26 @@ from config import DATABASE_PATH
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.enums import BenchCandidateStatus, SearchStatus
-from models.models import (
-    Base,
+from models import (
     Bench,
     BenchCandidate,
-    Detection,
-    Image,
-    Search,
-    create_database_engine,
-    create_database_session,
-)
-from models.schemas import (
+    BenchCandidateStatus,
     BenchCreate,
     BenchWithDetections,
+    Detection,
     DetectionCreate,
+    DetectionItem,
     DetectionResponse,
+    Image,
     ImageCreate,
     ImageWithDetections,
+    Search,
     SearchCreate,
     SearchResponse,
     SearchResults,
+    SearchStatus,
 )
+from models.unified_models import create_database_session, init_database
 
 
 logger = logging.getLogger(__name__)
@@ -54,8 +52,7 @@ class BenchDatabase:
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
 
         # Initialize database
-        self.engine = create_database_engine(self.db_path)
-        Base.metadata.create_all(self.engine)
+        self.engine = init_database(self.db_path)
 
         logger.info(f"Database initialized at {self.db_path}")
 
@@ -199,7 +196,6 @@ class BenchDatabase:
                     has_bench=detection_data.has_bench,
                     bench_count=detection_data.bench_count,
                     max_confidence=detection_data.max_confidence,
-                    detections=detection_data.detections,
                     detection_success=detection_data.detection_success,
                     detection_error=detection_data.detection_error,
                     model_id=detection_data.model_id,
@@ -207,8 +203,8 @@ class BenchDatabase:
                     source=detection_data.source,
                     external_detection_id=detection_data.external_detection_id,
                     # Ultralytics-specific fields
-                    full_response=detection_data.full_response,
-                    bench_detections=detection_data.bench_detections,
+                    # full_response=detection_data.full_response,
+                    # bench_detections=detection_data.bench_detections,
                     model_url=detection_data.model_url,
                     iou_threshold=detection_data.iou_threshold,
                     image_size=detection_data.image_size,
@@ -220,8 +216,21 @@ class BenchDatabase:
                 session.commit()
                 session.refresh(detection)
 
+                # Add detection items
+                for item_data in detection_data.detection_items:
+                    detection_item = DetectionItem(
+                        detection_id=detection.id,
+                        confidence=item_data.confidence,
+                        bbox=item_data.bbox,
+                        class_name=item_data.class_name,
+                        polygon=item_data.polygon,
+                    )
+                    session.add(detection_item)
+
+                session.commit()
+
                 logger.debug(
-                    f"Added detection record {detection.id} for image {detection_data.image_id}"
+                    f"Added detection record {detection.id} for image {detection_data.image_id} with {len(detection_data.detection_items)} detection items"
                 )
                 return detection.id
 
@@ -371,7 +380,27 @@ class BenchDatabase:
                             capture_error=image.capture_error,
                             created_at=image.created_at,
                             detections=[
-                                DetectionResponse.model_validate(d)
+                                DetectionResponse(
+                                    id=d.id,
+                                    image_id=d.image_id,
+                                    has_bench=d.has_bench,
+                                    bench_count=d.bench_count,
+                                    max_confidence=d.max_confidence,
+                                    detection_success=d.detection_success,
+                                    detection_error=d.detection_error,
+                                    model_id=d.model_id,
+                                    confidence_threshold=d.confidence_threshold,
+                                    source=d.source,
+                                    external_detection_id=d.external_detection_id,
+                                    model_url=d.model_url,
+                                    iou_threshold=d.iou_threshold,
+                                    image_size=d.image_size,
+                                    inference_time=d.inference_time,
+                                    preprocess_time=d.preprocess_time,
+                                    postprocess_time=d.postprocess_time,
+                                    created_at=d.created_at,
+                                    detection_items=d.detection_items,
+                                )
                                 for d in image.detections
                             ],
                         )
@@ -565,6 +594,64 @@ class BenchDatabase:
         except Exception:
             logger.exception("Error getting latest search ID")
             return None
+
+    def clear_detections_table(self) -> int:
+        """
+        Clear all records from the detections table.
+
+        Returns:
+            Number of detections that were deleted
+        """
+        try:
+            with self.get_session() as session:
+                # Count detections before deletion
+                count = session.query(Detection).count()
+
+                # Delete all detections
+                session.query(Detection).delete()
+                session.commit()
+
+                logger.info(f"Cleared {count} detections from database")
+                return count
+
+        except Exception:
+            logger.exception("Error clearing detections table")
+            return 0
+
+    def reset_bench_candidate_detection_status(self) -> int:
+        """
+        Reset bench candidate status from DETECTION_DONE to IMAGE_DOWNLOAD_DONE.
+
+        Returns:
+            Number of candidates that were reset
+        """
+        try:
+            with self.get_session() as session:
+                # Find all candidates with DETECTION_DONE status
+                candidates_to_reset = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.status == BenchCandidateStatus.DETECTION_DONE
+                    )
+                    .all()
+                )
+
+                count = len(candidates_to_reset)
+
+                # Update their status to IMAGE_DOWNLOAD_DONE
+                for candidate in candidates_to_reset:
+                    candidate.status = BenchCandidateStatus.IMAGE_DOWNLOAD_DONE
+
+                session.commit()
+
+                logger.info(
+                    f"Reset {count} bench candidates from DETECTION_DONE to IMAGE_DOWNLOAD_DONE"
+                )
+                return count
+
+        except Exception:
+            logger.exception("Error resetting bench candidate detection status")
+            return 0
 
     def close(self):
         """Close database connection if needed."""

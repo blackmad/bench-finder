@@ -25,16 +25,19 @@ from services.mapillary_service import (
     initialize_mapillary_service,
 )
 
-from models.enums import BenchReportType, DataSource, DetectionSource, LocationMethod
-from models.schemas import (
+from models import (
     ApiInfoResponse,
     BenchListResponse,
+    BenchReportType,
     ClusteredBenchListResponse,
     ConfigResponse,
+    DataSource,
+    DetectionSource,
     ErrorResponse,
     HealthResponse,
     ImageListResponse,
     ImageResponse,
+    LocationMethod,
     MapillaryConfigResponse,
     MissingBenchReportResponse,
     PaginationInfo,
@@ -1564,23 +1567,37 @@ async def get_image_segmentation(
 
             # Try to get Roboflow bounding box data
             roboflow_query = """
-                SELECT d.detections, d.max_confidence
+                SELECT d.max_confidence, di.confidence, di.bbox, di.class_name, di.polygon
                 FROM detections d
-                WHERE d.image_id = ? AND d.has_bench = 1
+                LEFT JOIN detection_items di ON d.id = di.detection_id
+                WHERE d.image_id = ? AND d.has_bench = 1 AND d.source = 'roboflow'
                 ORDER BY d.max_confidence DESC
                 LIMIT 1
             """
 
-            roboflow_row = conn.execute(roboflow_query, (image_id,)).fetchone()
+            roboflow_rows = conn.execute(roboflow_query, (image_id,)).fetchall()
 
-            if roboflow_row:
-                roboflow_detections = (
-                    json.loads(roboflow_row["detections"])
-                    if roboflow_row["detections"]
-                    else []
-                )
+            if roboflow_rows:
+                roboflow_detections = []
+                for row in roboflow_rows:
+                    if row["bbox"]:  # Only add if bbox exists
+                        detection_item = {
+                            "confidence": row["confidence"],
+                            "bbox": json.loads(row["bbox"])
+                            if isinstance(row["bbox"], str)
+                            else row["bbox"],
+                            "class_name": row["class_name"],
+                        }
+                        if row["polygon"]:
+                            detection_item["polygon"] = (
+                                json.loads(row["polygon"])
+                                if isinstance(row["polygon"], str)
+                                else row["polygon"]
+                            )
+                        roboflow_detections.append(detection_item)
+
                 max_confidence = max(
-                    max_confidence, roboflow_row["max_confidence"] or 0.0
+                    max_confidence, roboflow_rows[0]["max_confidence"] or 0.0
                 )
                 detection_sources.append(DetectionSource.ROBOFLOW)
 

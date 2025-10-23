@@ -9,15 +9,16 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from rich.progress import (
     Progress,
 )
 from term_image.image import AutoImage
 
-from bench_finder.tools.bench_detection_cli import render_detections
+from models import DetectionResult
 from models.enums import BenchCandidateStatus
+from tools.bench_detection_cli import render_detections
 
 
 # Set environment variables to suppress inference model dependency warnings
@@ -36,7 +37,6 @@ os.environ.setdefault("CORE_MODEL_TROCR_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_GROUNDINGDINO_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
-from clients.base_detection_client import DetectionClient, DetectionResult
 from clients.multi_model_client import UnifiedMultiModelDetectionClient
 from clients.roboflow_client import RoboflowClient
 from clients.ultralytics_client import UltralyticsClient
@@ -50,11 +50,16 @@ from generators.bench_generator import BenchCandidate
 from PIL import Image as PILImage
 from services.database import BenchDatabase
 
-from models.schemas import (
+from models import (
     BenchProcessingResult,
     DetectionCreate,
+    DetectionItemCreate,
     ProcessingStats,
 )
+
+
+if TYPE_CHECKING:
+    from clients.base_detection_client import DetectionClient
 
 
 logger = logging.getLogger(__name__)
@@ -289,7 +294,7 @@ class BenchDetector:
         # Find the bench in the database to get its images
         try:
             with self.database.get_session() as session:
-                from models.models import Bench, Image
+                from models import Bench, Image
 
                 # Find the bench by provider_id
                 db_bench = (
@@ -374,6 +379,7 @@ class BenchDetector:
 
         # Phase 2: Find the representative image (highest pixel coverage with bench detected)
         representative_detection = None
+        current_best_coverage = 0.0
 
         if detection_results:
             # Find the index with highest pixel coverage, then highest confidence
@@ -409,28 +415,36 @@ class BenchDetector:
                     has_bench=detection_result.has_bench,
                     bench_count=detection_result.bench_count,
                     max_confidence=detection_result.max_confidence,
-                    detections=detection_result.detections,
                     detection_success=True,
                     detection_error=None,
-                    model_id=detection_result.model_id,
+                    model_id=detection_result.model_id or "unknown",
                     confidence_threshold=self.detection_client.confidence_threshold,
                     source=detection_result.source,
                     # Ultralytics-specific fields (optional)
-                    full_response=detection_result.full_response,
-                    bench_detections=detection_result.bench_detections,
+                    # full_response=detection_result.full_response,
+                    # bench_detections=detection_result.bench_detections,
                     model_url=detection_result.model_url,
                     iou_threshold=detection_result.iou_threshold,
                     image_size=detection_result.image_size,
                     inference_time=detection_result.inference_time,
                     preprocess_time=detection_result.preprocess_time,
                     postprocess_time=detection_result.postprocess_time,
+                    detection_items=[
+                        DetectionItemCreate(
+                            confidence=item.confidence,
+                            bbox=item.bbox,
+                            class_name=item.class_name,
+                            polygon=item.polygon,
+                        )
+                        for item in detection_result.detections
+                    ],
                 )
             )
 
             # Display and copy only the representative image
             if detection_result == representative_detection:
                 winning_model = detection_result.backend_name
-                pixel_coverage = detection_result.pix
+                pixel_coverage = current_best_coverage
 
                 # Log detection success with model information
                 logger.info(
@@ -499,7 +513,7 @@ class BenchDetector:
         # Update candidate status to detection_done
         try:
             with self.database.get_session() as session:
-                from models.models import BenchCandidate
+                from models import BenchCandidate
 
                 candidate = (
                     session.query(BenchCandidate)
