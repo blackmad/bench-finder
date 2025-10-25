@@ -23,6 +23,19 @@ import requests
 from PIL import Image as PILImage
 from term_image.image import AutoImage
 
+from api.api_models import (
+    ApiInfoResponse,
+    BenchDetectionData,
+    BenchListResponse,
+    ClusteredBenchListResponse,
+    ConfigResponse,
+    HealthResponse,
+    ImageListResponse,
+    SearchListResponse,
+    SegmentationData,
+    WebBenchData,
+)
+from api.fastapi_server import BboxBenchResponse
 from bench_finder.display import create_combined_image_display, render_detections
 from bench_finder.models.enums import DetectionSource
 from bench_finder.models.unified_models import (
@@ -68,7 +81,6 @@ def convert_api_response_to_detection_result(
 
         detection_item = DetectionItem(
             detection_id=0,  # Not used for display purposes
-            image_id=None,  # Not used for display purposes
             confidence=item.get("confidence", 0.0),
             bbox=bbox,
             class_name=item.get("class_name", "bench"),
@@ -124,31 +136,40 @@ class FastAPIClient:
             print(f"❌ Request Error: {e}")
             sys.exit(1)
 
-    def health_check(self) -> dict[str, Any]:
+    def _make_typed_request(
+        self, method: str, endpoint: str, response_model: type, **kwargs
+    ) -> Any:
+        """Make a request to the FastAPI server and return a Pydantic model."""
+        raw_response = self._make_request(method, endpoint, **kwargs)
+        return response_model.model_validate(raw_response)
+
+    def health_check(self) -> HealthResponse:
         """Check server health."""
-        return self._make_request("GET", "/health")
+        return self._make_typed_request("GET", "/health", HealthResponse)
 
-    def get_config(self) -> dict[str, Any]:
+    def get_config(self) -> ConfigResponse:
         """Get server configuration."""
-        return self._make_request("GET", "/api/config")
+        return self._make_typed_request("GET", "/api/config", ConfigResponse)
 
-    def get_api_info(self) -> dict[str, Any]:
+    def get_api_info(self) -> ApiInfoResponse:
         """Get API information."""
-        return self._make_request("GET", "/api/info")
+        return self._make_typed_request("GET", "/api/info", ApiInfoResponse)
 
     def get_random_bench(
         self,
         min_confidence: float = 0.8,
         mode: str = "benches",
         include_detection_data: bool = False,
-    ) -> dict[str, Any]:
+    ) -> WebBenchData:
         """Get a random bench."""
         params = {
             "min_confidence": min_confidence,
             "mode": mode,
             "include_detection_data": include_detection_data,
         }
-        return self._make_request("GET", "/api/benches/random", params=params)
+        return self._make_typed_request(
+            "GET", "/api/benches/random", WebBenchData, params=params
+        )
 
     def get_benches(
         self,
@@ -161,7 +182,7 @@ class FastAPIClient:
         mode: str = "benches",
         clustered: bool = True,
         include_detection_data: bool = False,
-    ) -> dict[str, Any]:
+    ) -> BenchListResponse | ClusteredBenchListResponse:
         """Get list of benches."""
         params = {
             "page": page,
@@ -174,7 +195,15 @@ class FastAPIClient:
             "clustered": clustered,
             "include_detection_data": include_detection_data,
         }
-        return self._make_request("GET", "/api/benches", params=params)
+        # We need to handle the union type - try clustered first, fallback to regular
+        try:
+            return self._make_typed_request(
+                "GET", "/api/benches", ClusteredBenchListResponse, params=params
+            )
+        except Exception:
+            return self._make_typed_request(
+                "GET", "/api/benches", BenchListResponse, params=params
+            )
 
     def get_benches_in_bbox(
         self,
@@ -189,7 +218,7 @@ class FastAPIClient:
         limit: int = 200,
         clustered: bool = True,
         include_detection_data: bool = False,
-    ) -> dict[str, Any]:
+    ) -> BboxBenchResponse | ClusteredBenchListResponse:
         """Get benches in bounding box."""
         params = {
             "north": north,
@@ -205,36 +234,67 @@ class FastAPIClient:
         }
         if source:
             params["source"] = source
-        return self._make_request("GET", "/api/benches/bbox", params=params)
+        # Handle union type - try clustered first, fallback to bbox response
+        try:
+            return self._make_typed_request(
+                "GET", "/api/benches/bbox", ClusteredBenchListResponse, params=params
+            )
+        except Exception:
+            return self._make_typed_request(
+                "GET", "/api/benches/bbox", BboxBenchResponse, params=params
+            )
 
-    def get_bench_images(self, bench_id: int) -> dict[str, Any]:
+    def get_bench_images(self, bench_id: int) -> ImageListResponse:
         """Get images for a specific bench."""
-        return self._make_request("GET", f"/api/bench/{bench_id}/images")
+        return self._make_typed_request(
+            "GET", f"/api/bench/{bench_id}/images", ImageListResponse
+        )
 
-    def get_image_segmentation(self, image_id: int) -> dict[str, Any]:
+    def get_image_segmentation(self, image_id: int) -> SegmentationData:
         """Get detection visualization data for an image."""
-        return self._make_request("GET", f"/api/image/{image_id}/segmentation")
+        return self._make_typed_request(
+            "GET", f"/api/image/{image_id}/segmentation", SegmentationData
+        )
+
+    def get_image_segmentation_safe(self, image_id: int) -> SegmentationData | None:
+        """Get detection visualization data for an image, returning None on 404."""
+        url = f"{self.base_url}/api/image/{image_id}/segmentation"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            return SegmentationData.model_validate(response.json())
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                return None
+            else:
+                raise
+        except requests.exceptions.RequestException:
+            raise
 
     def get_bench_by_id(
         self,
         bench_id: int,
         min_confidence: float = 0.8,
         include_detection_data: bool = False,
-    ) -> dict[str, Any]:
+    ) -> WebBenchData:
         """Get a specific bench by ID."""
         params = {
             "min_confidence": min_confidence,
             "include_detection_data": include_detection_data,
         }
-        return self._make_request("GET", f"/api/bench/{bench_id}", params=params)
+        return self._make_typed_request(
+            "GET", f"/api/bench/{bench_id}", WebBenchData, params=params
+        )
 
-    def get_bench_detections(self, bench_id: int) -> dict[str, Any]:
+    def get_bench_detections(self, bench_id: int) -> BenchDetectionData:
         """Get comprehensive detection data for a specific bench."""
-        return self._make_request("GET", f"/api/bench/{bench_id}/detections")
+        return self._make_typed_request(
+            "GET", f"/api/bench/{bench_id}/detections", BenchDetectionData
+        )
 
-    def get_searches(self) -> dict[str, Any]:
+    def get_searches(self) -> SearchListResponse:
         """Get list of completed searches."""
-        return self._make_request("GET", "/api/searches")
+        return self._make_typed_request("GET", "/api/searches", SearchListResponse)
 
     def download_image(self, filename: str, save_path: str | None = None) -> str:
         """Download an image from the server."""
@@ -289,92 +349,90 @@ def render_detection_annotations(
 
 
 def format_bench_info(
-    bench: dict[str, Any], show_images: bool = False, show_detection_data: bool = False
+    bench: WebBenchData, show_images: bool = False, show_detection_data: bool = False
 ) -> str:
     """Format bench information for display."""
     lines = []
 
     # Basic info
-    lines.append(f"🪑 Bench ID: {bench['id']}")
-    lines.append(f"📍 Location: {bench['lat']:.6f}, {bench['lng']:.6f}")
-    lines.append(f"📊 Source: {bench['source']}")
-    lines.append(f"🎯 Detection Type: {bench['detection_type']}")
-    lines.append(f"✅ Bench Found: {bench['bench_found']}")
+    lines.append(f"🪑 Bench ID: {bench.id}")
+    lines.append(f"📍 Location: {bench.lat:.6f}, {bench.lng:.6f}")
+    lines.append(f"📊 Source: {bench.source}")
+    lines.append(f"🎯 Detection Type: {bench.detection_type}")
+    lines.append(f"✅ Bench Found: {bench.bench_found}")
 
     # Confidence scores
-    lines.append(f"🎯 Best Confidence: {bench['best_confidence']:.3f}")
-    if bench.get("roboflow_confidence", 0) > 0:
-        lines.append(f"   Roboflow: {bench['roboflow_confidence']:.3f}")
-    if bench.get("ultralytics_confidence", 0) > 0:
-        lines.append(f"   Ultralytics: {bench['ultralytics_confidence']:.3f}")
-    if bench.get("mapillary_confidence", 0) > 0:
-        lines.append(f"   Mapillary: {bench['mapillary_confidence']:.3f}")
+    lines.append(f"🎯 Best Confidence: {bench.best_confidence:.3f}")
+    if bench.roboflow_confidence > 0:
+        lines.append(f"   Roboflow: {bench.roboflow_confidence:.3f}")
+    if bench.ultralytics_confidence > 0:
+        lines.append(f"   Ultralytics: {bench.ultralytics_confidence:.3f}")
+    if bench.mapillary_confidence > 0:
+        lines.append(f"   Mapillary: {bench.mapillary_confidence:.3f}")
 
     # Distance
-    if "distance_meters" in bench:
+    if hasattr(bench, "distance_meters") and bench.distance_meters is not None:
         lines.append(
-            f"📏 Distance: {bench['distance_meters']}m ({bench['distance_km']:.2f}km)"
+            f"📏 Distance: {bench.distance_meters}m ({bench.distance_km:.2f}km)"
         )
 
     # Images
-    lines.append(f"🖼️  Images: {bench['image_count']}")
-    if show_images and bench.get("image_filenames"):
+    lines.append(f"🖼️  Images: {bench.image_count}")
+    if show_images and bench.image_filenames:
         lines.append("   Image files:")
-        for filename in bench["image_filenames"][:5]:  # Show first 5
+        for filename in bench.image_filenames[:5]:  # Show first 5
             lines.append(f"     • {filename}")  # noqa: PERF401
-        if len(bench["image_filenames"]) > 5:
-            lines.append(f"     ... and {len(bench['image_filenames']) - 5} more")
+        if len(bench.image_filenames) > 5:
+            lines.append(f"     ... and {len(bench.image_filenames) - 5} more")
 
     # Detection data
-    if show_detection_data and bench.get("detection_items"):
-        lines.append(f"🔍 Detection Items: {len(bench['detection_items'])}")
-        for i, item in enumerate(bench["detection_items"][:3]):  # Show first 3
+    if show_detection_data and bench.detection_items:
+        lines.append(f"🔍 Detection Items: {len(bench.detection_items)}")
+        for i, item in enumerate(bench.detection_items[:3]):  # Show first 3
             lines.append(f"   Item {i+1}:")
-            lines.append(f"     Confidence: {item['confidence']:.3f}")
-            lines.append(f"     Class: {item['class_name']}")
-            if item.get("bbox"):
-                bbox = item["bbox"]
+            lines.append(f"     Confidence: {item.confidence:.3f}")
+            lines.append(f"     Class: {item.class_name}")
+            if item.bbox:
+                bbox = item.bbox
                 lines.append(
-                    f"     Bbox: ({bbox['x1']:.1f}, {bbox['y1']:.1f}) to ({bbox['x2']:.1f}, {bbox['y2']:.1f})"
+                    f"     Bbox: ({bbox.x1:.1f}, {bbox.y1:.1f}) to ({bbox.x2:.1f}, {bbox.y2:.1f})"
                 )
-            if item.get("polygon"):
-                polygon = item["polygon"]
-                lines.append(f"     Polygon: {len(polygon['coordinates'])} points")
-        if len(bench["detection_items"]) > 3:
+            if item.polygon:
+                polygon = item.polygon
+                lines.append(f"     Polygon: {len(polygon.coordinates)} points")
+        if len(bench.detection_items) > 3:
             lines.append(
-                f"     ... and {len(bench['detection_items']) - 3} more detection items"
+                f"     ... and {len(bench.detection_items) - 3} more detection items"
             )
 
     # Clustering info
-    if bench.get("cluster_id"):
-        lines.append(f"🔗 Cluster ID: {bench['cluster_id']}")
+    if bench.cluster_id:
+        lines.append(f"🔗 Cluster ID: {bench.cluster_id}")
         lines.append(
-            f"   Cluster Center: {bench['cluster_center_lat']:.6f}, {bench['cluster_center_lng']:.6f}"
+            f"   Cluster Center: {bench.cluster_center_lat:.6f}, {bench.cluster_center_lng:.6f}"
         )
-        lines.append(f"   Benches in Cluster: {bench['cluster_bench_count']}")
-        if bench.get("is_cluster_representative"):
+        lines.append(f"   Benches in Cluster: {bench.cluster_bench_count}")
+        if bench.is_cluster_representative:
             lines.append("   🏆 Representative Bench")
 
     return "\n".join(lines)
 
 
 def display_bench_images(
-    client: FastAPIClient, bench: dict[str, Any], show_annotations: bool = False
+    client: FastAPIClient, bench: WebBenchData, show_annotations: bool = False
 ):
     """Display images for a bench."""
-    if not bench.get("image_filenames"):
+    if not bench.image_filenames:
         print("❌ No images available for this bench")
         return
 
-    print(
-        f"\n🖼️  Displaying {len(bench['image_filenames'])} images for bench {bench['id']}:"
-    )
+    print(f"\n🖼️  Displaying {len(bench.image_filenames)} images for bench {bench.id}:")
 
     # Download and display images
     image_paths = []
-    for i, filename in enumerate(bench["image_filenames"][:4]):  # Limit to 4 images
+    for i, filename in enumerate(bench.image_filenames[:4]):  # Limit to 4 images
         print(
-            f"📥 Downloading image {i+1}/{min(4, len(bench['image_filenames']))}: {filename}"
+            f"📥 Downloading image {i+1}/{min(4, len(bench.image_filenames))}: {filename} - id: {bench.image_ids[i]}"
         )
         local_path = client.download_image(filename)
         if local_path:
@@ -391,23 +449,31 @@ def display_bench_images(
         print(AutoImage(combined_image))
 
         # Show annotations if requested and we have detection data
-        if show_annotations and bench.get("image_ids"):
+        if show_annotations and bench.image_ids:
             print("\n🔍 Detection annotations:")
-            for i, image_id in enumerate(bench["image_ids"][:2]):  # Show first 2
+            for i, image_id in enumerate(bench.image_ids):  # Show all images
                 try:
-                    seg_data = client.get_image_segmentation(image_id)
+                    seg_data = client.get_image_segmentation_safe(image_id)
+                    if seg_data is None:
+                        print(
+                            f"   Image {i+1} (ID: {image_id}): ❌ No detection data found"
+                        )
+                        continue
+
                     print(f"   Image {i+1} (ID: {image_id}):")
-                    print(f"     Detection Type: {seg_data['detection_type']}")
-                    print(f"     Confidence: {seg_data['confidence_score']:.3f}")
-                    print(f"     Segmentation: {seg_data['segmentation_available']}")
-                    print(f"     Bounding Box: {seg_data['bounding_box_available']}")
+                    print(f"     Detection Type: {seg_data.detection_type}")
+                    print(f"     Confidence: {seg_data.confidence_score:.3f}")
+                    print(f"     Segmentation: {seg_data.segmentation_available}")
+                    print(f"     Bounding Box: {seg_data.bounding_box_available}")
 
                     # Render annotations on the image if we have detection data
-                    if seg_data.get("detection_items") and i < len(image_paths):
+                    if seg_data.detection_items and i < len(image_paths):
                         image_path = image_paths[i]["filepath"]
                         try:
+                            # Convert SegmentationData to dict for render_detection_annotations
+                            seg_dict = seg_data.model_dump()
                             annotated_image = render_detection_annotations(
-                                image_path, seg_data, f"Image {i+1}"
+                                image_path, seg_dict, f"Image {i+1}"
                             )
                             print(f"\n📸 Annotated image {i+1}:")
                             print(AutoImage(annotated_image))
@@ -415,7 +481,9 @@ def display_bench_images(
                             print(f"     Error rendering annotations: {render_error}")
 
                 except Exception as e:
-                    print(f"     Error getting detection data: {e}")
+                    print(
+                        f"   Image {i+1} (ID: {image_id}): ❌ Error getting detection data: {e}"
+                    )
 
     # Clean up downloaded files
     for img_data in image_paths:
@@ -430,17 +498,17 @@ def display_bench_detections(client: FastAPIClient, bench_id: int):
         detection_data = client.get_bench_detections(bench_id)
 
         print("\n📊 Detection Summary:")
-        print(f"   Bench ID: {detection_data['bench_id']}")
+        print(f"   Bench ID: {detection_data.bench_id}")
         print(
-            f"   Location: {detection_data['bench_lat']:.6f}, {detection_data['bench_lng']:.6f}"
+            f"   Location: {detection_data.bench_lat:.6f}, {detection_data.bench_lng:.6f}"
         )
-        print(f"   Total Images: {detection_data['total_images']}")
-        print(f"   Images with Detections: {detection_data['images_with_detections']}")
-        print(f"   Best Confidence: {detection_data['best_confidence']:.3f}")
-        print(f"   Detection Sources: {', '.join(detection_data['detection_sources'])}")
+        print(f"   Total Images: {detection_data.total_images}")
+        print(f"   Images with Detections: {detection_data.images_with_detections}")
+        print(f"   Best Confidence: {detection_data.best_confidence:.3f}")
+        print(f"   Detection Sources: {', '.join(detection_data.detection_sources)}")
 
         print("\n🖼️  Images and Detections:")
-        for i, image in enumerate(detection_data["images"]):
+        for i, image in enumerate(detection_data.images):
             print(f"\n   Image {i+1} (ID: {image['image_id']}):")
             print(f"     Filename: {image['filename']}")
             print(f"     Heading: {image['heading']}°")
@@ -470,9 +538,9 @@ def cmd_health(client: FastAPIClient, args):
     """Health check command."""
     print("🏥 Checking server health...")
     health = client.health_check()
-    print(f"✅ Status: {health['status']}")
-    print(f"🗄️  Database: {health['database']}")
-    print(f"🗺️  Mapillary: {health['mapillary']}")
+    print(f"✅ Status: {health.status}")
+    print(f"🗄️  Database: {health.database}")
+    print(f"🗺️  Mapillary: {health.mapillary}")
 
 
 def cmd_config(client: FastAPIClient, args):
@@ -480,23 +548,23 @@ def cmd_config(client: FastAPIClient, args):
     print("⚙️  Server Configuration:")
     config = client.get_config()
     print(
-        f"📍 Default Location: {config['default_start_lat']:.6f}, {config['default_start_lng']:.6f}"
+        f"📍 Default Location: {config.default_start_lat:.6f}, {config.default_start_lng:.6f}"
     )
-    print(f"🎯 Default Min Confidence: {config['default_min_confidence']}")
-    print(f"📄 Page Size: {config['page_size']}")
+    print(f"🎯 Default Min Confidence: {config.default_min_confidence}")
+    print(f"📄 Page Size: {config.page_size}")
 
 
 def cmd_info(client: FastAPIClient, args):
     """API info command."""
     print("ℹ️  API Information:")
     info = client.get_api_info()
-    print(f"📛 Name: {info['name']}")
-    print(f"🔢 Version: {info['version']}")
-    print(f"📝 Description: {info['description']}")
-    print(f"📊 Supported Sources: {', '.join(info['supported_sources'])}")
-    print(f"🤖 Detection Models: {', '.join(info['supported_detection_models'])}")
-    print(f"✨ Features: {', '.join(info['features'])}")
-    print(f"📏 Limits: {json.dumps(info['limits'], indent=2)}")
+    print(f"📛 Name: {info.name}")
+    print(f"🔢 Version: {info.version}")
+    print(f"📝 Description: {info.description}")
+    print(f"📊 Supported Sources: {', '.join(info.supported_sources)}")
+    print(f"🤖 Detection Models: {', '.join(info.supported_detection_models)}")
+    print(f"✨ Features: {', '.join(info.features)}")
+    print(f"📏 Limits: {json.dumps(info.limits, indent=2)}")
 
 
 def cmd_random(client: FastAPIClient, args):
@@ -537,11 +605,11 @@ def cmd_closest(client: FastAPIClient, args):
         include_detection_data=args.include_detection_data,
     )
 
-    if "benches" in response:
-        benches = response["benches"]
-    elif "clustered_benches" in response:
+    if isinstance(response, BenchListResponse):
+        benches = response.benches
+    elif isinstance(response, ClusteredBenchListResponse):
         benches = [
-            cluster["representative_bench"] for cluster in response["clustered_benches"]
+            cluster.representative_bench for cluster in response.clustered_benches
         ]
     else:
         print("❌ Unexpected response format")
@@ -578,21 +646,21 @@ def cmd_list(client: FastAPIClient, args):
         include_detection_data=args.include_detection_data,
     )
 
-    if "benches" in response:
-        benches = response["benches"]
-        pagination = response["pagination"]
-    elif "clustered_benches" in response:
+    if isinstance(response, BenchListResponse):
+        benches = response.benches
+        pagination = response.pagination
+    elif isinstance(response, ClusteredBenchListResponse):
         benches = [
-            cluster["representative_bench"] for cluster in response["clustered_benches"]
+            cluster.representative_bench for cluster in response.clustered_benches
         ]
-        pagination = response["pagination"]
+        pagination = response.pagination
     else:
         print("❌ Unexpected response format")
         return
 
     print(
-        f"\n📊 Page {pagination['page'] + 1} of {pagination['total_pages']} "
-        f"({pagination['total_count']} total benches)"
+        f"\n📊 Page {pagination.page + 1} of {pagination.total_pages} "
+        f"({pagination.total_count} total benches)"
     )
     print("=" * 80)
 
@@ -624,12 +692,12 @@ def cmd_bbox(client: FastAPIClient, args):
         include_detection_data=args.include_detection_data,
     )
 
-    if "benches" in response:
-        benches = response["benches"]
-        total_count = response["total_count"]
-    elif "clustered_benches" in response:
+    if isinstance(response, BboxBenchResponse):
+        benches = response.benches
+        total_count = response.total_count
+    elif isinstance(response, ClusteredBenchListResponse):
         benches = [
-            cluster["representative_bench"] for cluster in response["clustered_benches"]
+            cluster.representative_bench for cluster in response.clustered_benches
         ]
         total_count = len(benches)
     else:
@@ -651,7 +719,7 @@ def cmd_searches(client: FastAPIClient, args):
     """List searches command."""
     print("🔍 Listing completed searches...")
     response = client.get_searches()
-    searches = response["searches"]
+    searches = response.searches
 
     if not searches:
         print("❌ No completed searches found")
@@ -661,12 +729,12 @@ def cmd_searches(client: FastAPIClient, args):
     print("=" * 80)
 
     for i, search in enumerate(searches):
-        print(f"\n{i+1}. Search ID: {search['id']}")
-        print(f"   Query: {search['query']}")
-        print(f"   Location: {search['start_lat']:.6f}, {search['start_lng']:.6f}")
-        print(f"   Radius: {search['search_radius']}m")
-        print(f"   Benches Found: {search['bench_count']}")
-        print(f"   Created: {search['created_at']}")
+        print(f"\n{i+1}. Search ID: {search.id}")
+        print(f"   Query: {search.query}")
+        print(f"   Location: {search.start_lat:.6f}, {search.start_lng:.6f}")
+        print(f"   Radius: {search.search_radius}m")
+        print(f"   Benches Found: {search.bench_count}")
+        print(f"   Created: {search.created_at}")
 
 
 def cmd_bench(client: FastAPIClient, args):

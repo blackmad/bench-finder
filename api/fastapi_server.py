@@ -4,16 +4,17 @@ FastAPI server for bench finder application with comprehensive OpenAPI documenta
 Migrated from Flask with improved type safety and automatic API documentation.
 """
 
-import json
+import logging
 import math
 import os
-from contextlib import asynccontextmanager, suppress
-from datetime import datetime
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
 # Any import removed - not used
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Path, Query, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +26,14 @@ from bench_finder.models.enums import (
     DataSource,
     DetectionSource,
     LocationMethod,
+    SearchStatus,
+)
+from bench_finder.models.unified_models import (
+    Bench,
+    Detection,
+    DetectionItem,
+    Image,
+    Search,
 )
 from bench_finder.services.clustered_bench_service import ClusteredBenchService
 from bench_finder.services.database import BenchDatabase
@@ -76,7 +85,7 @@ class EnhancedErrorResponse(BaseModel):
     )
 
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="When the error occurred"
+        default_factory=lambda: datetime.now(UTC), description="When the error occurred"
     )
 
 
@@ -167,6 +176,19 @@ async def lifespan(_app: FastAPI):
     print("🚀 Starting Bench Finder FastAPI server...")
     print(f"📁 Database: {DATABASE_PATH}")
     print(f"🖼️  Images directory: {IMAGES_DIR}")
+
+    # Configure logging for better error visibility
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(),  # Console output
+        ],
+    )
+
+    # Set uvicorn loggers to show more detail
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
     # Mapillary service initialization removed - using unified approach
 
@@ -263,6 +285,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Add custom exception handler for detailed error logging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler that logs full stacktraces for debugging."""
+    import logging
+    import traceback
+
+    # Set up logging if not already configured
+    logger = logging.getLogger(__name__)
+
+    # Log the full stacktrace
+    logger.error(f"🚨 Unhandled exception in {request.method} {request.url}:")
+    logger.error(f"Exception type: {type(exc).__name__}")
+    logger.error(f"Exception message: {exc!s}")
+    logger.error("Full stacktrace:")
+    logger.error(traceback.format_exc())
+
+    # Also print to console for immediate visibility
+    print(f"🚨 Unhandled exception in {request.method} {request.url}:")
+    print(f"Exception type: {type(exc).__name__}")
+    print(f"Exception message: {exc!s}")
+    print("Full stacktrace:")
+    traceback.print_exc()
+
+    # Return a generic error response
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": str(exc) if str(exc) else "An unexpected error occurred",
+            "type": type(exc).__name__,
+        },
+    )
+
+
 # Mount static files for images
 if os.path.exists(IMAGES_DIR):
     app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
@@ -270,22 +328,90 @@ if os.path.exists(IMAGES_DIR):
 
 # Global exception handlers
 @app.exception_handler(ValueError)
-async def value_error_handler(_request: Request, exc: ValueError):
-    """Handle ValueError exceptions with proper HTTP status."""
+async def value_error_handler(request: Request, exc: ValueError):
+    """Handle ValueError exceptions with proper HTTP status and stacktrace logging."""
+    import logging
+    import traceback
+
+    logger = logging.getLogger(__name__)
+
+    # Log the full stacktrace for 400 errors too
+    logger.warning(f"🚨 ValueError in {request.method} {request.url}:")
+    logger.warning(f"Exception type: {type(exc).__name__}")
+    logger.warning(f"Exception message: {exc!s}")
+    logger.warning("Full stacktrace:")
+    logger.warning(traceback.format_exc())
+
+    # Also print to console for immediate visibility
+    print(f"🚨 ValueError in {request.method} {request.url}:")
+    print(f"Exception type: {type(exc).__name__}")
+    print(f"Exception message: {exc!s}")
+    print("Full stacktrace:")
+    traceback.print_exc()
+
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content=ErrorResponse(error="Invalid input", detail=str(exc)).model_dump(),
     )
 
 
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle unexpected exceptions gracefully."""
-    print(f"Unexpected error on {request.url}: {exc}")
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTPException with stacktrace logging for 400-level errors."""
+    import logging
+    import traceback
+
+    logger = logging.getLogger(__name__)
+
+    # Only log stacktraces for 400-level errors (not 404s, etc.)
+    if 400 <= exc.status_code < 500:
+        logger.warning(
+            f"🚨 HTTPException {exc.status_code} in {request.method} {request.url}:"
+        )
+        logger.warning(f"Exception type: {type(exc).__name__}")
+        logger.warning(f"Exception message: {exc.detail!s}")
+        logger.warning("Full stacktrace:")
+        logger.warning(traceback.format_exc())
+
+        # Also print to console for immediate visibility
+        print(f"🚨 HTTPException {exc.status_code} in {request.method} {request.url}:")
+        print(f"Exception type: {type(exc).__name__}")
+        print(f"Exception message: {exc.detail!s}")
+        print("Full stacktrace:")
+        traceback.print_exc()
+
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        status_code=exc.status_code,
+        content=ErrorResponse(error="HTTP Error", detail=str(exc.detail)).model_dump(),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors with stacktrace logging."""
+    import logging
+    import traceback
+
+    logger = logging.getLogger(__name__)
+
+    # Log the full stacktrace for validation errors
+    logger.warning(f"🚨 ValidationError in {request.method} {request.url}:")
+    logger.warning(f"Exception type: {type(exc).__name__}")
+    logger.warning(f"Exception message: {exc!s}")
+    logger.warning("Full stacktrace:")
+    logger.warning(traceback.format_exc())
+
+    # Also print to console for immediate visibility
+    print(f"🚨 ValidationError in {request.method} {request.url}:")
+    print(f"Exception type: {type(exc).__name__}")
+    print(f"Exception message: {exc!s}")
+    print("Full stacktrace:")
+    traceback.print_exc()
+
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=ErrorResponse(
-            error="Internal server error", detail="An unexpected error occurred"
+            error="Validation Error", detail=f"Request validation failed: {exc!s}"
         ).model_dump(),
     )
 
@@ -324,10 +450,11 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
 async def health_check():
     """Check if the server is running and database is accessible."""
     try:
-        # Test database connection
+        # Test database connection using SQLAlchemy ORM
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            conn.execute("SELECT 1").fetchone()
+        with db.get_session() as session:
+            # Simple query to test database connectivity
+            session.query(Bench).limit(1).first()
 
         return HealthResponse(
             status="healthy",
@@ -342,59 +469,74 @@ async def health_check():
 
 
 # Helper function to get detection items for a bench
-def get_detection_items_for_bench(conn, bench_id: int) -> list[dict[str, Any]]:
-    """Get all detection items for a specific bench."""
-    query = """
-        SELECT
-            di.id,
-            di.confidence,
-            di.bbox,
-            di.polygon,
-            di.class_name,
-            di.created_at
-        FROM detection_items di
-        JOIN detections d ON di.detection_id = d.id
-        JOIN images i ON d.image_id = i.id
-        WHERE i.bench_id = ?
-        ORDER BY di.confidence DESC
-    """
+def get_detection_items_for_bench(session, bench_id: int) -> list[dict[str, Any]]:
+    """Get all detection items for a specific bench using SQLAlchemy ORM."""
 
-    rows = conn.execute(query, [bench_id]).fetchall()
+    # Query detection items with proper joins using ORM
+    detection_items_query = (
+        session.query(DetectionItem)
+        .join(Detection, DetectionItem.detection_id == Detection.id)
+        .join(Image, Detection.image_id == Image.id)
+        .filter(Image.bench_id == bench_id)
+        .order_by(DetectionItem.confidence.desc())
+        .all()
+    )
+
     detection_items = []
+    for item in detection_items_query:
+        # Handle bbox and polygon which may be dicts (from JSON) or model instances
+        bbox_data = None
+        if item.bbox:
+            if hasattr(item.bbox, "model_dump"):
+                bbox_data = item.bbox.model_dump()
+            else:
+                bbox_data = item.bbox  # Already a dict
 
-    for row in rows:
-        item = {
-            "id": row["id"],
-            "confidence": row["confidence"],
-            "class_name": row["class_name"],
-            "bbox": json.loads(row["bbox"])
-            if isinstance(row["bbox"], str)
-            else row["bbox"],
+        polygon_data = None
+        if item.polygon:
+            if hasattr(item.polygon, "model_dump"):
+                polygon_data = item.polygon.model_dump()
+            else:
+                polygon_data = item.polygon  # Already a dict
+
+        item_data = {
+            "id": item.id,
+            "confidence": item.confidence,
+            "class_name": item.class_name,
+            "bbox": bbox_data,
         }
 
-        if row["polygon"]:
-            item["polygon"] = (
-                json.loads(row["polygon"])
-                if isinstance(row["polygon"], str)
-                else row["polygon"]
-            )
+        if polygon_data:
+            item_data["polygon"] = polygon_data
 
-        detection_items.append(item)
+        detection_items.append(item_data)
 
     return detection_items
 
 
 # Unified helper function for getting a single bench by ID
+def _safe_convert_source(source) -> DataSource:
+    """Safely convert a source value to DataSource enum."""
+    if isinstance(source, str):
+        try:
+            return DataSource(source.upper())
+        except ValueError:
+            return DataSource.OSM
+    elif source is None:
+        return DataSource.OSM
+    else:
+        return source
+
+
 def get_bench_by_id(
     bench_id: int,
     include_detection_data: bool = False,
 ) -> WebBenchData:
     """
-    Get a specific bench by ID with all its data.
+    Get a specific bench by ID with all its data using SQLAlchemy ORM.
 
     Args:
         bench_id: The ID of the bench to retrieve
-        min_confidence: Minimum detection confidence threshold
         include_detection_data: Whether to include detection items in response
 
     Returns:
@@ -405,60 +547,39 @@ def get_bench_by_id(
     """
     try:
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Get bench basic info
-            bench_query = """
-                SELECT
-                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
-                    COUNT(DISTINCT i.id) as image_count,
-                    GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                    GROUP_CONCAT(DISTINCT i.id) as image_ids
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                WHERE b.id = ?
-                GROUP BY b.id
-            """
+        with db.get_session() as session:
+            from sqlalchemy.orm import joinedload
 
-            bench_row = conn.execute(bench_query, (bench_id,)).fetchone()
+            # Get bench with images using ORM
+            bench = (
+                session.query(Bench)
+                .options(joinedload(Bench.images))
+                .filter(Bench.id == bench_id)
+                .first()
+            )
 
-            if not bench_row:
+            if not bench:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Bench with ID {bench_id} not found",
                 )
 
-            # Parse tags
-            tags = {}
-            if bench_row["tags"]:
-                with suppress(json.JSONDecodeError):
-                    tags = json.loads(bench_row["tags"])
+            # Get successful images
+            successful_images = [img for img in bench.images if img.capture_success]
+            image_count = len(successful_images)
+            image_filenames = [
+                img.filename for img in successful_images if img.filename
+            ]
+            image_ids = [img.id for img in successful_images]
 
-            # Parse image data
-            image_filenames = (
-                bench_row["image_filenames"].split(",")
-                if bench_row["image_filenames"]
-                else []
+            # Get detection data for confidence scores using ORM
+            best_detection = (
+                session.query(Detection)
+                .join(Image, Detection.image_id == Image.id)
+                .filter(Image.bench_id == bench_id, Image.capture_success)
+                .order_by(Detection.max_confidence.desc())
+                .first()
             )
-            image_ids = (
-                [int(x) for x in bench_row["image_ids"].split(",") if x]
-                if bench_row["image_ids"]
-                else []
-            )
-
-            # Get detection data for confidence scores
-            detection_query = """
-                SELECT
-                    d.source,
-                    d.max_confidence,
-                    d.has_bench
-                FROM detections d
-                JOIN images i ON d.image_id = i.id
-                WHERE i.bench_id = ? AND i.capture_success = 1
-                ORDER BY d.max_confidence DESC
-                LIMIT 1
-            """
-
-            detection_row = conn.execute(detection_query, (bench_id,)).fetchone()
 
             # Initialize confidence scores
             best_confidence = 0.0
@@ -469,37 +590,40 @@ def get_bench_by_id(
             has_segmentation = False
             bench_found = False
 
-            if detection_row:
-                best_confidence = detection_row["max_confidence"]
-                bench_found = detection_row["has_bench"] == 1
-                detection_type = DetectionSource(detection_row["source"])
+            if best_detection:
+                best_confidence = best_detection.max_confidence
+                bench_found = best_detection.has_bench
+                detection_type = best_detection.source
                 # Determine if segmentation is available based on detection source
-                has_segmentation = detection_row["source"] in [
-                    "ultralytics",
-                    "mapillary",
+                has_segmentation = best_detection.source in [
+                    DetectionSource.ULTRALYTICS,
+                    DetectionSource.MAPILLARY,
                 ]
 
                 # Set source-specific confidence
-                if detection_row["source"] == "roboflow":
-                    roboflow_confidence = detection_row["max_confidence"]
-                elif detection_row["source"] == "ultralytics":
-                    ultralytics_confidence = detection_row["max_confidence"]
-                elif detection_row["source"] == "mapillary":
-                    mapillary_confidence = detection_row["max_confidence"]
+                if best_detection.source == DetectionSource.ROBOFLOW:
+                    roboflow_confidence = best_detection.max_confidence
+                elif best_detection.source == DetectionSource.ULTRALYTICS:
+                    ultralytics_confidence = best_detection.max_confidence
+                elif best_detection.source == DetectionSource.MAPILLARY:
+                    mapillary_confidence = best_detection.max_confidence
 
             # Get detection items if requested
             detection_items = None
             if include_detection_data:
-                detection_items = get_detection_items_for_bench(conn, bench_id)
+                detection_items = get_detection_items_for_bench(session, bench_id)
+
+            # Ensure source is properly converted to enum
+            bench_source = _safe_convert_source(bench.source)
 
             return WebBenchData(
-                id=bench_row["id"],
-                provider_id=bench_row["provider_id"],
-                lat=bench_row["lat"],
-                lng=bench_row["lng"],
-                tags=tags,
-                source=bench_row["source"] or "osm",
-                external_id=bench_row["external_id"],
+                id=bench.id,
+                provider_id=bench.provider_id,
+                lat=bench.lat,
+                lng=bench.lng,
+                tags=bench.tags or {},
+                source=bench_source,
+                external_id=bench.external_id,
                 bench_found=bench_found,
                 best_confidence=best_confidence,
                 roboflow_confidence=roboflow_confidence,
@@ -507,7 +631,7 @@ def get_bench_by_id(
                 mapillary_confidence=mapillary_confidence,
                 detection_type=detection_type,
                 has_segmentation=has_segmentation,
-                image_count=bench_row["image_count"],
+                image_count=image_count,
                 image_filenames=image_filenames,
                 image_ids=image_ids,
                 distance_meters=0,  # Not applicable for single bench
@@ -524,7 +648,7 @@ def get_bench_by_id(
         ) from e
 
 
-# Utility function for bench data processing (shared with Flask version)
+# Utility function for bench data processing using SQLAlchemy ORM
 def get_high_confidence_benches_filtered(
     page: int = 0,
     page_size: int = PAGE_SIZE,
@@ -536,247 +660,163 @@ def get_high_confidence_benches_filtered(
     include_detection_data: bool = False,
 ) -> BenchListResponse:
     """
-    Get benches with configurable detection modes from all sources.
+    Get benches with configurable detection modes from all sources using SQLAlchemy ORM.
     Supports both Roboflow, Ultralytics, and Mapillary detection data.
     """
     try:
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Build query based on mode
+        with db.get_session() as session:
+            from sqlalchemy import and_, func, or_
+
+            # Build base query based on mode
+            base_query = (
+                session.query(Bench)
+                .join(Image, Bench.id == Image.bench_id)
+                .filter(Image.capture_success)
+            )
+
             if mode == BenchMode.BENCHES:
                 # Only benches with detected benches
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN detections d ON i.id = d.image_id
-                    WHERE d.has_bench = 1 AND d.max_confidence >= ?
-
-                    UNION
-
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN detections ud ON i.id = ud.image_id
-                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ? AND ud.source = 'ultralytics'
-                """
-                query_params = [min_confidence, min_confidence]
+                base_query = base_query.join(
+                    Detection, Image.id == Detection.image_id
+                ).filter(
+                    and_(
+                        Detection.has_bench,
+                        Detection.max_confidence >= min_confidence,
+                    )
+                )
             elif mode == BenchMode.NO_BENCH:
                 # Only benches without detected benches
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN detections d ON i.id = d.image_id
-                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
-                    WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
-                      AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
-                """
-                query_params = []
-            else:  # mode == BenchMode.BOTH
-                # All benches regardless of detection status
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                """
-                query_params = []
+                base_query = base_query.outerjoin(
+                    Detection, Image.id == Detection.image_id
+                ).filter(or_(~Detection.has_bench, Detection.has_bench.is_(None)))
+            # For BOTH mode, no additional filtering needed
 
-            # Unified approach - no source filtering
-            source_condition = ""
+            # Get total count
+            total_count = base_query.distinct().count()
 
-            # Get total count based on mode
-            if mode == BenchMode.BENCHES:
-                count_query = f"""
-                    SELECT COUNT(*) as total FROM (
-                        SELECT b.id,
-                               COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
-                               COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
-                               COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
-                               CASE
-                                   WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                                   THEN COALESCE(rf_data.max_confidence, 0)
-                                   WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                                   THEN COALESCE(ul_data.max_confidence, 0)
-                                   ELSE COALESCE(mp_data.max_confidence, 0)
-                               END as best_confidence
-                        FROM benches b
-                        JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                        LEFT JOIN (
-                            SELECT image_id, MAX(max_confidence) as max_confidence
-                            FROM detections
-                            WHERE has_bench = 1
-                            GROUP BY image_id
-                        ) rf_data ON i.id = rf_data.image_id
-                        LEFT JOIN (
-                            SELECT image_id, MAX(max_confidence) as max_confidence
-                            FROM detections
-                            WHERE has_bench = 1 AND source = 'ultralytics'
-                            GROUP BY image_id
-                        ) ul_data ON i.id = ul_data.image_id
-                        LEFT JOIN (
-                            SELECT image_id, MAX(max_confidence) as max_confidence
-                            FROM detections
-                            WHERE has_bench = 1 AND source = 'mapillary'
-                            GROUP BY image_id
-                        ) mp_data ON i.id = mp_data.image_id
-                        WHERE b.id IN ({base_query}){source_condition}
-                        GROUP BY b.id
-                        HAVING best_confidence >= ?
-                    ) as filtered_benches
-                """
-                count_params = [*query_params, min_confidence]
-            else:
-                # For NO_BENCH and BOTH modes, just count the base query results
-                count_query = (
-                    f"SELECT COUNT(*) as total FROM ({base_query}){source_condition}"
+            # Build the main query with detection data
+            query = (
+                session.query(
+                    Bench,
+                    func.coalesce(func.max(Detection.max_confidence), 0).label(
+                        "roboflow_confidence"
+                    ),
+                    func.coalesce(
+                        func.max(
+                            func.case(
+                                (
+                                    Detection.source == DetectionSource.ULTRALYTICS,
+                                    Detection.max_confidence,
+                                ),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("ultralytics_confidence"),
+                    func.coalesce(
+                        func.max(
+                            func.case(
+                                (
+                                    Detection.source == DetectionSource.MAPILLARY,
+                                    Detection.max_confidence,
+                                ),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("mapillary_confidence"),
+                    func.count(func.distinct(Image.id)).label("image_count"),
+                    func.group_concat(func.distinct(Image.filename)).label(
+                        "image_filenames"
+                    ),
+                    func.group_concat(func.distinct(Image.id)).label("image_ids"),
                 )
-                count_params = query_params
-            total_count = conn.execute(count_query, count_params).fetchone()["total"]
+                .join(Image, Bench.id == Image.bench_id)
+                .outerjoin(Detection, Image.id == Detection.image_id)
+                .filter(Image.capture_success)
+                .group_by(Bench.id)
+            )
 
-            # Determine sorting clause
-            if sort_by == "confidence":
-                order_clause = "best_confidence DESC, b.id"
-            elif sort_by == "images":
-                order_clause = "image_count DESC, best_confidence DESC, b.id"
-            elif sort_by == "recent":
-                order_clause = "b.id DESC"  # Assuming higher IDs are more recent
-            else:  # distance (default)
-                # For distance sorting, we'll calculate distance in the query
-                order_clause = f"((b.lat - {start_lat}) * (b.lat - {start_lat}) + (b.lng - {start_lng}) * (b.lng - {start_lng})) ASC, best_confidence DESC"
-
-            # Calculate offset for pagination
-            offset = page * page_size
-
-            # Get detailed bench data based on mode
+            # Apply mode-specific filtering
             if mode == BenchMode.BENCHES:
-                query = f"""
-                    SELECT
-                        b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
-                        COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
-                        COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
-                        COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
-                        COUNT(DISTINCT i.id) as image_count,
-                        GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                        GROUP_CONCAT(DISTINCT i.id) as image_ids,
-                        CASE
-                            WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                            THEN COALESCE(rf_data.max_confidence, 0)
-                            WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                            THEN COALESCE(ul_data.max_confidence, 0)
-                            ELSE COALESCE(mp_data.max_confidence, 0)
-                        END as best_confidence,
-                        1 as bench_found
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN (
-                        SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM detections
-                        WHERE has_bench = 1
-                        GROUP BY image_id
-                    ) rf_data ON i.id = rf_data.image_id
-                    LEFT JOIN (
-                        SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM detections
-                        WHERE has_bench = 1 AND source = 'ultralytics'
-                        GROUP BY image_id
-                    ) ul_data ON i.id = ul_data.image_id
-                    LEFT JOIN (
-                        SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM detections
-                        WHERE has_bench = 1 AND source = 'mapillary'
-                        GROUP BY image_id
-                    ) mp_data ON i.id = mp_data.image_id
-                    WHERE b.id IN ({base_query}){source_condition}
-                    GROUP BY b.id
-                    HAVING best_confidence >= ?
-                    ORDER BY {order_clause}
-                    LIMIT ? OFFSET ?
-                """
-                query_params_final = [*query_params, min_confidence, page_size, offset]
-            else:
-                # For NO_BENCH and BOTH modes, use a simpler query
-                query = f"""
-                    SELECT
-                        b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
-                        COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
-                        COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
-                        COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
-                        COUNT(DISTINCT i.id) as image_count,
-                        GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                        GROUP_CONCAT(DISTINCT i.id) as image_ids,
-                        CASE
-                            WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                            THEN COALESCE(rf_data.max_confidence, 0)
-                            WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                            THEN COALESCE(ul_data.max_confidence, 0)
-                            ELSE COALESCE(mp_data.max_confidence, 0)
-                        END as best_confidence,
-                        CASE
-                            WHEN COALESCE(rf_data.max_confidence, 0) > 0 OR COALESCE(ul_data.max_confidence, 0) > 0 OR COALESCE(mp_data.max_confidence, 0) > 0
-                            THEN 1
-                            ELSE 0
-                        END as bench_found
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN (
-                        SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM detections
-                        WHERE has_bench = 1
-                        GROUP BY image_id
-                    ) rf_data ON i.id = rf_data.image_id
-                    LEFT JOIN (
-                        SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM detections
-                        WHERE has_bench = 1 AND source = 'ultralytics'
-                        GROUP BY image_id
-                    ) ul_data ON i.id = ul_data.image_id
-                    LEFT JOIN (
-                        SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM detections
-                        WHERE has_bench = 1 AND source = 'mapillary'
-                        GROUP BY image_id
-                    ) mp_data ON i.id = mp_data.image_id
-                    WHERE b.id IN ({base_query}){source_condition}
-                    GROUP BY b.id
-                    ORDER BY {order_clause}
-                    LIMIT ? OFFSET ?
-                """
-                query_params_final = [*query_params, page_size, offset]
-            rows = conn.execute(query, query_params_final).fetchall()
+                query = query.having(
+                    func.max(
+                        func.case(
+                            (Detection.has_bench, Detection.max_confidence),
+                            else_=0,
+                        )
+                    )
+                    >= min_confidence
+                )
+            elif mode == BenchMode.NO_BENCH:
+                query = query.having(
+                    func.max(
+                        func.case(
+                            (Detection.has_bench, Detection.max_confidence),
+                            else_=0,
+                        )
+                    )
+                    == 0
+                )
+
+            # Apply sorting
+            if sort_by == "confidence":
+                query = query.order_by(
+                    func.max(Detection.max_confidence).desc(), Bench.id
+                )
+            elif sort_by == "images":
+                query = query.order_by(
+                    func.count(func.distinct(Image.id)).desc(),
+                    func.max(Detection.max_confidence).desc(),
+                    Bench.id,
+                )
+            elif sort_by == "recent":
+                query = query.order_by(Bench.id.desc())
+            else:  # distance (default)
+                # Calculate distance using SQL expression
+                distance_expr = (Bench.lat - start_lat) * (Bench.lat - start_lat) + (
+                    Bench.lng - start_lng
+                ) * (Bench.lng - start_lng)
+                query = query.order_by(
+                    distance_expr.asc(), func.max(Detection.max_confidence).desc()
+                )
+
+            # Apply pagination
+            offset = page * page_size
+            results = query.offset(offset).limit(page_size).all()
 
             # Process results
             benches = []
-            for row in rows:
-                # Parse tags if available
-                tags = {}
-                if row["tags"]:
-                    with suppress(json.JSONDecodeError):
-                        tags = json.loads(row["tags"])
+            for result in results:
+                bench = result[0]  # First element is the Bench object
+                roboflow_conf = result[1] or 0
+                ultralytics_conf = result[2] or 0
+                mapillary_conf = result[3] or 0
+                image_count = result[4] or 0
+                image_filenames_str = result[5] or ""
+                image_ids_str = result[6] or ""
 
-                # Calculate distance
-                distance = calculate_distance(
-                    start_lat, start_lng, row["lat"], row["lng"]
-                )
-
-                # Get image filenames and IDs
+                # Parse image data
                 image_filenames = (
-                    row["image_filenames"].split(",") if row["image_filenames"] else []
+                    image_filenames_str.split(",") if image_filenames_str else []
                 )
                 image_ids = (
-                    [int(x) for x in row["image_ids"].split(",") if x]
-                    if row["image_ids"]
+                    [int(x) for x in image_ids_str.split(",") if x]
+                    if image_ids_str
                     else []
                 )
 
-                # Determine best confidence and detection type
-                roboflow_conf = row["roboflow_confidence"] or 0
-                ultralytics_conf = row["ultralytics_confidence"] or 0
-                mapillary_conf = row["mapillary_confidence"] or 0
+                # Calculate best confidence
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
-                # Determine detection type based on source and confidence
-                if row["source"] == DataSource.MAPILLARY:
+                # Calculate distance
+                distance = calculate_distance(
+                    start_lat, start_lng, bench.lat, bench.lng
+                )
+
+                # Determine detection type
+                if _safe_convert_source(bench.source) == DataSource.MAPILLARY:
                     detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
                     detection_type = DetectionSource.ULTRALYTICS
@@ -790,24 +830,24 @@ def get_high_confidence_benches_filtered(
                 # Get detection items if requested
                 detection_items = None
                 if include_detection_data:
-                    detection_items = get_detection_items_for_bench(conn, row["id"])
+                    detection_items = get_detection_items_for_bench(session, bench.id)
 
                 bench_data = WebBenchData(
-                    id=row["id"],
-                    provider_id=row["provider_id"],
-                    lat=row["lat"],
-                    lng=row["lng"],
-                    tags=tags,
-                    source=row["source"] or DataSource.OSM,
-                    external_id=row["external_id"],
-                    bench_found=bool(row["bench_found"]),
+                    id=bench.id,
+                    provider_id=bench.provider_id,
+                    lat=bench.lat,
+                    lng=bench.lng,
+                    tags=bench.tags or {},
+                    source=_safe_convert_source(bench.source),
+                    external_id=bench.external_id,
+                    bench_found=best_confidence > 0,
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
                     ultralytics_confidence=round(ultralytics_conf, 3),
                     mapillary_confidence=round(mapillary_conf, 3),
                     detection_type=detection_type,
                     has_segmentation=ultralytics_conf > 0 or mapillary_conf > 0,
-                    image_count=row["image_count"],
+                    image_count=image_count,
                     image_filenames=image_filenames,
                     image_ids=image_ids,
                     distance_meters=round(distance),
@@ -1000,70 +1040,45 @@ async def get_random_bench(
     """
     try:
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Build query based on mode
+        with db.get_session() as session:
+            from sqlalchemy import and_, func, or_
+
+            # Build query based on mode using ORM
+            base_query = (
+                session.query(Bench)
+                .join(Image, Bench.id == Image.bench_id)
+                .filter(Image.capture_success)
+            )
+
             if mode == BenchMode.BENCHES:
                 # Only benches with detected benches
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN detections d ON i.id = d.image_id
-                    WHERE d.has_bench = 1 AND d.max_confidence >= ?
-
-                    UNION
-
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN detections ud ON i.id = ud.image_id
-                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ? AND ud.source = 'ultralytics'
-                """
-                query_params = [min_confidence, min_confidence]
+                base_query = base_query.join(
+                    Detection, Image.id == Detection.image_id
+                ).filter(
+                    and_(
+                        Detection.has_bench,
+                        Detection.max_confidence >= min_confidence,
+                    )
+                )
             elif mode == BenchMode.NO_BENCH:
                 # Only benches without detected benches
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN detections d ON i.id = d.image_id
-                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
-                    WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
-                      AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
-                """
-                query_params = []
-            else:  # mode == BenchMode.BOTH
-                # All benches regardless of detection status
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                """
-                query_params = []
+                base_query = base_query.outerjoin(
+                    Detection, Image.id == Detection.image_id
+                ).filter(or_(~Detection.has_bench, Detection.has_bench.is_(None)))
+            # For BOTH mode, no additional filtering needed
 
-            # Get random bench ID
-            random_query = f"""
-                SELECT b.id
-                FROM benches b
-                WHERE b.id IN ({base_query})
-                ORDER BY RANDOM()
-                LIMIT 1
-            """
+            # Get random bench
+            random_bench = base_query.order_by(func.random()).first()
 
-            row = conn.execute(random_query, query_params).fetchone()
-
-            if not row:
+            if not random_bench:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="No benches found matching the specified criteria",
                 )
 
-            bench_id = row["id"]
-
             # Use the unified helper to get bench data
             bench_data = get_bench_by_id(
-                bench_id=bench_id,
-                min_confidence=min_confidence,
+                bench_id=random_bench.id,
                 include_detection_data=include_detection_data,
             )
 
@@ -1094,12 +1109,6 @@ async def get_random_bench(
 )
 async def get_bench_by_id_endpoint(
     bench_id: int = Path(..., description="Bench ID to retrieve"),
-    min_confidence: float = Query(
-        DEFAULT_MIN_CONFIDENCE,
-        ge=0.0,
-        le=1.0,
-        description="Minimum detection confidence",
-    ),
     include_detection_data: bool = Query(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
@@ -1116,7 +1125,6 @@ async def get_bench_by_id_endpoint(
     """
     bench_data = get_bench_by_id(
         bench_id=bench_id,
-        min_confidence=min_confidence,
         include_detection_data=include_detection_data,
     )
 
@@ -1238,176 +1246,172 @@ async def get_benches_in_bbox(
                     limit=limit,
                 )
 
-        # Fall back to individual bench results
-
+        # Fall back to individual bench results using ORM
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Build base query based on mode
-            if mode == BenchMode.BENCHES:
-                # Only benches with detected benches
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN detections d ON i.id = d.image_id
-                    WHERE d.has_bench = 1 AND d.max_confidence >= ?
-                      AND b.lat BETWEEN ? AND ?
-                      AND b.lng BETWEEN ? AND ?
+        with db.get_session() as session:
+            from sqlalchemy import and_, func, or_
 
-                    UNION
-
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN detections ud ON i.id = ud.image_id
-                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ? AND ud.source = 'ultralytics'
-                      AND b.lat BETWEEN ? AND ?
-                      AND b.lng BETWEEN ? AND ?
-                """
-                query_params = [
-                    min_confidence,
-                    south,
-                    north,
-                    west,
-                    east,
-                    min_confidence,
-                    south,
-                    north,
-                    west,
-                    east,
-                ]
-            elif mode == BenchMode.NO_BENCH:
-                # Only benches without detected benches
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN detections d ON i.id = d.image_id
-                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
-                    WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
-                      AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
-                      AND b.lat BETWEEN ? AND ?
-                      AND b.lng BETWEEN ? AND ?
-                """
-                query_params = [south, north, west, east]
-            else:  # mode == BenchMode.BOTH
-                # All benches regardless of detection status
-                base_query = """
-                    SELECT DISTINCT b.id
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    WHERE b.lat BETWEEN ? AND ?
-                      AND b.lng BETWEEN ? AND ?
-                """
-                query_params = [south, north, west, east]
+            # Build base query with bbox filtering
+            base_query = (
+                session.query(Bench)
+                .join(Image, Bench.id == Image.bench_id)
+                .filter(
+                    Image.capture_success,
+                    Bench.lat.between(south, north),
+                    Bench.lng.between(west, east),
+                )
+            )
 
             # Add source filtering if specified
-            source_condition = ""
             if source is not None:
-                source_condition = f" AND b.source = '{source.value}'"
+                base_query = base_query.filter(Bench.source == source)
 
-            # Determine sorting clause for bbox
+            # Apply mode-specific filtering
+            if mode == BenchMode.BENCHES:
+                base_query = base_query.join(
+                    Detection, Image.id == Detection.image_id
+                ).filter(
+                    and_(
+                        Detection.has_bench,
+                        Detection.max_confidence >= min_confidence,
+                    )
+                )
+            elif mode == BenchMode.NO_BENCH:
+                base_query = base_query.outerjoin(
+                    Detection, Image.id == Detection.image_id
+                ).filter(or_(~Detection.has_bench, Detection.has_bench.is_(None)))
+
+            # Build the main query with detection data
+            query = (
+                session.query(
+                    Bench,
+                    func.coalesce(func.max(Detection.max_confidence), 0).label(
+                        "roboflow_confidence"
+                    ),
+                    func.coalesce(
+                        func.max(
+                            func.case(
+                                (
+                                    Detection.source == DetectionSource.ULTRALYTICS,
+                                    Detection.max_confidence,
+                                ),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("ultralytics_confidence"),
+                    func.coalesce(
+                        func.max(
+                            func.case(
+                                (
+                                    Detection.source == DetectionSource.MAPILLARY,
+                                    Detection.max_confidence,
+                                ),
+                                else_=0,
+                            )
+                        ),
+                        0,
+                    ).label("mapillary_confidence"),
+                    func.count(func.distinct(Image.id)).label("image_count"),
+                    func.group_concat(func.distinct(Image.filename)).label(
+                        "image_filenames"
+                    ),
+                    func.group_concat(func.distinct(Image.id)).label("image_ids"),
+                )
+                .join(Image, Bench.id == Image.bench_id)
+                .outerjoin(Detection, Image.id == Detection.image_id)
+                .filter(
+                    Image.capture_success,
+                    Bench.lat.between(south, north),
+                    Bench.lng.between(west, east),
+                )
+                .group_by(Bench.id)
+            )
+
+            # Add source filtering if specified
+            if source is not None:
+                query = query.filter(Bench.source == source)
+
+            # Apply mode-specific filtering
+            if mode == BenchMode.BENCHES:
+                query = query.having(
+                    func.max(
+                        func.case(
+                            (Detection.has_bench, Detection.max_confidence),
+                            else_=0,
+                        )
+                    )
+                    >= min_confidence
+                )
+            elif mode == BenchMode.NO_BENCH:
+                query = query.having(
+                    func.max(
+                        func.case(
+                            (Detection.has_bench, Detection.max_confidence),
+                            else_=0,
+                        )
+                    )
+                    == 0
+                )
+
+            # Apply sorting
             center_lat = (north + south) / 2
             center_lng = (east + west) / 2
 
             if sort_by == "confidence":
-                bbox_order_clause = "best_confidence DESC, b.id"
+                query = query.order_by(
+                    func.max(Detection.max_confidence).desc(), Bench.id
+                )
             elif sort_by == "images":
-                bbox_order_clause = "image_count DESC, best_confidence DESC, b.id"
+                query = query.order_by(
+                    func.count(func.distinct(Image.id)).desc(),
+                    func.max(Detection.max_confidence).desc(),
+                    Bench.id,
+                )
             elif sort_by == "recent":
-                bbox_order_clause = "b.id DESC"
+                query = query.order_by(Bench.id.desc())
             else:  # distance (default)
-                bbox_order_clause = f"((b.lat - {center_lat}) * (b.lat - {center_lat}) + (b.lng - {center_lng}) * (b.lng - {center_lng})) ASC, best_confidence DESC"
-
-            # Get detailed bench data within bbox
-            # Build HAVING clause based on mode
-            if mode == BenchMode.BENCHES:
-                having_clause = "HAVING best_confidence >= ?"
-                final_params = [*query_params, min_confidence, limit]
-            elif mode == BenchMode.NO_BENCH:
-                having_clause = "HAVING best_confidence = 0"
-                final_params = [*query_params, limit]
-            else:  # mode == BenchMode.BOTH
-                having_clause = "HAVING best_confidence >= ?"
-                final_params = [*query_params, min_confidence, limit]
-
-            query = f"""
-                SELECT
-                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
-                    COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
-                    COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
-                    COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
-                    COUNT(DISTINCT i.id) as image_count,
-                    GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                    GROUP_CONCAT(DISTINCT i.id) as image_ids,
-                    CASE
-                        WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                        THEN COALESCE(rf_data.max_confidence, 0)
-                        WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                        THEN COALESCE(ul_data.max_confidence, 0)
-                        ELSE COALESCE(mp_data.max_confidence, 0)
-                    END as best_confidence
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                LEFT JOIN (
-                    SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM detections
-                    WHERE has_bench = 1
-                    GROUP BY image_id
-                ) rf_data ON i.id = rf_data.image_id
-                LEFT JOIN (
-                    SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM detections
-                    WHERE has_bench = 1 AND source = 'ultralytics'
-                    GROUP BY image_id
-                ) ul_data ON i.id = ul_data.image_id
-                LEFT JOIN (
-                    SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM detections
-                    WHERE has_bench = 1 AND source = 'mapillary'
-                    GROUP BY image_id
-                ) mp_data ON i.id = mp_data.image_id
-                WHERE b.id IN ({base_query}){source_condition}
-                GROUP BY b.id
-                {having_clause}
-                ORDER BY {bbox_order_clause}
-                LIMIT ?
-            """
-            rows = conn.execute(query, final_params).fetchall()
-
-            # Process results similar to get_high_confidence_benches_filtered
-            benches = []
-
-            for row in rows:
-                # Parse tags if available
-                tags = {}
-                if row["tags"]:
-                    with suppress(json.JSONDecodeError):
-                        tags = json.loads(row["tags"])
-
-                # Calculate distance from center
-                distance = calculate_distance(
-                    center_lat, center_lng, row["lat"], row["lng"]
+                distance_expr = (Bench.lat - center_lat) * (Bench.lat - center_lat) + (
+                    Bench.lng - center_lng
+                ) * (Bench.lng - center_lng)
+                query = query.order_by(
+                    distance_expr.asc(), func.max(Detection.max_confidence).desc()
                 )
 
-                # Get image filenames and IDs
+            # Apply limit
+            results = query.limit(limit).all()
+
+            # Process results
+            benches = []
+            for result in results:
+                bench = result[0]  # First element is the Bench object
+                roboflow_conf = result[1] or 0
+                ultralytics_conf = result[2] or 0
+                mapillary_conf = result[3] or 0
+                image_count = result[4] or 0
+                image_filenames_str = result[5] or ""
+                image_ids_str = result[6] or ""
+
+                # Parse image data
                 image_filenames = (
-                    row["image_filenames"].split(",") if row["image_filenames"] else []
+                    image_filenames_str.split(",") if image_filenames_str else []
                 )
                 image_ids = (
-                    [int(x) for x in row["image_ids"].split(",") if x]
-                    if row["image_ids"]
+                    [int(x) for x in image_ids_str.split(",") if x]
+                    if image_ids_str
                     else []
                 )
 
-                # Determine best confidence and detection type
-                roboflow_conf = row["roboflow_confidence"] or 0
-                ultralytics_conf = row["ultralytics_confidence"] or 0
-                mapillary_conf = row["mapillary_confidence"] or 0
+                # Calculate best confidence
                 best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
 
-                # Determine detection type based on source and confidence
-                if row["source"] == DataSource.MAPILLARY:
+                # Calculate distance from center
+                distance = calculate_distance(
+                    center_lat, center_lng, bench.lat, bench.lng
+                )
+
+                # Determine detection type
+                if _safe_convert_source(bench.source) == DataSource.MAPILLARY:
                     detection_type = DetectionSource.MAPILLARY
                 elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
                     detection_type = DetectionSource.ULTRALYTICS
@@ -1421,24 +1425,24 @@ async def get_benches_in_bbox(
                 # Get detection items if requested
                 detection_items = None
                 if include_detection_data:
-                    detection_items = get_detection_items_for_bench(conn, row["id"])
+                    detection_items = get_detection_items_for_bench(session, bench.id)
 
                 bench_data = WebBenchData(
-                    id=row["id"],
-                    provider_id=row["provider_id"],
-                    lat=row["lat"],
-                    lng=row["lng"],
-                    tags=tags,
-                    source=row["source"] or DataSource.OSM,
-                    external_id=row["external_id"],
-                    bench_found=bool(row["bench_found"]),
+                    id=bench.id,
+                    provider_id=bench.provider_id,
+                    lat=bench.lat,
+                    lng=bench.lng,
+                    tags=bench.tags or {},
+                    source=_safe_convert_source(bench.source),
+                    external_id=bench.external_id,
+                    bench_found=best_confidence > 0,
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
                     ultralytics_confidence=round(ultralytics_conf, 3),
                     mapillary_confidence=round(mapillary_conf, 3),
                     detection_type=detection_type,
                     has_segmentation=ultralytics_conf > 0 or mapillary_conf > 0,
-                    image_count=row["image_count"],
+                    image_count=image_count,
                     image_filenames=image_filenames,
                     image_ids=image_ids,
                     distance_meters=round(distance),
@@ -1487,28 +1491,31 @@ async def get_searches():
     """
     try:
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            query = """
-                SELECT id, query, start_lat, start_lng, search_radius, created_at, status,
-                       (SELECT COUNT(*) FROM benches WHERE search_id = s.id) as bench_count
-                FROM searches s
-                WHERE status = 'completed'
-                ORDER BY created_at DESC
-            """
-            rows = conn.execute(query).fetchall()
+        with db.get_session() as session:
+            from sqlalchemy import func
+
+            # Query searches with bench counts using ORM
+            searches_query = (
+                session.query(Search, func.count(Bench.id).label("bench_count"))
+                .outerjoin(Bench, Search.id == Bench.search_id)
+                .filter(Search.status == SearchStatus.COMPLETED)
+                .group_by(Search.id)
+                .order_by(Search.created_at.desc())
+                .all()
+            )
 
             searches = []
-            for row in rows:
-                search = SearchSummary(
-                    id=row["id"],
-                    query=row["query"],
-                    start_lat=row["start_lat"],
-                    start_lng=row["start_lng"],
-                    search_radius=row["search_radius"],
-                    bench_count=row["bench_count"],
-                    created_at=row["created_at"],
+            for search, bench_count in searches_query:
+                search_summary = SearchSummary(
+                    id=search.id,
+                    query=search.query,
+                    start_lat=search.start_lat,
+                    start_lng=search.start_lng,
+                    search_radius=search.search_radius,
+                    bench_count=bench_count,
+                    created_at=search.created_at,
                 )
-                searches.append(search)
+                searches.append(search_summary)
 
             return SearchListResponse(searches=searches)
 
@@ -1693,106 +1700,82 @@ async def get_image_segmentation(
     """
     try:
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Get image filename first
-            image_query = "SELECT filename FROM images WHERE id = ?"
-            image_row = conn.execute(image_query, (image_id,)).fetchone()
+        with db.get_session() as session:
+            from sqlalchemy.orm import joinedload
 
-            if not image_row:
+            # Get image with detections using ORM
+            image = (
+                session.query(Image)
+                .options(
+                    joinedload(Image.detections).joinedload(Detection.detection_items)
+                )
+                .filter(Image.id == image_id)
+                .first()
+            )
+
+            if not image:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Image with ID {image_id} not found",
                 )
 
-            filename = image_row["filename"]
+            # Filter detections that have benches
+            detections = [d for d in image.detections if d.has_bench]
 
-            # Initialize result data
-            bench_detections = []
-            roboflow_detections = []
-            image_shape = None
-            max_confidence = 0.0
-            detection_sources = []
-
-            # Try to get Ultralytics segmentation data
-            ultralytics_query = """
-                SELECT ud.max_confidence
-                FROM detections ud
-                WHERE ud.image_id = ? AND ud.has_bench = 1 AND ud.source = 'ultralytics'
-                ORDER BY ud.max_confidence DESC
-                LIMIT 1
-            """
-
-            ultralytics_row = conn.execute(ultralytics_query, (image_id,)).fetchone()
-
-            if ultralytics_row:
-                bench_detections = (
-                    json.loads(ultralytics_row["bench_detections"])
-                    if ultralytics_row["bench_detections"]
-                    else []
-                )
-                full_response = (
-                    json.loads(ultralytics_row["full_response"])
-                    if ultralytics_row["full_response"]
-                    else {}
-                )
-
-                # Extract image dimensions from full response if available
-                if "images" in full_response and len(full_response["images"]) > 0:
-                    image_shape = full_response["images"][0].get("shape", None)
-
-                max_confidence = max(
-                    max_confidence, ultralytics_row["max_confidence"] or 0.0
-                )
-                detection_sources.append(DetectionSource.ULTRALYTICS)
-
-            # Try to get Roboflow bounding box data
-            roboflow_query = """
-                SELECT d.max_confidence, di.confidence, di.bbox, di.class_name, di.polygon
-                FROM detections d
-                LEFT JOIN detection_items di ON d.id = di.detection_id
-                WHERE d.image_id = ? AND d.has_bench = 1 AND d.source = 'roboflow'
-                ORDER BY d.max_confidence DESC
-                LIMIT 1
-            """
-
-            roboflow_rows = conn.execute(roboflow_query, (image_id,)).fetchall()
-
-            if roboflow_rows:
-                roboflow_detections = []
-                for row in roboflow_rows:
-                    if row["bbox"]:  # Only add if bbox exists
-                        detection_item = {
-                            "confidence": row["confidence"],
-                            "bbox": json.loads(row["bbox"])
-                            if isinstance(row["bbox"], str)
-                            else row["bbox"],
-                            "class_name": row["class_name"],
-                        }
-                        if row["polygon"]:
-                            detection_item["polygon"] = (
-                                json.loads(row["polygon"])
-                                if isinstance(row["polygon"], str)
-                                else row["polygon"]
-                            )
-                        roboflow_detections.append(detection_item)
-
-                max_confidence = max(
-                    max_confidence, roboflow_rows[0]["max_confidence"] or 0.0
-                )
-                detection_sources.append(DetectionSource.ROBOFLOW)
-
-            # Check if we have any detection data
-            if not bench_detections and not roboflow_detections:
+            if not detections:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"No detection data found for image ID {image_id}",
                 )
 
-            # Determine detection type
-            if bench_detections and roboflow_detections:
+            # Collect all detection items from all detections
+            all_detection_items = []
+            max_confidence = 0.0
+            detection_sources = set()
+            has_segmentation = False
+            has_bounding_box = False
+
+            for detection in detections:
+                for item in detection.detection_items:
+                    # Convert to API format
+                    # Handle bbox and polygon which may be dicts (from JSON) or model instances
+                    bbox_data = None
+                    if item.bbox:
+                        if hasattr(item.bbox, "model_dump"):
+                            bbox_data = item.bbox.model_dump()
+                        else:
+                            bbox_data = item.bbox  # Already a dict
+
+                    polygon_data = None
+                    if item.polygon:
+                        if hasattr(item.polygon, "model_dump"):
+                            polygon_data = item.polygon.model_dump()
+                        else:
+                            polygon_data = item.polygon  # Already a dict
+
+                    detection_item_data = {
+                        "confidence": item.confidence,
+                        "bbox": bbox_data,
+                        "class_name": item.class_name,
+                        "polygon": polygon_data,
+                    }
+                    all_detection_items.append(detection_item_data)
+
+                    # Track capabilities
+                    if item.polygon:
+                        has_segmentation = True
+                    if item.bbox:
+                        has_bounding_box = True
+
+                # Track max confidence and sources
+                max_confidence = max(max_confidence, detection.max_confidence or 0.0)
+                detection_sources.add(detection.source)
+
+            # Determine detection type and source
+            if has_segmentation and has_bounding_box:
                 detection_type = "both"
-                source = "both"
-            elif bench_detections:
+                source = DetectionSource.ROBOFLOW  # Default to ROBOFLOW for "both"
+            elif has_segmentation:
                 detection_type = "segmentation"
                 source = DetectionSource.ULTRALYTICS
             else:
@@ -1800,13 +1783,12 @@ async def get_image_segmentation(
                 source = DetectionSource.ROBOFLOW
 
             return SegmentationData(
-                filename=filename,
+                filename=image.filename or "unknown",
                 detection_type=detection_type,
-                bench_detections=bench_detections,
-                image_shape=image_shape,
-                segmentation_available=len(bench_detections) > 0,
-                roboflow_detections=roboflow_detections,
-                bounding_box_available=len(roboflow_detections) > 0,
+                detection_items=all_detection_items,
+                image_shape=None,  # Not available in unified model
+                segmentation_available=has_segmentation,
+                bounding_box_available=has_bounding_box,
                 confidence_score=max_confidence,
                 source=source,
             )
@@ -1852,42 +1834,38 @@ async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID
     """
     try:
         db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Verify bench exists
-            bench_check_query = "SELECT id FROM benches WHERE id = ?"
-            bench_exists = conn.execute(bench_check_query, (bench_id,)).fetchone()
+        with db.get_session() as session:
+            # Verify bench exists using ORM
+            bench = session.query(Bench).filter(Bench.id == bench_id).first()
 
-            if not bench_exists:
+            if not bench:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Bench with ID {bench_id} not found",
                 )
 
-            # Get all images for the bench
-            query = """
-                SELECT i.id, i.bench_id, i.heading, i.filename, i.filepath, i.file_size,
-                       i.capture_success, i.capture_error, i.created_at
-                FROM images i
-                WHERE i.bench_id = ? AND i.capture_success = 1
-                ORDER BY i.heading
-            """
-
-            rows = conn.execute(query, (bench_id,)).fetchall()
+            # Get all successful images for the bench using ORM
+            images_query = (
+                session.query(Image)
+                .filter(Image.bench_id == bench_id, Image.capture_success)
+                .order_by(Image.heading)
+                .all()
+            )
 
             images = []
-            for row in rows:
-                image = ImageResponse(
-                    id=row["id"],
-                    bench_id=row["bench_id"],
-                    heading=row["heading"],
-                    filepath=row["filepath"],
-                    filename=row["filename"],
-                    file_size=row["file_size"],
-                    capture_success=bool(row["capture_success"]),
-                    capture_error=row["capture_error"],
-                    created_at=row["created_at"],
+            for image in images_query:
+                image_response = ImageResponse(
+                    id=image.id,
+                    bench_id=image.bench_id,
+                    heading=image.heading,
+                    filepath=image.filepath,
+                    filename=image.filename,
+                    file_size=image.file_size,
+                    capture_success=image.capture_success,
+                    capture_error=image.capture_error,
+                    created_at=image.created_at,
                 )
-                images.append(image)
+                images.append(image_response)
 
             return ImageListResponse(images=images)
 
@@ -1937,112 +1915,99 @@ async def get_bench_detections(bench_id: int = Path(..., ge=1, description="Benc
     """
     try:
         db = BenchDatabase()
+        with db.get_session() as session:
+            from sqlalchemy.orm import joinedload
 
-        with db._get_connection() as conn:
-            # Get bench info
-            bench_row = conn.execute(
-                "SELECT id, lat, lng FROM benches WHERE id = ?", [bench_id]
-            ).fetchone()
+            # Get bench info using ORM
+            bench = session.query(Bench).filter(Bench.id == bench_id).first()
 
-            if not bench_row:
+            if not bench:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Bench with ID {bench_id} not found",
                 )
 
-            bench_lat, bench_lng = bench_row["lat"], bench_row["lng"]
+            # Get all images for this bench with their detection data using ORM
+            images_query = (
+                session.query(Image)
+                .options(
+                    joinedload(Image.detections).joinedload(Detection.detection_items)
+                )
+                .filter(Image.bench_id == bench_id)
+                .order_by(Image.heading)
+                .all()
+            )
 
-            # Get all images for this bench with their detection data
-            query = """
-                SELECT
-                    i.id as image_id,
-                    i.filename,
-                    i.heading,
-                    i.capture_success,
-                    d.id as detection_id,
-                    d.has_bench,
-                    d.bench_count,
-                    d.max_confidence,
-                    d.detection_success,
-                    d.model_id,
-                    d.source,
-                    di.id as detection_item_id,
-                    di.confidence,
-                    di.bbox,
-                    di.polygon,
-                    di.class_name
-                FROM images i
-                LEFT JOIN detections d ON i.id = d.image_id
-                LEFT JOIN detection_items di ON d.id = di.detection_id
-                WHERE i.bench_id = ?
-                ORDER BY i.heading, d.id, di.id
-            """
-
-            rows = conn.execute(query, [bench_id]).fetchall()
-
-            if not rows:
+            if not images_query:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"No images found for bench ID {bench_id}",
                 )
 
-            # Group data by image
-            images_data = {}
+            # Process images and their detection data
+            images_data = []
             detection_sources = set()
             best_confidence = 0.0
             images_with_detections = 0
 
-            for row in rows:
-                image_id = row["image_id"]
-                if image_id not in images_data:
-                    images_data[image_id] = {
-                        "image_id": image_id,
-                        "filename": row["filename"],
-                        "heading": row["heading"],
-                        "capture_success": row["capture_success"],
-                        "detection_items": [],
-                    }
+            for image in images_query:
+                detection_items = []
 
-                # Add detection item if it exists
-                if row["detection_item_id"]:
-                    detection_item = {
-                        "id": row["detection_item_id"],
-                        "confidence": row["confidence"],
-                        "bbox": json.loads(row["bbox"])
-                        if isinstance(row["bbox"], str)
-                        else row["bbox"],
-                        "class_name": row["class_name"],
-                    }
+                for detection in image.detections:
+                    for item in detection.detection_items:
+                        # Handle bbox and polygon which may be dicts (from JSON) or model instances
+                        bbox_data = None
+                        if item.bbox:
+                            if hasattr(item.bbox, "model_dump"):
+                                bbox_data = item.bbox.model_dump()
+                            else:
+                                bbox_data = item.bbox  # Already a dict
 
-                    if row["polygon"]:
-                        detection_item["polygon"] = (
-                            json.loads(row["polygon"])
-                            if isinstance(row["polygon"], str)
-                            else row["polygon"]
-                        )
+                        polygon_data = None
+                        if item.polygon:
+                            if hasattr(item.polygon, "model_dump"):
+                                polygon_data = item.polygon.model_dump()
+                            else:
+                                polygon_data = item.polygon  # Already a dict
 
-                    images_data[image_id]["detection_items"].append(detection_item)
+                        detection_item = {
+                            "id": item.id,
+                            "confidence": item.confidence,
+                            "bbox": bbox_data,
+                            "class_name": item.class_name,
+                        }
 
-                    # Track best confidence and sources
-                    best_confidence = max(best_confidence, row["confidence"])
+                        if polygon_data:
+                            detection_item["polygon"] = polygon_data
 
-                    if row["source"]:
-                        detection_sources.add(row["source"])
+                        detection_items.append(detection_item)
 
-            # Count images with detections
-            for img_data in images_data.values():
-                if img_data["detection_items"]:
+                        # Track best confidence and sources
+                        best_confidence = max(best_confidence, item.confidence)
+                        detection_sources.add(detection.source)
+
+                # Count images with detections
+                if detection_items:
                     images_with_detections += 1
+
+                image_data = {
+                    "image_id": image.id,
+                    "filename": image.filename,
+                    "heading": image.heading,
+                    "capture_success": image.capture_success,
+                    "detection_items": detection_items,
+                }
+                images_data.append(image_data)
 
             return BenchDetectionData(
                 bench_id=bench_id,
-                bench_lat=bench_lat,
-                bench_lng=bench_lng,
+                bench_lat=bench.lat,
+                bench_lng=bench.lng,
                 total_images=len(images_data),
                 images_with_detections=images_with_detections,
                 best_confidence=best_confidence,
                 detection_sources=list(detection_sources),
-                images=list(images_data.values()),
+                images=images_data,
             )
     except HTTPException:
         raise
@@ -2112,30 +2077,28 @@ async def report_bad_bench(
 
         db = BenchDatabase()
 
-        with db._get_connection() as conn:
-            # Verify bench exists
-            bench_row = conn.execute(
-                "SELECT id, provider_id, lat, lng, source FROM benches WHERE id = ?",
-                [bench_id],
-            ).fetchone()
+        with db.get_session() as session:
+            # Verify bench exists using ORM
+            bench = session.query(Bench).filter(Bench.id == bench_id).first()
 
-            if not bench_row:
+            if not bench:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Bench with ID {bench_id} not found",
                 )
 
-            # Verify image exists if provided
+            # Verify image exists if provided using ORM
             reported_image_filename = None
             if image_id:
-                image_row = conn.execute(
-                    "SELECT id, filename, filepath FROM images WHERE id = ? AND bench_id = ?",
-                    [image_id, bench_id],
-                ).fetchone()
+                image = (
+                    session.query(Image)
+                    .filter(Image.id == image_id, Image.bench_id == bench_id)
+                    .first()
+                )
 
-                if image_row and image_row["filename"]:
+                if image and image.filename:
                     # Copy the image for review purposes
-                    source_path = os.path.join(IMAGES_DIR, image_row["filename"])
+                    source_path = os.path.join(IMAGES_DIR, image.filename)
                     if os.path.exists(source_path):
                         # Create reports directory if it doesn't exist
                         reports_dir = os.path.join(IMAGES_DIR, "reports")
@@ -2144,7 +2107,7 @@ async def report_bad_bench(
                         # Create unique filename for the report
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         reported_image_filename = (
-                            f"report_{bench_id}_{timestamp}_{image_row['filename']}"
+                            f"report_{bench_id}_{timestamp}_{image.filename}"
                         )
                         dest_path = os.path.join(reports_dir, reported_image_filename)
 
@@ -2158,38 +2121,30 @@ async def report_bad_bench(
             user_agent = request.headers.get("user-agent", "")
             client_host = request.client.host if request.client else None
 
-            # Insert report
-            result = conn.execute(
-                """
-                INSERT INTO bench_reports (
-                    bench_id, image_id, report_type, description, user_agent, ip_address,
-                    user_location_lat, user_location_lng, reported_image_filename,
-                    metadata, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    bench_id,
-                    image_id,
-                    report_type,
-                    description,
-                    user_agent,
-                    client_host,
-                    user_location_lat,
-                    user_location_lng,
-                    reported_image_filename,
-                    json.dumps(
-                        {
-                            "bench_source": bench_row["source"],
-                            "bench_provider_id": bench_row["provider_id"],
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    ),
-                    datetime.now(),
-                ],
+            # Create report using ORM
+            from bench_finder.models.unified_models import BenchReport
+
+            report = BenchReport(
+                bench_id=bench_id,
+                image_id=image_id,
+                report_type=report_type,
+                description=description,
+                user_agent=user_agent,
+                ip_address=client_host,
+                user_location_lat=user_location_lat,
+                user_location_lng=user_location_lng,
+                reported_image_filename=reported_image_filename,
+                extra_metadata={
+                    "bench_source": bench.source,
+                    "bench_provider_id": bench.provider_id,
+                    "timestamp": datetime.now().isoformat(),
+                },
             )
 
-            report_id = result.lastrowid
-            conn.commit()
+            session.add(report)
+            session.commit()
+            session.refresh(report)
+            report_id = report.id
 
             return ReportResponse(
                 success=True,
@@ -2325,39 +2280,31 @@ async def report_missing_bench(
         user_agent = request.headers.get("user-agent", "")
         client_host = request.client.host if request.client else None
 
-        with db._get_connection() as conn:
-            # Insert missing bench report
-            result = conn.execute(
-                """
-                INSERT INTO missing_bench_reports (
-                    lat, lng, description, user_agent, ip_address,
-                    user_location_lat, user_location_lng, location_method,
-                    uploaded_image_filename, accuracy_meters, metadata, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    lat,
-                    lng,
-                    description,
-                    user_agent,
-                    client_host,
-                    user_location_lat,
-                    user_location_lng,
-                    location_method,
-                    uploaded_image_filename,
-                    accuracy_meters,
-                    json.dumps(
-                        {
-                            "timestamp": datetime.now().isoformat(),
-                            "has_image": uploaded_image_filename is not None,
-                        }
-                    ),
-                    datetime.now(),
-                ],
+        with db.get_session() as session:
+            # Create missing bench report using ORM
+            from bench_finder.models.unified_models import MissingBenchReport
+
+            report = MissingBenchReport(
+                lat=lat,
+                lng=lng,
+                description=description,
+                user_agent=user_agent,
+                ip_address=client_host,
+                user_location_lat=user_location_lat,
+                user_location_lng=user_location_lng,
+                location_method=location_method,
+                uploaded_image_filename=uploaded_image_filename,
+                accuracy_meters=accuracy_meters,
+                extra_metadata={
+                    "timestamp": datetime.now().isoformat(),
+                    "has_image": uploaded_image_filename is not None,
+                },
             )
 
-            report_id = result.lastrowid
-            conn.commit()
+            session.add(report)
+            session.commit()
+            session.refresh(report)
+            report_id = report.id
 
             return MissingBenchReportResponse(
                 success=True,
@@ -2382,6 +2329,44 @@ async def report_missing_bench(
 # Source-specific statistics endpoint removed - use unified approach
 
 
+# Test endpoints for stacktrace logging (remove in production)
+@app.get(
+    "/api/test-error",
+    summary="Test 500 Error Endpoint",
+    description="Test endpoint that triggers a 500 error to demonstrate stacktrace logging",
+    tags=["config"],
+)
+async def test_error():
+    """Test endpoint that raises an exception to demonstrate stacktrace logging."""
+    raise ValueError(
+        "This is a test error to demonstrate stacktrace logging in FastAPI logs"
+    )
+
+
+@app.get(
+    "/api/test-400-error",
+    summary="Test 400 Error Endpoint",
+    description="Test endpoint that triggers a 400 error to demonstrate stacktrace logging",
+    tags=["config"],
+)
+async def test_400_error():
+    """Test endpoint that raises a ValueError to demonstrate 400 error stacktrace logging."""
+    raise ValueError(
+        "This is a test 400 error to demonstrate stacktrace logging in FastAPI logs"
+    )
+
+
+@app.get(
+    "/api/test-validation-error",
+    summary="Test Validation Error Endpoint",
+    description="Test endpoint that triggers a validation error to demonstrate stacktrace logging",
+    tags=["config"],
+)
+async def test_validation_error():
+    """Test endpoint that demonstrates validation error stacktrace logging."""
+    return {"message": "This endpoint requires a query parameter"}
+
+
 if __name__ == "__main__":
     print("🚀 Starting Bench Finder FastAPI server with uvicorn...")
     print("📚 API documentation will be available at: http://localhost:8866/docs")
@@ -2393,7 +2378,8 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8866,
         reload=True,
-        log_level="info",
+        log_level="info",  # Changed from debug to info for cleaner logs
+        access_log=True,  # Enable access logs
         reload_dirs=["api", "bench_finder"],  # Watch these directories for changes
         reload_includes=["*.py"],  # Only watch Python files
         reload_excludes=["*.pyc", "__pycache__", "*.log"],  # Exclude compiled files

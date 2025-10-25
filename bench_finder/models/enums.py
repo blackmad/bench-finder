@@ -2,16 +2,16 @@ from enum import StrEnum
 
 
 class DataSource(StrEnum):
-    OSM = "osm"
-    MAPILLARY = "mapillary"
+    OSM = "OSM"
+    MAPILLARY = "MAPILLARY"
 
 
 class DetectionSource(StrEnum):
-    ROBOFLOW = "roboflow"
-    ULTRALYTICS = "ultralytics"
-    MAPILLARY = "mapillary"
-    MULTI_MODEL = "multi_model"
-    NONE = "none"
+    ROBOFLOW = "ROBOFLOW"
+    ULTRALYTICS = "ULTRALYTICS"
+    MAPILLARY = "MAPILLARY"
+    MULTI_MODEL = "MULTI_MODEL"
+    NONE = "NONE"
 
 
 class BenchCandidateStatus(StrEnum):

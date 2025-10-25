@@ -9,7 +9,6 @@ from typing import Any, Optional
 
 from pydantic_core import to_jsonable_python
 from sqlalchemy import JSON
-from sqlalchemy.sql import func
 from sqlmodel import Column, Field, Relationship, Session, SQLModel, create_engine
 
 from .enums import (
@@ -87,7 +86,6 @@ class DetectionItem(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     detection_id: int = Field(foreign_key="detections.id", nullable=False)
-    image_id: int | None = Field(foreign_key="images.id", nullable=True)
     confidence: float = Field(
         ge=0.0, le=1.0, description="Confidence score between 0 and 1"
     )
@@ -103,7 +101,7 @@ class DetectionItem(SQLModel, table=True):
         description="Optional polygon for segmentation",
         sa_column=Column(JSON),
     )
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     detection: "Detection" = Relationship(back_populates="detection_items")
@@ -291,7 +289,7 @@ class Search(SQLModel, table=True):
     start_lat: float = Field(nullable=False)
     start_lng: float = Field(nullable=False)
     search_radius: int = Field(nullable=False)
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
     completed_at: datetime | None = Field(default=None)
     status: SearchStatus = Field(default=SearchStatus.PENDING)
 
@@ -325,7 +323,7 @@ class Bench(SQLModel, table=True):
     representative_image_id: int | None = Field(
         default=None, foreign_key="images.id"
     )  # Best representative image
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     search: Optional["Search"] = Relationship(back_populates="benches")
@@ -390,7 +388,7 @@ class Image(SQLModel, table=True):
     file_size: int | None = Field(default=None)
     capture_success: bool = Field(nullable=False)
     capture_error: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     bench: "Bench" = Relationship(
@@ -442,7 +440,7 @@ class Detection(SQLModel, table=True):
     preprocess_time: float | None = Field(default=None)
     postprocess_time: float | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     image: "Image" = Relationship(back_populates="detections")
@@ -484,7 +482,7 @@ class BenchReport(SQLModel, table=True):
         default=BenchReportStatus.PENDING
     )  # 'pending', 'reviewed', 'resolved', 'dismissed'
     admin_notes: str | None = Field(default=None)  # Admin notes for review
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
     reviewed_at: datetime | None = Field(default=None)
 
     # Relationships
@@ -524,7 +522,7 @@ class MissingBenchReport(SQLModel, table=True):
         default=MissingBenchReportStatus.PENDING
     )  # 'pending', 'verified', 'added', 'dismissed'
     admin_notes: str | None = Field(default=None)  # Admin notes for review
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
     reviewed_at: datetime | None = Field(default=None)
 
     def __repr__(self):
@@ -554,7 +552,7 @@ class BenchCandidate(SQLModel, table=True):
     status: BenchCandidateStatus = Field(
         default=BenchCandidateStatus.PENDING
     )  # Processing status: pending, image_download_done, detection_done
-    created_at: datetime = Field(default_factory=func.now)
+    created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
     search: "Search" = Relationship(back_populates="bench_candidates")
