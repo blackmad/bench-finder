@@ -19,9 +19,11 @@ from bench_finder.models.enums import (
 from bench_finder.models.unified_models import (
     BenchBase,
     BenchCandidateBase,
+    BoundingBox,
     DetectionBase,
     DetectionItem,
     ImageBase,
+    Polygon,
     SearchBase,
 )
 
@@ -42,6 +44,23 @@ class BenchMode(str, Enum):
 # ============================================================================
 # Base Models for API Requests/Responses
 # ============================================================================
+
+
+# API-specific DetectionItem that allows optional bbox (unlike the database model)
+class ApiDetectionItem(BaseModel):
+    """API-specific detection item with optional bbox for responses."""
+
+    detection_id: int
+    confidence: float = Field(
+        ge=0.0, le=1.0, description="Confidence score between 0 and 1"
+    )
+    bbox: BoundingBox | None = Field(default=None, description="Optional bounding box")
+    class_name: str = Field(
+        default="bench", description="Class name of the detected object"
+    )
+    polygon: Polygon | None = Field(
+        default=None, description="Optional polygon for segmentation"
+    )
 
 
 # SearchBase now imported from unified_models
@@ -168,7 +187,7 @@ class WebBenchData(BaseModel):
     cluster_max_distance_meters: float | None = None
     is_cluster_representative: bool | None = None
     # Optional detection data (only included when requested)
-    detection_items: list[DetectionItem] | None = None
+    detection_items: list[ApiDetectionItem] | None = None
 
 
 class ClusterInfo(BaseModel):
@@ -181,8 +200,8 @@ class ClusterInfo(BaseModel):
     max_distance_meters: float
     avg_confidence: float
     sources: list[DataSource]  # List of data sources in cluster
-    created_at: str | None = None
-    updated_at: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class ClusteredBenchData(BaseModel):
@@ -248,7 +267,7 @@ class SegmentationData(BaseModel):
     detection_type: str  # 'segmentation' or 'bounding_box' or 'both'
 
     # Detection items with proper bbox and polygon data
-    detection_items: list[DetectionItem] = Field(
+    detection_items: list[ApiDetectionItem] = Field(
         default_factory=list,
         description="List of detection items with bbox and polygon data",
     )
@@ -259,6 +278,19 @@ class SegmentationData(BaseModel):
     # Common metadata
     confidence_score: float = 0.0
     source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics'
+
+
+class ImageWithDetectionData(BaseModel):
+    """Schema for image data with detection items."""
+
+    image_id: int
+    filename: str
+    heading: float
+    capture_success: bool
+    detection_items: list[ApiDetectionItem] = Field(
+        default_factory=list,
+        description="List of detection items for this image",
+    )
 
 
 class BenchDetectionData(BaseModel):
@@ -273,9 +305,9 @@ class BenchDetectionData(BaseModel):
     detection_sources: list[DetectionSource]
 
     # Images with their detection data
-    images: list[dict[str, Any]] = Field(
+    images: list[ImageWithDetectionData] = Field(
         default_factory=list,
-        description="List of images with their detection items, bbox, and polygon data",
+        description="List of images with their detection items",
     )
 
 
@@ -394,7 +426,7 @@ class ReportResponse(BaseModel):
     message: str
     bench_id: int
     report_type: BenchReportType
-    created_at: str
+    created_at: datetime
 
 
 class MissingBenchReportResponse(BaseModel):
@@ -406,7 +438,7 @@ class MissingBenchReportResponse(BaseModel):
     location: dict[str, float]
     location_method: LocationMethod
     has_image: bool
-    created_at: str
+    created_at: datetime
 
 
 class ErrorResponse(BaseModel):

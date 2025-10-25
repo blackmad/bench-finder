@@ -430,9 +430,9 @@ def display_bench_images(
 
     # Download and display images
     image_paths = []
-    for i, filename in enumerate(bench.image_filenames[:4]):  # Limit to 4 images
+    for i, filename in enumerate(bench.image_filenames):  # Download all images
         print(
-            f"📥 Downloading image {i+1}/{min(4, len(bench.image_filenames))}: {filename} - id: {bench.image_ids[i]}"
+            f"📥 Downloading image {i+1}/{len(bench.image_filenames)}: {filename} - id: {bench.image_ids[i]}"
         )
         local_path = client.download_image(filename)
         if local_path:
@@ -442,10 +442,10 @@ def display_bench_images(
         print("❌ Failed to download any images")
         return
 
-    # Create combined display
-    combined_image = create_combined_image_display(image_paths, target_width=300)
+    # Create combined display (limit to first 4 for combined view)
+    combined_image = create_combined_image_display(image_paths[:4], target_width=300)
     if combined_image:
-        print("\n📸 Combined image view:")
+        print("\n📸 Combined image view (first 4 images):")
         print(AutoImage(combined_image))
 
         # Show annotations if requested and we have detection data
@@ -467,7 +467,11 @@ def display_bench_images(
                     print(f"     Bounding Box: {seg_data.bounding_box_available}")
 
                     # Render annotations on the image if we have detection data
-                    if seg_data.detection_items and i < len(image_paths):
+                    if (
+                        seg_data.detection_items
+                        and i < len(image_paths)
+                        and image_paths[i]["filepath"]
+                    ):
                         image_path = image_paths[i]["filepath"]
                         try:
                             # Convert SegmentationData to dict for render_detection_annotations
@@ -479,6 +483,10 @@ def display_bench_images(
                             print(AutoImage(annotated_image))
                         except Exception as render_error:
                             print(f"     Error rendering annotations: {render_error}")
+                    elif seg_data.detection_items:
+                        print(
+                            "     ⚠️  Detection data available but image not downloaded for annotation display"
+                        )
 
                 except Exception as e:
                     print(

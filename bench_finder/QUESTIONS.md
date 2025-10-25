@@ -1,9 +1,25 @@
-- why no detections for this bench
-🖼️  Displaying 4 images for bench 859:
-📥 Downloading image 1/4: bench_11956507071_node_heading_0.jpg
-📥 Downloading image 2/4: bench_11956507071_node_heading_90.jpg
-📥 Downloading image 3/4: bench_11956507071_node_heading_180.jpg
-📥 Downloading image 4/4: bench_11956507071_node_heading_270.jpg
+- what to do about duplicated images in DB?
 
-- why failed to retrieve detection data no item with that key for 1341
-- why ❌ HTTP Error 404: {"detail":"No detection data found for image ID 20681"}
+- why is this bench being returned for no_bench mode?
+
+➜  bench_finder git:(main) ✗ cd ~/bench_finder; uv run python tools/fastapi_cli.py random --show-images --show-annotations  --mode no_bench
+('iterm2', '3.6.5') to WHOLE
+🎲 Getting random bench (min_confidence=0.8, mode=no_bench)...
+
+============================================================
+🪑 Bench ID: 245
+📍 Location: 52.377811, 4.929819
+📊 Source: OSM
+🎯 Detection Type: ROBOFLOW
+✅ Bench Found: True
+🎯 Best Confidence: 0.950
+   Roboflow: 0.950
+📏 Distance: 0m (0.00km)
+🖼️  Images: 8
+   Image files:
+     • bench_4600552064_node_heading_0.jpg
+     • bench_4600552064_node_heading_90.jpg
+     • bench_4600552064_node_heading_180.jpg
+     • bench_4600552064_node_heading_270.jpg
+     • bench_4600552064_node_heading_0.jpg
+     ... and 3 more

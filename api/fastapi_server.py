@@ -9,7 +9,6 @@ import math
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Any
 
 # Any import removed - not used
 import uvicorn
@@ -39,6 +38,7 @@ from bench_finder.services.clustered_bench_service import ClusteredBenchService
 from bench_finder.services.database import BenchDatabase
 
 from .api_models import (
+    ApiDetectionItem,
     ApiInfoResponse,
     BenchDetectionData,
     BenchListResponse,
@@ -49,6 +49,7 @@ from .api_models import (
     HealthResponse,
     ImageListResponse,
     ImageResponse,
+    ImageWithDetectionData,
     MissingBenchReportResponse,
     PaginationInfo,
     ReportResponse,
@@ -469,7 +470,7 @@ async def health_check():
 
 
 # Helper function to get detection items for a bench
-def get_detection_items_for_bench(session, bench_id: int) -> list[dict[str, Any]]:
+def get_detection_items_for_bench(session, bench_id: int) -> list[ApiDetectionItem]:
     """Get all detection items for a specific bench using SQLAlchemy ORM."""
 
     # Query detection items with proper joins using ORM
@@ -484,32 +485,36 @@ def get_detection_items_for_bench(session, bench_id: int) -> list[dict[str, Any]
 
     detection_items = []
     for item in detection_items_query:
-        # Handle bbox and polygon which may be dicts (from JSON) or model instances
-        bbox_data = None
+        # Ensure bbox and polygon are proper model instances, not dicts
+        bbox = None
         if item.bbox:
-            if hasattr(item.bbox, "model_dump"):
-                bbox_data = item.bbox.model_dump()
-            else:
-                bbox_data = item.bbox  # Already a dict
+            if isinstance(item.bbox, dict):
+                # Convert dict to BoundingBox model
+                from bench_finder.models.unified_models import BoundingBox
 
-        polygon_data = None
+                bbox = BoundingBox(**item.bbox)
+            else:
+                bbox = item.bbox  # Already a BoundingBox instance
+
+        polygon = None
         if item.polygon:
-            if hasattr(item.polygon, "model_dump"):
-                polygon_data = item.polygon.model_dump()
+            if isinstance(item.polygon, dict):
+                # Convert dict to Polygon model
+                from bench_finder.models.unified_models import Polygon
+
+                polygon = Polygon(**item.polygon)
             else:
-                polygon_data = item.polygon  # Already a dict
+                polygon = item.polygon  # Already a Polygon instance
 
-        item_data = {
-            "id": item.id,
-            "confidence": item.confidence,
-            "class_name": item.class_name,
-            "bbox": bbox_data,
-        }
-
-        if polygon_data:
-            item_data["polygon"] = polygon_data
-
-        detection_items.append(item_data)
+        # Create a new ApiDetectionItem with proper model instances
+        detection_item = ApiDetectionItem(
+            detection_id=item.detection_id,
+            confidence=item.confidence,
+            bbox=bbox,
+            class_name=item.class_name,
+            polygon=polygon,
+        )
+        detection_items.append(detection_item)
 
     return detection_items
 
@@ -1737,29 +1742,36 @@ async def get_image_segmentation(
 
             for detection in detections:
                 for item in detection.detection_items:
-                    # Convert to API format
-                    # Handle bbox and polygon which may be dicts (from JSON) or model instances
-                    bbox_data = None
+                    # Ensure bbox and polygon are proper model instances, not dicts
+                    bbox = None
                     if item.bbox:
-                        if hasattr(item.bbox, "model_dump"):
-                            bbox_data = item.bbox.model_dump()
-                        else:
-                            bbox_data = item.bbox  # Already a dict
+                        if isinstance(item.bbox, dict):
+                            # Convert dict to BoundingBox model
+                            from bench_finder.models.unified_models import BoundingBox
 
-                    polygon_data = None
+                            bbox = BoundingBox(**item.bbox)
+                        else:
+                            bbox = item.bbox  # Already a BoundingBox instance
+
+                    polygon = None
                     if item.polygon:
-                        if hasattr(item.polygon, "model_dump"):
-                            polygon_data = item.polygon.model_dump()
-                        else:
-                            polygon_data = item.polygon  # Already a dict
+                        if isinstance(item.polygon, dict):
+                            # Convert dict to Polygon model
+                            from bench_finder.models.unified_models import Polygon
 
-                    detection_item_data = {
-                        "confidence": item.confidence,
-                        "bbox": bbox_data,
-                        "class_name": item.class_name,
-                        "polygon": polygon_data,
-                    }
-                    all_detection_items.append(detection_item_data)
+                            polygon = Polygon(**item.polygon)
+                        else:
+                            polygon = item.polygon  # Already a Polygon instance
+
+                    # Create a new ApiDetectionItem with proper model instances
+                    detection_item = ApiDetectionItem(
+                        detection_id=item.detection_id,
+                        confidence=item.confidence,
+                        bbox=bbox,
+                        class_name=item.class_name,
+                        polygon=polygon,
+                    )
+                    all_detection_items.append(detection_item)
 
                     # Track capabilities
                     if item.polygon:
@@ -1955,31 +1967,37 @@ async def get_bench_detections(bench_id: int = Path(..., ge=1, description="Benc
 
                 for detection in image.detections:
                     for item in detection.detection_items:
-                        # Handle bbox and polygon which may be dicts (from JSON) or model instances
-                        bbox_data = None
+                        # Ensure bbox and polygon are proper model instances, not dicts
+                        bbox = None
                         if item.bbox:
-                            if hasattr(item.bbox, "model_dump"):
-                                bbox_data = item.bbox.model_dump()
-                            else:
-                                bbox_data = item.bbox  # Already a dict
+                            if isinstance(item.bbox, dict):
+                                # Convert dict to BoundingBox model
+                                from bench_finder.models.unified_models import (
+                                    BoundingBox,
+                                )
 
-                        polygon_data = None
+                                bbox = BoundingBox(**item.bbox)
+                            else:
+                                bbox = item.bbox  # Already a BoundingBox instance
+
+                        polygon = None
                         if item.polygon:
-                            if hasattr(item.polygon, "model_dump"):
-                                polygon_data = item.polygon.model_dump()
+                            if isinstance(item.polygon, dict):
+                                # Convert dict to Polygon model
+                                from bench_finder.models.unified_models import Polygon
+
+                                polygon = Polygon(**item.polygon)
                             else:
-                                polygon_data = item.polygon  # Already a dict
+                                polygon = item.polygon  # Already a Polygon instance
 
-                        detection_item = {
-                            "id": item.id,
-                            "confidence": item.confidence,
-                            "bbox": bbox_data,
-                            "class_name": item.class_name,
-                        }
-
-                        if polygon_data:
-                            detection_item["polygon"] = polygon_data
-
+                        # Create a new ApiDetectionItem with proper model instances
+                        detection_item = ApiDetectionItem(
+                            detection_id=item.detection_id,
+                            confidence=item.confidence,
+                            bbox=bbox,
+                            class_name=item.class_name,
+                            polygon=polygon,
+                        )
                         detection_items.append(detection_item)
 
                         # Track best confidence and sources
@@ -1990,13 +2008,13 @@ async def get_bench_detections(bench_id: int = Path(..., ge=1, description="Benc
                 if detection_items:
                     images_with_detections += 1
 
-                image_data = {
-                    "image_id": image.id,
-                    "filename": image.filename,
-                    "heading": image.heading,
-                    "capture_success": image.capture_success,
-                    "detection_items": detection_items,
-                }
+                image_data = ImageWithDetectionData(
+                    image_id=image.id,
+                    filename=image.filename,
+                    heading=image.heading,
+                    capture_success=image.capture_success,
+                    detection_items=detection_items,
+                )
                 images_data.append(image_data)
 
             return BenchDetectionData(
