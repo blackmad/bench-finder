@@ -16,8 +16,8 @@ from rich.progress import (
 )
 from term_image.image import AutoImage
 
-from models import DetectionResult
 from models.enums import BenchCandidateStatus
+from models.unified_models import Bench, DetectionResult, Image
 from tools.bench_detection_cli import render_detections
 
 
@@ -50,7 +50,7 @@ from generators.bench_generator import BenchCandidate
 from PIL import Image as PILImage
 from services.database import BenchDatabase
 
-from models import (
+from models.unified_models import (
     BenchProcessingResult,
     DetectionCreate,
     DetectionItemCreate,
@@ -291,11 +291,11 @@ class BenchDetector:
             best_confidence=0.0,
         )
 
+        images: list[Image] = []
+
         # Find the bench in the database to get its images
         try:
             with self.database.get_session() as session:
-                from models import Bench, Image
-
                 # Find the bench by provider_id
                 db_bench = (
                     session.query(Bench)
@@ -335,7 +335,7 @@ class BenchDetector:
         # Phase 1: Run detection on all successful images and calculate pixel coverage
         detection_results: list[DetectionResult] = []
         pixel_coverage_results: list[float] = []
-        successful_images = []
+        successful_images: list[Image] = []
 
         for image in images:
             try:
@@ -513,7 +513,7 @@ class BenchDetector:
         # Update candidate status to detection_done
         try:
             with self.database.get_session() as session:
-                from models import BenchCandidate
+                from models.unified_models import BenchCandidate
 
                 candidate = (
                     session.query(BenchCandidate)

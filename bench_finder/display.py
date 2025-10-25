@@ -9,7 +9,7 @@ from clients.base_detection_client import DetectionResult
 from PIL import Image as PILImage
 from term_image.image import AutoImage
 
-from models.streetview_models import StreetViewImageCapture
+from models.unified_models import Image
 from tools.bench_detection_cli import render_detections
 
 
@@ -72,7 +72,7 @@ def create_combined_image_display(
 
 def display_bench_detection_results(
     bench_identifier: str,
-    image_results: list[StreetViewImageCapture],
+    image_results: list[Image],
     bench_detections: list[DetectionResult],
     representative_detection: Optional[DetectionResult],
     copy_bench_images: bool = True,
@@ -100,16 +100,19 @@ def display_bench_detection_results(
     ):
         image_path = detection_info.image_path
         streetview_image = next(
-            (img for img in image_results if img.filepath == image_path), None
+            (
+                img
+                for img in image_results
+                if image_path.endswith(img.filepath or "unk")
+            ),
+            None,
         )
         if not streetview_image:
             logger.warning(f"No streetview image found for {image_path}")
             continue
         heading = streetview_image.heading
         max_confidence = detection_info.max_confidence
-        pixel_coverage = detection_info.area / (
-            streetview_image.width * streetview_image.height
-        )
+        pixel_coverage = detection_info.area / (640 * 640)
         is_representative = detection_info == representative_detection
         marker = "🏆" if is_representative else f"{i+1}."
         print(
@@ -121,14 +124,19 @@ def display_bench_detection_results(
     if representative_detection:
         image_path = representative_detection.image_path
         streetview_image = next(
-            (img for img in image_results if img.filepath == image_path), None
+            (
+                img
+                for img in image_results
+                if image_path.endswith(img.filepath or "unk")
+            ),
+            None,
         )
         if not streetview_image:
             logger.warning(f"No streetview image found for {image_path}")
             return
         heading = streetview_image.heading
         max_confidence = representative_detection.max_confidence
-        pixel_coverage = representative_detection.area / (streetview_image.area)
+        pixel_coverage = representative_detection.area / (640 * 640)
         winning_model = representative_detection.model_name
 
         # Copy image if enabled

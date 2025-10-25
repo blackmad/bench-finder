@@ -24,13 +24,7 @@ from clients.multi_model_client import UnifiedMultiModelDetectionClient
 from clients.roboflow_client import RoboflowClient
 from clients.ultralytics_client import UltralyticsClient
 from PIL import Image, ImageDraw, ImageFont
-from term_image.image import ITerm2Image, from_file
-from term_image.utils import get_terminal_name_version
-
-
-# Force iTerm2 image support for warp
-if get_terminal_name_version()[0] == "warp":
-    ITerm2Image.is_supported = lambda *_: True
+from term_image.image import from_file
 
 
 def render_detections(
@@ -42,6 +36,7 @@ def render_detections(
 
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_image = Image.fromarray(image)
+
     draw = ImageDraw.Draw(pil_image)
 
     # Try to load a font (fallback to default if not available)
@@ -77,7 +72,7 @@ def render_detections(
     )
     if bench_count > 0:
         print(f"  Max confidence: {max_confidence:.2f}")
-        print(f"  Inference time: {result.inference_time:.3f}s")
+        print(f"  Inference time: {(result.inference_time or 0.0):.3f}s")
 
     for i, detection in enumerate(detections):
         color = colors[i % len(colors)]

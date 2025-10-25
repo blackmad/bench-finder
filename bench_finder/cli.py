@@ -4,6 +4,7 @@ CLI interface for the bench finder application using Typer.
 """
 
 import logging
+import os
 from typing import Optional
 
 import typer
@@ -25,7 +26,7 @@ from rich.table import Table
 from services.database import BenchDatabase
 from utils import setup_logging
 
-from models import BenchCandidateStatus, SearchCreate, SearchStatus
+from models.unified_models import BenchCandidateStatus, SearchCreate, SearchStatus
 
 
 # Initialize Typer app and console
@@ -330,6 +331,7 @@ def run_detections(
             TimeElapsedColumn(),
             TimeRemainingColumn(),
             console=console,
+            disable=True,
         ) as progress:
             task = progress.add_task(
                 f"🤖 Running detections on {len(bench_candidates)} candidates",
@@ -387,7 +389,7 @@ def reset_detections(
 
         # Get counts before reset
         with database.get_session() as session:
-            from models import BenchCandidate, Detection
+            from models.unified_models import BenchCandidate, Detection
 
             detection_count = session.query(Detection).count()
             candidate_count = (
@@ -443,6 +445,80 @@ def reset_detections(
         )
         console.print(
             "\n[dim]💡 You can now re-run detections using the run-detections command.[/dim]"
+        )
+
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130) from None
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1) from e
+
+
+@app.command("show-random-image")
+def show_random_image(
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+):
+    """
+    Display a random streetview image from the database using AutoImage.
+
+    This command fetches a random successfully captured streetview image
+    and displays it directly in the terminal using AutoImage.
+    """
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Initialize database
+        database = BenchDatabase()
+
+        console.print("[bold blue]🎲 Fetching random streetview image...[/bold blue]")
+
+        # Get random image
+        random_image = database.get_random_streetview_image()
+
+        if not random_image:
+            console.print(
+                "[bold red]❌ No streetview images found in database[/bold red]"
+            )
+            console.print(
+                "[dim]Make sure you have run fetch-images command first to download some images.[/dim]"
+            )
+            return
+
+        # Check if image file exists
+        if not random_image.filepath or not os.path.exists(random_image.filepath):
+            console.print(
+                f"[bold red]❌ Image file not found: {random_image.filepath}[/bold red]"
+            )
+            return
+
+        # Display image info
+        console.print(f"[green]📍 Image: {random_image.filename}[/green]")
+        console.print(f"[green]📁 Path: {random_image.filepath}[/green]")
+        console.print(f"[green]🧭 Heading: {random_image.heading}°[/green]")
+        console.print(f"[green]📏 Size: {random_image.file_size} bytes[/green]")
+        console.print(f"[green]🪑 Bench ID: {random_image.bench_id}[/green]\n")
+
+        # Display the image using AutoImage
+        console.print("[bold blue]🖼️  Displaying image in terminal:[/bold blue]")
+        from PIL import Image
+        from term_image.image import AutoImage
+
+        try:
+            pil_image = Image.open(random_image.filepath)
+            print(AutoImage(pil_image))
+        except Exception as e:
+            console.print(f"[bold red]❌ Failed to display image: {e}[/bold red]")
+            console.print("[dim]Make sure your terminal supports image display.[/dim]")
+            return
+
+        console.print(
+            "\n[dim]💡 Tip: This is a random streetview image from your database.[/dim]"
         )
 
     except KeyboardInterrupt:

@@ -16,7 +16,7 @@ from config import DATABASE_PATH
 from core.clustering import BenchClusterer
 from database import BenchDatabase
 
-from models import (
+from models.unified_models import (
     ClusteredBenchData,
     ClusteredBenchListResponse,
     ClusterInfo,

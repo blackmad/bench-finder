@@ -25,7 +25,7 @@ from services.mapillary_service import (
     initialize_mapillary_service,
 )
 
-from models import (
+from models.unified_models import (
     ApiInfoResponse,
     BenchListResponse,
     BenchReportType,

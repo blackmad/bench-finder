@@ -20,7 +20,7 @@ from config import (
     ULTRALYTICS_USE_LOCAL,
 )
 
-from models import (
+from models.unified_models import (
     BoundingBox,
     DetectionItem,
     DetectionResult,

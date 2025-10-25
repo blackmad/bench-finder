@@ -11,7 +11,7 @@ from config import DATABASE_PATH
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models import (
+from models.unified_models import (
     Bench,
     BenchCandidate,
     BenchCandidateStatus,
@@ -29,8 +29,9 @@ from models import (
     SearchResponse,
     SearchResults,
     SearchStatus,
+    create_database_session,
+    init_database,
 )
-from models.unified_models import create_database_session, init_database
 
 
 logger = logging.getLogger(__name__)
@@ -652,6 +653,35 @@ class BenchDatabase:
         except Exception:
             logger.exception("Error resetting bench candidate detection status")
             return 0
+
+    def get_random_streetview_image(self) -> Optional[Image]:
+        """
+        Get a random streetview image that was successfully captured.
+
+        Returns:
+            Random Image object with successful capture, or None if no images found
+        """
+        try:
+            with self.get_session() as session:
+                # Get a random image that was successfully captured
+                random_image = (
+                    session.query(Image)
+                    .filter(Image.capture_success)
+                    .filter(Image.filepath.isnot(None))
+                    .order_by(func.random())
+                    .first()
+                )
+
+                if random_image:
+                    logger.debug(f"Selected random image: {random_image.filename}")
+                    return random_image
+                else:
+                    logger.warning("No successful streetview images found in database")
+                    return None
+
+        except Exception:
+            logger.exception("Error getting random streetview image")
+            return None
 
     def close(self):
         """Close database connection if needed."""

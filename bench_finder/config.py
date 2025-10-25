@@ -18,6 +18,9 @@ try:
     # Force iTerm2 image support for warp
     if get_terminal_name_version()[0] in ["warp"]:
         ITerm2Image.is_supported = lambda *_: True
+
+    print(get_terminal_name_version(), "to WHOLE")
+    ITerm2Image.set_render_method("WHOLE")
 except (ImportError, ValueError, OSError):
     # This can happen when running in background without a proper terminal
     # or when term_image is not available

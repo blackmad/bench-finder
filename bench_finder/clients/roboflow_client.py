@@ -12,7 +12,7 @@ import cv2
 import requests
 from config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
-from models import (
+from models.unified_models import (
     BoundingBox,
     CacheStatus,
     DetectionItem,

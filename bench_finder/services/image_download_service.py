@@ -12,7 +12,7 @@ from generators.bench_generator import BenchCandidate
 from services.database import BenchDatabase
 from utils import ProgressTracker
 
-from models import (
+from models.unified_models import (
     BenchCandidateStatus,
     BenchCreate,
     BenchProcessingResult,
@@ -259,7 +259,7 @@ class ImageDownloadService:
         # We need to find the candidate ID from the database
         try:
             with self.database.get_session() as session:
-                from models import BenchCandidate
+                from models.unified_models import BenchCandidate
 
                 candidate = (
                     session.query(BenchCandidate)

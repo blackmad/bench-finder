@@ -18,7 +18,7 @@ from schemas import (
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models import (
+from models.unified_models import (
     Bench,
     Detection,
     Image,
