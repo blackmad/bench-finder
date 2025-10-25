@@ -13,10 +13,10 @@ from services.database import BenchDatabase
 from utils import ProgressTracker
 
 from models.unified_models import (
+    BenchBase,
     BenchCandidateStatus,
-    BenchCreate,
     BenchProcessingResult,
-    ImageCreate,
+    ImageBase,
     ProcessingStats,
 )
 
@@ -185,8 +185,7 @@ class ImageDownloadService:
 
         # Add bench to database
         try:
-            bench_data = BenchCreate(
-                search_id=search_id,
+            bench_data = BenchBase(
                 provider_id=bench.provider_id,
                 lat=lat,  # Use validated coordinates
                 lng=lng,
@@ -230,8 +229,7 @@ class ImageDownloadService:
         for image_capture in image_results.captures:
             try:
                 self.database.add_image(
-                    ImageCreate(
-                        bench_id=bench_id,
+                    ImageBase(
                         heading=image_capture.heading,
                         filepath=image_capture.filepath,
                         filename=image_capture.filename,

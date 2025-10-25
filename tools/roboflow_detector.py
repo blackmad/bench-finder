@@ -9,7 +9,7 @@ import argparse
 import os
 import sys
 import tempfile
-from typing import Any, Optional
+from typing import Any
 
 import cv2
 from clients.roboflow_client import RoboflowClient
@@ -22,9 +22,7 @@ if get_terminal_name_version()[0] == "warp":
     ITerm2Image.is_supported = lambda *_: True
 
 
-def setup_client(
-    use_local: bool = True, model_id: Optional[str] = None
-) -> RoboflowClient:
+def setup_client(use_local: bool = True, model_id: str | None = None) -> RoboflowClient:
     """Initialize RoboflowClient.
 
     Args:

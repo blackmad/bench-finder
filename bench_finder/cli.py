@@ -25,7 +25,7 @@ from rich.table import Table
 from services.database import BenchDatabase
 from utils import setup_logging
 
-from models.unified_models import BenchCandidateStatus, SearchCreate, SearchStatus
+from models.unified_models import BenchCandidateStatus, SearchBase, SearchStatus
 
 
 # Initialize Typer app and console
@@ -104,7 +104,7 @@ def generate_candidates(
     ) as progress:
         search_task = progress.add_task("Creating search record...", total=None)
         search_id = database.create_search(
-            SearchCreate(
+            SearchBase(
                 query=query,
                 start_lat=start_lat,
                 start_lng=start_lng,

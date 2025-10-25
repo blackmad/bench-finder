@@ -33,7 +33,7 @@ class GeneratorStats:
     """Statistics about a generator's usage."""
 
     name: str
-    source: str
+    source: DataSource
     supports_area_search: bool
     total_requests: int = 0
     successful_requests: int = 0

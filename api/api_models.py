@@ -4,6 +4,7 @@ These models are used for API requests/responses and don't have database tables.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -15,6 +16,26 @@ from bench_finder.models.enums import (
     LocationMethod,
     SearchStatus,
 )
+from bench_finder.models.unified_models import (
+    BenchBase,
+    BenchCandidateBase,
+    DetectionBase,
+    ImageBase,
+    SearchBase,
+)
+
+
+# ============================================================================
+# Enums
+# ============================================================================
+
+
+class BenchMode(str, Enum):
+    """Enum for bench search modes."""
+
+    BENCHES = "benches"  # Only return candidates with detected benches
+    NO_BENCH = "no_bench"  # Only return candidates without detected benches
+    BOTH = "both"  # Return both types of candidates
 
 
 # ============================================================================
@@ -22,13 +43,7 @@ from bench_finder.models.enums import (
 # ============================================================================
 
 
-class SearchBase(BaseModel):
-    """Base schema for search operations."""
-
-    query: str
-    start_lat: float
-    start_lng: float
-    search_radius: int
+# SearchBase now imported from unified_models
 
 
 class SearchResponse(SearchBase):
@@ -52,15 +67,7 @@ class SearchSummary(BaseModel):
     created_at: datetime
 
 
-class BenchBase(BaseModel):
-    """Base schema for bench data."""
-
-    provider_id: str | None = None  # Unified ID from OSM or Mapillary
-    lat: float
-    lng: float
-    tags: dict[str, Any] = {}
-    source: DataSource = DataSource.OSM  # 'osm' or 'mapillary'
-    external_id: str | None = None  # For Mapillary image IDs
+# BenchBase now imported from unified_models
 
 
 class BenchResponse(BenchBase):
@@ -71,15 +78,7 @@ class BenchResponse(BenchBase):
     created_at: datetime
 
 
-class ImageBase(BaseModel):
-    """Base schema for image data."""
-
-    heading: int
-    filepath: str | None = None
-    filename: str | None = None
-    file_size: int | None = None
-    capture_success: bool
-    capture_error: str | None = None
+# ImageBase now imported from unified_models
 
 
 class ImageResponse(ImageBase):
@@ -90,28 +89,7 @@ class ImageResponse(ImageBase):
     created_at: datetime
 
 
-class DetectionBase(BaseModel):
-    """Base schema for detection data."""
-
-    has_bench: bool
-    bench_count: int = 0
-    max_confidence: float = 0.0
-    detection_success: bool
-    detection_error: str | None = None
-    model_id: str
-    confidence_threshold: float
-    source: DetectionSource = (
-        DetectionSource.ROBOFLOW
-    )  # 'roboflow', 'ultralytics', 'mapillary'
-    external_detection_id: str | None = None  # For Mapillary detection IDs
-
-    # Ultralytics-specific fields (optional for backward compatibility)
-    model_url: str | None = None
-    iou_threshold: float | None = None
-    image_size: int | None = None
-    inference_time: float | None = None
-    preprocess_time: float | None = None
-    postprocess_time: float | None = None
+# DetectionBase now imported from unified_models
 
 
 class DetectionResponse(DetectionBase):
@@ -133,19 +111,19 @@ class DetectionResponse(DetectionBase):
 class BenchWithImages(BenchResponse):
     """Schema for bench with its images."""
 
-    images: list[ImageResponse] = []
+    images: list[ImageResponse]
 
 
 class ImageWithDetections(ImageResponse):
     """Schema for image with its detections."""
 
-    detections: list[DetectionResponse] = []
+    detections: list[DetectionResponse]
 
 
 class BenchWithDetections(BenchResponse):
     """Schema for bench with all related data."""
 
-    images: list[ImageWithDetections] = []
+    images: list[ImageWithDetections]
 
 
 class SearchResults(BaseModel):
@@ -175,6 +153,7 @@ class WebBenchData(BaseModel):
     tags: dict[str, Any] = {}
     source: DataSource  # 'osm' or 'mapillary'
     external_id: str | None = None
+    bench_found: bool = True  # Whether a bench was actually detected
     best_confidence: float
     roboflow_confidence: float = 0.0
     ultralytics_confidence: float = 0.0
@@ -299,38 +278,7 @@ class ConfigResponse(BaseModel):
 # ============================================================================
 
 
-class SourceSearchRequest(BaseModel):
-    """Schema for source-specific search request."""
-
-    center_lat: float
-    center_lng: float
-    radius_meters: int = 1000
-    limit: int = 1000
-    source: DataSource  # 'osm', 'mapillary'
-
-
-class SourceStatistics(BaseModel):
-    """Schema for source-specific statistics."""
-
-    source: DataSource
-    total_benches: int
-    total_detections: int
-    avg_detections_per_bench: float
-    unique_locations: int
-    coverage_area_km2: float
-
-
-class SourceStatsResponse(BaseModel):
-    """Schema for source statistics response."""
-
-    source: DataSource
-    total_benches: int
-    total_images: int
-    total_detections: int
-    avg_confidence: float
-    area_filtered: bool
-    area_center: dict[str, float] | None = None
-    area_radius_meters: int | None = None
+# Source-specific models removed - using unified approach
 
 
 # ============================================================================
@@ -523,16 +471,7 @@ class ApiInfoResponse(BaseModel):
     limits: dict[str, Any]
 
 
-class MapillaryConfigResponse(BaseModel):
-    """Schema for Mapillary configuration response."""
-
-    mapillary_enabled: bool
-    default_radius_meters: int
-    default_limit: int
-    supported_detection_types: list[DetectionSource]
-    max_radius_meters: int
-    max_limit: int
-    features: dict[str, Any]
+# MapillaryConfigResponse removed - using unified approach
 
 
 class ReportResponse(BaseModel):
@@ -570,16 +509,7 @@ class ErrorResponse(BaseModel):
 # ============================================================================
 
 
-class BenchCandidateBase(BaseModel):
-    """Base schema for bench candidate data."""
-
-    provider_id: str | None = None
-    lat: float
-    lng: float
-    tags: dict[str, Any] | None = None
-    source: DataSource = DataSource.OSM
-    external_id: str | None = None
-    confidence: float | None = None
+# BenchCandidateBase now imported from unified_models
 
 
 class BenchCandidateResponse(BenchCandidateBase):

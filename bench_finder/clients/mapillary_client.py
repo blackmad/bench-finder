@@ -11,6 +11,7 @@ from clients.base_location_client import (
     LocationSearchResult,
 )
 
+from models.enums import DataSource
 from models.mapillary_models import (
     MapillaryDetection,
     MapillaryDetectionStatistics,
@@ -100,7 +101,7 @@ class MapillaryBenchDetector(BaseLocationClient):
             search_center_lng=result.search_center_lng,
             search_radius_meters=result.search_radius_meters,
             total_count=len(unified_benches),
-            source="mapillary",
+            source=DataSource.MAPILLARY,
         )
 
     def get_item_details(self, provider_id: str) -> dict | None:

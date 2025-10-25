@@ -316,6 +316,7 @@ ignore = [
     "ERA001", # commented out code,
     "TRY002", # create your own exception,
     "PLC0415", # import must be at top of file - sometimes it's for perf
+    "RUF001", # ambiguous i
 ]
 
 [tool.ruff.per-file-ignores]

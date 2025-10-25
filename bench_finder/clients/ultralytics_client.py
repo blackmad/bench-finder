@@ -19,6 +19,7 @@ from config import (
     ULTRALYTICS_USE_LOCAL,
 )
 
+from models.enums import DetectionSource
 from models.unified_models import (
     BoundingBox,
     DetectionItem,
@@ -320,7 +321,7 @@ class UltralyticsClient(DetectionClient):
                 if self.local_model_path
                 else "local",
                 confidence_threshold=self.confidence_threshold,
-                source="ultralytics",
+                source=DetectionSource.ULTRALYTICS,
                 inference_time=timing_info.get("inference_time"),
                 preprocess_time=timing_info.get("preprocess_time"),
                 postprocess_time=timing_info.get("postprocess_time"),
@@ -440,7 +441,7 @@ class UltralyticsClient(DetectionClient):
                 backend_name="UltralyticsClient",
                 model_id=self.model_url or "unknown",
                 confidence_threshold=self.confidence_threshold,
-                source="ultralytics",
+                source=DetectionSource.ULTRALYTICS,
                 inference_time=timing_info.get("inference_time"),
                 preprocess_time=timing_info.get("preprocess_time"),
                 postprocess_time=timing_info.get("postprocess_time"),
@@ -485,7 +486,7 @@ class UltralyticsClient(DetectionClient):
             if self.use_local
             else self.model_url or "unknown",
             confidence_threshold=self.confidence_threshold,
-            source="ultralytics",
+            source=DetectionSource.ULTRALYTICS,
             error=error,
         )
 

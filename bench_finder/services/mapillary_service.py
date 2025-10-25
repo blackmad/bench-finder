@@ -17,6 +17,7 @@ from schemas import (
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from models.enums import DataSource
 from models.unified_models import (
     Bench,
     Detection,
@@ -223,7 +224,7 @@ class MapillaryBenchService:
                     "mapillary_image_id": api_image.image_id,
                     "detection_value": api_detection.value,
                 },
-                source="mapillary",
+                source=DataSource.MAPILLARY,
                 external_id=api_image.image_id,
             )
             session.add(db_bench)
@@ -275,7 +276,7 @@ class MapillaryBenchService:
                 detection_error=None,
                 model_id="mapillary",
                 confidence_threshold=0.0,  # Mapillary doesn't use thresholds
-                source="mapillary",
+                source=DataSource.MAPILLARY,
                 external_detection_id=api_detection.detection_id,
             )
             session.add(db_detection)
@@ -358,7 +359,7 @@ class MapillaryBenchService:
         center_lng: float,
         radius_meters: int = 1000,
         limit: int = 1000,
-        source: str | None = None,
+        source: DataSource | None = None,
     ) -> list[WebBenchData]:
         """
         Get stored bench detections from the database.
@@ -405,7 +406,7 @@ class MapillaryBenchService:
         center_lat: float | None = None,
         center_lng: float | None = None,
         radius_meters: int | None = None,
-        source: str | None = None,
+        source: DataSource | None = None,
     ) -> SourceStatistics:
         """
         Get statistics about stored bench detections.

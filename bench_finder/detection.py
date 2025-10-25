@@ -52,8 +52,8 @@ from services.database import BenchDatabase
 
 from models.unified_models import (
     BenchProcessingResult,
-    DetectionCreate,
-    DetectionItemCreate,
+    DetectionBase,
+    DetectionItem,
     ProcessingStats,
 )
 
@@ -407,39 +407,48 @@ class BenchDetector:
         for i, detection_result in enumerate(detection_results):
             image = successful_images[i]
             image_id = image.id
-
-            # Store successful detection result using unified DetectionCreate
-            self.database.add_detection(
-                DetectionCreate(
-                    image_id=image_id,
-                    has_bench=detection_result.has_bench,
-                    bench_count=detection_result.bench_count,
-                    max_confidence=detection_result.max_confidence,
-                    detection_success=True,
-                    detection_error=None,
-                    model_id=detection_result.model_id or "unknown",
-                    confidence_threshold=self.detection_client.confidence_threshold,
-                    source=detection_result.source,
-                    # Ultralytics-specific fields (optional)
-                    # full_response=detection_result.full_response,
-                    # bench_detections=detection_result.bench_detections,
-                    model_url=detection_result.model_url,
-                    iou_threshold=detection_result.iou_threshold,
-                    image_size=detection_result.image_size,
-                    inference_time=detection_result.inference_time,
-                    preprocess_time=detection_result.preprocess_time,
-                    postprocess_time=detection_result.postprocess_time,
-                    detection_items=[
-                        DetectionItemCreate(
-                            confidence=item.confidence,
-                            bbox=item.bbox,
-                            class_name=item.class_name,
-                            polygon=item.polygon,
-                        )
-                        for item in detection_result.detections
-                    ],
+            if image_id is None:
+                logger.error(
+                    f"Image {image.filepath} has no ID, skipping detection save"
                 )
+                continue
+
+            # Store successful detection result using unified DetectionBase
+            detection_data = DetectionBase(
+                image_id=image_id,
+                has_bench=detection_result.has_bench,
+                bench_count=detection_result.bench_count,
+                max_confidence=detection_result.max_confidence,
+                detection_success=True,
+                detection_error=None,
+                model_id=detection_result.model_id or "unknown",
+                confidence_threshold=self.detection_client.confidence_threshold,
+                source=detection_result.source,
+                # Ultralytics-specific fields (optional)
+                # full_response=detection_result.full_response,
+                # bench_detections=detection_result.bench_detections,
+                model_url=detection_result.model_url,
+                iou_threshold=detection_result.iou_threshold,
+                image_size=detection_result.image_size,
+                inference_time=detection_result.inference_time,
+                preprocess_time=detection_result.preprocess_time,
+                postprocess_time=detection_result.postprocess_time,
             )
+
+            # Add detection items as a separate attribute
+            detection_data.detection_items = [
+                DetectionItem(
+                    detection_id=0,  # Will be set when detection is saved
+                    image_id=image_id,
+                    confidence=item.confidence,
+                    bbox=item.bbox,
+                    class_name=item.class_name,
+                    polygon=item.polygon,
+                )
+                for item in detection_result.detections
+            ]
+
+            self.database.add_detection(detection_data, image_id)
 
             # Display and copy only the representative image
             if detection_result == representative_detection:

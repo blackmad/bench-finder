@@ -14,10 +14,9 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 
-from config import DATABASE_PATH
-from services.database import BenchDatabase
-
-from models.enums import DataSource
+from bench_finder.config import DATABASE_PATH
+from bench_finder.models.enums import DataSource
+from bench_finder.services.database import BenchDatabase
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +35,7 @@ class BenchData:
     lat: float
     lng: float
     best_confidence: float
-    source: str
+    source: DataSource
     provider_id: str
     image_count: int
 

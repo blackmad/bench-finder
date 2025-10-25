@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .enums import DataSource
+
 
 class OSMTags(BaseModel):
     """OpenStreetMap tags dictionary."""
@@ -49,7 +51,7 @@ class OSMBench(BaseModel):
     """Parsed bench from OSM data."""
 
     provider_id: str = Field(..., description="Unique provider ID (osm_id_type)")
-    source: str = Field(default="osm", description="Data source")
+    source: DataSource = Field(default=DataSource.OSM, description="Data source")
     external_id: str = Field(..., description="Original OSM ID")
     lat: float = Field(..., description="Bench latitude")
     lng: float = Field(..., description="Bench longitude")

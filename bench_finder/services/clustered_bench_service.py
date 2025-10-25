@@ -11,10 +11,6 @@ import json
 import logging
 import math
 
-from config import DATABASE_PATH
-from core.clustering import BenchClusterer
-from database import BenchDatabase
-
 from api.api_models import (
     ClusteredBenchData,
     ClusteredBenchListResponse,
@@ -22,10 +18,13 @@ from api.api_models import (
     PaginationInfo,
     WebBenchData,
 )
-from models.unified_models import (
+from bench_finder.config import DATABASE_PATH
+from bench_finder.core.clustering import BenchClusterer
+from bench_finder.models.unified_models import (
     DataSource,
     DetectionSource,
 )
+from bench_finder.services.database import BenchDatabase
 
 
 logger = logging.getLogger(__name__)

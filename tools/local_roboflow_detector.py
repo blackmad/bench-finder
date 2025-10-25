@@ -6,7 +6,6 @@ A command-line interface for running object detection using Roboflow models.
 """
 
 from pathlib import Path
-from typing import Optional
 
 import cv2
 import dotenv
@@ -37,7 +36,7 @@ def detect(
     model_id: str = typer.Option(
         "yolov8n-640", "--model", "-m", help="Roboflow model ID to use"
     ),
-    output_path: Optional[str] = typer.Option(
+    output_path: str | None = typer.Option(
         None, "--output", "-o", help="Path to save the annotated image (optional)"
     ),
     show_image: bool = typer.Option(

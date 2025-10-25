@@ -8,7 +8,6 @@ import logging
 import os
 import sys
 import time
-from typing import Optional
 
 
 # Add the project root to the Python path
@@ -57,7 +56,7 @@ def parse_coordinates(coord_str: str) -> tuple[float, float]:
         raise ValueError("Invalid coordinate values") from e
 
 
-def search_with_osm(lat: float, lng: float, radius: int) -> Optional[object]:
+def search_with_osm(lat: float, lng: float, radius: int) -> object | None:
     """Search for benches using OSM Overpass API."""
     try:
         logger.info("🔍 Searching OSM Overpass API...")
@@ -80,7 +79,7 @@ def search_with_osm(lat: float, lng: float, radius: int) -> Optional[object]:
 
 def search_with_mapillary(
     lat: float, lng: float, radius: int, access_token: str
-) -> Optional[object]:
+) -> object | None:
     """Search for benches using Mapillary API."""
     try:
         logger.info("🔍 Searching Mapillary API...")

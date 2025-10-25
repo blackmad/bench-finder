@@ -6,27 +6,30 @@ import logging
 import os
 from datetime import datetime
 
-from config import DATABASE_PATH
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.unified_models import (
-    Bench,
-    BenchCandidate,
-    BenchCandidateStatus,
-    BenchCreate,
+from api.api_models import (
     BenchWithDetections,
-    Detection,
-    DetectionCreate,
-    DetectionItem,
     DetectionResponse,
-    Image,
-    ImageCreate,
     ImageWithDetections,
-    Search,
-    SearchCreate,
     SearchResponse,
     SearchResults,
+)
+from bench_finder.config import DATABASE_PATH
+from bench_finder.models.enums import DataSource
+from bench_finder.models.unified_models import (
+    Bench,
+    BenchBase,
+    BenchCandidate,
+    BenchCandidateStatus,
+    Detection,
+    DetectionBase,
+    DetectionItem,
+    Image,
+    ImageBase,
+    Search,
+    SearchBase,
     SearchStatus,
     create_database_session,
     init_database,
@@ -62,12 +65,12 @@ class BenchDatabase:
 
     # Database initialization is now handled in __init__ using SQLAlchemy
 
-    def create_search(self, search_data: SearchCreate) -> int:
+    def create_search(self, search_data: SearchBase) -> int:
         """
         Create a new search record.
 
         Args:
-            search_data: SearchCreate schema with search parameters
+            search_data: SearchBase schema with search parameters
 
         Returns:
             The ID of the created search record
@@ -93,12 +96,13 @@ class BenchDatabase:
             logger.exception("Error creating search record")
             raise
 
-    def add_bench(self, bench_data: BenchCreate) -> int:
+    def add_bench(self, bench_data: BenchBase, search_id: int | None = None) -> int:
         """
         Add a bench record to the database.
 
         Args:
-            bench_data: BenchCreate schema with bench data from OSM
+            bench_data: BenchBase schema with bench data from OSM
+            search_id: Optional search ID to associate with the bench
 
         Returns:
             The ID of the created bench record
@@ -124,7 +128,7 @@ class BenchDatabase:
                     return existing_bench.id
 
                 bench = Bench(
-                    search_id=bench_data.search_id,
+                    search_id=search_id,
                     provider_id=bench_data.provider_id,
                     lat=bench_data.lat,
                     lng=bench_data.lng,
@@ -145,12 +149,13 @@ class BenchDatabase:
             logger.exception("Error adding bench record")
             raise
 
-    def add_image(self, image_data: ImageCreate) -> int:
+    def add_image(self, image_data: ImageBase, bench_id: int) -> int:
         """
         Add an image record to the database.
 
         Args:
-            image_data: ImageCreate schema with image capture results
+            image_data: ImageBase schema with image capture results
+            bench_id: ID of the bench this image belongs to
 
         Returns:
             The ID of the created image record
@@ -158,7 +163,7 @@ class BenchDatabase:
         try:
             with self.get_session() as session:
                 image = Image(
-                    bench_id=image_data.bench_id,
+                    bench_id=bench_id,
                     heading=image_data.heading,
                     filepath=image_data.filepath,
                     filename=image_data.filename,
@@ -179,12 +184,13 @@ class BenchDatabase:
             logger.exception("Error adding image record")
             raise
 
-    def add_detection(self, detection_data: DetectionCreate) -> int:
+    def add_detection(self, detection_data: DetectionBase, image_id: int) -> int:
         """
         Add a detection record to the database.
 
         Args:
-            detection_data: DetectionCreate schema with detection results
+            detection_data: DetectionBase schema with detection results
+            image_id: ID of the image this detection belongs to
 
         Returns:
             The ID of the created detection record
@@ -192,7 +198,7 @@ class BenchDatabase:
         try:
             with self.get_session() as session:
                 detection = Detection(
-                    image_id=detection_data.image_id,
+                    image_id=image_id,
                     has_bench=detection_data.has_bench,
                     bench_count=detection_data.bench_count,
                     max_confidence=detection_data.max_confidence,
@@ -216,16 +222,18 @@ class BenchDatabase:
                 session.commit()
                 session.refresh(detection)
 
-                # Add detection items
-                for item_data in detection_data.detection_items:
-                    detection_item = DetectionItem(
-                        detection_id=detection.id,
-                        confidence=item_data.confidence,
-                        bbox=item_data.bbox,
-                        class_name=item_data.class_name,
-                        polygon=item_data.polygon,
-                    )
-                    session.add(detection_item)
+                # Add detection items if they exist
+                if hasattr(detection_data, "detection_items"):
+                    for item_data in detection_data.detection_items:
+                        detection_item = DetectionItem(
+                            detection_id=detection.id,
+                            image_id=detection.image_id,
+                            confidence=item_data.confidence,
+                            bbox=item_data.bbox,
+                            class_name=item_data.class_name,
+                            polygon=item_data.polygon,
+                        )
+                        session.add(detection_item)
 
                 session.commit()
 
@@ -434,7 +442,7 @@ class BenchDatabase:
         lat: float,
         lng: float,
         tags: dict,
-        source: str,
+        source: DataSource,
         external_id: str | None = None,
         confidence: float | None = None,
     ) -> int | None:

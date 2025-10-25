@@ -16,6 +16,7 @@ from api.api_models import (
     CacheStatus,
     ModelCacheInfo,
 )
+from models.enums import DetectionSource
 from models.unified_models import (
     BoundingBox,
     DetectionItem,
@@ -301,7 +302,7 @@ class RoboflowClient(DetectionClient):
                 backend_name="RoboflowClient",
                 model_id=self.model_id or "unknown",
                 confidence_threshold=self.confidence_threshold,
-                source="roboflow",
+                source=DetectionSource.ROBOFLOW,
             )
 
             if has_bench:
@@ -330,7 +331,7 @@ class RoboflowClient(DetectionClient):
             backend_name="RoboflowClient",
             model_id=self.model_id,
             confidence_threshold=self.confidence_threshold,
-            source="roboflow",
+            source=DetectionSource.ROBOFLOW,
             error=error,
         )
 

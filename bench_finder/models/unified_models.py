@@ -87,6 +87,7 @@ class DetectionItem(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     detection_id: int = Field(foreign_key="detections.id", nullable=False)
+    image_id: int | None = Field(foreign_key="images.id", nullable=True)
     confidence: float = Field(
         ge=0.0, le=1.0, description="Confidence score between 0 and 1"
     )
@@ -146,8 +147,8 @@ class DetectionResult(SQLModel):
     )
 
     # Source information
-    source: str = Field(
-        default="roboflow",
+    source: DetectionSource = Field(
+        default=DetectionSource.ROBOFLOW,
         description="Source of the detection (roboflow, ultralytics, mapillary)",
     )
 
@@ -196,7 +197,7 @@ class UnifiedBench(SQLModel):
     """Common model that can represent bench data from any source."""
 
     provider_id: str = Field(description="Unique provider ID")
-    source: str = Field(description="Data source ('osm' or 'mapillary')")
+    source: DataSource = Field(description="Data source ('osm' or 'mapillary')")
     external_id: str = Field(description="External ID from the source")
     lat: float = Field(description="Bench latitude")
     lng: float = Field(description="Bench longitude")
@@ -221,7 +222,7 @@ class UnifiedBench(SQLModel):
         """Create UnifiedBench from OSMBench object."""
         return cls(
             provider_id=osm_bench.provider_id,
-            source="osm",
+            source=DataSource.OSM,
             external_id=osm_bench.external_id,
             lat=osm_bench.lat,
             lng=osm_bench.lng,
@@ -241,7 +242,7 @@ class UnifiedBench(SQLModel):
         lng, lat = coordinates
         return cls(
             provider_id=f"mapillary_{detection.detection_id}",
-            source="mapillary",
+            source=DataSource.MAPILLARY,
             external_id=detection.detection_id,
             lat=lat,
             lng=lng,
@@ -266,7 +267,7 @@ class UnifiedSearchResult(SQLModel):
     search_center_lng: float = Field(description="Search center longitude")
     search_radius_meters: int = Field(description="Search radius in meters")
     total_count: int = Field(description="Total number of benches found")
-    source: str = Field(description="Data source ('osm' or 'mapillary')")
+    source: DataSource = Field(description="Data source ('osm' or 'mapillary')")
     search_timestamp: datetime = Field(
         default_factory=datetime.now, description="Search timestamp"
     )
@@ -576,10 +577,6 @@ class SearchBase(SQLModel):
     search_radius: int
 
 
-class SearchCreate(SearchBase):
-    """Schema for creating a new search."""
-
-
 class BenchBase(SQLModel):
     """Base schema for bench data."""
 
@@ -589,15 +586,6 @@ class BenchBase(SQLModel):
     tags: dict[str, Any] = {}
     source: DataSource = DataSource.OSM  # 'osm' or 'mapillary'
     external_id: str | None = None  # For Mapillary image IDs
-
-
-class BenchCreate(BenchBase):
-    """Schema for creating a new bench."""
-
-    search_id: int | None = None  # Nullable for Mapillary benches
-    representative_image_id: int | None = (
-        None  # ID of the representative image for this bench
-    )
 
 
 class ImageBase(SQLModel):
@@ -611,15 +599,10 @@ class ImageBase(SQLModel):
     capture_error: str | None = None
 
 
-class ImageCreate(ImageBase):
-    """Schema for creating a new image."""
-
-    bench_id: int
-
-
 class DetectionBase(SQLModel):
     """Base schema for detection data."""
 
+    image_id: int | None = None
     has_bench: bool
     bench_count: int = 0
     max_confidence: float = 0.0
@@ -643,30 +626,6 @@ class DetectionBase(SQLModel):
     postprocess_time: float | None = None
 
 
-class DetectionItemCreate(SQLModel):
-    """Schema for creating a new detection item."""
-
-    confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence score between 0 and 1"
-    )
-    bbox: BoundingBox = Field(description="Mandatory bounding box")
-    class_name: str = Field(
-        default="bench", description="Class name of the detected object"
-    )
-    polygon: Polygon | None = Field(
-        default=None, description="Optional polygon for segmentation"
-    )
-
-
-class DetectionCreate(DetectionBase):
-    """Schema for creating a new detection."""
-
-    image_id: int
-    detection_items: list[DetectionItemCreate] = Field(
-        default_factory=list, description="List of detection items"
-    )
-
-
 class BenchCandidateBase(SQLModel):
     """Base schema for bench candidate data."""
 
@@ -677,12 +636,6 @@ class BenchCandidateBase(SQLModel):
     source: DataSource = DataSource.OSM
     external_id: str | None = None
     confidence: float | None = None
-
-
-class BenchCandidateCreate(BenchCandidateBase):
-    """Schema for creating a bench candidate."""
-
-    search_id: int
 
 
 # ============================================================================

@@ -9,46 +9,42 @@ import math
 import os
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
-from typing import Any
 
+# Any import removed - not used
 import uvicorn
-from api_models import (
+from fastapi import Body, FastAPI, HTTPException, Path, Query, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from bench_finder.config import DATABASE_PATH, IMAGES_DIR
+from bench_finder.models.unified_models import (
+    BenchReportType,
+    DataSource,
+    DetectionSource,
+    LocationMethod,
+)
+from bench_finder.services.clustered_bench_service import ClusteredBenchService
+from bench_finder.services.database import BenchDatabase
+
+from .api_models import (
     ApiInfoResponse,
     BenchListResponse,
+    BenchMode,
     ClusteredBenchListResponse,
     ConfigResponse,
     ErrorResponse,
     HealthResponse,
     ImageListResponse,
     ImageResponse,
-    MapillaryConfigResponse,
     MissingBenchReportResponse,
     PaginationInfo,
     ReportResponse,
     SearchListResponse,
     SearchSummary,
     SegmentationData,
-    SourceStatsResponse,
     WebBenchData,
-)
-from config import DATABASE_PATH, IMAGES_DIR
-from fastapi import Body, Depends, FastAPI, HTTPException, Path, Query, Request, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
-from services.clustered_bench_service import ClusteredBenchService
-from services.database import BenchDatabase
-from services.mapillary_service import (
-    get_mapillary_service,
-    initialize_mapillary_service,
-)
-
-from models.unified_models import (
-    BenchReportType,
-    DataSource,
-    DetectionSource,
-    LocationMethod,
 )
 
 
@@ -136,9 +132,7 @@ class BboxQueryParams(BaseModel):
         le=1.0,
         description="Minimum detection confidence score",
     )
-    source: str | None = Field(
-        None, pattern="^(osm|mapillary)$", description="Filter by data source"
-    )
+    source: DataSource | None = Field(None, description="Filter by data source")
     sort_by: str = Field(
         "distance",
         pattern="^(distance|confidence|images|recent)$",
@@ -147,21 +141,7 @@ class BboxQueryParams(BaseModel):
     limit: int = Field(200, ge=1, le=500, description="Maximum number of results")
 
 
-class MapillarySearchRequest(BaseModel):
-    """Request model for Mapillary bench search."""
-
-    center_lat: float = Field(
-        ..., ge=-90.0, le=90.0, description="Search center latitude"
-    )
-    center_lng: float = Field(
-        ..., ge=-180.0, le=180.0, description="Search center longitude"
-    )
-    radius_meters: int = Field(
-        1000, ge=10, le=10000, description="Search radius in meters"
-    )
-    limit: int = Field(
-        1000, ge=1, le=5000, description="Maximum number of results to fetch"
-    )
+# MapillarySearchRequest removed - using unified search approach
 
 
 class BboxBenchResponse(BaseModel):
@@ -194,21 +174,7 @@ async def lifespan(_app: FastAPI):
     print(f"📁 Database: {DATABASE_PATH}")
     print(f"🖼️  Images directory: {IMAGES_DIR}")
 
-    # Try to initialize Mapillary service if token is available
-    from config import MAPILLARY_ACCESS_TOKEN, MAPILLARY_DOWNLOAD_IMAGES
-
-    if MAPILLARY_ACCESS_TOKEN:
-        try:
-            initialize_mapillary_service(
-                DATABASE_PATH, MAPILLARY_ACCESS_TOKEN, IMAGES_DIR
-            )
-            print(
-                f"✅ Mapillary integration enabled (image downloading: {'ON' if MAPILLARY_DOWNLOAD_IMAGES else 'OFF'})"
-            )
-        except Exception as e:
-            print(f"⚠️ Mapillary integration failed: {e}")
-    else:
-        print("Info: Mapillary integration disabled (no MAPILLARY_ACCESS_TOKEN)")
+    # Mapillary service initialization removed - using unified approach
 
     # Ensure required directories exist
     os.makedirs("templates", exist_ok=True)
@@ -372,7 +338,7 @@ async def health_check():
         return HealthResponse(
             status="healthy",
             database="connected",
-            mapillary="enabled" if get_mapillary_service() else "disabled",
+            mapillary="unified",  # Using unified approach
         )
     except Exception as e:
         raise HTTPException(
@@ -388,55 +354,141 @@ def get_high_confidence_benches_filtered(
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
     start_lat: float = DEFAULT_START_LAT,
     start_lng: float = DEFAULT_START_LNG,
-    source_filter: str | None = None,
     sort_by: str = "distance",
+    mode: BenchMode = BenchMode.BENCHES,
 ) -> BenchListResponse:
     """
-    Get benches with high confidence detections, with optional source filtering.
+    Get benches with configurable detection modes from all sources.
     Supports both Roboflow, Ultralytics, and Mapillary detection data.
     """
     try:
         db = BenchDatabase()
         with db._get_connection() as conn:
-            # Base query for benches that meet confidence requirements
-            base_query = """
-                SELECT DISTINCT b.id
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                JOIN detections d ON i.id = d.image_id
-                WHERE d.has_bench = 1 AND d.max_confidence >= ?
+            # Build query based on mode
+            if mode == BenchMode.BENCHES:
+                # Only benches with detected benches
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    JOIN detections d ON i.id = d.image_id
+                    WHERE d.has_bench = 1 AND d.max_confidence >= ?
 
-                UNION
+                    UNION
 
-                SELECT DISTINCT b.id
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                JOIN ultralytics_detections ud ON i.id = ud.image_id
-                WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
-            """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+                """
+                query_params = [min_confidence, min_confidence]
+            elif mode == BenchMode.NO_BENCH:
+                # Only benches without detected benches
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    LEFT JOIN detections d ON i.id = d.image_id
+                    LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
+                      AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
+                """
+                query_params = []
+            else:  # mode == BenchMode.BOTH
+                # All benches regardless of detection status
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                """
+                query_params = []
 
-            # Add source filter if specified
+            # Unified approach - no source filtering
             source_condition = ""
-            query_params = [min_confidence, min_confidence]
 
-            if source_filter:
-                source_condition = " AND b.source = ?"
-                query_params.append(source_filter)
+            # Get total count based on mode
+            if mode == BenchMode.BENCHES:
+                count_query = f"""
+                    SELECT COUNT(*) as total FROM (
+                        SELECT b.id,
+                               COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                               COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                               COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                               CASE
+                                   WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                                   THEN COALESCE(rf_data.max_confidence, 0)
+                                   WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                                   THEN COALESCE(ul_data.max_confidence, 0)
+                                   ELSE COALESCE(mp_data.max_confidence, 0)
+                               END as best_confidence
+                        FROM benches b
+                        JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                        LEFT JOIN (
+                            SELECT image_id, MAX(max_confidence) as max_confidence
+                            FROM detections
+                            WHERE has_bench = 1
+                            GROUP BY image_id
+                        ) rf_data ON i.id = rf_data.image_id
+                        LEFT JOIN (
+                            SELECT image_id, MAX(max_confidence) as max_confidence
+                            FROM ultralytics_detections
+                            WHERE has_bench = 1
+                            GROUP BY image_id
+                        ) ul_data ON i.id = ul_data.image_id
+                        LEFT JOIN (
+                            SELECT image_id, MAX(max_confidence) as max_confidence
+                            FROM detections
+                            WHERE has_bench = 1 AND source = 'mapillary'
+                            GROUP BY image_id
+                        ) mp_data ON i.id = mp_data.image_id
+                        WHERE b.id IN ({base_query}){source_condition}
+                        GROUP BY b.id
+                        HAVING best_confidence >= ?
+                    ) as filtered_benches
+                """
+                count_params = [*query_params, min_confidence]
+            else:
+                # For NO_BENCH and BOTH modes, just count the base query results
+                count_query = (
+                    f"SELECT COUNT(*) as total FROM ({base_query}){source_condition}"
+                )
+                count_params = query_params
+            total_count = conn.execute(count_query, count_params).fetchone()["total"]
 
-            # Get total count with confidence filtering
-            count_query = f"""
-                SELECT COUNT(*) as total FROM (
-                    SELECT b.id,
-                           COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
-                           COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
-                           COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
-                           CASE
-                               WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                               THEN COALESCE(rf_data.max_confidence, 0)
-                               WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                               THEN COALESCE(ul_data.max_confidence, 0)
-                               ELSE COALESCE(mp_data.max_confidence, 0)
-                           END as best_confidence
+            # Determine sorting clause
+            if sort_by == "confidence":
+                order_clause = "best_confidence DESC, b.id"
+            elif sort_by == "images":
+                order_clause = "image_count DESC, best_confidence DESC, b.id"
+            elif sort_by == "recent":
+                order_clause = "b.id DESC"  # Assuming higher IDs are more recent
+            else:  # distance (default)
+                # For distance sorting, we'll calculate distance in the query
+                order_clause = f"((b.lat - {start_lat}) * (b.lat - {start_lat}) + (b.lng - {start_lng}) * (b.lng - {start_lng})) ASC, best_confidence DESC"
+
+            # Calculate offset for pagination
+            offset = page * page_size
+
+            # Get detailed bench data based on mode
+            if mode == BenchMode.BENCHES:
+                query = f"""
+                    SELECT
+                        b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
+                        COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                        COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                        COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                        COUNT(DISTINCT i.id) as image_count,
+                        GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
+                        GROUP_CONCAT(DISTINCT i.id) as image_ids,
+                        CASE
+                            WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                            THEN COALESCE(rf_data.max_confidence, 0)
+                            WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                            THEN COALESCE(ul_data.max_confidence, 0)
+                            ELSE COALESCE(mp_data.max_confidence, 0)
+                        END as best_confidence,
+                        1 as bench_found
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
                     LEFT JOIN (
@@ -460,68 +512,59 @@ def get_high_confidence_benches_filtered(
                     WHERE b.id IN ({base_query}){source_condition}
                     GROUP BY b.id
                     HAVING best_confidence >= ?
-                ) as filtered_benches
-            """
-            count_params = [*query_params, min_confidence]
-            total_count = conn.execute(count_query, count_params).fetchone()["total"]
-
-            # Determine sorting clause
-            if sort_by == "confidence":
-                order_clause = "best_confidence DESC, b.id"
-            elif sort_by == "images":
-                order_clause = "image_count DESC, best_confidence DESC, b.id"
-            elif sort_by == "recent":
-                order_clause = "b.id DESC"  # Assuming higher IDs are more recent
-            else:  # distance (default)
-                # For distance sorting, we'll calculate distance in the query
-                order_clause = f"((b.lat - {start_lat}) * (b.lat - {start_lat}) + (b.lng - {start_lng}) * (b.lng - {start_lng})) ASC, best_confidence DESC"
-
-            # Get detailed bench data
-            query = f"""
-                SELECT
-                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
-                    COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
-                    COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
-                    COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
-                    COUNT(DISTINCT i.id) as image_count,
-                    GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                    GROUP_CONCAT(DISTINCT i.id) as image_ids,
-                    CASE
-                        WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                        THEN COALESCE(rf_data.max_confidence, 0)
-                        WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
-                        THEN COALESCE(ul_data.max_confidence, 0)
-                        ELSE COALESCE(mp_data.max_confidence, 0)
-                    END as best_confidence
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                LEFT JOIN (
-                    SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM detections
-                    WHERE has_bench = 1
-                    GROUP BY image_id
-                ) rf_data ON i.id = rf_data.image_id
-                LEFT JOIN (
-                    SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM ultralytics_detections
-                    WHERE has_bench = 1
-                    GROUP BY image_id
-                ) ul_data ON i.id = ul_data.image_id
-                LEFT JOIN (
-                    SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM detections
-                    WHERE has_bench = 1 AND source = 'mapillary'
-                    GROUP BY image_id
-                ) mp_data ON i.id = mp_data.image_id
-                WHERE b.id IN ({base_query}){source_condition}
-                GROUP BY b.id
-                HAVING best_confidence >= ?
-                ORDER BY {order_clause}
-                LIMIT ? OFFSET ?
-            """
-
-            offset = page * page_size
-            query_params_final = [*query_params, min_confidence, page_size, offset]
+                    ORDER BY {order_clause}
+                    LIMIT ? OFFSET ?
+                """
+                query_params_final = [*query_params, min_confidence, page_size, offset]
+            else:
+                # For NO_BENCH and BOTH modes, use a simpler query
+                query = f"""
+                    SELECT
+                        b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
+                        COALESCE(rf_data.max_confidence, 0) as roboflow_confidence,
+                        COALESCE(ul_data.max_confidence, 0) as ultralytics_confidence,
+                        COALESCE(mp_data.max_confidence, 0) as mapillary_confidence,
+                        COUNT(DISTINCT i.id) as image_count,
+                        GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
+                        GROUP_CONCAT(DISTINCT i.id) as image_ids,
+                        CASE
+                            WHEN COALESCE(rf_data.max_confidence, 0) >= COALESCE(ul_data.max_confidence, 0) AND COALESCE(rf_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                            THEN COALESCE(rf_data.max_confidence, 0)
+                            WHEN COALESCE(ul_data.max_confidence, 0) >= COALESCE(mp_data.max_confidence, 0)
+                            THEN COALESCE(ul_data.max_confidence, 0)
+                            ELSE COALESCE(mp_data.max_confidence, 0)
+                        END as best_confidence,
+                        CASE
+                            WHEN COALESCE(rf_data.max_confidence, 0) > 0 OR COALESCE(ul_data.max_confidence, 0) > 0 OR COALESCE(mp_data.max_confidence, 0) > 0
+                            THEN 1
+                            ELSE 0
+                        END as bench_found
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM detections
+                        WHERE has_bench = 1
+                        GROUP BY image_id
+                    ) rf_data ON i.id = rf_data.image_id
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM ultralytics_detections
+                        WHERE has_bench = 1
+                        GROUP BY image_id
+                    ) ul_data ON i.id = ul_data.image_id
+                    LEFT JOIN (
+                        SELECT image_id, MAX(max_confidence) as max_confidence
+                        FROM detections
+                        WHERE has_bench = 1 AND source = 'mapillary'
+                        GROUP BY image_id
+                    ) mp_data ON i.id = mp_data.image_id
+                    WHERE b.id IN ({base_query}){source_condition}
+                    GROUP BY b.id
+                    ORDER BY {order_clause}
+                    LIMIT ? OFFSET ?
+                """
+                query_params_final = [*query_params, page_size, offset]
             rows = conn.execute(query, query_params_final).fetchall()
 
             # Process results
@@ -574,6 +617,7 @@ def get_high_confidence_benches_filtered(
                     tags=tags,
                     source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
+                    bench_found=bool(row["bench_found"]),
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
                     ultralytics_confidence=round(ultralytics_conf, 3),
@@ -656,18 +700,24 @@ async def get_benches(
         pattern="^(distance|confidence|images|recent)$",
         description="Sort criteria",
     ),
-    source: str | None = Query(
-        None, pattern="^(osm|mapillary)$", description="Filter by data source"
+    # Source filtering removed - using unified approach
+    mode: BenchMode = Query(
+        BenchMode.BENCHES,
+        description="Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'",
     ),
     clustered: bool = Query(
         True, description="Return clustered results when available (default: True)"
     ),
 ):
     """
-    Retrieve a paginated list of benches with high confidence detections.
+    Retrieve a paginated list of benches with configurable detection modes.
 
-    This endpoint returns benches that have been detected with confidence scores above the specified threshold.
-    Results can be filtered by data source and sorted by various criteria including distance from a reference point,
+    This endpoint returns bench candidates based on the specified mode:
+    - `benches`: Only candidates where benches were detected (default)
+    - `no_bench`: Only candidates where no benches were detected
+    - `both`: Return both types of candidates
+
+    Results can be sorted by various criteria including distance from a reference point,
     detection confidence, number of images, or creation date.
 
     **Clustering:**
@@ -697,7 +747,6 @@ async def get_benches(
                     min_confidence=min_confidence,
                     start_lat=start_lat,
                     start_lng=start_lng,
-                    source_filter=source,
                     sort_by=sort_by,
                 )
 
@@ -708,8 +757,8 @@ async def get_benches(
             min_confidence=min_confidence,
             start_lat=start_lat,
             start_lng=start_lng,
-            source_filter=source,
             sort_by=sort_by,
+            mode=mode,
         )
         return result
     except Exception as e:
@@ -719,101 +768,7 @@ async def get_benches(
         ) from e
 
 
-@app.get(
-    "/api/benches/source/{source}",
-    summary="List Benches by Source",
-    description="Get benches filtered by specific data source (OSM or Mapillary)",
-    response_model=BenchListResponse,
-    responses={
-        400: {
-            "model": EnhancedErrorResponse,
-            "description": "Invalid source or parameters",
-        },
-        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
-    },
-    tags=["benches"],
-)
-async def get_benches_by_source(
-    source: str = Path(
-        ..., pattern="^(osm|mapillary)$", description="Data source filter"
-    ),
-    page: int = Query(0, ge=0, le=1000, description="Page number (0-based)"),
-    page_size: int = Query(
-        PAGE_SIZE, ge=1, le=50, description="Items per page (max 50)"
-    ),
-    min_confidence: float = Query(
-        DEFAULT_MIN_CONFIDENCE,
-        ge=0.0,
-        le=1.0,
-        description="Minimum detection confidence",
-    ),
-    start_lat: float = Query(
-        DEFAULT_START_LAT,
-        ge=-90.0,
-        le=90.0,
-        description="Starting latitude for distance sorting",
-    ),
-    start_lng: float = Query(
-        DEFAULT_START_LNG,
-        ge=-180.0,
-        le=180.0,
-        description="Starting longitude for distance sorting",
-    ),
-    sort_by: str = Query(
-        "distance",
-        pattern="^(distance|confidence|images|recent)$",
-        description="Sort criteria",
-    ),
-):
-    """
-    Get benches filtered by a specific data source.
-
-    This endpoint allows filtering benches by their original data source:
-    - **OSM**: Traditional OpenStreetMap bench data with AI-enhanced detection
-    - **Mapillary**: Benches detected from street-level imagery using computer vision
-
-    For Mapillary data, this may use cached results or real-time queries depending on availability.
-    """
-    try:
-        # For Mapillary, use the service if available
-        service = get_mapillary_service()
-        if source == DataSource.MAPILLARY and service:
-            # Use Mapillary service for stored benches
-            benches_data = service.get_stored_benches(
-                center_lat=start_lat,
-                center_lng=start_lng,
-                radius_meters=2000,  # Larger radius for stored data
-                limit=page_size,
-            )
-
-            # Create pagination info
-            pagination = PaginationInfo(
-                page=page,
-                page_size=len(benches_data),
-                total_count=len(benches_data),
-                total_pages=1,
-                has_next=False,
-            )
-
-            return BenchListResponse(benches=benches_data, pagination=pagination)
-
-        # For OSM or if Mapillary service is not available
-        result = get_high_confidence_benches_filtered(
-            page=page,
-            page_size=page_size,
-            min_confidence=min_confidence,
-            start_lat=start_lat,
-            start_lng=start_lng,
-            source_filter=source,
-            sort_by=sort_by,
-        )
-        return result
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get benches for source {source}: {e!s}",
-        ) from e
+# Source-specific endpoint removed - use unified /api/benches endpoint instead
 
 
 @app.get(
@@ -837,9 +792,11 @@ async def get_random_bench(
         le=1.0,
         description="Minimum detection confidence",
     ),
-    source: str | None = Query(
-        None, pattern="^(osm|mapillary)$", description="Filter by data source"
+    mode: BenchMode = Query(
+        BenchMode.BENCHES,
+        description="Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'",
     ),
+    # Source filtering removed - using unified approach
 ):
     """
     Get a randomly selected bench that meets the specified criteria.
@@ -868,13 +825,9 @@ async def get_random_bench(
                 WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
             """
 
-            # Add source filter if specified
+            # Unified approach - no source filtering
             source_condition = ""
             query_params = [min_confidence, min_confidence]
-
-            if source:
-                source_condition = " AND b.source = ?"
-                query_params.append(source)
 
             # Get random bench ID
             random_query = f"""
@@ -902,7 +855,7 @@ async def get_random_bench(
                 min_confidence=min_confidence,
                 start_lat=DEFAULT_START_LAT,
                 start_lng=DEFAULT_START_LNG,
-                source_filter=source,
+                mode=mode,
             )
 
             # Find the specific bench in the results
@@ -974,13 +927,6 @@ async def get_random_bench(
 
             return RandomBenchResponse(
                 bench=selected_bench,
-                selection_info={
-                    "selected_from_pool": True,
-                    "selection_criteria": {
-                        "min_confidence": min_confidence,
-                        "source_filter": source,
-                    },
-                },
             )
 
     except HTTPException:
@@ -1025,8 +971,13 @@ async def get_benches_in_bbox(
         le=1.0,
         description="Minimum detection confidence",
     ),
-    source: str | None = Query(
-        None, pattern="^(osm|mapillary)$", description="Filter by data source"
+    source: DataSource | None = Query(
+        None,
+        description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
+    ),
+    mode: BenchMode = Query(
+        BenchMode.BENCHES,
+        description="Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'",
     ),
     sort_by: str = Query(
         "distance",
@@ -1044,6 +995,16 @@ async def get_benches_in_bbox(
     This endpoint is optimized for map applications that need to display benches
     within a specific viewport. The bounding box is defined by north/south latitude
     boundaries and east/west longitude boundaries.
+
+    **Mode Options:**
+    - `benches`: Only return candidates where benches were detected (default)
+    - `no_bench`: Only return candidates where no benches were detected
+    - `both`: Return both types of candidates
+
+    **Source Filtering:**
+    - `osm`: Filter to only OpenStreetMap sourced benches
+    - `mapillary`: Filter to only Mapillary sourced benches
+    - `null` (default): Include all sources
 
     **Clustering:**
     When `clustered=True` (default), returns clustered bench data for map display.
@@ -1083,7 +1044,7 @@ async def get_benches_in_bbox(
                     east=east,
                     west=west,
                     min_confidence=min_confidence,
-                    source_filter=source,
+                    source_filter=source.value if source else None,
                     sort_by=sort_by,
                     limit=limit,
                 )
@@ -1092,45 +1053,69 @@ async def get_benches_in_bbox(
 
         db = BenchDatabase()
         with db._get_connection() as conn:
-            # Base query for benches within bounding box
-            base_query = """
-                SELECT DISTINCT b.id
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                JOIN detections d ON i.id = d.image_id
-                WHERE d.has_bench = 1 AND d.max_confidence >= ?
-                  AND b.lat BETWEEN ? AND ?
-                  AND b.lng BETWEEN ? AND ?
+            # Build base query based on mode
+            if mode == BenchMode.BENCHES:
+                # Only benches with detected benches
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    JOIN detections d ON i.id = d.image_id
+                    WHERE d.has_bench = 1 AND d.max_confidence >= ?
+                      AND b.lat BETWEEN ? AND ?
+                      AND b.lng BETWEEN ? AND ?
 
-                UNION
+                    UNION
 
-                SELECT DISTINCT b.id
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                JOIN ultralytics_detections ud ON i.id = ud.image_id
-                WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
-                  AND b.lat BETWEEN ? AND ?
-                  AND b.lng BETWEEN ? AND ?
-            """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+                      AND b.lat BETWEEN ? AND ?
+                      AND b.lng BETWEEN ? AND ?
+                """
+                query_params = [
+                    min_confidence,
+                    south,
+                    north,
+                    west,
+                    east,
+                    min_confidence,
+                    south,
+                    north,
+                    west,
+                    east,
+                ]
+            elif mode == BenchMode.NO_BENCH:
+                # Only benches without detected benches
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    LEFT JOIN detections d ON i.id = d.image_id
+                    LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
+                      AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
+                      AND b.lat BETWEEN ? AND ?
+                      AND b.lng BETWEEN ? AND ?
+                """
+                query_params = [south, north, west, east]
+            else:  # mode == BenchMode.BOTH
+                # All benches regardless of detection status
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    WHERE b.lat BETWEEN ? AND ?
+                      AND b.lng BETWEEN ? AND ?
+                """
+                query_params = [south, north, west, east]
 
-            # Add source filter if specified
+            # Add source filtering if specified
             source_condition = ""
-            query_params = [
-                min_confidence,
-                south,
-                north,
-                west,
-                east,
-                min_confidence,
-                south,
-                north,
-                west,
-                east,
-            ]
-
-            if source:
-                source_condition = " AND b.source = ?"
-                query_params.append(source)
+            if source is not None:
+                source_condition = f" AND b.source = '{source.value}'"
 
             # Determine sorting clause for bbox
             center_lat = (north + south) / 2
@@ -1146,6 +1131,17 @@ async def get_benches_in_bbox(
                 bbox_order_clause = f"((b.lat - {center_lat}) * (b.lat - {center_lat}) + (b.lng - {center_lng}) * (b.lng - {center_lng})) ASC, best_confidence DESC"
 
             # Get detailed bench data within bbox
+            # Build HAVING clause based on mode
+            if mode == BenchMode.BENCHES:
+                having_clause = "HAVING best_confidence >= ?"
+                final_params = [*query_params, min_confidence, limit]
+            elif mode == BenchMode.NO_BENCH:
+                having_clause = "HAVING best_confidence = 0"
+                final_params = [*query_params, limit]
+            else:  # mode == BenchMode.BOTH
+                having_clause = "HAVING best_confidence >= ?"
+                final_params = [*query_params, min_confidence, limit]
+
             query = f"""
                 SELECT
                     b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
@@ -1184,12 +1180,10 @@ async def get_benches_in_bbox(
                 ) mp_data ON i.id = mp_data.image_id
                 WHERE b.id IN ({base_query}){source_condition}
                 GROUP BY b.id
-                HAVING best_confidence >= ?
+                {having_clause}
                 ORDER BY {bbox_order_clause}
                 LIMIT ?
             """
-
-            final_params = [*query_params, min_confidence, limit]
             rows = conn.execute(query, final_params).fetchall()
 
             # Process results similar to get_high_confidence_benches_filtered
@@ -1243,6 +1237,7 @@ async def get_benches_in_bbox(
                     tags=tags,
                     source=row["source"] or DataSource.OSM,
                     external_id=row["external_id"],
+                    bench_found=bool(row["bench_found"]),
                     best_confidence=round(best_confidence, 3),
                     roboflow_confidence=round(roboflow_conf, 3),
                     ultralytics_confidence=round(ultralytics_conf, 3),
@@ -1262,16 +1257,6 @@ async def get_benches_in_bbox(
                 benches=benches,
                 total_count=len(benches),
                 bbox={"north": north, "south": south, "east": east, "west": west},
-                query_info={
-                    "center_lat": center_lat,
-                    "center_lng": center_lng,
-                    "area_km2": round(
-                        calculate_distance(south, west, north, east) / 1000000, 2
-                    ),
-                    "sort_by": sort_by,
-                    "source_filter": source,
-                    "min_confidence": min_confidence,
-                },
             )
 
     except HTTPException:
@@ -1408,11 +1393,9 @@ async def get_api_info():
             "max_page_size": 50,
             "max_bbox_results": 500,
             "max_search_radius": 10000,
-            "max_mapillary_limit": 5000,
         },
         endpoints={
             "benches": "/api/benches",
-            "bench_by_source": "/api/benches/source/{source}",
             "random_bench": "/api/benches/random",
             "bbox_search": "/api/benches/bbox",
             "searches": "/api/searches",
@@ -1722,322 +1705,7 @@ async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID
         ) from e
 
 
-# MAPILLARY ENDPOINTS
-@app.post(
-    "/api/mapillary/search",
-    summary="Search Mapillary for Benches",
-    description="Search for bench detections using Mapillary API and store results in database",
-    response_model=dict[str, Any],
-    responses={
-        400: {
-            "model": EnhancedErrorResponse,
-            "description": "Invalid request parameters",
-        },
-        503: {
-            "model": EnhancedErrorResponse,
-            "description": "Mapillary service not available",
-        },
-        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
-    },
-    tags=["mapillary"],
-)
-async def search_mapillary(
-    search_request: MapillarySearchRequest = Body(
-        ..., description="Mapillary search parameters"
-    ),
-):
-    """
-    Search for bench detections using the Mapillary API.
-
-    This endpoint performs real-time searches against Mapillary's street-level imagery database
-    to find benches detected by their AI models. Results are stored in the local database
-    for future retrieval and analysis.
-
-    **Process:**
-    1. Query Mapillary API for images within the specified area
-    2. Filter for images with bench detections
-    3. Download detection metadata and optionally images
-    4. Store results in local database with proper attribution
-
-    **Requirements:**
-    - Valid Mapillary API token configured
-    - Mapillary service properly initialized
-    - Sufficient API quota for the requested search area
-
-    **Limits:**
-    - Search radius: 10m - 10km
-    - Result limit: 1 - 5000 images
-    - API rate limits apply per Mapillary's terms
-    """
-    service = get_mapillary_service()
-    if not service:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Mapillary integration is not available. Please configure MAPILLARY_ACCESS_TOKEN.",
-        )
-
-    try:
-        # Perform the search using the Mapillary service
-        result = service.search_and_store_benches(
-            center_lat=search_request.center_lat,
-            center_lng=search_request.center_lng,
-            radius_meters=search_request.radius_meters,
-            limit=search_request.limit,
-        )
-
-        # Convert result to dict for JSON response
-        return result.model_dump()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Mapillary search failed: {e!s}",
-        ) from e
-
-
-@app.get(
-    "/api/mapillary/stored",
-    summary="Get Stored Mapillary Data",
-    description="Get previously stored Mapillary bench detections from local database",
-    response_model=dict[str, Any],
-    responses={
-        400: {
-            "model": EnhancedErrorResponse,
-            "description": "Invalid query parameters",
-        },
-        503: {
-            "model": EnhancedErrorResponse,
-            "description": "Mapillary service not available",
-        },
-        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
-    },
-    tags=["mapillary"],
-)
-async def get_stored_mapillary(
-    center_lat: float = Query(..., ge=-90.0, le=90.0, description="Center latitude"),
-    center_lng: float = Query(..., ge=-180.0, le=180.0, description="Center longitude"),
-    radius_meters: int = Query(
-        1000, ge=10, le=50000, description="Search radius in meters"
-    ),
-    limit: int = Query(1000, ge=1, le=5000, description="Maximum number of results"),
-):
-    """
-    Get stored Mapillary bench detections from the local database.
-
-    This endpoint retrieves previously cached Mapillary data without making new API calls.
-    It's useful for:
-    - Displaying known bench locations from Mapillary
-    - Avoiding repeated API calls for the same area
-    - Analyzing historical detection data
-
-    **Data Sources:**
-    - Previously executed Mapillary searches
-    - Cached detection results and metadata
-    - Associated image URLs and detection confidence scores
-
-    **Performance:**
-    - Fast response times (local database query)
-    - No API rate limit consumption
-    - Supports larger radius searches than live API
-    """
-    service = get_mapillary_service()
-    if not service:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Mapillary integration is not available",
-        )
-
-    try:
-        # Get stored detections from the service
-        images = service.get_stored_benches(
-            center_lat=center_lat,
-            center_lng=center_lng,
-            radius_meters=radius_meters,
-            limit=limit,
-        )
-
-        # Format response similar to Flask version
-        result = {
-            "images": [img.model_dump() for img in images],
-            "total_images": len(images),
-            "total_detections": sum(
-                len(img.image_filenames)
-                for img in images
-                if hasattr(img, "image_filenames")
-            ),
-        }
-
-        return result
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get stored Mapillary data: {e!s}",
-        ) from e
-
-
-@app.get(
-    "/api/mapillary/statistics",
-    summary="Get Mapillary Statistics",
-    description="Get statistics about Mapillary bench detections",
-    response_model=dict[str, Any],
-    responses={
-        503: {
-            "model": EnhancedErrorResponse,
-            "description": "Mapillary service not available",
-        },
-        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
-    },
-    tags=["mapillary"],
-)
-async def get_mapillary_statistics(
-    center_lat: float | None = Query(
-        None, ge=-90.0, le=90.0, description="Center latitude for area-specific stats"
-    ),
-    center_lng: float | None = Query(
-        None,
-        ge=-180.0,
-        le=180.0,
-        description="Center longitude for area-specific stats",
-    ),
-    radius_meters: int | None = Query(
-        None, ge=100, le=50000, description="Radius for area-specific stats"
-    ),
-):
-    """
-    Get comprehensive statistics about Mapillary bench detections.
-
-    This endpoint provides analytics about the Mapillary data in the system:
-    - **Global Statistics**: Total benches, detections, coverage area
-    - **Area-Specific Statistics**: Stats for a specific geographic region
-    - **Quality Metrics**: Average confidence scores, detection density
-    - **Coverage Analysis**: Geographic distribution and data completeness
-
-    **Use Cases:**
-    - Data quality assessment
-    - Coverage planning for new searches
-    - Performance monitoring and reporting
-    - Research and analysis workflows
-    """
-    service = get_mapillary_service()
-    if not service:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Mapillary integration is not available",
-        )
-
-    try:
-        # Get statistics from the Mapillary service
-        stats = service.get_detection_statistics(
-            center_lat=center_lat, center_lng=center_lng, radius_meters=radius_meters
-        )
-
-        return stats.model_dump()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get Mapillary statistics: {e!s}",
-        ) from e
-
-
-@app.put(
-    "/api/mapillary/refresh/{mapillary_image_id}",
-    summary="Refresh Mapillary Image Detections",
-    description="Refresh detections for a specific Mapillary image",
-    response_model=dict[str, Any],
-    responses={
-        404: {
-            "model": EnhancedErrorResponse,
-            "description": "Image not found or no detections available",
-        },
-        503: {
-            "model": EnhancedErrorResponse,
-            "description": "Mapillary service not available",
-        },
-        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
-    },
-    tags=["mapillary"],
-)
-async def refresh_mapillary_image(
-    mapillary_image_id: str = Path(..., description="Mapillary image ID"),
-):
-    """
-    Refresh detection data for a specific Mapillary image.
-
-    This endpoint re-fetches detection data for a single image from Mapillary's API.
-    It's useful for:
-    - Updating detection data after Mapillary model improvements
-    - Fixing corrupted or incomplete detection records
-    - Refreshing confidence scores and metadata
-
-    **Process:**
-    1. Query Mapillary API for latest detection data
-    2. Update local database with new information
-    3. Return updated detection results
-
-    **Rate Limiting:**
-    Use sparingly as each call consumes API quota.
-    """
-    service = get_mapillary_service()
-    if not service:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Mapillary integration is not available",
-        )
-
-    try:
-        # Refresh detections for the specific image
-        result = service.refresh_detections_for_image(mapillary_image_id)
-
-        if result is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Image '{mapillary_image_id}' not found or no detections available",
-            )
-
-        return result.model_dump()
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to refresh detections: {e!s}",
-        ) from e
-
-
-@app.get(
-    "/api/mapillary/config",
-    summary="Get Mapillary Configuration",
-    description="Get Mapillary integration configuration and status",
-    response_model=MapillaryConfigResponse,
-    tags=["mapillary"],
-)
-async def get_mapillary_config():
-    """
-    Get Mapillary integration configuration and capabilities.
-
-    This endpoint provides information about:
-    - Integration status (enabled/disabled)
-    - Default search parameters
-    - Supported detection types
-    - API limits and constraints
-    """
-    return MapillaryConfigResponse(
-        mapillary_enabled=get_mapillary_service() is not None,
-        default_radius_meters=1000,
-        default_limit=1000,
-        supported_detection_types=["object--bench"],
-        max_radius_meters=10000,
-        max_limit=5000,
-        features={
-            "search_and_store": get_mapillary_service() is not None,
-            "stored_data_retrieval": get_mapillary_service() is not None,
-            "statistics": get_mapillary_service() is not None,
-            "image_refresh": get_mapillary_service() is not None,
-        },
-    )
+# Mapillary endpoints removed - using unified approach
 
 
 # REPORTING ENDPOINTS
@@ -2057,6 +1725,7 @@ async def get_mapillary_config():
     tags=["reporting"],
 )
 async def report_bad_bench(
+    request: Request,
     bench_id: int = Path(..., gt=0, description="Bench ID to report"),
     report_type: BenchReportType = Body(
         BenchReportType.BAD_DETECTION, description="Type of report"
@@ -2067,7 +1736,6 @@ async def report_bad_bench(
     image_id: int | None = Body(None, description="Specific image ID being reported"),
     user_location_lat: float | None = Body(None, description="User's GPS latitude"),
     user_location_lng: float | None = Body(None, description="User's GPS longitude"),
-    request: Request = Depends(),
 ):
     """
     Report a bad bench detection.
@@ -2265,7 +1933,7 @@ async def report_missing_bench(
             try:
                 # Decode base64 image
                 if "," in image_data:
-                    header, image_data = image_data.split(",", 1)
+                    _header, image_data = image_data.split(",", 1)
 
                 image_bytes = base64.b64decode(image_data)
 
@@ -2362,133 +2030,7 @@ async def report_missing_bench(
 
 
 # STATISTICS ENDPOINTS
-@app.get(
-    "/api/statistics/source/{source}",
-    summary="Get Statistics by Source",
-    description="Get comprehensive statistics filtered by data source",
-    response_model=SourceStatsResponse,
-    responses={
-        400: {
-            "model": EnhancedErrorResponse,
-            "description": "Invalid source parameter",
-        },
-        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
-    },
-    tags=["statistics"],
-)
-async def get_statistics_by_source(
-    source: str = Path(..., pattern="^(osm|mapillary)$", description="Data source"),
-    center_lat: float | None = Query(
-        None, ge=-90.0, le=90.0, description="Center latitude for area-specific stats"
-    ),
-    center_lng: float | None = Query(
-        None,
-        ge=-180.0,
-        le=180.0,
-        description="Center longitude for area-specific stats",
-    ),
-    radius_meters: int | None = Query(
-        None, ge=100, le=50000, description="Radius for area-specific stats"
-    ),
-):
-    """
-    Get comprehensive statistics filtered by data source.
-
-    This endpoint provides detailed analytics about bench data from specific sources:
-
-    **OSM Statistics:**
-    - Total benches from OpenStreetMap
-    - Detection success rates
-    - Geographic distribution
-    - Data quality metrics
-
-    **Mapillary Statistics:**
-    - Street imagery detection results
-    - Confidence score distributions
-    - Coverage areas and detection density
-    - API usage and cache statistics
-
-    **Area Filtering:**
-    When center coordinates and radius are provided, statistics are calculated
-    only for the specified geographic area.
-    """
-    try:
-        service = get_mapillary_service()
-        if source == DataSource.MAPILLARY and service:
-            # Use Mapillary service for comprehensive stats
-            stats = service.get_detection_statistics(
-                center_lat=center_lat,
-                center_lng=center_lng,
-                radius_meters=radius_meters,
-                source=DataSource.MAPILLARY,
-            )
-            return stats.model_dump()
-
-        # For OSM or when Mapillary service is not available, return basic stats
-        # This would be implemented with direct database queries
-        db = BenchDatabase()
-        with db._get_connection() as conn:
-            # Basic statistics query for the specified source
-            base_query = """
-                SELECT
-                    COUNT(DISTINCT b.id) as total_benches,
-                    COUNT(DISTINCT i.id) as total_images,
-                    COUNT(DISTINCT d.id) + COUNT(DISTINCT ud.id) as total_detections,
-                    AVG(COALESCE(d.max_confidence, ud.max_confidence, 0)) as avg_confidence
-                FROM benches b
-                LEFT JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                LEFT JOIN detections d ON i.id = d.image_id AND d.has_bench = 1
-                LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id AND ud.has_bench = 1
-                WHERE b.source = ?
-            """
-
-            query_params = [source]
-
-            # Add geographic filtering if provided
-            if (
-                center_lat is not None
-                and center_lng is not None
-                and radius_meters is not None
-            ):
-                # Simple radius filter (can be enhanced with proper geographic calculations)
-                lat_range = radius_meters / 111000  # Rough conversion to degrees
-                lng_range = radius_meters / (
-                    111000 * math.cos(math.radians(center_lat))
-                )
-
-                base_query += """
-                    AND b.lat BETWEEN ? AND ?
-                    AND b.lng BETWEEN ? AND ?
-                """
-                query_params.extend(
-                    [
-                        center_lat - lat_range,
-                        center_lat + lat_range,
-                        center_lng - lng_range,
-                        center_lng + lng_range,
-                    ]
-                )
-
-            row = conn.execute(base_query, query_params).fetchone()
-
-            return SourceStatsResponse(
-                source=source,
-                total_benches=row["total_benches"] or 0,
-                total_images=row["total_images"] or 0,
-                total_detections=row["total_detections"] or 0,
-                avg_confidence=round(row["avg_confidence"] or 0, 3),
-                area_filtered=center_lat is not None and center_lng is not None,
-                area_center={"lat": center_lat, "lng": center_lng}
-                if center_lat is not None
-                else None,
-                area_radius_meters=radius_meters if center_lat is not None else None,
-            )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get statistics for source {source}: {e!s}",
-        ) from e
+# Source-specific statistics endpoint removed - use unified approach
 
 
 if __name__ == "__main__":

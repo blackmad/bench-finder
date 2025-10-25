@@ -12,6 +12,7 @@ from clients.base_location_client import (
 )
 from config import OVERPASS_TIMEOUT, OVERPASS_URL, SEARCH_RADIUS_METERS
 
+from models.enums import DataSource
 from models.overpass_models import (
     OSMBench,
     OverpassResponse,
@@ -81,7 +82,7 @@ class OverpassClient(BaseLocationClient):
             search_center_lng=result.search_center_lng,
             search_radius_meters=result.search_radius_meters,
             total_count=result.total_count,
-            source="osm",
+            source=DataSource.OSM,
         )
 
     def find_benches_near_point(

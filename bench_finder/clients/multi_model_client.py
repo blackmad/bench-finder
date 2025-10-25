@@ -16,10 +16,10 @@ from config import (
     ULTRALYTICS_USE_LOCAL,
 )
 
+from models.enums import DetectionSource
 from models.unified_models import (
     DetectionAttempt,
     DetectionResult,
-    DetectionSource,
 )
 
 from .roboflow_client import RoboflowClient
@@ -131,7 +131,7 @@ class MultiModelRoboflowClient:
                         inference_time=result.inference_time,
                         preprocess_time=result.preprocess_time,
                         postprocess_time=result.postprocess_time,
-                        source="roboflow",
+                        source=DetectionSource.ROBOFLOW,
                         # full_response=result.full_response,
                         # bench_detections=result.bench_detections,
                         model_url=result.model_url,
@@ -177,7 +177,7 @@ class MultiModelRoboflowClient:
                     model_id=last_attempt.model_id,
                     confidence_threshold=0.0,
                     error=f"No bench detected by any of {len(self.models_config)} Roboflow models",
-                    source="roboflow",
+                    source=DetectionSource.ROBOFLOW,
                 )
             else:
                 best_result = DetectionResult(
@@ -191,7 +191,7 @@ class MultiModelRoboflowClient:
                     model_id=None,
                     confidence_threshold=0.0,
                     error="All Roboflow models failed",
-                    source="roboflow",
+                    source=DetectionSource.ROBOFLOW,
                 )
 
         return best_result, attempts
