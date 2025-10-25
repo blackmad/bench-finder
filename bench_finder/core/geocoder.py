@@ -3,7 +3,6 @@ Google Geocoder integration for converting address/query strings to coordinates.
 """
 
 import logging
-from typing import Optional
 
 import googlemaps
 from config import GOOGLE_MAPS_API_KEY
@@ -22,7 +21,7 @@ class Geocoder:
 
         self.gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
 
-    def geocode_query(self, query: str) -> Optional[tuple[float, float]]:
+    def geocode_query(self, query: str) -> tuple[float, float] | None:
         """
         Convert a query string to lat/lng coordinates using Google Geocoding API.
 
@@ -65,7 +64,7 @@ class Geocoder:
             logger.exception(f"Unexpected error geocoding '{query}'")
             raise
 
-    def reverse_geocode(self, lat: float, lng: float) -> Optional[str]:
+    def reverse_geocode(self, lat: float, lng: float) -> str | None:
         """
         Convert coordinates to a formatted address.
 

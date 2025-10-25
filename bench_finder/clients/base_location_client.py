@@ -4,7 +4,6 @@ Base class for location-based search clients.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -56,7 +55,7 @@ class BaseLocationClient(ABC):
         """
 
     @abstractmethod
-    def get_item_details(self, provider_id: str) -> Optional[dict]:
+    def get_item_details(self, provider_id: str) -> dict | None:
         """
         Get detailed information about a specific item.
 

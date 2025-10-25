@@ -9,9 +9,28 @@ import math
 import os
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any
 
 import uvicorn
+from api_models import (
+    ApiInfoResponse,
+    BenchListResponse,
+    ClusteredBenchListResponse,
+    ConfigResponse,
+    ErrorResponse,
+    HealthResponse,
+    ImageListResponse,
+    ImageResponse,
+    MapillaryConfigResponse,
+    MissingBenchReportResponse,
+    PaginationInfo,
+    ReportResponse,
+    SearchListResponse,
+    SearchSummary,
+    SegmentationData,
+    SourceStatsResponse,
+    WebBenchData,
+)
 from config import DATABASE_PATH, IMAGES_DIR
 from fastapi import Body, Depends, FastAPI, HTTPException, Path, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,27 +45,10 @@ from services.mapillary_service import (
 )
 
 from models.unified_models import (
-    ApiInfoResponse,
-    BenchListResponse,
     BenchReportType,
-    ClusteredBenchListResponse,
-    ConfigResponse,
     DataSource,
     DetectionSource,
-    ErrorResponse,
-    HealthResponse,
-    ImageListResponse,
-    ImageResponse,
     LocationMethod,
-    MapillaryConfigResponse,
-    MissingBenchReportResponse,
-    PaginationInfo,
-    ReportResponse,
-    SearchListResponse,
-    SearchSummary,
-    SegmentationData,
-    SourceStatsResponse,
-    WebBenchData,
 )
 
 
@@ -62,16 +64,16 @@ class EnhancedErrorResponse(BaseModel):
 
     error: str = Field(..., description="Human-readable error message")
 
-    error_code: Optional[str] = Field(
+    error_code: str | None = Field(
         default=None,
         description="Machine-readable error code for programmatic handling",
     )
 
-    detail: Optional[str] = Field(
+    detail: str | None = Field(
         default=None, description="Additional error details and context"
     )
 
-    suggestions: Optional[list[str]] = Field(
+    suggestions: list[str] | None = Field(
         default=None, description="Suggested actions to resolve the error"
     )
 
@@ -134,7 +136,7 @@ class BboxQueryParams(BaseModel):
         le=1.0,
         description="Minimum detection confidence score",
     )
-    source: Optional[str] = Field(
+    source: str | None = Field(
         None, pattern="^(osm|mapillary)$", description="Filter by data source"
     )
     sort_by: str = Field(
@@ -386,7 +388,7 @@ def get_high_confidence_benches_filtered(
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
     start_lat: float = DEFAULT_START_LAT,
     start_lng: float = DEFAULT_START_LNG,
-    source_filter: Optional[str] = None,
+    source_filter: str | None = None,
     sort_by: str = "distance",
 ) -> BenchListResponse:
     """
@@ -616,7 +618,7 @@ def get_high_confidence_benches_filtered(
     "/api/benches",
     summary="List Benches",
     description="Get paginated list of benches with high confidence detections, sorted by various criteria",
-    response_model=Union[BenchListResponse, ClusteredBenchListResponse],
+    response_model=BenchListResponse | ClusteredBenchListResponse,
     responses={
         400: {
             "model": EnhancedErrorResponse,
@@ -654,7 +656,7 @@ async def get_benches(
         pattern="^(distance|confidence|images|recent)$",
         description="Sort criteria",
     ),
-    source: Optional[str] = Query(
+    source: str | None = Query(
         None, pattern="^(osm|mapillary)$", description="Filter by data source"
     ),
     clustered: bool = Query(
@@ -835,7 +837,7 @@ async def get_random_bench(
         le=1.0,
         description="Minimum detection confidence",
     ),
-    source: Optional[str] = Query(
+    source: str | None = Query(
         None, pattern="^(osm|mapillary)$", description="Filter by data source"
     ),
 ):
@@ -994,7 +996,7 @@ async def get_random_bench(
     "/api/benches/bbox",
     summary="Get Benches in Bounding Box",
     description="Get benches within a geographic bounding box for map applications",
-    response_model=Union[BboxBenchResponse, ClusteredBenchListResponse],
+    response_model=BboxBenchResponse | ClusteredBenchListResponse,
     responses={
         400: {
             "model": EnhancedErrorResponse,
@@ -1023,7 +1025,7 @@ async def get_benches_in_bbox(
         le=1.0,
         description="Minimum detection confidence",
     ),
-    source: Optional[str] = Query(
+    source: str | None = Query(
         None, pattern="^(osm|mapillary)$", description="Filter by data source"
     ),
     sort_by: str = Query(
@@ -1889,16 +1891,16 @@ async def get_stored_mapillary(
     tags=["mapillary"],
 )
 async def get_mapillary_statistics(
-    center_lat: Optional[float] = Query(
+    center_lat: float | None = Query(
         None, ge=-90.0, le=90.0, description="Center latitude for area-specific stats"
     ),
-    center_lng: Optional[float] = Query(
+    center_lng: float | None = Query(
         None,
         ge=-180.0,
         le=180.0,
         description="Center longitude for area-specific stats",
     ),
-    radius_meters: Optional[int] = Query(
+    radius_meters: int | None = Query(
         None, ge=100, le=50000, description="Radius for area-specific stats"
     ),
 ):
@@ -2059,14 +2061,12 @@ async def report_bad_bench(
     report_type: BenchReportType = Body(
         BenchReportType.BAD_DETECTION, description="Type of report"
     ),
-    description: Optional[str] = Body(
+    description: str | None = Body(
         None, description="Optional description of the issue"
     ),
-    image_id: Optional[int] = Body(
-        None, description="Specific image ID being reported"
-    ),
-    user_location_lat: Optional[float] = Body(None, description="User's GPS latitude"),
-    user_location_lng: Optional[float] = Body(None, description="User's GPS longitude"),
+    image_id: int | None = Body(None, description="Specific image ID being reported"),
+    user_location_lat: float | None = Body(None, description="User's GPS latitude"),
+    user_location_lng: float | None = Body(None, description="User's GPS longitude"),
     request: Request = Depends(),
 ):
     """
@@ -2212,14 +2212,14 @@ async def report_missing_bench(
     request: Request,
     lat: float = Body(..., ge=-90.0, le=90.0, description="Bench latitude"),
     lng: float = Body(..., ge=-180.0, le=180.0, description="Bench longitude"),
-    description: Optional[str] = Body(None, description="Description of the bench"),
+    description: str | None = Body(None, description="Description of the bench"),
     location_method: str = Body(
         LocationMethod.GPS, description="How location was determined (gps, map_click)"
     ),
-    user_location_lat: Optional[float] = Body(None, description="User's GPS latitude"),
-    user_location_lng: Optional[float] = Body(None, description="User's GPS longitude"),
-    accuracy_meters: Optional[float] = Body(None, description="GPS accuracy in meters"),
-    image_data: Optional[str] = Body(None, description="Base64 encoded image data"),
+    user_location_lat: float | None = Body(None, description="User's GPS latitude"),
+    user_location_lng: float | None = Body(None, description="User's GPS longitude"),
+    accuracy_meters: float | None = Body(None, description="GPS accuracy in meters"),
+    image_data: str | None = Body(None, description="Base64 encoded image data"),
 ):
     """
     Report a missing bench at a specific location.
@@ -2378,16 +2378,16 @@ async def report_missing_bench(
 )
 async def get_statistics_by_source(
     source: str = Path(..., pattern="^(osm|mapillary)$", description="Data source"),
-    center_lat: Optional[float] = Query(
+    center_lat: float | None = Query(
         None, ge=-90.0, le=90.0, description="Center latitude for area-specific stats"
     ),
-    center_lng: Optional[float] = Query(
+    center_lng: float | None = Query(
         None,
         ge=-180.0,
         le=180.0,
         description="Center longitude for area-specific stats",
     ),
-    radius_meters: Optional[int] = Query(
+    radius_meters: int | None = Query(
         None, ge=100, le=50000, description="Radius for area-specific stats"
     ),
 ):

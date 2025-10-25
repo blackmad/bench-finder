@@ -2,8 +2,6 @@
 Pydantic models for Google Street View Static API responses.
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -24,9 +22,9 @@ class StreetViewImageCapture(BaseModel):
     filepath: str = Field(..., description="Local file path to the image")
     filename: str = Field(..., description="Image filename")
     success: bool = Field(..., description="Whether the capture was successful")
-    file_size: Optional[int] = Field(None, description="File size in bytes")
+    file_size: int | None = Field(None, description="File size in bytes")
     cached: bool = Field(False, description="Whether the image was already cached")
-    error: Optional[str] = Field(None, description="Error message if capture failed")
+    error: str | None = Field(None, description="Error message if capture failed")
     width: int = Field(..., description="Width of the image")
     height: int = Field(..., description="Height of the image")
 
@@ -114,12 +112,12 @@ class StreetViewMetadata(BaseModel):
     """Street View metadata from the Google API."""
 
     status: str = Field(..., description="API response status")
-    location: Optional[StreetViewLocation] = Field(
+    location: StreetViewLocation | None = Field(
         None, description="Actual image location"
     )
-    pano_id: Optional[str] = Field(None, description="Panorama ID")
-    date: Optional[str] = Field(None, description="Image capture date")
-    copyright: Optional[str] = Field(None, description="Copyright information")
+    pano_id: str | None = Field(None, description="Panorama ID")
+    date: str | None = Field(None, description="Image capture date")
+    copyright: str | None = Field(None, description="Copyright information")
 
     @property
     def is_available(self) -> bool:
@@ -133,7 +131,7 @@ class StreetViewMetadataResponse(BaseModel):
     requested_location: StreetViewLocation = Field(
         ..., description="Originally requested location"
     )
-    metadata: Optional[StreetViewMetadata] = Field(
+    metadata: StreetViewMetadata | None = Field(
         None, description="Metadata if available"
     )
 

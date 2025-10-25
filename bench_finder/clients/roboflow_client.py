@@ -6,18 +6,20 @@ Supports both local inference (default) and cloud API as fallback.
 import base64
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import cv2
 import requests
 from config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
+from api.api_models import (
+    CacheStatus,
+    ModelCacheInfo,
+)
 from models.unified_models import (
     BoundingBox,
-    CacheStatus,
     DetectionItem,
     DetectionResult,
-    ModelCacheInfo,
 )
 
 from .base_detection_client import DetectionClient
@@ -49,8 +51,8 @@ class RoboflowClient(DetectionClient):
     def __init__(
         self,
         use_local_inference: bool = True,
-        model_id: Optional[str] = None,
-        confidence_threshold: Optional[float] = None,
+        model_id: str | None = None,
+        confidence_threshold: float | None = None,
     ):
         """Initialize the Roboflow client.
 

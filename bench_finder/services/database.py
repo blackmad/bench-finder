@@ -5,7 +5,6 @@ SQLAlchemy ORM operations for storing bench data, images, and detection results.
 import logging
 import os
 from datetime import datetime
-from typing import Optional
 
 from config import DATABASE_PATH
 from sqlalchemy import func
@@ -40,7 +39,7 @@ logger = logging.getLogger(__name__)
 class BenchDatabase:
     """SQLAlchemy ORM database manager for bench finder application."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize database connection and create tables if needed.
 
@@ -243,7 +242,7 @@ class BenchDatabase:
         self,
         search_id: int,
         status: SearchStatus,
-        completed_at: Optional[datetime] = None,
+        completed_at: datetime | None = None,
     ):
         """
         Update the status of a search record.
@@ -271,7 +270,7 @@ class BenchDatabase:
             logger.exception("Error updating search status")
             raise
 
-    def get_search_results(self, search_id: int) -> Optional[SearchResults]:
+    def get_search_results(self, search_id: int) -> SearchResults | None:
         """
         Get comprehensive results for a search.
 
@@ -436,9 +435,9 @@ class BenchDatabase:
         lng: float,
         tags: dict,
         source: str,
-        external_id: Optional[str] = None,
-        confidence: Optional[float] = None,
-    ) -> Optional[int]:
+        external_id: str | None = None,
+        confidence: float | None = None,
+    ) -> int | None:
         """
         Add a bench candidate to the database.
 
@@ -559,7 +558,7 @@ class BenchDatabase:
     def get_bench_candidates_by_status(
         self,
         status: BenchCandidateStatus,
-        search_id: Optional[int] = None,
+        search_id: int | None = None,
     ) -> list[BenchCandidate]:
         """
         Get bench candidates for a search filtered by status.
@@ -580,7 +579,7 @@ class BenchDatabase:
             candidates = query.all()
             return candidates
 
-    def get_latest_search_id(self) -> Optional[int]:
+    def get_latest_search_id(self) -> int | None:
         """
         Get the ID of the most recently created search.
 
@@ -654,7 +653,7 @@ class BenchDatabase:
             logger.exception("Error resetting bench candidate detection status")
             return 0
 
-    def get_random_streetview_image(self) -> Optional[Image]:
+    def get_random_streetview_image(self) -> Image | None:
         """
         Get a random streetview image that was successfully captured.
 

@@ -6,7 +6,6 @@ Provides a BenchGenerator that uses Mapillary crowd-sourced detections.
 
 import logging
 import math
-from typing import Optional
 
 from clients.mapillary_client import MapillaryBenchDetector, MapillaryImage
 from config import (
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 class MapillaryBenchGenerator(BenchGenerator):
     """Bench generator that uses Mapillary crowd-sourced bench detections."""
 
-    def __init__(self, access_token: Optional[str] = None):
+    def __init__(self, access_token: str | None = None):
         super().__init__("Mapillary")
 
         self.access_token = access_token or MAPILLARY_ACCESS_TOKEN

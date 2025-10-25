@@ -13,7 +13,6 @@ import math
 import sys
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 from config import DATABASE_PATH
 from services.database import BenchDatabase
@@ -64,7 +63,7 @@ class BenchClusterer:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
+        db_path: str | None = None,
         cluster_distance_meters: float = DEFAULT_CLUSTER_DISTANCE_METERS,
     ):
         """
@@ -422,7 +421,7 @@ class BenchClusterer:
             logger.exception("Failed to cluster all benches")
             raise
 
-    def get_cluster_by_bench_id(self, bench_id: int) -> Optional[BenchCluster]:
+    def get_cluster_by_bench_id(self, bench_id: int) -> BenchCluster | None:
         """
         Get the cluster that contains a specific bench.
 

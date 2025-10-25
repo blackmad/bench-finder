@@ -6,7 +6,7 @@ This module defines the common interface that all bench finding sources must imp
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from models.enums import DataSource
 
@@ -19,9 +19,9 @@ class BenchCandidate:
     lat: float
     lng: float
     source: DataSource  # Source identifier (e.g., 'osm', 'mapillary')
-    external_id: Optional[str] = None  # Original ID from the source system
+    external_id: str | None = None  # Original ID from the source system
     tags: dict[str, Any] = None  # Additional metadata/tags
-    confidence: Optional[float] = None  # Confidence score if available
+    confidence: float | None = None  # Confidence score if available
 
     def __post_init__(self):
         if self.tags is None:
@@ -38,7 +38,7 @@ class GeneratorStats:
     total_requests: int = 0
     successful_requests: int = 0
     total_benches_found: int = 0
-    last_request_time: Optional[str] = None
+    last_request_time: str | None = None
 
     @property
     def success_rate(self) -> float:

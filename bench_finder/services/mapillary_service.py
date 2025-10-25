@@ -4,7 +4,6 @@ Mapillary service for integrating bench detections with the existing database.
 
 import logging
 from threading import Lock
-from typing import Optional
 
 from mapillary_client import MapillaryBenchDetector
 from mapillary_client import MapillaryDetection as MapillaryDetectionAPI
@@ -194,8 +193,8 @@ class MapillaryBenchService:
         center_lat: float,
         center_lng: float,
         search_id: int,
-        download_result: Optional[dict] = None,
-    ) -> Optional[WebBenchData]:
+        download_result: dict | None = None,
+    ) -> WebBenchData | None:
         """Store a Mapillary detection as a bench in the database."""
         try:
             # Check if bench already exists (by external_id)
@@ -328,8 +327,8 @@ class MapillaryBenchService:
         self,
         bench: Bench,
         distance: float,
-        image_filenames: Optional[list[str]] = None,
-        image_ids: Optional[list[int]] = None,
+        image_filenames: list[str] | None = None,
+        image_ids: list[int] | None = None,
     ) -> WebBenchData:
         """Convert a Bench model to WebBenchData schema."""
         return WebBenchData(
@@ -359,7 +358,7 @@ class MapillaryBenchService:
         center_lng: float,
         radius_meters: int = 1000,
         limit: int = 1000,
-        source: Optional[str] = None,
+        source: str | None = None,
     ) -> list[WebBenchData]:
         """
         Get stored bench detections from the database.
@@ -403,10 +402,10 @@ class MapillaryBenchService:
 
     def get_detection_statistics(
         self,
-        center_lat: Optional[float] = None,
-        center_lng: Optional[float] = None,
-        radius_meters: Optional[int] = None,
-        source: Optional[str] = None,
+        center_lat: float | None = None,
+        center_lng: float | None = None,
+        radius_meters: int | None = None,
+        source: str | None = None,
     ) -> SourceStatistics:
         """
         Get statistics about stored bench detections.
@@ -480,9 +479,7 @@ class MapillaryBenchService:
                 coverage_area_km2=coverage_area,
             )
 
-    def get_bench_by_mapillary_id(
-        self, mapillary_image_id: str
-    ) -> Optional[WebBenchData]:
+    def get_bench_by_mapillary_id(self, mapillary_image_id: str) -> WebBenchData | None:
         """
         Get a bench by its Mapillary image ID.
 
@@ -516,7 +513,7 @@ def create_mapillary_service(
 
 
 # --- Singleton helpers -----------------------------------------------------
-_mapillary_service_singleton: Optional[MapillaryBenchService] = None
+_mapillary_service_singleton: MapillaryBenchService | None = None
 _singleton_lock: Lock = Lock()
 
 
@@ -541,7 +538,7 @@ def initialize_mapillary_service(
     return _mapillary_service_singleton
 
 
-def get_mapillary_service() -> Optional[MapillaryBenchService]:
+def get_mapillary_service() -> MapillaryBenchService | None:
     """Get the singleton Mapillary service if initialized, else None."""
     return _mapillary_service_singleton
 

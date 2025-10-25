@@ -9,7 +9,6 @@ import argparse
 import os
 import sys
 import tempfile
-from typing import Optional
 
 import cv2
 
@@ -145,7 +144,7 @@ def display_image_in_terminal(image_path: str, model_name: str = "Model") -> Non
         print(f"Annotated image available at: {image_path}")
 
 
-def test_roboflow_local(image_path: str, output_dir: str) -> Optional[str]:
+def test_roboflow_local(image_path: str, output_dir: str) -> str | None:
     """Test Roboflow local inference."""
     print("\n🔧 Testing Roboflow Local Inference...")
     try:
@@ -176,7 +175,7 @@ def test_roboflow_local(image_path: str, output_dir: str) -> Optional[str]:
         return None
 
 
-def test_roboflow_cloud(image_path: str, output_dir: str) -> Optional[str]:
+def test_roboflow_cloud(image_path: str, output_dir: str) -> str | None:
     """Test Roboflow cloud API."""
     print("\n☁️  Testing Roboflow Cloud API...")
     try:
@@ -210,7 +209,7 @@ def test_roboflow_cloud(image_path: str, output_dir: str) -> Optional[str]:
         return None
 
 
-def test_ultralytics_local(image_path: str, output_dir: str) -> Optional[str]:
+def test_ultralytics_local(image_path: str, output_dir: str) -> str | None:
     """Test Ultralytics local inference."""
     print("\n🚀 Testing Ultralytics Local Inference...")
     try:
@@ -230,7 +229,7 @@ def test_ultralytics_local(image_path: str, output_dir: str) -> Optional[str]:
         return None
 
 
-def test_ultralytics_cloud(image_path: str, output_dir: str) -> Optional[str]:
+def test_ultralytics_cloud(image_path: str, output_dir: str) -> str | None:
     """Test Ultralytics cloud API."""
     print("\n☁️  Testing Ultralytics Cloud API...")
     try:
@@ -258,7 +257,7 @@ def test_ultralytics_cloud(image_path: str, output_dir: str) -> Optional[str]:
         return None
 
 
-def test_multi_model(image_path: str, output_dir: str) -> Optional[str]:
+def test_multi_model(image_path: str, output_dir: str) -> str | None:
     """Test Multi-model detection with fallback."""
     print("\n🔄 Testing Multi-Model Detection...")
     try:

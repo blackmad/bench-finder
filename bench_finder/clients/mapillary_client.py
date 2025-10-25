@@ -4,7 +4,6 @@ Mapillary API client for fetching bench detections.
 
 import logging
 import os
-from typing import Optional
 
 import requests
 from clients.base_location_client import (
@@ -104,7 +103,7 @@ class MapillaryBenchDetector(BaseLocationClient):
             source="mapillary",
         )
 
-    def get_item_details(self, provider_id: str) -> Optional[dict]:
+    def get_item_details(self, provider_id: str) -> dict | None:
         """
         Get detailed information about a specific detection (implements BaseLocationClient interface).
 
@@ -265,7 +264,7 @@ class MapillaryBenchDetector(BaseLocationClient):
         return self.search_images_with_detections(bbox)
 
     def download_image(
-        self, image_id: str, size: int = 2048, filename: Optional[str] = None
+        self, image_id: str, size: int = 2048, filename: str | None = None
     ) -> MapillaryImageDownloadResult:
         """
         Download a Mapillary image.

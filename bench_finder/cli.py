@@ -5,7 +5,6 @@ CLI interface for the bench finder application using Typer.
 
 import logging
 import os
-from typing import Optional
 
 import typer
 from config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
@@ -236,18 +235,18 @@ def list_candidates(
 
 @app.command("run-detections")
 def run_detections(
-    search_id: Optional[int] = typer.Argument(
+    search_id: int | None = typer.Argument(
         None, help="Search ID to run detections for (defaults to latest search)"
     ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
-    max_candidates: Optional[int] = typer.Option(
+    max_candidates: int | None = typer.Option(
         None,
         "--max-candidates",
         help="Maximum number of candidates to process (for testing)",
     ),
-    backend: Optional[str] = typer.Option(
+    backend: str | None = typer.Option(
         None, "--backend", help="Detection backend: roboflow, ultralytics, or multi"
     ),
     disable_fallback: bool = typer.Option(
@@ -532,13 +531,13 @@ def show_random_image(
 
 @app.command("fetch-images")
 def fetch_images(
-    search_id: Optional[int] = typer.Argument(
+    search_id: int | None = typer.Argument(
         None, help="Search ID to fetch images for (defaults to latest search)"
     ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
-    max_candidates: Optional[int] = typer.Option(
+    max_candidates: int | None = typer.Option(
         None,
         "--max-candidates",
         help="Maximum number of candidates to process (for testing)",

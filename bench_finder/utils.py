@@ -6,7 +6,8 @@ import functools
 import logging
 import sys
 import time
-from typing import Callable, ParamSpec, TypeVar, Union
+from collections.abc import Callable
+from typing import ParamSpec, TypeVar
 
 from config import LOG_FORMAT, LOG_LEVEL
 
@@ -16,7 +17,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def setup_logging(level: Union[str, None] = None, format_str: Union[str, None] = None):
+def setup_logging(level: str | None = None, format_str: str | None = None):
     """
     Configure logging for the application.
 
@@ -84,7 +85,7 @@ def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 
     return decorator
 
 
-def log_execution_time(func: Callable[P, T]) -> Callable[P, T]:
+def log_execution_time[**P, T](func: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator that logs the execution time of a function.
     """

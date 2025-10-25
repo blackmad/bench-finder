@@ -7,7 +7,6 @@ import json
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import ConfigDict
 from pydantic_core import to_jsonable_python
 from sqlalchemy import JSON
 from sqlalchemy.sql import func
@@ -86,7 +85,7 @@ class DetectionItem(SQLModel, table=True):
 
     __tablename__ = "detection_items"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     detection_id: int = Field(foreign_key="detections.id", nullable=False)
     confidence: float = Field(
         ge=0.0, le=1.0, description="Confidence score between 0 and 1"
@@ -98,7 +97,7 @@ class DetectionItem(SQLModel, table=True):
         default="bench", description="Class name of the detected object"
     )
     # Support both polygon and segmentation for backward compatibility
-    polygon: Optional[Polygon] = Field(
+    polygon: Polygon | None = Field(
         default=None,
         description="Optional polygon for segmentation",
         sa_column=Column(JSON),
@@ -131,18 +130,18 @@ class DetectionResult(SQLModel):
     )
 
     # Error information
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None, description="Error message if detection failed"
     )
 
     # Additional metadata
-    inference_time: Optional[float] = Field(
+    inference_time: float | None = Field(
         default=None, description="Time taken for inference in seconds"
     )
-    preprocess_time: Optional[float] = Field(
+    preprocess_time: float | None = Field(
         default=None, description="Time taken for preprocessing in seconds"
     )
-    postprocess_time: Optional[float] = Field(
+    postprocess_time: float | None = Field(
         default=None, description="Time taken for postprocessing in seconds"
     )
 
@@ -159,11 +158,11 @@ class DetectionResult(SQLModel):
     # bench_detections: Optional[list[dict]] = Field(
     #     default=None, description="Bench-specific detections from Ultralytics"
     # )
-    model_url: Optional[str] = Field(default=None, description="URL of the model used")
-    iou_threshold: Optional[float] = Field(
+    model_url: str | None = Field(default=None, description="URL of the model used")
+    iou_threshold: float | None = Field(
         default=None, description="IoU threshold used for NMS"
     )
-    image_size: Optional[int] = Field(
+    image_size: int | None = Field(
         default=None, description="Image size used for inference"
     )
 
@@ -188,7 +187,7 @@ class DetectionAttempt(SQLModel):
     success: bool = Field(description="Whether the attempt was successful")
     has_bench: bool = Field(description="Whether a bench was detected")
     confidence: float = Field(ge=0.0, le=1.0, description="Maximum confidence score")
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None, description="Error message if attempt failed"
     )
 
@@ -204,22 +203,18 @@ class UnifiedBench(SQLModel):
     tags: dict[str, Any] = Field(
         default_factory=dict, description="Source-specific tags"
     )
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         default=None, description="Confidence score if available"
     )
-    created_at: Optional[datetime] = Field(
-        default=None, description="Creation timestamp"
-    )
+    created_at: datetime | None = Field(default=None, description="Creation timestamp")
 
     # Source-specific fields
-    osm_type: Optional[str] = Field(
+    osm_type: str | None = Field(
         default=None, description="OSM element type (node, way, relation)"
     )
-    osm_id: Optional[int] = Field(default=None, description="Original OSM element ID")
-    image_id: Optional[str] = Field(default=None, description="Mapillary image ID")
-    detection_id: Optional[str] = Field(
-        default=None, description="Mapillary detection ID"
-    )
+    osm_id: int | None = Field(default=None, description="Original OSM element ID")
+    image_id: str | None = Field(default=None, description="Mapillary image ID")
+    detection_id: str | None = Field(default=None, description="Mapillary detection ID")
 
     @classmethod
     def from_osm_bench(cls, osm_bench) -> "UnifiedBench":
@@ -275,7 +270,7 @@ class UnifiedSearchResult(SQLModel):
     search_timestamp: datetime = Field(
         default_factory=datetime.now, description="Search timestamp"
     )
-    processing_time_ms: Optional[float] = Field(
+    processing_time_ms: float | None = Field(
         default=None, description="Processing time in milliseconds"
     )
 
@@ -290,13 +285,13 @@ class Search(SQLModel, table=True):
 
     __tablename__ = "searches"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     query: str = Field(nullable=False)
     start_lat: float = Field(nullable=False)
     start_lng: float = Field(nullable=False)
     search_radius: int = Field(nullable=False)
     created_at: datetime = Field(default_factory=func.now)
-    completed_at: Optional[datetime] = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
     status: SearchStatus = Field(default=SearchStatus.PENDING)
 
     # Relationships
@@ -314,19 +309,19 @@ class Bench(SQLModel, table=True):
 
     __tablename__ = "benches"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
-    search_id: Optional[int] = Field(default=None, foreign_key="searches.id")
-    provider_id: Optional[str] = Field(default=None)  # Unified ID from OSM or Mapillary
+    id: int | None = Field(default=None, primary_key=True)
+    search_id: int | None = Field(default=None, foreign_key="searches.id")
+    provider_id: str | None = Field(default=None)  # Unified ID from OSM or Mapillary
     lat: float = Field(nullable=False)
     lng: float = Field(nullable=False)
-    tags: Optional[dict[str, Any]] = Field(
+    tags: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # JSON column for OSM tags or Mapillary metadata
     source: DataSource = Field(default=DataSource.OSM)  # 'osm' or 'mapillary'
-    external_id: Optional[str] = Field(
+    external_id: str | None = Field(
         default=None
     )  # For Mapillary image IDs or other external IDs
-    representative_image_id: Optional[int] = Field(
+    representative_image_id: int | None = Field(
         default=None, foreign_key="images.id"
     )  # Best representative image
     created_at: datetime = Field(default_factory=func.now)
@@ -386,14 +381,14 @@ class Image(SQLModel, table=True):
 
     __tablename__ = "images"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     bench_id: int = Field(foreign_key="benches.id", nullable=False)
     heading: int = Field(nullable=False)
-    filepath: Optional[str] = Field(default=None)
-    filename: Optional[str] = Field(default=None)
-    file_size: Optional[int] = Field(default=None)
+    filepath: str | None = Field(default=None)
+    filename: str | None = Field(default=None)
+    file_size: int | None = Field(default=None)
     capture_success: bool = Field(nullable=False)
-    capture_error: Optional[str] = Field(default=None)
+    capture_error: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=func.now)
 
     # Relationships
@@ -416,19 +411,19 @@ class Detection(SQLModel, table=True):
 
     __tablename__ = "detections"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     image_id: int = Field(foreign_key="images.id", nullable=False)
     has_bench: bool = Field(nullable=False)
     bench_count: int = Field(default=0)
     max_confidence: float = Field(default=0.0)
     detection_success: bool = Field(nullable=False)
-    detection_error: Optional[str] = Field(default=None)
+    detection_error: str | None = Field(default=None)
     model_id: str = Field(nullable=False)
     confidence_threshold: float = Field(nullable=False)
     source: DetectionSource = Field(
         default=DetectionSource.ROBOFLOW
     )  # 'roboflow', 'ultralytics', 'mapillary'
-    external_detection_id: Optional[str] = Field(
+    external_detection_id: str | None = Field(
         default=None
     )  # For Mapillary detection IDs
 
@@ -439,12 +434,12 @@ class Detection(SQLModel, table=True):
     # bench_detections: Optional[Dict[str, Any]] = Field(
     #     default=None, sa_column_kwargs={"type_": JSON}
     # )
-    model_url: Optional[str] = Field(default=None)
-    iou_threshold: Optional[float] = Field(default=None)
-    image_size: Optional[int] = Field(default=None)
-    inference_time: Optional[float] = Field(default=None)
-    preprocess_time: Optional[float] = Field(default=None)
-    postprocess_time: Optional[float] = Field(default=None)
+    model_url: str | None = Field(default=None)
+    iou_threshold: float | None = Field(default=None)
+    image_size: int | None = Field(default=None)
+    inference_time: float | None = Field(default=None)
+    preprocess_time: float | None = Field(default=None)
+    postprocess_time: float | None = Field(default=None)
 
     created_at: datetime = Field(default_factory=func.now)
 
@@ -463,33 +458,33 @@ class BenchReport(SQLModel, table=True):
 
     __tablename__ = "bench_reports"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     bench_id: int = Field(foreign_key="benches.id", nullable=False)
-    image_id: Optional[int] = Field(
+    image_id: int | None = Field(
         default=None, foreign_key="images.id"
     )  # The specific image being reported
     report_type: BenchReportType = Field(
         default=BenchReportType.BAD_DETECTION
     )  # 'bad_detection', 'incorrect_location', etc.
-    description: Optional[str] = Field(default=None)  # Optional user description
-    user_agent: Optional[str] = Field(default=None)  # Browser/app info for debugging
-    ip_address: Optional[str] = Field(default=None)  # For potential spam prevention
-    user_location_lat: Optional[float] = Field(
+    description: str | None = Field(default=None)  # Optional user description
+    user_agent: str | None = Field(default=None)  # Browser/app info for debugging
+    ip_address: str | None = Field(default=None)  # For potential spam prevention
+    user_location_lat: float | None = Field(
         default=None
     )  # User's location when reporting
-    user_location_lng: Optional[float] = Field(default=None)
-    reported_image_filename: Optional[str] = Field(
+    user_location_lng: float | None = Field(default=None)
+    reported_image_filename: str | None = Field(
         default=None
     )  # Copy of the image being reported
-    extra_metadata: Optional[dict[str, Any]] = Field(
+    extra_metadata: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # Additional metadata (device info, etc.)
     status: BenchReportStatus = Field(
         default=BenchReportStatus.PENDING
     )  # 'pending', 'reviewed', 'resolved', 'dismissed'
-    admin_notes: Optional[str] = Field(default=None)  # Admin notes for review
+    admin_notes: str | None = Field(default=None)  # Admin notes for review
     created_at: datetime = Field(default_factory=func.now)
-    reviewed_at: Optional[datetime] = Field(default=None)
+    reviewed_at: datetime | None = Field(default=None)
 
     # Relationships
     bench: "Bench" = Relationship()
@@ -504,32 +499,32 @@ class MissingBenchReport(SQLModel, table=True):
 
     __tablename__ = "missing_bench_reports"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     lat: float = Field(nullable=False)  # Reported bench location
     lng: float = Field(nullable=False)
-    description: Optional[str] = Field(default=None)  # User description of the bench
-    user_agent: Optional[str] = Field(default=None)  # Browser/app info
-    ip_address: Optional[str] = Field(default=None)  # For potential spam prevention
-    user_location_lat: Optional[float] = Field(
+    description: str | None = Field(default=None)  # User description of the bench
+    user_agent: str | None = Field(default=None)  # Browser/app info
+    ip_address: str | None = Field(default=None)  # For potential spam prevention
+    user_location_lat: float | None = Field(
         default=None
     )  # User's GPS location when reporting
-    user_location_lng: Optional[float] = Field(default=None)
+    user_location_lng: float | None = Field(default=None)
     location_method: LocationMethod = Field(
         default=LocationMethod.GPS
     )  # 'gps', 'map_click'
-    uploaded_image_filename: Optional[str] = Field(
+    uploaded_image_filename: str | None = Field(
         default=None
     )  # User-uploaded photo of the bench
-    accuracy_meters: Optional[float] = Field(default=None)  # GPS accuracy if available
-    extra_metadata: Optional[dict[str, Any]] = Field(
+    accuracy_meters: float | None = Field(default=None)  # GPS accuracy if available
+    extra_metadata: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # Additional metadata (device info, etc.)
     status: MissingBenchReportStatus = Field(
         default=MissingBenchReportStatus.PENDING
     )  # 'pending', 'verified', 'added', 'dismissed'
-    admin_notes: Optional[str] = Field(default=None)  # Admin notes for review
+    admin_notes: str | None = Field(default=None)  # Admin notes for review
     created_at: datetime = Field(default_factory=func.now)
-    reviewed_at: Optional[datetime] = Field(default=None)
+    reviewed_at: datetime | None = Field(default=None)
 
     def __repr__(self):
         return f"<MissingBenchReport(id={self.id}, location=({self.lat}, {self.lng}), status='{self.status}')>"
@@ -540,19 +535,19 @@ class BenchCandidate(SQLModel, table=True):
 
     __tablename__ = "bench_candidates"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     search_id: int = Field(foreign_key="searches.id", nullable=False)
-    provider_id: Optional[str] = Field(default=None)  # Unified ID from OSM or Mapillary
+    provider_id: str | None = Field(default=None)  # Unified ID from OSM or Mapillary
     lat: float = Field(nullable=False)
     lng: float = Field(nullable=False)
-    tags: Optional[dict[str, Any]] = Field(
+    tags: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # JSON column for OSM tags or Mapillary metadata
     source: DataSource = Field(default=DataSource.OSM)  # 'osm' or 'mapillary'
-    external_id: Optional[str] = Field(
+    external_id: str | None = Field(
         default=None
     )  # For Mapillary image IDs or other external IDs
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         default=None
     )  # Confidence score if available from source
     status: BenchCandidateStatus = Field(
@@ -585,78 +580,41 @@ class SearchCreate(SearchBase):
     """Schema for creating a new search."""
 
 
-class SearchResponse(SearchBase):
-    """Schema for search response."""
-
-    id: int
-    created_at: datetime
-    completed_at: Optional[datetime] = None
-    status: SearchStatus = SearchStatus.PENDING
-
-
-class SearchSummary(SQLModel):
-    """Schema for search summary with statistics."""
-
-    id: int
-    query: str
-    start_lat: float
-    start_lng: float
-    search_radius: int
-    bench_count: int
-    created_at: datetime
-
-
 class BenchBase(SQLModel):
     """Base schema for bench data."""
 
-    provider_id: Optional[str] = None  # Unified ID from OSM or Mapillary
+    provider_id: str | None = None  # Unified ID from OSM or Mapillary
     lat: float
     lng: float
     tags: dict[str, Any] = {}
     source: DataSource = DataSource.OSM  # 'osm' or 'mapillary'
-    external_id: Optional[str] = None  # For Mapillary image IDs
+    external_id: str | None = None  # For Mapillary image IDs
 
 
 class BenchCreate(BenchBase):
     """Schema for creating a new bench."""
 
-    search_id: Optional[int] = None  # Nullable for Mapillary benches
-    representative_image_id: Optional[int] = (
+    search_id: int | None = None  # Nullable for Mapillary benches
+    representative_image_id: int | None = (
         None  # ID of the representative image for this bench
     )
-
-
-class BenchResponse(BenchBase):
-    """Schema for bench response."""
-
-    id: int
-    search_id: Optional[int] = None
-    created_at: datetime
 
 
 class ImageBase(SQLModel):
     """Base schema for image data."""
 
     heading: int
-    filepath: Optional[str] = None
-    filename: Optional[str] = None
-    file_size: Optional[int] = None
+    filepath: str | None = None
+    filename: str | None = None
+    file_size: int | None = None
     capture_success: bool
-    capture_error: Optional[str] = None
+    capture_error: str | None = None
 
 
 class ImageCreate(ImageBase):
     """Schema for creating a new image."""
 
     bench_id: int
-
-
-class ImageResponse(ImageBase):
-    """Schema for image response."""
-
-    id: int
-    bench_id: int
-    created_at: datetime
 
 
 class DetectionBase(SQLModel):
@@ -666,23 +624,23 @@ class DetectionBase(SQLModel):
     bench_count: int = 0
     max_confidence: float = 0.0
     detection_success: bool
-    detection_error: Optional[str] = None
+    detection_error: str | None = None
     model_id: str
     confidence_threshold: float
     source: DetectionSource = (
         DetectionSource.ROBOFLOW
     )  # 'roboflow', 'ultralytics', 'mapillary'
-    external_detection_id: Optional[str] = None  # For Mapillary detection IDs
+    external_detection_id: str | None = None  # For Mapillary detection IDs
 
     # Ultralytics-specific fields (optional for backward compatibility)
     # full_response: Optional[Dict[str, Any]] = None
     # bench_detections: Optional[list[dict[str, Any]]] = None
-    model_url: Optional[str] = None
-    iou_threshold: Optional[float] = None
-    image_size: Optional[int] = None
-    inference_time: Optional[float] = None
-    preprocess_time: Optional[float] = None
-    postprocess_time: Optional[float] = None
+    model_url: str | None = None
+    iou_threshold: float | None = None
+    image_size: int | None = None
+    inference_time: float | None = None
+    preprocess_time: float | None = None
+    postprocess_time: float | None = None
 
 
 class DetectionItemCreate(SQLModel):
@@ -695,7 +653,7 @@ class DetectionItemCreate(SQLModel):
     class_name: str = Field(
         default="bench", description="Class name of the detected object"
     )
-    polygon: Optional[Polygon] = Field(
+    polygon: Polygon | None = Field(
         default=None, description="Optional polygon for segmentation"
     )
 
@@ -709,448 +667,22 @@ class DetectionCreate(DetectionBase):
     )
 
 
-class DetectionResponse(DetectionBase):
-    """Schema for detection response."""
-
-    id: int
-    image_id: int
-    created_at: datetime
-    detection_items: list[DetectionItem] = Field(
-        default_factory=list, description="List of detection items"
-    )
-
-
-class BenchWithImages(BenchResponse):
-    """Schema for bench with its images."""
-
-    images: list[ImageResponse] = []
-
-
-class ImageWithDetections(ImageResponse):
-    """Schema for image with its detections."""
-
-    detections: list[DetectionResponse] = []
-
-
-class BenchWithDetections(BenchResponse):
-    """Schema for bench with all related data."""
-
-    images: list[ImageWithDetections] = []
-
-
-class SearchResults(SQLModel):
-    """Schema for comprehensive search results."""
-
-    search: SearchResponse
-    bench_count: int
-    total_images: int
-    successful_images: int
-    total_detections: int
-    images_with_benches: int
-    best_confidence: float = 0.0
-
-
-class WebBenchData(SQLModel):
-    """Schema for web UI bench data."""
-
-    id: int
-    provider_id: Optional[str] = None  # Unified ID from OSM or Mapillary
-    lat: float
-    lng: float
-    tags: dict[str, Any] = {}
-    source: DataSource  # 'osm' or 'mapillary'
-    external_id: Optional[str] = None
-    best_confidence: float
-    roboflow_confidence: float = 0.0
-    ultralytics_confidence: float = 0.0
-    mapillary_confidence: float = 0.0
-    detection_type: DetectionSource
-    has_segmentation: bool
-    image_count: int
-    image_filenames: list[str]
-    image_ids: list[int]
-    distance_meters: int
-    distance_km: float
-    # Clustering information (optional, only present when serving clustered data)
-    cluster_id: Optional[int] = None
-    cluster_center_lat: Optional[float] = None
-    cluster_center_lng: Optional[float] = None
-    cluster_bench_count: Optional[int] = None
-    cluster_max_distance_meters: Optional[float] = None
-    is_cluster_representative: Optional[bool] = None
-
-
-class ClusterInfo(SQLModel):
-    """Schema for cluster metadata."""
-
-    cluster_id: int
-    center_lat: float
-    center_lng: float
-    bench_count: int
-    max_distance_meters: float
-    avg_confidence: float
-    sources: list[DataSource]  # List of data sources in cluster
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-
-class ClusteredBenchData(SQLModel):
-    """Schema for clustered bench data showing both cluster and individual bench info."""
-
-    cluster: ClusterInfo
-    representative_bench: WebBenchData  # The "best" bench in the cluster
-    all_benches: list[WebBenchData]  # All benches in the cluster
-    distance_to_cluster_center: float  # Distance from query point to cluster center
-
-
-class PaginationInfo(SQLModel):
-    """Schema for pagination metadata."""
-
-    page: int
-    page_size: int
-    total_count: int
-    total_pages: int
-    has_next: bool
-
-
-class BenchListResponse(SQLModel):
-    """Schema for paginated bench list response."""
-
-    benches: list[WebBenchData]
-    pagination: PaginationInfo
-
-
-class ClusteredBenchListResponse(SQLModel):
-    """Schema for paginated clustered bench list response."""
-
-    clustered_benches: list[ClusteredBenchData]
-    pagination: PaginationInfo
-    clustering_info: dict[str, Any] = {}  # Metadata about clustering configuration
-
-
-class SegmentationData(SQLModel):
-    """Schema for detection visualization data response (both segmentation and bounding boxes)."""
-
-    filename: str
-    detection_type: str  # 'segmentation' or 'bounding_box' or 'both'
-
-    # Ultralytics segmentation data
-    bench_detections: list[dict[str, Any]] = []  # Segmentation polygons
-    image_shape: Optional[list[int]] = None
-    segmentation_available: bool = False
-
-    # Roboflow bounding box data
-    roboflow_detections: list[dict[str, Any]] = []  # Bounding box coordinates
-    bounding_box_available: bool = False
-
-    # Common metadata
-    confidence_score: float = 0.0
-    source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics'
-
-
-class ImageListResponse(SQLModel):
-    """Schema for image list response."""
-
-    images: list[ImageResponse]
-
-
-class ConfigResponse(SQLModel):
-    """Schema for configuration response."""
-
-    default_start_lat: float
-    default_start_lng: float
-    default_min_confidence: float
-    page_size: int
-
-
-class SearchListResponse(SQLModel):
-    """Schema for search list response."""
-
-    searches: list[SearchSummary]
-
-
-# Source-specific request schemas
-class SourceSearchRequest(SQLModel):
-    """Schema for source-specific search request."""
-
-    center_lat: float
-    center_lng: float
-    radius_meters: int = 1000
-    limit: int = 1000
-    source: DataSource  # 'osm', 'mapillary'
-
-
-class SourceStatistics(SQLModel):
-    """Schema for source-specific statistics."""
-
-    source: DataSource
-    total_benches: int
-    total_detections: int
-    avg_detections_per_bench: float
-    unique_locations: int
-    coverage_area_km2: float
-
-
-# New models for type-safe dictionary replacements
-class ModelCacheInfo(SQLModel):
-    """Schema for model cache information."""
-
-    cached_models: list[str]
-    cache_size: int
-
-
-class RoboflowDetectionResult(SQLModel):
-    """Schema for Roboflow detection results."""
-
-    image_path: str
-    success: bool
-    has_bench: bool
-    bench_count: int
-    max_confidence: float
-    detections: list[dict[str, Any]]
-    raw_predictions: int
-    model_id: str
-    confidence_threshold: float
-    inference_type: Optional[str] = None
-    error: Optional[str] = None
-
-
-class RoboflowModelInfo(SQLModel):
-    """Schema for Roboflow model information."""
-
-    model_id: str
-    confidence_threshold: float
-    classes: list[str]
-
-
-class StandardDetectionResult(SQLModel):
-    """Standardized detection result from any backend."""
-
-    image_path: str
-    success: bool
-    has_bench: bool
-    bench_count: int
-    max_confidence: float
-    detections: list[DetectionItem]
-
-    # Backend information
-    winning_backend: str  # 'ultralytics', 'roboflow', 'none'
-    winning_model: str
-    fallback_used: bool = False
-    total_attempts: int = 1
-
-    # Error information
-    error: Optional[str] = None
-
-    # Additional metadata
-    detection_attempts: list[dict[str, Any]] = []
-
-
-# Ultralytics-specific models
-class UltralyticsBox(SQLModel):
-    """Ultralytics bounding box in xyxy format."""
-
-    x1: float
-    y1: float
-    x2: float
-    y2: float
-
-
-class UltralyticsSegments(SQLModel):
-    """Ultralytics segmentation data."""
-
-    x: list[float]
-    y: list[float]
-
-
-class UltralyticsDetectionItem(SQLModel):
-    """Single detection item from Ultralytics."""
-
-    class_name: str = Field(alias="class")
-    class_id: int
-    confidence: float
-    box: UltralyticsBox
-    segments: Optional[UltralyticsSegments] = None
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class UltralyticsSpeed(SQLModel):
-    """Timing information from Ultralytics."""
-
-    inference: Optional[float] = None
-    preprocess: Optional[float] = None
-    postprocess: Optional[float] = None
-
-
-class UltralyticsImageResult(SQLModel):
-    """Results for a single image from Ultralytics API."""
-
-    results: list[UltralyticsDetectionItem] = []
-    shape: list[int] = []
-    speed: Optional[UltralyticsSpeed] = None
-
-
-class UltralyticsApiResponse(SQLModel):
-    """Complete Ultralytics API response."""
-
-    images: list[UltralyticsImageResult] = []
-
-
-class CacheStatus(SQLModel):
-    """Schema for cache status information."""
-
-    use_local_inference: bool
-    model_id: str | None
-    model_cached: bool
-    cache_key: Optional[str]
-    total_cached_models: int
-    all_cached_models: list[str]
-
-
-class BenchProcessingResult(SQLModel):
-    """Schema for bench processing results."""
-
-    bench_added: bool
-    images_captured: int
-    images_successful: int
-    detections_performed: int
-    bench_detected: bool
-    best_confidence: float
-
-
-class ProcessingStats(SQLModel):
-    """Schema for overall processing statistics."""
-
-    benches_processed: int
-    benches_added: int
-    images_captured: int
-    images_successful: int
-    detections_performed: int
-    benches_detected: int
-    best_confidence: float
-
-
-class PipelineResult(SQLModel):
-    """Schema for pipeline execution results."""
-
-    success: bool
-    search_id: Optional[int] = None
-    message: str
-    stats: Optional[ProcessingStats] = None
-    error: Optional[str] = None
-
-
-# Additional response models for FastAPI endpoints
-class HealthResponse(SQLModel):
-    """Schema for health check response."""
-
-    status: str
-    database: str
-    mapillary: str
-
-
-class ApiInfoResponse(SQLModel):
-    """Schema for API information response."""
-
-    name: str
-    version: str
-    description: str
-    supported_sources: list[DataSource]
-    supported_detection_models: list[DetectionSource]
-    features: list[str]
-    endpoints: dict[str, str]
-    limits: dict[str, Any]
-
-
-class MapillaryConfigResponse(SQLModel):
-    """Schema for Mapillary configuration response."""
-
-    mapillary_enabled: bool
-    default_radius_meters: int
-    default_limit: int
-    supported_detection_types: list[DetectionSource]
-    max_radius_meters: int
-    max_limit: int
-    features: dict[str, Any]
-
-
-class ReportResponse(SQLModel):
-    """Schema for bench report response."""
-
-    success: bool
-    report_id: int
-    message: str
-    bench_id: int
-    report_type: BenchReportType
-    created_at: str
-
-
-class MissingBenchReportResponse(SQLModel):
-    """Schema for missing bench report response."""
-
-    success: bool
-    report_id: int
-    message: str
-    location: dict[str, float]
-    location_method: LocationMethod
-    has_image: bool
-    created_at: str
-
-
-class SourceStatsResponse(SQLModel):
-    """Schema for source statistics response."""
-
-    source: DataSource
-    total_benches: int
-    total_images: int
-    total_detections: int
-    avg_confidence: float
-    area_filtered: bool
-    area_center: Optional[dict[str, float]] = None
-    area_radius_meters: Optional[int] = None
-
-
-class ErrorResponse(SQLModel):
-    """Schema for error response."""
-
-    error: str
-    detail: Optional[str] = None
-
-
 class BenchCandidateBase(SQLModel):
     """Base schema for bench candidate data."""
 
-    provider_id: Optional[str] = None
+    provider_id: str | None = None
     lat: float
     lng: float
-    tags: Optional[dict[str, Any]] = None
+    tags: dict[str, Any] | None = None
     source: DataSource = DataSource.OSM
-    external_id: Optional[str] = None
-    confidence: Optional[float] = None
+    external_id: str | None = None
+    confidence: float | None = None
 
 
 class BenchCandidateCreate(BenchCandidateBase):
     """Schema for creating a bench candidate."""
 
     search_id: int
-
-
-class BenchCandidateResponse(BenchCandidateBase):
-    """Schema for bench candidate response."""
-
-    id: int
-    search_id: int
-    created_at: datetime
-
-
-class BenchCandidateListResponse(SQLModel):
-    """Schema for list of bench candidates response."""
-
-    candidates: list[BenchCandidateResponse]
-    total_count: int
-    search_id: int
-    search_query: str
 
 
 # ============================================================================

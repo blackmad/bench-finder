@@ -13,16 +13,16 @@ class OSMTags(BaseModel):
     model_config = ConfigDict(extra="allow")  # Allow additional tags
 
     # Common bench tags
-    amenity: Optional[str] = None
-    name: Optional[str] = None
-    operator: Optional[str] = None
-    material: Optional[str] = None
-    backrest: Optional[str] = None
-    seats: Optional[str] = None
-    colour: Optional[str] = None
-    access: Optional[str] = None
-    shelter: Optional[str] = None
-    direction: Optional[str] = None
+    amenity: str | None = None
+    name: str | None = None
+    operator: str | None = None
+    material: str | None = None
+    backrest: str | None = None
+    seats: str | None = None
+    colour: str | None = None
+    access: str | None = None
+    shelter: str | None = None
+    direction: str | None = None
 
 
 class OSMGeometryNode(BaseModel):
@@ -37,10 +37,10 @@ class OSMElement(BaseModel):
 
     type: str = Field(..., description="Element type: node, way, or relation")
     id: int = Field(..., description="OSM element ID")
-    lat: Optional[float] = Field(None, description="Latitude (for nodes only)")
-    lon: Optional[float] = Field(None, description="Longitude (for nodes only)")
-    tags: Optional[dict[str, str]] = Field(default_factory=dict, description="OSM tags")
-    geometry: Optional[list[OSMGeometryNode]] = Field(
+    lat: float | None = Field(None, description="Latitude (for nodes only)")
+    lon: float | None = Field(None, description="Longitude (for nodes only)")
+    tags: dict[str, str] | None = Field(default_factory=dict, description="OSM tags")
+    geometry: list[OSMGeometryNode] | None = Field(
         None, description="Geometry for ways/relations"
     )
 
@@ -102,9 +102,9 @@ class OSMBench(BaseModel):
 class OverpassResponse(BaseModel):
     """Full Overpass API response."""
 
-    version: Optional[float] = None
-    generator: Optional[str] = None
-    osm3s: Optional[dict[str, Any]] = None
+    version: float | None = None
+    generator: str | None = None
+    osm3s: dict[str, Any] | None = None
     elements: list[OSMElement] = Field(default_factory=list, description="OSM elements")
 
 

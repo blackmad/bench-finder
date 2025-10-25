@@ -5,7 +5,6 @@ Pydantic models for Mapillary API responses.
 import base64
 import logging
 from datetime import datetime
-from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class MapillaryGeometry(BaseModel):
     """Mapillary geometry coordinates."""
 
-    coordinates: Union[list[float], str] = Field(
+    coordinates: list[float] | str = Field(
         ..., description="Coordinates as [lng, lat] or encoded string"
     )
 
@@ -25,7 +24,7 @@ class MapillaryImageInfo(BaseModel):
     """Basic Mapillary image information."""
 
     id: str = Field(..., description="Mapillary image ID")
-    geometry: Optional[MapillaryGeometry] = None
+    geometry: MapillaryGeometry | None = None
 
     @property
     def coordinates(self) -> tuple[float, float]:
@@ -55,15 +54,15 @@ class MapillaryDetection(BaseModel):
     )
     value: str = Field(default="object--bench", description="Detection object value")
     geometry_encoded: str = Field(default="", description="Base64 encoded geometry")
-    geometry_decoded: Optional[list[list[float]]] = Field(
+    geometry_decoded: list[list[float]] | None = Field(
         None, description="Decoded geometry coordinates"
     )
     confidence: float = Field(
         default=1.0, description="Detection confidence (Mapillary assumes high)"
     )
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
-    def decode_geometry(self) -> Optional[list[list[float]]]:
+    def decode_geometry(self) -> list[list[float]] | None:
         """Decode base64 encoded geometry."""
         if not self.geometry_encoded:
             return None
@@ -86,8 +85,8 @@ class MapillaryMapFeature(BaseModel):
 
     id: str = Field(..., description="Feature ID")
     object_value: str = Field(..., description="Object type (e.g., 'object--bench')")
-    geometry: Optional[MapillaryGeometry] = None
-    images: Optional[MapillaryImagesData] = None
+    geometry: MapillaryGeometry | None = None
+    images: MapillaryImagesData | None = None
 
     def to_detections(self) -> list[MapillaryDetection]:
         """Convert this feature to MapillaryDetection objects."""
@@ -163,12 +162,12 @@ class MapillaryImageMetadata(BaseModel):
     """Mapillary image metadata from API."""
 
     id: str = Field(..., description="Image ID")
-    geometry: Optional[MapillaryGeometry] = None
-    thumb_256_url: Optional[str] = None
-    thumb_1024_url: Optional[str] = None
-    thumb_2048_url: Optional[str] = None
+    geometry: MapillaryGeometry | None = None
+    thumb_256_url: str | None = None
+    thumb_1024_url: str | None = None
+    thumb_2048_url: str | None = None
 
-    def get_thumb_url(self, preferred_size: int = 2048) -> Optional[str]:
+    def get_thumb_url(self, preferred_size: int = 2048) -> str | None:
         """Get the best available thumbnail URL for the requested size."""
         if preferred_size >= 2048 and self.thumb_2048_url:
             return self.thumb_2048_url
@@ -184,15 +183,15 @@ class MapillaryImageDownloadResult(BaseModel):
 
     success: bool = Field(..., description="Whether the download was successful")
     image_id: str = Field(..., description="Mapillary image ID")
-    filepath: Optional[str] = Field(None, description="Local file path")
-    filename: Optional[str] = Field(None, description="Local filename")
-    file_size: Optional[int] = Field(None, description="File size in bytes")
+    filepath: str | None = Field(None, description="Local file path")
+    filename: str | None = Field(None, description="Local filename")
+    file_size: int | None = Field(None, description="File size in bytes")
     downloaded: bool = Field(
         False,
         description="Whether file was actually downloaded (False if already existed)",
     )
-    thumb_url: Optional[str] = Field(None, description="Source thumbnail URL")
-    error: Optional[str] = Field(None, description="Error message if failed")
+    thumb_url: str | None = Field(None, description="Source thumbnail URL")
+    error: str | None = Field(None, description="Error message if failed")
 
 
 class MapillarySearchResult(BaseModel):

@@ -9,7 +9,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from rich.progress import (
     Progress,
@@ -119,7 +119,7 @@ class BenchDetector:
 
     def _copy_bench_image(
         self, image_path: str, model_name: str, bench_id: str, heading: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Copy an image with detected bench to the bench_images directory.
 
@@ -385,7 +385,7 @@ class BenchDetector:
             # Find the index with highest pixel coverage, then highest confidence
             best_index = 0
             for i, (detection_result, pixel_coverage) in enumerate(
-                zip(detection_results, pixel_coverage_results)
+                zip(detection_results, pixel_coverage_results, strict=False)
             ):
                 current_best_coverage = pixel_coverage_results[best_index]
                 current_best_confidence = detection_results[best_index].max_confidence

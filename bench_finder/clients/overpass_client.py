@@ -4,7 +4,6 @@ OpenStreetMap Overpass API integration for finding benches.
 
 import json
 import logging
-from typing import Optional
 
 import requests
 from clients.base_location_client import (
@@ -86,7 +85,7 @@ class OverpassClient(BaseLocationClient):
         )
 
     def find_benches_near_point(
-        self, lat: float, lng: float, radius: Optional[int] = None
+        self, lat: float, lng: float, radius: int | None = None
     ) -> OverpassSearchResult:
         """
         Find all benches within a radius of a given point using Overpass API.
@@ -156,7 +155,7 @@ class OverpassClient(BaseLocationClient):
             logger.exception("Unexpected error querying Overpass API")
             raise
 
-    def get_item_details(self, provider_id: str) -> Optional[dict]:
+    def get_item_details(self, provider_id: str) -> dict | None:
         """
         Get detailed information about a specific bench (implements BaseLocationClient interface).
 
@@ -171,7 +170,7 @@ class OverpassClient(BaseLocationClient):
             return bench.model_dump()
         return None
 
-    def get_bench_details(self, provider_id: str) -> Optional[OSMBench]:
+    def get_bench_details(self, provider_id: str) -> OSMBench | None:
         """
         Get detailed information about a specific bench.
 

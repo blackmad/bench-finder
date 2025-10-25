@@ -10,20 +10,21 @@ import contextlib
 import json
 import logging
 import math
-from typing import Optional
 
 from config import DATABASE_PATH
 from core.clustering import BenchClusterer
 from database import BenchDatabase
 
-from models.unified_models import (
+from api.api_models import (
     ClusteredBenchData,
     ClusteredBenchListResponse,
     ClusterInfo,
-    DataSource,
-    DetectionSource,
     PaginationInfo,
     WebBenchData,
+)
+from models.unified_models import (
+    DataSource,
+    DetectionSource,
 )
 
 
@@ -61,7 +62,7 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
 class ClusteredBenchService:
     """Service for retrieving and serving clustered bench data."""
 
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         """
         Initialize the clustered bench service.
 
@@ -208,7 +209,7 @@ class ClusteredBenchService:
 
     def _build_clustered_bench_data(
         self, cluster_row: dict, reference_lat: float, reference_lng: float
-    ) -> Optional[ClusteredBenchData]:
+    ) -> ClusteredBenchData | None:
         """
         Build ClusteredBenchData from database row and reference point.
 
@@ -321,7 +322,7 @@ class ClusteredBenchService:
         min_confidence: float = DEFAULT_MIN_CONFIDENCE,
         start_lat: float = DEFAULT_START_LAT,
         start_lng: float = DEFAULT_START_LNG,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
         sort_by: str = "distance",
     ) -> ClusteredBenchListResponse:
         """
@@ -446,7 +447,7 @@ class ClusteredBenchService:
         east: float,
         west: float,
         min_confidence: float = DEFAULT_MIN_CONFIDENCE,
-        source_filter: Optional[str] = None,
+        source_filter: str | None = None,
         sort_by: str = "distance",
         limit: int = 200,
     ) -> ClusteredBenchListResponse:

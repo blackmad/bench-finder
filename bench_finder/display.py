@@ -3,7 +3,6 @@ Display and visualization utilities for bench finder results.
 """
 
 import logging
-from typing import Optional
 
 from clients.base_detection_client import DetectionResult
 from PIL import Image as PILImage
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def create_combined_image_display(
     image_results: list[dict], target_width: int = 400
-) -> Optional[PILImage.Image]:
+) -> PILImage.Image | None:
     """
     Create a combined PIL Image from multiple image results.
 
@@ -74,7 +73,7 @@ def display_bench_detection_results(
     bench_identifier: str,
     image_results: list[Image],
     bench_detections: list[DetectionResult],
-    representative_detection: Optional[DetectionResult],
+    representative_detection: DetectionResult | None,
     copy_bench_images: bool = True,
 ) -> None:
     """
@@ -162,7 +161,7 @@ def display_bench_detection_results(
 
 def _copy_bench_image(
     bench_identifier: str, source_path: str, model_name: str
-) -> Optional[str]:
+) -> str | None:
     """
     Copy a bench image to the bench_images directory.
 

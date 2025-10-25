@@ -6,7 +6,6 @@ Supports both local YOLO11-seg inference and Ultralytics API.
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 
 import requests
 from config import (
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 class UltralyticsClient(DetectionClient):
     """Client for Ultralytics inference supporting both local YOLO11-seg and API modes."""
 
-    def __init__(self, use_local=None, confidence_threshold: Optional[float] = None):
+    def __init__(self, use_local=None, confidence_threshold: float | None = None):
         """Initialize the Ultralytics client.
 
         Args:
@@ -403,7 +402,9 @@ class UltralyticsClient(DetectionClient):
                         if segments_data.get("x") and segments_data.get("y"):
                             coordinates = [
                                 [x, y]
-                                for x, y in zip(segments_data["x"], segments_data["y"])
+                                for x, y in zip(
+                                    segments_data["x"], segments_data["y"], strict=False
+                                )
                             ]
                             polygon = Polygon(coordinates=coordinates)
 
