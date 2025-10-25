@@ -86,7 +86,7 @@ def render_detections(
         (0, 128, 0),
     ]
 
-    # Extract detections from StandardDetectionResult object
+    # Extract detections from DetectionResult object
     detections = result.detections
     bench_count = result.bench_count
     max_confidence = result.max_confidence

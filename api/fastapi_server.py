@@ -9,6 +9,7 @@ import math
 import os
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime
+from typing import Any
 
 # Any import removed - not used
 import uvicorn
@@ -19,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from bench_finder.config import DATABASE_PATH, IMAGES_DIR
-from bench_finder.models.unified_models import (
+from bench_finder.models.enums import (
     BenchReportType,
     DataSource,
     DetectionSource,
@@ -30,6 +31,7 @@ from bench_finder.services.database import BenchDatabase
 
 from .api_models import (
     ApiInfoResponse,
+    BenchDetectionData,
     BenchListResponse,
     BenchMode,
     ClusteredBenchListResponse,
@@ -153,14 +155,6 @@ class BboxBenchResponse(BaseModel):
     total_count: int = Field(..., ge=0, description="Total number of benches returned")
     bbox: dict[str, float] = Field(
         ..., description="The requested bounding box coordinates"
-    )
-
-
-class RandomBenchResponse(BaseModel):
-    """Response model for random bench queries."""
-
-    bench: WebBenchData = Field(
-        ..., description="Randomly selected bench matching criteria"
     )
 
 
@@ -347,6 +341,189 @@ async def health_check():
         ) from e
 
 
+# Helper function to get detection items for a bench
+def get_detection_items_for_bench(conn, bench_id: int) -> list[dict[str, Any]]:
+    """Get all detection items for a specific bench."""
+    query = """
+        SELECT
+            di.id,
+            di.confidence,
+            di.bbox,
+            di.polygon,
+            di.class_name,
+            di.created_at
+        FROM detection_items di
+        JOIN detections d ON di.detection_id = d.id
+        JOIN images i ON d.image_id = i.id
+        WHERE i.bench_id = ?
+        ORDER BY di.confidence DESC
+    """
+
+    rows = conn.execute(query, [bench_id]).fetchall()
+    detection_items = []
+
+    for row in rows:
+        item = {
+            "id": row["id"],
+            "confidence": row["confidence"],
+            "class_name": row["class_name"],
+            "bbox": json.loads(row["bbox"])
+            if isinstance(row["bbox"], str)
+            else row["bbox"],
+        }
+
+        if row["polygon"]:
+            item["polygon"] = (
+                json.loads(row["polygon"])
+                if isinstance(row["polygon"], str)
+                else row["polygon"]
+            )
+
+        detection_items.append(item)
+
+    return detection_items
+
+
+# Unified helper function for getting a single bench by ID
+def get_bench_by_id(
+    bench_id: int,
+    include_detection_data: bool = False,
+) -> WebBenchData:
+    """
+    Get a specific bench by ID with all its data.
+
+    Args:
+        bench_id: The ID of the bench to retrieve
+        min_confidence: Minimum detection confidence threshold
+        include_detection_data: Whether to include detection items in response
+
+    Returns:
+        WebBenchData object with bench information
+
+    Raises:
+        HTTPException: If bench not found or other error occurs
+    """
+    try:
+        db = BenchDatabase()
+        with db._get_connection() as conn:
+            # Get bench basic info
+            bench_query = """
+                SELECT
+                    b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
+                    COUNT(DISTINCT i.id) as image_count,
+                    GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
+                    GROUP_CONCAT(DISTINCT i.id) as image_ids
+                FROM benches b
+                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                WHERE b.id = ?
+                GROUP BY b.id
+            """
+
+            bench_row = conn.execute(bench_query, (bench_id,)).fetchone()
+
+            if not bench_row:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found",
+                )
+
+            # Parse tags
+            tags = {}
+            if bench_row["tags"]:
+                with suppress(json.JSONDecodeError):
+                    tags = json.loads(bench_row["tags"])
+
+            # Parse image data
+            image_filenames = (
+                bench_row["image_filenames"].split(",")
+                if bench_row["image_filenames"]
+                else []
+            )
+            image_ids = (
+                [int(x) for x in bench_row["image_ids"].split(",") if x]
+                if bench_row["image_ids"]
+                else []
+            )
+
+            # Get detection data for confidence scores
+            detection_query = """
+                SELECT
+                    d.source,
+                    d.max_confidence,
+                    d.has_bench
+                FROM detections d
+                JOIN images i ON d.image_id = i.id
+                WHERE i.bench_id = ? AND i.capture_success = 1
+                ORDER BY d.max_confidence DESC
+                LIMIT 1
+            """
+
+            detection_row = conn.execute(detection_query, (bench_id,)).fetchone()
+
+            # Initialize confidence scores
+            best_confidence = 0.0
+            roboflow_confidence = 0.0
+            ultralytics_confidence = 0.0
+            mapillary_confidence = 0.0
+            detection_type = DetectionSource.NONE
+            has_segmentation = False
+            bench_found = False
+
+            if detection_row:
+                best_confidence = detection_row["max_confidence"]
+                bench_found = detection_row["has_bench"] == 1
+                detection_type = DetectionSource(detection_row["source"])
+                # Determine if segmentation is available based on detection source
+                has_segmentation = detection_row["source"] in [
+                    "ultralytics",
+                    "mapillary",
+                ]
+
+                # Set source-specific confidence
+                if detection_row["source"] == "roboflow":
+                    roboflow_confidence = detection_row["max_confidence"]
+                elif detection_row["source"] == "ultralytics":
+                    ultralytics_confidence = detection_row["max_confidence"]
+                elif detection_row["source"] == "mapillary":
+                    mapillary_confidence = detection_row["max_confidence"]
+
+            # Get detection items if requested
+            detection_items = None
+            if include_detection_data:
+                detection_items = get_detection_items_for_bench(conn, bench_id)
+
+            return WebBenchData(
+                id=bench_row["id"],
+                provider_id=bench_row["provider_id"],
+                lat=bench_row["lat"],
+                lng=bench_row["lng"],
+                tags=tags,
+                source=bench_row["source"] or "osm",
+                external_id=bench_row["external_id"],
+                bench_found=bench_found,
+                best_confidence=best_confidence,
+                roboflow_confidence=roboflow_confidence,
+                ultralytics_confidence=ultralytics_confidence,
+                mapillary_confidence=mapillary_confidence,
+                detection_type=detection_type,
+                has_segmentation=has_segmentation,
+                image_count=bench_row["image_count"],
+                image_filenames=image_filenames,
+                image_ids=image_ids,
+                distance_meters=0,  # Not applicable for single bench
+                distance_km=0.0,  # Not applicable for single bench
+                detection_items=detection_items,
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get bench {bench_id}: {e!s}",
+        ) from e
+
+
 # Utility function for bench data processing (shared with Flask version)
 def get_high_confidence_benches_filtered(
     page: int = 0,
@@ -356,6 +533,7 @@ def get_high_confidence_benches_filtered(
     start_lng: float = DEFAULT_START_LNG,
     sort_by: str = "distance",
     mode: BenchMode = BenchMode.BENCHES,
+    include_detection_data: bool = False,
 ) -> BenchListResponse:
     """
     Get benches with configurable detection modes from all sources.
@@ -379,8 +557,8 @@ def get_high_confidence_benches_filtered(
                     SELECT DISTINCT b.id
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN ultralytics_detections ud ON i.id = ud.image_id
-                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+                    JOIN detections ud ON i.id = ud.image_id
+                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ? AND ud.source = 'ultralytics'
                 """
                 query_params = [min_confidence, min_confidence]
             elif mode == BenchMode.NO_BENCH:
@@ -390,7 +568,7 @@ def get_high_confidence_benches_filtered(
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
                     LEFT JOIN detections d ON i.id = d.image_id
-                    LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
                     WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
                       AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
                 """
@@ -432,8 +610,8 @@ def get_high_confidence_benches_filtered(
                         ) rf_data ON i.id = rf_data.image_id
                         LEFT JOIN (
                             SELECT image_id, MAX(max_confidence) as max_confidence
-                            FROM ultralytics_detections
-                            WHERE has_bench = 1
+                            FROM detections
+                            WHERE has_bench = 1 AND source = 'ultralytics'
                             GROUP BY image_id
                         ) ul_data ON i.id = ul_data.image_id
                         LEFT JOIN (
@@ -499,8 +677,8 @@ def get_high_confidence_benches_filtered(
                     ) rf_data ON i.id = rf_data.image_id
                     LEFT JOIN (
                         SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM ultralytics_detections
-                        WHERE has_bench = 1
+                        FROM detections
+                        WHERE has_bench = 1 AND source = 'ultralytics'
                         GROUP BY image_id
                     ) ul_data ON i.id = ul_data.image_id
                     LEFT JOIN (
@@ -549,8 +727,8 @@ def get_high_confidence_benches_filtered(
                     ) rf_data ON i.id = rf_data.image_id
                     LEFT JOIN (
                         SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM ultralytics_detections
-                        WHERE has_bench = 1
+                        FROM detections
+                        WHERE has_bench = 1 AND source = 'ultralytics'
                         GROUP BY image_id
                     ) ul_data ON i.id = ul_data.image_id
                     LEFT JOIN (
@@ -609,6 +787,11 @@ def get_high_confidence_benches_filtered(
                         else DetectionSource.ULTRALYTICS
                     )
 
+                # Get detection items if requested
+                detection_items = None
+                if include_detection_data:
+                    detection_items = get_detection_items_for_bench(conn, row["id"])
+
                 bench_data = WebBenchData(
                     id=row["id"],
                     provider_id=row["provider_id"],
@@ -629,6 +812,7 @@ def get_high_confidence_benches_filtered(
                     image_ids=image_ids,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
+                    detection_items=detection_items,
                 )
 
                 benches.append(bench_data)
@@ -708,6 +892,10 @@ async def get_benches(
     clustered: bool = Query(
         True, description="Return clustered results when available (default: True)"
     ),
+    include_detection_data: bool = Query(
+        False,
+        description="Include detection items (bbox, polygon) in response (default: False)",
+    ),
 ):
     """
     Retrieve a paginated list of benches with configurable detection modes.
@@ -759,6 +947,7 @@ async def get_benches(
             start_lng=start_lng,
             sort_by=sort_by,
             mode=mode,
+            include_detection_data=include_detection_data,
         )
         return result
     except Exception as e:
@@ -775,7 +964,7 @@ async def get_benches(
     "/api/benches/random",
     summary="Get Random Bench",
     description="Get a randomly selected bench that meets the specified criteria",
-    response_model=RandomBenchResponse,
+    response_model=WebBenchData,
     responses={
         404: {
             "model": EnhancedErrorResponse,
@@ -796,6 +985,10 @@ async def get_random_bench(
         BenchMode.BENCHES,
         description="Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'",
     ),
+    include_detection_data: bool = Query(
+        False,
+        description="Include detection items (bbox, polygon) in response (default: False)",
+    ),
     # Source filtering removed - using unified approach
 ):
     """
@@ -808,32 +1001,51 @@ async def get_random_bench(
     try:
         db = BenchDatabase()
         with db._get_connection() as conn:
-            # Base query to get all qualifying bench IDs
-            base_query = """
-                SELECT DISTINCT b.id
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                JOIN detections d ON i.id = d.image_id
-                WHERE d.has_bench = 1 AND d.max_confidence >= ?
+            # Build query based on mode
+            if mode == BenchMode.BENCHES:
+                # Only benches with detected benches
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    JOIN detections d ON i.id = d.image_id
+                    WHERE d.has_bench = 1 AND d.max_confidence >= ?
 
-                UNION
+                    UNION
 
-                SELECT DISTINCT b.id
-                FROM benches b
-                JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                JOIN ultralytics_detections ud ON i.id = ud.image_id
-                WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
-            """
-
-            # Unified approach - no source filtering
-            source_condition = ""
-            query_params = [min_confidence, min_confidence]
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    JOIN detections ud ON i.id = ud.image_id
+                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ? AND ud.source = 'ultralytics'
+                """
+                query_params = [min_confidence, min_confidence]
+            elif mode == BenchMode.NO_BENCH:
+                # Only benches without detected benches
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                    LEFT JOIN detections d ON i.id = d.image_id
+                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
+                    WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
+                      AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
+                """
+                query_params = []
+            else:  # mode == BenchMode.BOTH
+                # All benches regardless of detection status
+                base_query = """
+                    SELECT DISTINCT b.id
+                    FROM benches b
+                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
+                """
+                query_params = []
 
             # Get random bench ID
             random_query = f"""
                 SELECT b.id
                 FROM benches b
-                WHERE b.id IN ({base_query}){source_condition}
+                WHERE b.id IN ({base_query})
                 ORDER BY RANDOM()
                 LIMIT 1
             """
@@ -848,86 +1060,14 @@ async def get_random_bench(
 
             bench_id = row["id"]
 
-            # Get detailed bench data for this random bench
-            result = get_high_confidence_benches_filtered(
-                page=0,
-                page_size=50,  # Get more to find our specific bench
+            # Use the unified helper to get bench data
+            bench_data = get_bench_by_id(
+                bench_id=bench_id,
                 min_confidence=min_confidence,
-                start_lat=DEFAULT_START_LAT,
-                start_lng=DEFAULT_START_LNG,
-                mode=mode,
+                include_detection_data=include_detection_data,
             )
 
-            # Find the specific bench in the results
-            selected_bench = None
-            for bench in result.benches:
-                if bench.id == bench_id:
-                    selected_bench = bench
-                    break
-
-            if not selected_bench:
-                # Fallback: get bench details directly
-                detail_query = """
-                    SELECT
-                        b.id, b.provider_id, b.lat, b.lng, b.tags, b.source, b.external_id,
-                        COUNT(DISTINCT i.id) as image_count,
-                        GROUP_CONCAT(DISTINCT i.filename) as image_filenames,
-                        GROUP_CONCAT(DISTINCT i.id) as image_ids
-                    FROM benches b
-                    JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    WHERE b.id = ?
-                    GROUP BY b.id
-                """
-
-                bench_row = conn.execute(detail_query, (bench_id,)).fetchone()
-
-                if bench_row:
-                    tags = {}
-                    if bench_row["tags"]:
-                        with suppress(json.JSONDecodeError):
-                            tags = json.loads(bench_row["tags"])
-
-                    image_filenames = (
-                        bench_row["image_filenames"].split(",")
-                        if bench_row["image_filenames"]
-                        else []
-                    )
-                    image_ids = (
-                        [int(x) for x in bench_row["image_ids"].split(",") if x]
-                        if bench_row["image_ids"]
-                        else []
-                    )
-
-                    selected_bench = WebBenchData(
-                        id=bench_row["id"],
-                        provider_id=bench_row["provider_id"],
-                        lat=bench_row["lat"],
-                        lng=bench_row["lng"],
-                        tags=tags,
-                        source=bench_row["source"] or "osm",
-                        external_id=bench_row["external_id"],
-                        best_confidence=min_confidence,  # Approximate
-                        roboflow_confidence=0,
-                        ultralytics_confidence=0,
-                        mapillary_confidence=0,
-                        detection_type="unknown",
-                        has_segmentation=False,
-                        image_count=bench_row["image_count"],
-                        image_filenames=image_filenames,
-                        image_ids=image_ids,
-                        distance_meters=0,
-                        distance_km=0,
-                    )
-
-            if not selected_bench:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to retrieve random bench details",
-                )
-
-            return RandomBenchResponse(
-                bench=selected_bench,
-            )
+            return bench_data
 
     except HTTPException:
         raise
@@ -936,6 +1076,51 @@ async def get_random_bench(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get random bench: {e!s}",
         ) from e
+
+
+@app.get(
+    "/api/bench/{bench_id}",
+    summary="Get Bench by ID",
+    description="Get detailed information for a specific bench by its ID",
+    response_model=WebBenchData,
+    responses={
+        404: {
+            "model": EnhancedErrorResponse,
+            "description": "Bench not found",
+        },
+        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
+    },
+    tags=["benches"],
+)
+async def get_bench_by_id_endpoint(
+    bench_id: int = Path(..., description="Bench ID to retrieve"),
+    min_confidence: float = Query(
+        DEFAULT_MIN_CONFIDENCE,
+        ge=0.0,
+        le=1.0,
+        description="Minimum detection confidence",
+    ),
+    include_detection_data: bool = Query(
+        False,
+        description="Include detection items (bbox, polygon) in response (default: False)",
+    ),
+):
+    """
+    Get detailed information for a specific bench by its ID.
+
+    This endpoint provides comprehensive bench data including:
+    - Basic bench information (location, source, tags)
+    - Image count and filenames
+    - Detection confidence scores from all sources
+    - Optional detection items with bounding boxes and polygons
+    """
+    bench_data = get_bench_by_id(
+        bench_id=bench_id,
+        min_confidence=min_confidence,
+        include_detection_data=include_detection_data,
+    )
+
+    return bench_data
 
 
 @app.get(
@@ -987,6 +1172,10 @@ async def get_benches_in_bbox(
     limit: int = Query(200, ge=1, le=500, description="Maximum number of results"),
     clustered: bool = Query(
         True, description="Return clustered results when available (default: True)"
+    ),
+    include_detection_data: bool = Query(
+        False,
+        description="Include detection items (bbox, polygon) in response (default: False)",
     ),
 ):
     """
@@ -1070,8 +1259,8 @@ async def get_benches_in_bbox(
                     SELECT DISTINCT b.id
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    JOIN ultralytics_detections ud ON i.id = ud.image_id
-                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ?
+                    JOIN detections ud ON i.id = ud.image_id
+                    WHERE ud.has_bench = 1 AND ud.max_confidence >= ? AND ud.source = 'ultralytics'
                       AND b.lat BETWEEN ? AND ?
                       AND b.lng BETWEEN ? AND ?
                 """
@@ -1094,7 +1283,7 @@ async def get_benches_in_bbox(
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
                     LEFT JOIN detections d ON i.id = d.image_id
-                    LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
                     WHERE (d.has_bench = 0 OR d.has_bench IS NULL)
                       AND (ud.has_bench = 0 OR ud.has_bench IS NULL)
                       AND b.lat BETWEEN ? AND ?
@@ -1168,8 +1357,8 @@ async def get_benches_in_bbox(
                 ) rf_data ON i.id = rf_data.image_id
                 LEFT JOIN (
                     SELECT image_id, MAX(max_confidence) as max_confidence
-                    FROM ultralytics_detections
-                    WHERE has_bench = 1
+                    FROM detections
+                    WHERE has_bench = 1 AND source = 'ultralytics'
                     GROUP BY image_id
                 ) ul_data ON i.id = ul_data.image_id
                 LEFT JOIN (
@@ -1229,6 +1418,11 @@ async def get_benches_in_bbox(
                         else DetectionSource.ULTRALYTICS
                     )
 
+                # Get detection items if requested
+                detection_items = None
+                if include_detection_data:
+                    detection_items = get_detection_items_for_bench(conn, row["id"])
+
                 bench_data = WebBenchData(
                     id=row["id"],
                     provider_id=row["provider_id"],
@@ -1249,6 +1443,7 @@ async def get_benches_in_bbox(
                     image_ids=image_ids,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
+                    detection_items=detection_items,
                 )
 
                 benches.append(bench_data)
@@ -1520,9 +1715,9 @@ async def get_image_segmentation(
 
             # Try to get Ultralytics segmentation data
             ultralytics_query = """
-                SELECT ud.bench_detections, ud.full_response, ud.max_confidence
-                FROM ultralytics_detections ud
-                WHERE ud.image_id = ? AND ud.has_bench = 1
+                SELECT ud.max_confidence
+                FROM detections ud
+                WHERE ud.image_id = ? AND ud.has_bench = 1 AND ud.source = 'ultralytics'
                 ORDER BY ud.max_confidence DESC
                 LIMIT 1
             """
@@ -1705,6 +1900,159 @@ async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID
         ) from e
 
 
+@app.get(
+    "/api/bench/{bench_id}/detections",
+    summary="Get Bench Detection Data",
+    description="Get comprehensive detection data for a specific bench including all images and detection items",
+    response_model=BenchDetectionData,
+    responses={
+        404: {"model": EnhancedErrorResponse, "description": "Bench not found"},
+        500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
+    },
+    tags=["images"],
+)
+async def get_bench_detections(bench_id: int = Path(..., ge=1, description="Bench ID")):
+    """
+    Get comprehensive detection data for a specific bench.
+
+    This endpoint returns all detection data associated with a bench, including:
+    - All images with their detection items
+    - Bounding box coordinates for each detection
+    - Polygon/segmentation data when available
+    - Confidence scores and detection metadata
+    - Detection source information (Roboflow, Ultralytics, etc.)
+
+    **Use Cases:**
+    - Detailed analysis of bench detections
+    - Visualization of detection overlays
+    - Quality assessment of detection results
+    - Debugging detection issues
+
+    **Response Structure:**
+    - `bench_id`: The bench identifier
+    - `images`: List of images with their detection data
+    - `detection_items`: List of DetectionItem objects with bbox and polygon data
+    - `confidence_scores`: Best confidence across all detections
+    - `detection_sources`: List of detection backends used
+    """
+    try:
+        db = BenchDatabase()
+
+        with db._get_connection() as conn:
+            # Get bench info
+            bench_row = conn.execute(
+                "SELECT id, lat, lng FROM benches WHERE id = ?", [bench_id]
+            ).fetchone()
+
+            if not bench_row:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found",
+                )
+
+            bench_lat, bench_lng = bench_row["lat"], bench_row["lng"]
+
+            # Get all images for this bench with their detection data
+            query = """
+                SELECT
+                    i.id as image_id,
+                    i.filename,
+                    i.heading,
+                    i.capture_success,
+                    d.id as detection_id,
+                    d.has_bench,
+                    d.bench_count,
+                    d.max_confidence,
+                    d.detection_success,
+                    d.model_id,
+                    d.source,
+                    di.id as detection_item_id,
+                    di.confidence,
+                    di.bbox,
+                    di.polygon,
+                    di.class_name
+                FROM images i
+                LEFT JOIN detections d ON i.id = d.image_id
+                LEFT JOIN detection_items di ON d.id = di.detection_id
+                WHERE i.bench_id = ?
+                ORDER BY i.heading, d.id, di.id
+            """
+
+            rows = conn.execute(query, [bench_id]).fetchall()
+
+            if not rows:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No images found for bench ID {bench_id}",
+                )
+
+            # Group data by image
+            images_data = {}
+            detection_sources = set()
+            best_confidence = 0.0
+            images_with_detections = 0
+
+            for row in rows:
+                image_id = row["image_id"]
+                if image_id not in images_data:
+                    images_data[image_id] = {
+                        "image_id": image_id,
+                        "filename": row["filename"],
+                        "heading": row["heading"],
+                        "capture_success": row["capture_success"],
+                        "detection_items": [],
+                    }
+
+                # Add detection item if it exists
+                if row["detection_item_id"]:
+                    detection_item = {
+                        "id": row["detection_item_id"],
+                        "confidence": row["confidence"],
+                        "bbox": json.loads(row["bbox"])
+                        if isinstance(row["bbox"], str)
+                        else row["bbox"],
+                        "class_name": row["class_name"],
+                    }
+
+                    if row["polygon"]:
+                        detection_item["polygon"] = (
+                            json.loads(row["polygon"])
+                            if isinstance(row["polygon"], str)
+                            else row["polygon"]
+                        )
+
+                    images_data[image_id]["detection_items"].append(detection_item)
+
+                    # Track best confidence and sources
+                    best_confidence = max(best_confidence, row["confidence"])
+
+                    if row["source"]:
+                        detection_sources.add(row["source"])
+
+            # Count images with detections
+            for img_data in images_data.values():
+                if img_data["detection_items"]:
+                    images_with_detections += 1
+
+            return BenchDetectionData(
+                bench_id=bench_id,
+                bench_lat=bench_lat,
+                bench_lng=bench_lng,
+                total_images=len(images_data),
+                images_with_detections=images_with_detections,
+                best_confidence=best_confidence,
+                detection_sources=list(detection_sources),
+                images=list(images_data.values()),
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve bench detection data: {e!s}",
+        ) from e
+
+
 # Mapillary endpoints removed - using unified approach
 
 
@@ -1760,7 +2108,7 @@ async def report_bad_bench(
         import shutil
         from datetime import datetime
 
-        from services.database import BenchDatabase
+        from bench_finder.services.database import BenchDatabase
 
         db = BenchDatabase()
 
@@ -1923,7 +2271,8 @@ async def report_missing_bench(
         from datetime import datetime
 
         from PIL import Image
-        from services.database import BenchDatabase
+
+        from bench_finder.services.database import BenchDatabase
 
         db = BenchDatabase()
 
@@ -2037,7 +2386,15 @@ if __name__ == "__main__":
     print("🚀 Starting Bench Finder FastAPI server with uvicorn...")
     print("📚 API documentation will be available at: http://localhost:8866/docs")
     print("🔄 Alternative docs at: http://localhost:8866/redoc")
+    print("🔄 Auto-reload enabled - server will restart on Python file changes")
 
     uvicorn.run(
-        "fastapi_server:app", host="0.0.0.0", port=8866, reload=True, log_level="info"
+        "api.fastapi_server:app",
+        host="0.0.0.0",
+        port=8866,
+        reload=True,
+        log_level="info",
+        reload_dirs=["api", "bench_finder"],  # Watch these directories for changes
+        reload_includes=["*.py"],  # Only watch Python files
+        reload_excludes=["*.pyc", "__pycache__", "*.log"],  # Exclude compiled files
     )

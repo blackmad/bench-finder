@@ -7,7 +7,7 @@ The web UI has been enhanced to support both Roboflow and Ultralytics detection 
 ## ✅ What's Working
 
 ### Backend Enhancements:
-1. **Dual Detection Support**: The web server now queries both `detections` (Roboflow) and `ultralytics_detections` tables
+1. **Dual Detection Support**: The web server now queries the unified `detections` table with different source filters
 2. **Fixed SQL Query**: Resolved SQLite compatibility issues and proper UNION query for both detection types
 3. **New API Endpoint**: `/api/image/<id>/segmentation` to retrieve detailed Ultralytics segmentation data
 4. **Enhanced Data Structure**: Returns both detection confidences, detection type, and segmentation availability
@@ -66,7 +66,7 @@ python bench_finder.py "Central Park, NYC"
 
 ### Database Schema:
 - **Original tables**: `benches`, `images`, `detections` (Roboflow)
-- **New table**: `ultralytics_detections` (with segmentation data)
+- **Unified table**: `detections` with `source` field for different detection backends
 - **Backward compatibility**: All existing Roboflow data continues to work
 
 ### API Endpoints:

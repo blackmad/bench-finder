@@ -162,7 +162,7 @@ class BenchDetector:
         Calculate what percentage of pixels the bench occupies in the image.
 
         Args:
-            detection_result: StandardDetectionResult from the ML model
+            detection_result: DetectionResult from the ML model
             image_path: Path to the image file for dimensions
 
         Returns:
@@ -474,7 +474,7 @@ class BenchDetector:
                     f"(heading {image.heading}°) with {pixel_coverage:.1f}% pixel coverage "
                     f"and confidence {detection_result.max_confidence:.2f} using {winning_model}{copy_info}"
                 )
-                # Pass StandardDetectionResult object directly to render_detections
+                # Pass DetectionResult object directly to render_detections
                 print(
                     AutoImage(
                         render_detections(

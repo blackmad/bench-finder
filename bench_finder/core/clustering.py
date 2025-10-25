@@ -188,8 +188,8 @@ class BenchClusterer:
                     ) rf_data ON i.id = rf_data.image_id
                     LEFT JOIN (
                         SELECT image_id, MAX(max_confidence) as max_confidence
-                        FROM ultralytics_detections
-                        WHERE has_bench = 1
+                        FROM detections
+                        WHERE has_bench = 1 AND source = 'ultralytics'
                         GROUP BY image_id
                     ) ul_data ON i.id = ul_data.image_id
                     LEFT JOIN (

@@ -7,12 +7,14 @@ import logging
 import cv2
 from PIL import Image as PILImage
 from PIL import ImageDraw, ImageFont
-from term_image.image import AutoImage
+from term_image.image import AutoImage, ITerm2Image
 
 from bench_finder.models.unified_models import DetectionResult, Image
 
 
 logger = logging.getLogger(__name__)
+
+ITerm2Image.set_render_method("WHOLE")
 
 
 def render_detections(
@@ -255,7 +257,7 @@ def display_bench_detection_results(
             f"and confidence {max_confidence:.2f} using {winning_model}{copy_info}"
         )
 
-        # Pass StandardDetectionResult object directly to render_detections
+        # Pass DetectionResult object directly to render_detections
         print(
             AutoImage(
                 render_detections(image_path, representative_detection, winning_model)

@@ -20,6 +20,7 @@ from bench_finder.models.unified_models import (
     BenchBase,
     BenchCandidateBase,
     DetectionBase,
+    DetectionItem,
     ImageBase,
     SearchBase,
 )
@@ -70,7 +71,7 @@ class SearchSummary(BaseModel):
 # BenchBase now imported from unified_models
 
 
-class BenchResponse(BenchBase):
+class BenchResponseModel(BenchBase):
     """Schema for bench response."""
 
     id: int
@@ -96,9 +97,9 @@ class DetectionResponse(DetectionBase):
     """Schema for detection response."""
 
     id: int
-    image_id: int
+    image_id: int | None = None
     created_at: datetime
-    detection_items: list[dict] = Field(
+    detection_items: list[DetectionItem] = Field(
         default_factory=list, description="List of detection items"
     )
 
@@ -108,19 +109,13 @@ class DetectionResponse(DetectionBase):
 # ============================================================================
 
 
-class BenchWithImages(BenchResponse):
-    """Schema for bench with its images."""
-
-    images: list[ImageResponse]
-
-
 class ImageWithDetections(ImageResponse):
     """Schema for image with its detections."""
 
     detections: list[DetectionResponse]
 
 
-class BenchWithDetections(BenchResponse):
+class BenchWithDetections(BenchResponseModel):
     """Schema for bench with all related data."""
 
     images: list[ImageWithDetections]
@@ -172,6 +167,8 @@ class WebBenchData(BaseModel):
     cluster_bench_count: int | None = None
     cluster_max_distance_meters: float | None = None
     is_cluster_representative: bool | None = None
+    # Optional detection data (only included when requested)
+    detection_items: list[DetectionItem] | None = None
 
 
 class ClusterInfo(BaseModel):
@@ -250,18 +247,36 @@ class SegmentationData(BaseModel):
     filename: str
     detection_type: str  # 'segmentation' or 'bounding_box' or 'both'
 
-    # Ultralytics segmentation data
-    bench_detections: list[dict[str, Any]] = []  # Segmentation polygons
+    # Detection items with proper bbox and polygon data
+    detection_items: list[DetectionItem] = Field(
+        default_factory=list,
+        description="List of detection items with bbox and polygon data",
+    )
     image_shape: list[int] | None = None
     segmentation_available: bool = False
-
-    # Roboflow bounding box data
-    roboflow_detections: list[dict[str, Any]] = []  # Bounding box coordinates
     bounding_box_available: bool = False
 
     # Common metadata
     confidence_score: float = 0.0
     source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics'
+
+
+class BenchDetectionData(BaseModel):
+    """Schema for comprehensive bench detection data including all images and detections."""
+
+    bench_id: int
+    bench_lat: float
+    bench_lng: float
+    total_images: int
+    images_with_detections: int
+    best_confidence: float
+    detection_sources: list[DetectionSource]
+
+    # Images with their detection data
+    images: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of images with their detection items, bbox, and polygon data",
+    )
 
 
 class ConfigResponse(BaseModel):
@@ -291,109 +306,6 @@ class ModelCacheInfo(BaseModel):
 
     cached_models: list[str]
     cache_size: int
-
-
-class RoboflowDetectionResult(BaseModel):
-    """Schema for Roboflow detection results."""
-
-    image_path: str
-    success: bool
-    has_bench: bool
-    bench_count: int
-    max_confidence: float
-    detections: list[dict[str, Any]]
-    raw_predictions: int
-    model_id: str
-    confidence_threshold: float
-    inference_type: str | None = None
-    error: str | None = None
-
-
-class RoboflowModelInfo(BaseModel):
-    """Schema for Roboflow model information."""
-
-    model_id: str
-    confidence_threshold: float
-    classes: list[str]
-
-
-class StandardDetectionResult(BaseModel):
-    """Standardized detection result from any backend."""
-
-    image_path: str
-    success: bool
-    has_bench: bool
-    bench_count: int
-    max_confidence: float
-    detections: list[dict]  # Will be DetectionItem objects
-
-    # Backend information
-    winning_backend: str  # 'ultralytics', 'roboflow', 'none'
-    winning_model: str
-    fallback_used: bool = False
-    total_attempts: int = 1
-
-    # Error information
-    error: str | None = None
-
-    # Additional metadata
-    detection_attempts: list[dict[str, Any]] = []
-
-
-# ============================================================================
-# Ultralytics-specific Models
-# ============================================================================
-
-
-class UltralyticsBox(BaseModel):
-    """Ultralytics bounding box in xyxy format."""
-
-    x1: float
-    y1: float
-    x2: float
-    y2: float
-
-
-class UltralyticsSegments(BaseModel):
-    """Ultralytics segmentation data."""
-
-    x: list[float]
-    y: list[float]
-
-
-class UltralyticsDetectionItem(BaseModel):
-    """Single detection item from Ultralytics."""
-
-    class_name: str = Field(alias="class")
-    class_id: int
-    confidence: float
-    box: UltralyticsBox
-    segments: UltralyticsSegments | None = None
-
-    class Config:
-        populate_by_name = True
-
-
-class UltralyticsSpeed(BaseModel):
-    """Timing information from Ultralytics."""
-
-    inference: float | None = None
-    preprocess: float | None = None
-    postprocess: float | None = None
-
-
-class UltralyticsImageResult(BaseModel):
-    """Results for a single image from Ultralytics API."""
-
-    results: list[UltralyticsDetectionItem] = []
-    shape: list[int] = []
-    speed: UltralyticsSpeed | None = None
-
-
-class UltralyticsApiResponse(BaseModel):
-    """Complete Ultralytics API response."""
-
-    images: list[UltralyticsImageResult] = []
 
 
 # ============================================================================

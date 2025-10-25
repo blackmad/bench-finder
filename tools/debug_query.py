@@ -17,13 +17,13 @@ def debug_database():
             print("\n1. Checking table existence:")
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [row[0] for row in cursor.fetchall()]
-            for table in ["benches", "images", "detections", "ultralytics_detections"]:
+            for table in ["benches", "images", "detections"]:
                 exists = table in tables
                 print(f"   {table}: {'✓' if exists else '✗'}")
 
             # Check basic counts
             print("\n2. Basic table counts:")
-            for table in ["benches", "images", "detections", "ultralytics_detections"]:
+            for table in ["benches", "images", "detections"]:
                 if table in tables:
                     try:
                         count = conn.execute(
@@ -55,14 +55,15 @@ def debug_database():
                 print(f"   Roboflow detections: Error - {e}")
 
             # Ultralytics detections (if table exists)
-            if "ultralytics_detections" in tables:
+            if "detections" in tables:
                 try:
                     cursor = conn.execute("""
                         SELECT COUNT(*) as total,
                                COUNT(CASE WHEN has_bench = 1 THEN 1 END) as with_benches,
                                MAX(max_confidence) as max_conf,
                                MIN(max_confidence) as min_conf
-                        FROM ultralytics_detections
+                        FROM detections
+                        WHERE source = 'ultralytics'
                     """)
                     row = cursor.fetchone()
                     if row:
@@ -118,8 +119,8 @@ def debug_database():
                     SELECT COUNT(DISTINCT b.id)
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN detections d ON i.id = d.image_id
-                    LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id
+                    LEFT JOIN detections d ON i.id = d.image_id AND d.source = 'roboflow'
+                    LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
                     WHERE (d.has_bench = 1 AND d.max_confidence >= 0.8) OR
                           (ud.has_bench = 1 AND ud.max_confidence >= 0.8)
                 """)
@@ -131,18 +132,18 @@ def debug_database():
                     SELECT COUNT(DISTINCT b.id)
                     FROM benches b
                     JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                    LEFT JOIN detections d ON i.id = d.image_id
+                    LEFT JOIN detections d ON i.id = d.image_id AND d.source = 'roboflow'
                     WHERE d.has_bench = 1 AND d.max_confidence >= 0.8
                 """)
                 count = cursor.fetchone()[0]
                 print(f"   New query (Roboflow only): {count} results")
 
-                if "ultralytics_detections" in tables:
+                if "detections" in tables:
                     cursor = conn.execute("""
                         SELECT COUNT(DISTINCT b.id)
                         FROM benches b
                         JOIN images i ON b.id = i.bench_id AND i.capture_success = 1
-                        LEFT JOIN ultralytics_detections ud ON i.id = ud.image_id
+                        LEFT JOIN detections ud ON i.id = ud.image_id AND ud.source = 'ultralytics'
                         WHERE ud.has_bench = 1 AND ud.max_confidence >= 0.8
                     """)
                     count = cursor.fetchone()[0]

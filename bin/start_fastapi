@@ -89,6 +89,11 @@ def main():
             reload=config["reload"],
             log_level=config["log_level"],
             access_log=True,
+            reload_dirs=["api", "bench_finder"] if config["reload"] else None,
+            reload_includes=["*.py"] if config["reload"] else None,
+            reload_excludes=["*.pyc", "__pycache__", "*.log"]
+            if config["reload"]
+            else None,
         )
 
     else:  # production mode

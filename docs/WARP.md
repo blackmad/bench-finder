@@ -76,8 +76,7 @@ SQLAlchemy ORM with five main tables:
 - **searches**: Query metadata and status tracking
 - **benches**: Bench locations from OSM or Mapillary sources
 - **images**: Street View image capture results with headings
-- **detections**: Roboflow detection results with confidence scores
-- **ultralytics_detections**: Segmentation data with full response metadata
+- **detections**: Unified detection results with source field (roboflow, ultralytics, mapillary)
 
 ### Web Interface (web_server.py)
 Flask web server with API endpoints:
@@ -137,7 +136,7 @@ Required API keys for external services:
 When working with detection logic:
 - Check `self.detection_backend` to determine active backend
 - Roboflow results stored in `detections` table
-- Ultralytics results stored in `ultralytics_detections` table with full segmentation data
+- Ultralytics results stored in `detections` table with `source = 'ultralytics'`
 - Backend selection affects database storage, API calls, and result processing
 
 ### Multi-Source Bench Data

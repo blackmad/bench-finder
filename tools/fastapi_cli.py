@@ -20,9 +20,79 @@ import sys
 from typing import Any
 
 import requests
+from PIL import Image as PILImage
 from term_image.image import AutoImage
 
-from bench_finder.display import create_combined_image_display
+from bench_finder.display import create_combined_image_display, render_detections
+from bench_finder.models.enums import DetectionSource
+from bench_finder.models.unified_models import (
+    BoundingBox,
+    DetectionItem,
+    DetectionResult,
+    Polygon,
+)
+
+
+def convert_api_response_to_detection_result(
+    image_path: str, detection_data: dict[str, Any]
+) -> DetectionResult:
+    """Convert API response detection data to DetectionResult format."""
+    detection_items = detection_data.get("detection_items", [])
+    detection_type = detection_data.get("detection_type", "unknown")
+    confidence_score = detection_data.get("confidence_score", 0.0)
+    source_str = detection_data.get("source", "unknown")
+
+    # Convert source string to enum
+    try:
+        source = DetectionSource(source_str.lower())
+    except ValueError:
+        source = DetectionSource.ROBOFLOW  # Default fallback
+
+    # Convert detection items
+    converted_items = []
+    for item in detection_items:
+        # Convert bbox
+        bbox_data = item.get("bbox", {})
+        bbox = BoundingBox(
+            x1=bbox_data.get("x1", 0.0),
+            y1=bbox_data.get("y1", 0.0),
+            x2=bbox_data.get("x2", 0.0),
+            y2=bbox_data.get("y2", 0.0),
+        )
+
+        # Convert polygon if available
+        polygon = None
+        polygon_data = item.get("polygon", {})
+        if polygon_data and polygon_data.get("coordinates"):
+            polygon = Polygon(coordinates=polygon_data["coordinates"])
+
+        detection_item = DetectionItem(
+            detection_id=0,  # Not used for display purposes
+            image_id=None,  # Not used for display purposes
+            confidence=item.get("confidence", 0.0),
+            bbox=bbox,
+            class_name=item.get("class_name", "bench"),
+            polygon=polygon,
+        )
+        converted_items.append(detection_item)
+
+    # Count bench detections
+    bench_count = sum(
+        1 for item in converted_items if item.class_name.lower() == "bench"
+    )
+
+    return DetectionResult(
+        image_path=image_path,
+        success=True,
+        has_bench=bench_count > 0,
+        bench_count=bench_count,
+        max_confidence=confidence_score,
+        detections=converted_items,
+        backend_name=source_str,
+        model_id=detection_type,
+        confidence_threshold=0.5,  # Default threshold
+        source=source,
+    )
 
 
 class FastAPIClient:
@@ -67,12 +137,16 @@ class FastAPIClient:
         return self._make_request("GET", "/api/info")
 
     def get_random_bench(
-        self, min_confidence: float = 0.8, mode: str = "benches"
+        self,
+        min_confidence: float = 0.8,
+        mode: str = "benches",
+        include_detection_data: bool = False,
     ) -> dict[str, Any]:
         """Get a random bench."""
         params = {
             "min_confidence": min_confidence,
             "mode": mode,
+            "include_detection_data": include_detection_data,
         }
         return self._make_request("GET", "/api/benches/random", params=params)
 
@@ -86,6 +160,7 @@ class FastAPIClient:
         sort_by: str = "distance",
         mode: str = "benches",
         clustered: bool = True,
+        include_detection_data: bool = False,
     ) -> dict[str, Any]:
         """Get list of benches."""
         params = {
@@ -97,6 +172,7 @@ class FastAPIClient:
             "sort_by": sort_by,
             "mode": mode,
             "clustered": clustered,
+            "include_detection_data": include_detection_data,
         }
         return self._make_request("GET", "/api/benches", params=params)
 
@@ -112,6 +188,7 @@ class FastAPIClient:
         sort_by: str = "distance",
         limit: int = 200,
         clustered: bool = True,
+        include_detection_data: bool = False,
     ) -> dict[str, Any]:
         """Get benches in bounding box."""
         params = {
@@ -124,6 +201,7 @@ class FastAPIClient:
             "mode": mode,
             "limit": limit,
             "clustered": clustered,
+            "include_detection_data": include_detection_data,
         }
         if source:
             params["source"] = source
@@ -136,6 +214,23 @@ class FastAPIClient:
     def get_image_segmentation(self, image_id: int) -> dict[str, Any]:
         """Get detection visualization data for an image."""
         return self._make_request("GET", f"/api/image/{image_id}/segmentation")
+
+    def get_bench_by_id(
+        self,
+        bench_id: int,
+        min_confidence: float = 0.8,
+        include_detection_data: bool = False,
+    ) -> dict[str, Any]:
+        """Get a specific bench by ID."""
+        params = {
+            "min_confidence": min_confidence,
+            "include_detection_data": include_detection_data,
+        }
+        return self._make_request("GET", f"/api/bench/{bench_id}", params=params)
+
+    def get_bench_detections(self, bench_id: int) -> dict[str, Any]:
+        """Get comprehensive detection data for a specific bench."""
+        return self._make_request("GET", f"/api/bench/{bench_id}/detections")
 
     def get_searches(self) -> dict[str, Any]:
         """Get list of completed searches."""
@@ -180,7 +275,22 @@ class FastAPIClient:
         return c * r
 
 
-def format_bench_info(bench: dict[str, Any], show_images: bool = False) -> str:
+def render_detection_annotations(
+    image_path: str, detection_data: dict[str, Any], model_name: str = "API"
+) -> PILImage.Image:
+    """Draw bounding boxes and polygons on the image based on API detection data."""
+    # Convert API response to DetectionResult format
+    detection_result = convert_api_response_to_detection_result(
+        image_path, detection_data
+    )
+
+    # Use the unified render_detections function from display.py
+    return render_detections(image_path, detection_result, model_name)
+
+
+def format_bench_info(
+    bench: dict[str, Any], show_images: bool = False, show_detection_data: bool = False
+) -> str:
     """Format bench information for display."""
     lines = []
 
@@ -214,6 +324,26 @@ def format_bench_info(bench: dict[str, Any], show_images: bool = False) -> str:
             lines.append(f"     • {filename}")  # noqa: PERF401
         if len(bench["image_filenames"]) > 5:
             lines.append(f"     ... and {len(bench['image_filenames']) - 5} more")
+
+    # Detection data
+    if show_detection_data and bench.get("detection_items"):
+        lines.append(f"🔍 Detection Items: {len(bench['detection_items'])}")
+        for i, item in enumerate(bench["detection_items"][:3]):  # Show first 3
+            lines.append(f"   Item {i+1}:")
+            lines.append(f"     Confidence: {item['confidence']:.3f}")
+            lines.append(f"     Class: {item['class_name']}")
+            if item.get("bbox"):
+                bbox = item["bbox"]
+                lines.append(
+                    f"     Bbox: ({bbox['x1']:.1f}, {bbox['y1']:.1f}) to ({bbox['x2']:.1f}, {bbox['y2']:.1f})"
+                )
+            if item.get("polygon"):
+                polygon = item["polygon"]
+                lines.append(f"     Polygon: {len(polygon['coordinates'])} points")
+        if len(bench["detection_items"]) > 3:
+            lines.append(
+                f"     ... and {len(bench['detection_items']) - 3} more detection items"
+            )
 
     # Clustering info
     if bench.get("cluster_id"):
@@ -271,6 +401,19 @@ def display_bench_images(
                     print(f"     Confidence: {seg_data['confidence_score']:.3f}")
                     print(f"     Segmentation: {seg_data['segmentation_available']}")
                     print(f"     Bounding Box: {seg_data['bounding_box_available']}")
+
+                    # Render annotations on the image if we have detection data
+                    if seg_data.get("detection_items") and i < len(image_paths):
+                        image_path = image_paths[i]["filepath"]
+                        try:
+                            annotated_image = render_detection_annotations(
+                                image_path, seg_data, f"Image {i+1}"
+                            )
+                            print(f"\n📸 Annotated image {i+1}:")
+                            print(AutoImage(annotated_image))
+                        except Exception as render_error:
+                            print(f"     Error rendering annotations: {render_error}")
+
                 except Exception as e:
                     print(f"     Error getting detection data: {e}")
 
@@ -278,6 +421,49 @@ def display_bench_images(
     for img_data in image_paths:
         with contextlib.suppress(builtins.BaseException):
             os.remove(img_data["filepath"])
+
+
+def display_bench_detections(client: FastAPIClient, bench_id: int):
+    """Display comprehensive detection data for a bench."""
+    try:
+        print(f"\n🔍 Getting detection data for bench {bench_id}...")
+        detection_data = client.get_bench_detections(bench_id)
+
+        print("\n📊 Detection Summary:")
+        print(f"   Bench ID: {detection_data['bench_id']}")
+        print(
+            f"   Location: {detection_data['bench_lat']:.6f}, {detection_data['bench_lng']:.6f}"
+        )
+        print(f"   Total Images: {detection_data['total_images']}")
+        print(f"   Images with Detections: {detection_data['images_with_detections']}")
+        print(f"   Best Confidence: {detection_data['best_confidence']:.3f}")
+        print(f"   Detection Sources: {', '.join(detection_data['detection_sources'])}")
+
+        print("\n🖼️  Images and Detections:")
+        for i, image in enumerate(detection_data["images"]):
+            print(f"\n   Image {i+1} (ID: {image['image_id']}):")
+            print(f"     Filename: {image['filename']}")
+            print(f"     Heading: {image['heading']}°")
+            print(f"     Capture Success: {image['capture_success']}")
+            print(f"     Detection Items: {len(image['detection_items'])}")
+
+            for j, item in enumerate(image["detection_items"]):
+                print(f"       Item {j+1}:")
+                print(f"         Confidence: {item['confidence']:.3f}")
+                print(f"         Class: {item['class_name']}")
+                if item.get("bbox"):
+                    bbox = item["bbox"]
+                    print(
+                        f"         Bbox: ({bbox['x1']:.1f}, {bbox['y1']:.1f}) to ({bbox['x2']:.1f}, {bbox['y2']:.1f})"
+                    )
+                    print(
+                        f"         Size: {bbox['x2'] - bbox['x1']:.1f} x {bbox['y2'] - bbox['y1']:.1f}"
+                    )
+                if item.get("polygon"):
+                    polygon = item["polygon"]
+                    print(f"         Polygon: {len(polygon['coordinates'])} points")
+    except Exception as e:
+        print(f"❌ Error getting detection data: {e}")
 
 
 def cmd_health(client: FastAPIClient, args):
@@ -318,11 +504,16 @@ def cmd_random(client: FastAPIClient, args):
     print(
         f"🎲 Getting random bench (min_confidence={args.min_confidence}, mode={args.mode})..."
     )
-    response = client.get_random_bench(args.min_confidence, args.mode)
-    bench = response["bench"]
+    bench = client.get_random_bench(
+        args.min_confidence, args.mode, args.include_detection_data
+    )
 
     print("\n" + "=" * 60)
-    print(format_bench_info(bench, show_images=True))
+    print(
+        format_bench_info(
+            bench, show_images=True, show_detection_data=args.include_detection_data
+        )
+    )
     print("=" * 60)
 
     if args.show_images:
@@ -343,6 +534,7 @@ def cmd_closest(client: FastAPIClient, args):
         sort_by="distance",
         mode=args.mode,
         clustered=args.clustered,
+        include_detection_data=args.include_detection_data,
     )
 
     if "benches" in response:
@@ -363,7 +555,9 @@ def cmd_closest(client: FastAPIClient, args):
     print("=" * 80)
 
     for i, bench in enumerate(benches[: args.limit]):
-        print(f"\n{i+1}. {format_bench_info(bench)}")
+        print(
+            f"\n{i+1}. {format_bench_info(bench, show_detection_data=args.include_detection_data)}"
+        )
         if args.show_images and i < 2:  # Show images for first 2 benches
             display_bench_images(client, bench, show_annotations=args.show_annotations)
 
@@ -381,6 +575,7 @@ def cmd_list(client: FastAPIClient, args):
         sort_by=args.sort_by,
         mode=args.mode,
         clustered=args.clustered,
+        include_detection_data=args.include_detection_data,
     )
 
     if "benches" in response:
@@ -402,7 +597,9 @@ def cmd_list(client: FastAPIClient, args):
     print("=" * 80)
 
     for i, bench in enumerate(benches):
-        print(f"\n{i+1}. {format_bench_info(bench, show_images=args.show_images)}")
+        print(
+            f"\n{i+1}. {format_bench_info(bench, show_images=args.show_images, show_detection_data=args.include_detection_data)}"
+        )
         if args.show_images and i < 2:  # Show images for first 2 benches
             display_bench_images(client, bench, show_annotations=args.show_annotations)
 
@@ -424,6 +621,7 @@ def cmd_bbox(client: FastAPIClient, args):
         sort_by=args.sort_by,
         limit=args.limit,
         clustered=args.clustered,
+        include_detection_data=args.include_detection_data,
     )
 
     if "benches" in response:
@@ -442,7 +640,9 @@ def cmd_bbox(client: FastAPIClient, args):
     print("=" * 80)
 
     for i, bench in enumerate(benches):
-        print(f"\n{i+1}. {format_bench_info(bench, show_images=args.show_images)}")
+        print(
+            f"\n{i+1}. {format_bench_info(bench, show_images=args.show_images, show_detection_data=args.include_detection_data)}"
+        )
         if args.show_images and i < 2:  # Show images for first 2 benches
             display_bench_images(client, bench, show_annotations=args.show_annotations)
 
@@ -469,6 +669,30 @@ def cmd_searches(client: FastAPIClient, args):
         print(f"   Created: {search['created_at']}")
 
 
+def cmd_bench(client: FastAPIClient, args):
+    """Get a specific bench by ID."""
+    print(f"🪑 Getting bench {args.bench_id}...")
+    bench = client.get_bench_by_id(
+        args.bench_id, args.min_confidence, args.include_detection_data
+    )
+
+    print("\n" + "=" * 60)
+    print(
+        format_bench_info(
+            bench, show_images=True, show_detection_data=args.include_detection_data
+        )
+    )
+    print("=" * 60)
+
+    if args.show_images:
+        display_bench_images(client, bench, show_annotations=args.show_annotations)
+
+
+def cmd_detections(client: FastAPIClient, args):
+    """Get detection data for a specific bench."""
+    display_bench_detections(client, args.bench_id)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -482,14 +706,23 @@ Examples:
   # Get a random bench with images
   python tools/fastapi_cli.py random --show-images
 
+  # Get a random bench with detection data
+  python tools/fastapi_cli.py random --include-detection-data
+
   # Find closest benches to Amsterdam
   python tools/fastapi_cli.py closest 52.3676 4.9041 --limit 5
 
-  # List benches with high confidence
-  python tools/fastapi_cli.py list --min-confidence 0.9 --sort-by confidence
+  # List benches with high confidence and detection data
+  python tools/fastapi_cli.py list --min-confidence 0.9 --sort-by confidence --include-detection-data
 
   # Search bounding box around Amsterdam
   python tools/fastapi_cli.py bbox 52.4 52.3 5.0 4.8 --limit 10
+
+  # Get a specific bench by ID
+  python tools/fastapi_cli.py bench 123 --show-images
+
+  # Get detection data for a specific bench
+  python tools/fastapi_cli.py detections 123
 
   # Show server configuration
   python tools/fastapi_cli.py config
@@ -530,6 +763,11 @@ Examples:
     random_parser.add_argument(
         "--show-annotations", action="store_true", help="Show detection annotations"
     )
+    random_parser.add_argument(
+        "--include-detection-data",
+        action="store_true",
+        help="Include detection items (bbox, polygon) in response",
+    )
 
     # Closest command
     closest_parser = subparsers.add_parser(
@@ -557,6 +795,11 @@ Examples:
     )
     closest_parser.add_argument(
         "--show-annotations", action="store_true", help="Show detection annotations"
+    )
+    closest_parser.add_argument(
+        "--include-detection-data",
+        action="store_true",
+        help="Include detection items (bbox, polygon) in response",
     )
 
     # List command
@@ -601,6 +844,11 @@ Examples:
     list_parser.add_argument(
         "--show-annotations", action="store_true", help="Show detection annotations"
     )
+    list_parser.add_argument(
+        "--include-detection-data",
+        action="store_true",
+        help="Include detection items (bbox, polygon) in response",
+    )
 
     # Bbox command
     bbox_parser = subparsers.add_parser("bbox", help="Search benches in bounding box")
@@ -638,9 +886,40 @@ Examples:
     bbox_parser.add_argument(
         "--show-annotations", action="store_true", help="Show detection annotations"
     )
+    bbox_parser.add_argument(
+        "--include-detection-data",
+        action="store_true",
+        help="Include detection items (bbox, polygon) in response",
+    )
 
     # Searches command
     subparsers.add_parser("searches", help="List completed searches")
+
+    # Bench command
+    bench_parser = subparsers.add_parser("bench", help="Get a specific bench by ID")
+    bench_parser.add_argument("bench_id", type=int, help="Bench ID to retrieve")
+    bench_parser.add_argument(
+        "--min-confidence", type=float, default=0.8, help="Minimum confidence (0.0-1.0)"
+    )
+    bench_parser.add_argument(
+        "--show-images", action="store_true", help="Display bench images"
+    )
+    bench_parser.add_argument(
+        "--show-annotations", action="store_true", help="Show detection annotations"
+    )
+    bench_parser.add_argument(
+        "--include-detection-data",
+        action="store_true",
+        help="Include detection items (bbox, polygon) in response",
+    )
+
+    # Detections command
+    detections_parser = subparsers.add_parser(
+        "detections", help="Get detection data for a specific bench"
+    )
+    detections_parser.add_argument(
+        "bench_id", type=int, help="Bench ID to get detection data for"
+    )
 
     args = parser.parse_args()
 
@@ -661,6 +940,8 @@ Examples:
         "list": cmd_list,
         "bbox": cmd_bbox,
         "searches": cmd_searches,
+        "bench": cmd_bench,
+        "detections": cmd_detections,
     }
 
     if args.command in commands:

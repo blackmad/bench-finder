@@ -11,6 +11,7 @@ class DetectionSource(StrEnum):
     ULTRALYTICS = "ultralytics"
     MAPILLARY = "mapillary"
     MULTI_MODEL = "multi_model"
+    NONE = "none"
 
 
 class BenchCandidateStatus(StrEnum):
