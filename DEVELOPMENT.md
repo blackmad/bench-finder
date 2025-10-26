@@ -9,34 +9,31 @@ The Bench Finder FastAPI server supports automatic reloading when Python files c
 Make sure you have the required dependencies installed:
 
 ```bash
-# Install dependencies using pip
-pip install -r requirements.txt.backup
-
-# Or using uv (recommended)
-uv sync
+# Install dependencies using uv (recommended)
+uv sync --dev
 
 # Or install uvicorn directly
-pip install uvicorn[standard] fastapi
+uv add uvicorn[standard] fastapi
 ```
 
 ### Quick Start
 
-#### Option 1: Simple Development Server
+#### Option 1: Using Make (Recommended)
 ```bash
 # From the project root directory
-python dev_server.py
+make run-server
 ```
 
-#### Option 2: Using the Startup Script
+#### Option 2: Direct uvicorn
 ```bash
 # From the project root directory
-python bin/start_fastapi --mode dev --reload
+uv run uvicorn api.fastapi_server:app --reload --host 0.0.0.0 --port 8866
 ```
 
-#### Option 3: Direct uvicorn
+#### Option 3: Using the startup script
 ```bash
 # From the project root directory
-python api/fastapi_server.py
+./bin/start_fastapi dev --reload
 ```
 
 ### Auto-Reload Configuration

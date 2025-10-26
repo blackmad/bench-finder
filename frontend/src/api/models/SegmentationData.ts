@@ -2,41 +2,21 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ApiDetectionItem } from './ApiDetectionItem';
+import type { DetectionSource } from './DetectionSource';
+/**
+ * Schema for detection visualization data response (both segmentation and bounding boxes).
+ */
 export type SegmentationData = {
-    /**
-     * Image filename
-     */
     filename: string;
-    /**
-     * Type of detection data available
-     */
     detection_type: string;
     /**
-     * Segmentation detection data
+     * List of detection items with bbox and polygon data
      */
-    bench_detections?: Array<Record<string, any>>;
-    /**
-     * Image dimensions [height, width]
-     */
+    detection_items?: Array<ApiDetectionItem>;
     image_shape?: (Array<number> | null);
-    /**
-     * Whether segmentation data is available
-     */
     segmentation_available?: boolean;
-    /**
-     * Roboflow detection data
-     */
-    roboflow_detections?: Array<Record<string, any>>;
-    /**
-     * Whether bounding box data is available
-     */
     bounding_box_available?: boolean;
-    /**
-     * Detection confidence score
-     */
     confidence_score?: number;
-    /**
-     * Detection data source
-     */
-    source?: string;
+    source?: DetectionSource;
 };

@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export enum SourceEnum {
-    OSM = 'osm',
-    MAPILLARY = 'mapillary',
+export enum DataSource {
+    OSM = 'OSM',
+    MAPILLARY = 'MAPILLARY',
 }

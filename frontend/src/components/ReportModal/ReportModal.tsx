@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { X, AlertTriangle, Camera, MapPin, Send, Check } from 'lucide-react'
+import { X, AlertTriangle, MapPin, Send, Check } from 'lucide-react'
 import styled from 'styled-components'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { WebBenchData } from '../../api'
-import { getCurrentLocation, captureImage, type ImageCaptureResult } from '../../utils/imageCapture'
-import { BenchFinderApi } from '../../api'
+import { BenchReportType } from '../../api'
+import { getCurrentLocation } from '../../utils/imageCapture'
+import { benchApi } from '../../services/api'
 
 const Overlay = styled(motion.div)`
   position: fixed;
@@ -168,28 +169,6 @@ const ImagePreview = styled.div`
   }
 `
 
-const CaptureButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[2]};
-  padding: ${({ theme }) => theme.spacing[3]} ${({ theme }) => theme.spacing[4]};
-  background: ${({ theme }) => theme.colors.gray100};
-  border: 1px solid ${({ theme }) => theme.colors.borderLight};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-size: ${({ theme }) => theme.typography.sizes.sm};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
-
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.gray200};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`
 
 const Footer = styled.div`
   display: flex;
@@ -273,11 +252,9 @@ interface ReportModalProps {
 }
 
 const REPORT_TYPES = [
-  { value: 'bad_detection', label: 'Bad Detection - No bench here' },
-  { value: 'incorrect_location', label: 'Incorrect Location' },
-  { value: 'poor_image_quality', label: 'Poor Image Quality' },
-  { value: 'duplicate', label: 'Duplicate Entry' },
-  { value: 'other', label: 'Other Issue' },
+  { value: BenchReportType.BAD_DETECTION, label: 'Bad Detection - No bench here' },
+  { value: BenchReportType.INCORRECT_LOCATION, label: 'Incorrect Location' },
+  { value: BenchReportType.POOR_IMAGE_QUALITY, label: 'Poor Image Quality' },
 ]
 
 export const ReportModal: React.FC<ReportModalProps> = ({
@@ -287,7 +264,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [reportType, setReportType] = useState('bad_detection')
+  const [reportType, setReportType] = useState(BenchReportType.BAD_DETECTION)
   const [description, setDescription] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -311,19 +288,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         }
       }
 
-      const api = new BenchFinderApi({
-        BASE: window.location.origin,
-      })
-
-      await api.reporting.reportBadBench({
+      await benchApi.reportBadBench({
         benchId: bench.id,
-        requestBody: {
-          report_type: reportType,
-          description: description || undefined,
-          image_id: imageId || undefined,
-          user_location_lat: location?.lat,
-          user_location_lng: location?.lng,
-        },
+        reportType: reportType,
+        description: description || undefined,
+        imageId: imageId || undefined,
+        userLocationLat: location?.lat,
+        userLocationLng: location?.lng,
       })
 
       setIsSuccess(true)
@@ -332,7 +303,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       setTimeout(() => {
         onClose()
         setIsSuccess(false)
-        setReportType('bad_detection')
+        setReportType(BenchReportType.BAD_DETECTION)
         setDescription('')
         setUserLocation(null)
       }, 3000)
@@ -400,7 +371,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   <Select
                     id="report-type"
                     value={reportType}
-                    onChange={(e) => setReportType(e.target.value)}
+                    onChange={(e) => setReportType(e.target.value as BenchReportType)}
                   >
                     {REPORT_TYPES.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -412,7 +383,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
                 <FormGroup>
                   <Label htmlFor="description">
-                    Additional Details {reportType === 'other' && '(required)'}
+                    Additional Details
                   </Label>
                   <Textarea
                     id="description"
@@ -440,7 +411,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 <Button
                   $variant="primary"
                   onClick={handleSubmit}
-                  disabled={isSubmitting || (reportType === 'other' && !description)}
+                  disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Submitting...' : (
                     <>

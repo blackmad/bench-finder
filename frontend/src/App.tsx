@@ -7,7 +7,8 @@ import {
 } from "react-router-dom"
 import { ThemeProvider } from "styled-components"
 import ApiExample from "./components/ApiExample"
-import { AppProvider } from "./contexts/AppContext"
+import ErrorToast from "./components/ErrorToast/ErrorToast"
+import { AppProvider, useApp } from "./contexts/AppContext"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
 import ReportMissingBenchPage from "./pages/ReportMissingBenchPage"
@@ -24,21 +25,35 @@ const queryClient = new QueryClient({
   },
 })
 
+// Component to handle error display
+const AppWithErrorHandling = () => {
+  const { state, clearError } = useApp()
+
+  return (
+    <>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Navigate to="/cards" replace />} />
+          <Route path="/cards" element={<CardsPage />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/report-missing-bench" element={<ReportMissingBenchPage />} />
+          <Route path="/api-demo" element={<ApiExample />} />
+        </Routes>
+      </Router>
+      {state.error && (
+        <ErrorToast error={state.error} onClose={clearError} />
+      )}
+    </>
+  )
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <GlobalStyles />
         <AppProvider>
-          <Router>
-            <Routes>
-              <Route path="/" element={<Navigate to="/cards" replace />} />
-              <Route path="/cards" element={<CardsPage />} />
-              <Route path="/map" element={<MapPage />} />
-              <Route path="/report-missing-bench" element={<ReportMissingBenchPage />} />
-              <Route path="/api-demo" element={<ApiExample />} />
-            </Routes>
-          </Router>
+          <AppWithErrorHandling />
         </AppProvider>
       </ThemeProvider>
     </QueryClientProvider>

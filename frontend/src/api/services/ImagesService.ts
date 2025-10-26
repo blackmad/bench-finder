@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { BenchDetectionData } from '../models/BenchDetectionData';
 import type { ImageListResponse } from '../models/ImageListResponse';
 import type { SegmentationData } from '../models/SegmentationData';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -29,13 +30,15 @@ export class ImagesService {
                 'filename': filename,
             },
             errors: {
+                404: `Image not found`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
     /**
      * Get Detection Visualization Data
-     * Get detection visualization data for a specific image
+     * Get detection visualization data for a specific image (segmentation and bounding boxes)
      * @returns SegmentationData Successful Response
      * @throws ApiError
      */
@@ -54,7 +57,9 @@ export class ImagesService {
                 'image_id': imageId,
             },
             errors: {
+                404: `Image or detection data not found`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
@@ -79,7 +84,36 @@ export class ImagesService {
                 'bench_id': benchId,
             },
             errors: {
+                404: `Bench not found`,
                 422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get Bench Detection Data
+     * Get comprehensive detection data for a specific bench including all images and detection items
+     * @returns BenchDetectionData Successful Response
+     * @throws ApiError
+     */
+    public getBenchDetectionsApiBenchBenchIdDetectionsGet({
+        benchId,
+    }: {
+        /**
+         * Bench ID
+         */
+        benchId: number,
+    }): CancelablePromise<BenchDetectionData> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/bench/{bench_id}/detections',
+            path: {
+                'bench_id': benchId,
+            },
+            errors: {
+                404: `Bench not found`,
+                422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }

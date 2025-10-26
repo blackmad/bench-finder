@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import styled from "styled-components"
 import { useApp } from "../../contexts/AppContext"
 import { buildUrlWithFilters } from "../../utils/urlParams"
+import { DataSource, BenchMode } from "../../api"
 
 const HeaderContainer = styled.header`
   background: ${({ theme }) => theme.colors.background};
@@ -77,7 +78,7 @@ const ViewButton = styled.button<ViewButtonProps>`
   &:hover {
     color: ${({ theme }) => theme.colors.textPrimary};
     background: ${({ $active, theme }) =>
-      $active ? theme.colors.background : theme.colors.gray200};
+    $active ? theme.colors.background : theme.colors.gray200};
   }
 
   svg {
@@ -174,13 +175,13 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
 
   &:hover {
     background: ${({ $variant, theme }) =>
-      $variant === "primary" ? theme.colors.primaryDark : theme.colors.gray50};
+    $variant === "primary" ? theme.colors.primaryDark : theme.colors.gray50};
     border-color: ${({ $variant, theme }) =>
-      $variant === "primary" ? theme.colors.primaryDark : theme.colors.gray300};
+    $variant === "primary" ? theme.colors.primaryDark : theme.colors.gray300};
     box-shadow: ${({ $variant, theme }) =>
-      $variant === "primary"
-        ? `0 2px 4px ${theme.colors.primary}40`
-        : theme.shadows.sm};
+    $variant === "primary"
+      ? `0 2px 4px ${theme.colors.primary}40`
+      : theme.shadows.sm};
   }
 
   &:active {
@@ -209,7 +210,7 @@ interface DebugButtonProps {
   $active: boolean
 }
 
-const DebugButton = styled(ActionButton)<DebugButtonProps>`
+const DebugButton = styled(ActionButton) <DebugButtonProps>`
   background: ${({ $active, theme }) =>
     $active ? theme.colors.warning : theme.colors.background};
   color: ${({ $active, theme }) =>
@@ -219,9 +220,9 @@ const DebugButton = styled(ActionButton)<DebugButtonProps>`
 
   &:hover {
     background: ${({ $active, theme }) =>
-      $active ? theme.colors.warningLight : theme.colors.gray50};
+    $active ? theme.colors.warningLight : theme.colors.gray50};
     border-color: ${({ $active, theme }) =>
-      $active ? theme.colors.warningLight : theme.colors.gray300};
+    $active ? theme.colors.warningLight : theme.colors.gray300};
   }
 `
 
@@ -461,12 +462,37 @@ export const Header: React.FC = () => {
                 <Select
                   value={state.filters.sourceFilter}
                   onChange={(e) =>
-                    handleFilterChange("sourceFilter", e.target.value)
+                    handleFilterChange("sourceFilter", e.target.value === "all" ? "all" : e.target.value as DataSource)
                   }
                 >
                   <option value="all">All Sources</option>
-                  <option value="osm">OSM + StreetView</option>
-                  <option value="mapillary">Mapillary</option>
+                  <option value={DataSource.OSM}>OSM + StreetView</option>
+                  <option value={DataSource.MAPILLARY}>Mapillary</option>
+                </Select>
+              </ControlGroup>
+              <ControlGroup>
+                <ControlLabel>Bench Mode</ControlLabel>
+                <Select
+                  value={state.filters.mode}
+                  onChange={(e) =>
+                    handleFilterChange("mode", e.target.value as BenchMode)
+                  }
+                >
+                  <option value={BenchMode.BENCHES}>🪑 Detected Benches</option>
+                  <option value={BenchMode.NO_BENCH}>❌ No Bench Found</option>
+                  <option value={BenchMode.BOTH}>🔄 Both Types</option>
+                </Select>
+              </ControlGroup>
+              <ControlGroup>
+                <ControlLabel>Detection Data</ControlLabel>
+                <Select
+                  value={state.filters.includeDetectionData ? "yes" : "no"}
+                  onChange={(e) =>
+                    handleFilterChange("includeDetectionData", e.target.value === "yes")
+                  }
+                >
+                  <option value="no">Basic Info Only</option>
+                  <option value="yes">Include Detection Data</option>
                 </Select>
               </ControlGroup>
               <ControlGroup>

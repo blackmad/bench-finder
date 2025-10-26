@@ -192,5 +192,5 @@ export function supportsCameraCapture(): boolean {
   input.accept = 'image/*';
 
   // Check if capture attribute is supported
-  return 'capture' in input && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  return 'capture' in input && !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
 }

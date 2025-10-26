@@ -4,17 +4,18 @@
 /* eslint-disable */
 import type { BboxBenchResponse } from '../models/BboxBenchResponse';
 import type { BenchListResponse } from '../models/BenchListResponse';
-import type { RandomBenchResponse } from '../models/RandomBenchResponse';
-import type { SortByEnum } from '../models/SortByEnum';
-import type { SourceEnum } from '../models/SourceEnum';
+import { BenchMode } from '../models/BenchMode';
+import type { ClusteredBenchListResponse } from '../models/ClusteredBenchListResponse';
+import type { DataSource } from '../models/DataSource';
+import type { WebBenchData } from '../models/WebBenchData';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class BenchesService {
     constructor(public readonly httpRequest: BaseHttpRequest) {}
     /**
      * List Benches
-     * Get paginated list of benches with high confidence detections
-     * @returns BenchListResponse Successful Response
+     * Get paginated list of benches with high confidence detections, sorted by various criteria
+     * @returns any Successful Response
      * @throws ApiError
      */
     public getBenchesApiBenchesGet({
@@ -24,14 +25,16 @@ export class BenchesService {
         startLat = 52.3613577,
         startLng = 4.8666322,
         sortBy = 'distance',
-        source,
+        mode = BenchMode.BENCHES,
+        clustered = true,
+        includeDetectionData = false,
     }: {
         /**
          * Page number (0-based)
          */
         page?: number,
         /**
-         * Items per page
+         * Items per page (max 50)
          */
         pageSize?: number,
         /**
@@ -49,12 +52,20 @@ export class BenchesService {
         /**
          * Sort criteria
          */
-        sortBy?: SortByEnum,
+        sortBy?: string,
         /**
-         * Filter by data source
+         * Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'
          */
-        source?: (SourceEnum | null),
-    }): CancelablePromise<BenchListResponse> {
+        mode?: BenchMode,
+        /**
+         * Return clustered results when available (default: True)
+         */
+        clustered?: boolean,
+        /**
+         * Include detection items (bbox, polygon) in response (default: False)
+         */
+        includeDetectionData?: boolean,
+    }): CancelablePromise<(BenchListResponse | ClusteredBenchListResponse)> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/benches',
@@ -65,111 +76,95 @@ export class BenchesService {
                 'start_lat': startLat,
                 'start_lng': startLng,
                 'sort_by': sortBy,
-                'source': source,
+                'mode': mode,
+                'clustered': clustered,
+                'include_detection_data': includeDetectionData,
             },
             errors: {
+                400: `Invalid query parameters`,
                 422: `Validation Error`,
-            },
-        });
-    }
-    /**
-     * List Benches by Source
-     * Get benches filtered by specific data source
-     * @returns BenchListResponse Successful Response
-     * @throws ApiError
-     */
-    public getBenchesBySourceApiBenchesSourceSourceGet({
-        source,
-        page,
-        pageSize = 20,
-        minConfidence = 0.8,
-        startLat = 52.3613577,
-        startLng = 4.8666322,
-        sortBy = 'distance',
-    }: {
-        /**
-         * Data source filter
-         */
-        source: SourceEnum,
-        /**
-         * Page number (0-based)
-         */
-        page?: number,
-        /**
-         * Items per page
-         */
-        pageSize?: number,
-        /**
-         * Minimum detection confidence
-         */
-        minConfidence?: number,
-        /**
-         * Starting latitude
-         */
-        startLat?: number,
-        /**
-         * Starting longitude
-         */
-        startLng?: number,
-        /**
-         * Sort criteria
-         */
-        sortBy?: SortByEnum,
-    }): CancelablePromise<BenchListResponse> {
-        return this.httpRequest.request({
-            method: 'GET',
-            url: '/api/benches/source/{source}',
-            path: {
-                'source': source,
-            },
-            query: {
-                'page': page,
-                'page_size': pageSize,
-                'min_confidence': minConfidence,
-                'start_lat': startLat,
-                'start_lng': startLng,
-                'sort_by': sortBy,
-            },
-            errors: {
-                422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
     /**
      * Get Random Bench
      * Get a randomly selected bench that meets the specified criteria
-     * @returns RandomBenchResponse Successful Response
+     * @returns WebBenchData Successful Response
      * @throws ApiError
      */
     public getRandomBenchApiBenchesRandomGet({
         minConfidence = 0.8,
-        source,
+        mode = BenchMode.BENCHES,
+        includeDetectionData = false,
     }: {
         /**
          * Minimum detection confidence
          */
         minConfidence?: number,
         /**
-         * Filter by data source
+         * Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'
          */
-        source?: (SourceEnum | null),
-    }): CancelablePromise<RandomBenchResponse> {
+        mode?: BenchMode,
+        /**
+         * Include detection items (bbox, polygon) in response (default: False)
+         */
+        includeDetectionData?: boolean,
+    }): CancelablePromise<WebBenchData> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/benches/random',
             query: {
                 'min_confidence': minConfidence,
-                'source': source,
+                'mode': mode,
+                'include_detection_data': includeDetectionData,
             },
             errors: {
+                404: `No benches found matching criteria`,
                 422: `Validation Error`,
+                500: `Internal server error`,
+            },
+        });
+    }
+    /**
+     * Get Bench by ID
+     * Get detailed information for a specific bench by its ID
+     * @returns WebBenchData Successful Response
+     * @throws ApiError
+     */
+    public getBenchByIdEndpointApiBenchBenchIdGet({
+        benchId,
+        includeDetectionData = false,
+    }: {
+        /**
+         * Bench ID to retrieve
+         */
+        benchId: number,
+        /**
+         * Include detection items (bbox, polygon) in response (default: False)
+         */
+        includeDetectionData?: boolean,
+    }): CancelablePromise<WebBenchData> {
+        return this.httpRequest.request({
+            method: 'GET',
+            url: '/api/bench/{bench_id}',
+            path: {
+                'bench_id': benchId,
+            },
+            query: {
+                'include_detection_data': includeDetectionData,
+            },
+            errors: {
+                404: `Bench not found`,
+                422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }
     /**
      * Get Benches in Bounding Box
      * Get benches within a geographic bounding box for map applications
-     * @returns BboxBenchResponse Successful Response
+     * @returns any Successful Response
      * @throws ApiError
      */
     public getBenchesInBboxApiBenchesBboxGet({
@@ -179,8 +174,11 @@ export class BenchesService {
         west,
         minConfidence = 0.8,
         source,
+        mode = BenchMode.BENCHES,
         sortBy = 'distance',
         limit = 200,
+        clustered = true,
+        includeDetectionData = false,
     }: {
         /**
          * Northern latitude boundary
@@ -203,18 +201,30 @@ export class BenchesService {
          */
         minConfidence?: number,
         /**
-         * Filter by data source
+         * Filter by data source: 'osm' or 'mapillary' (default: all sources)
          */
-        source?: (SourceEnum | null),
+        source?: (DataSource | null),
+        /**
+         * Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'
+         */
+        mode?: BenchMode,
         /**
          * Sort criteria
          */
-        sortBy?: SortByEnum,
+        sortBy?: string,
         /**
          * Maximum number of results
          */
         limit?: number,
-    }): CancelablePromise<BboxBenchResponse> {
+        /**
+         * Return clustered results when available (default: True)
+         */
+        clustered?: boolean,
+        /**
+         * Include detection items (bbox, polygon) in response (default: False)
+         */
+        includeDetectionData?: boolean,
+    }): CancelablePromise<(BboxBenchResponse | ClusteredBenchListResponse)> {
         return this.httpRequest.request({
             method: 'GET',
             url: '/api/benches/bbox',
@@ -225,11 +235,16 @@ export class BenchesService {
                 'west': west,
                 'min_confidence': minConfidence,
                 'source': source,
+                'mode': mode,
                 'sort_by': sortBy,
                 'limit': limit,
+                'clustered': clustered,
+                'include_detection_data': includeDetectionData,
             },
             errors: {
+                400: `Invalid bounding box parameters`,
                 422: `Validation Error`,
+                500: `Internal server error`,
             },
         });
     }

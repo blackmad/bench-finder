@@ -3,9 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { WebBenchData } from './WebBenchData';
+/**
+ * Response model for bounding box bench queries.
+ */
 export type BboxBenchResponse = {
     /**
-     * List of benches within bounding box
+     * List of benches within the bounding box
      */
     benches: Array<WebBenchData>;
     /**
@@ -13,11 +16,7 @@ export type BboxBenchResponse = {
      */
     total_count: number;
     /**
-     * Bounding box coordinates
+     * The requested bounding box coordinates
      */
     bbox: Record<string, number>;
-    /**
-     * Query metadata
-     */
-    query_info?: Record<string, any>;
 };

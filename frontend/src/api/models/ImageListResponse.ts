@@ -3,9 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ImageResponse } from './ImageResponse';
+/**
+ * Schema for image list response.
+ */
 export type ImageListResponse = {
-    /**
-     * List of images
-     */
     images: Array<ImageResponse>;
 };

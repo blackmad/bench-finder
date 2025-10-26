@@ -23,19 +23,52 @@ An offline Python processing script that finds benches using multiple APIs and c
 
 ```
 bench_finder/
-├── bench_finder.py     # Main executable script
-├── config.py          # Configuration and settings
-├── geocoder.py        # Google Geocoding API client
-├── overpass_client.py # OpenStreetMap Overpass API client
-├── streetview.py      # Google Street View Static API client
-├── roboflow_client.py # Roboflow AI detection client
-├── database.py        # SQLite database operations
-├── utils.py          # Utilities, logging, and error handling
-├── requirements.txt   # Python dependencies
-├── .env.example      # Example environment variables
-├── data/             # Database storage directory
-├── images/           # Captured Street View images
-└── README.md         # This file
+├── bench_finder/          # Main Python package
+│   ├── cli.py            # CLI interface using Typer
+│   ├── config.py         # Configuration and settings
+│   ├── core/             # Core functionality
+│   │   ├── geocoder.py   # Google Geocoding API client
+│   │   ├── streetview.py # Google Street View Static API client
+│   │   └── clustering.py # Bench clustering algorithms
+│   ├── clients/          # API client implementations
+│   │   ├── overpass_client.py    # OpenStreetMap Overpass API
+│   │   ├── roboflow_client.py    # Roboflow AI detection
+│   │   ├── mapillary_client.py   # Mapillary API client
+│   │   └── ultralytics_client.py # Ultralytics YOLO models
+│   ├── generators/       # Data generation services
+│   │   ├── bench_generator.py    # Base bench generator
+│   │   ├── overpass.py           # OSM bench generation
+│   │   └── mapillary.py          # Mapillary bench generation
+│   ├── models/           # Data models and schemas
+│   │   ├── unified_models.py     # Unified data models
+│   │   ├── overpass_models.py    # OSM-specific models
+│   │   └── mapillary_models.py   # Mapillary-specific models
+│   ├── services/         # Business logic services
+│   │   ├── database.py           # Database operations
+│   │   ├── image_download_service.py # Image downloading
+│   │   └── clustered_bench_service.py # Clustering service
+│   └── tools/            # Utility tools
+│       └── bench_detection_cli.py # Detection testing CLI
+├── api/                  # FastAPI web server
+│   ├── fastapi_server.py # Main FastAPI application
+│   └── api_models.py     # API request/response models
+├── frontend/             # React TypeScript frontend
+│   ├── src/              # React source code
+│   ├── package.json      # Node.js dependencies
+│   └── vite.config.ts    # Vite configuration
+├── tools/                # Command-line tools
+│   ├── fastapi_cli.py    # FastAPI testing CLI
+│   └── unified_bench_search_cli.py # Unified search CLI
+├── bin/                  # Executable scripts
+│   ├── bench_finder      # Main CLI entry point
+│   └── start_fastapi     # FastAPI server startup
+├── pyproject.toml        # Modern Python project configuration
+├── Makefile             # Development commands
+├── setup-dev.sh         # Development environment setup
+├── data/                # Database storage directory
+├── images/              # Captured and downloaded images
+└── docs/                # Documentation
+    └── README.md        # This file
 ```
 
 ## Setup
@@ -45,8 +78,12 @@ bench_finder/
 For development, we recommend using the modern Python tooling:
 
 ```bash
-cd bench_finder
+# One-command setup
 ./setup-dev.sh
+
+# Or manual setup
+uv sync --dev
+uv run pre-commit install
 ```
 
 This will:
@@ -55,15 +92,20 @@ This will:
 - Configure [Ruff](https://docs.astral.sh/ruff/) for linting and formatting
 - Install pre-commit hooks for code quality
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development setup instructions.
+See [DEVELOPMENT.md](../DEVELOPMENT.md) for detailed development setup instructions.
 
-### Traditional Setup
-
-If you prefer the traditional approach:
+### Available Commands
 
 ```bash
-cd bench_finder
-pip install -r requirements.txt
+# Development workflow
+make help          # Show all available commands
+make dev           # Complete development workflow
+make quick         # Quick development cycle
+make all-checks    # Run all quality checks
+
+# Application commands
+make run-server    # Start FastAPI development server
+make run-cli       # Run the bench-finder CLI
 ```
 
 ### 2. Configure API Keys
@@ -105,21 +147,39 @@ ROBOFLOW_API_KEY=your_roboflow_api_key_here
 Find benches near a location:
 
 ```bash
-./bench_finder.py "Central Park, New York"
+# Using the CLI entry point
+./bin/bench_finder generate-candidates "Central Park, New York"
+
+# Or using uv run
+uv run bench-finder generate-candidates "Central Park, New York"
 ```
 
 ### Advanced Options
 
 ```bash
 # Specify custom search radius (in meters)
-./bench_finder.py "Golden Gate Park, San Francisco" --radius 1000
+./bin/bench_finder generate-candidates "Golden Gate Park, San Francisco" --radius 1000
 
 # Enable debug logging
-./bench_finder.py "Hyde Park, London" --log-level DEBUG
+./bin/bench_finder generate-candidates "Hyde Park, London" --log-level DEBUG
 
 # Show help
-./bench_finder.py --help
+./bin/bench_finder --help
 ```
+
+### Web Interface
+
+Start the FastAPI web server:
+
+```bash
+# Development mode with auto-reload
+make run-server
+
+# Or directly with uvicorn
+uv run uvicorn api.fastapi_server:app --reload --host 0.0.0.0 --port 8866
+```
+
+Access the web interface at http://localhost:8866
 
 ### Example Output
 

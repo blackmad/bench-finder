@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   ArrowLeft, MapPin, Camera, Send, Check, AlertCircle,
-  Crosshair, Map as MapIcon, Smartphone, Image as ImageIcon
+  Crosshair, Map as MapIcon, Image as ImageIcon
 } from 'lucide-react'
 import styled from 'styled-components'
 import L from 'leaflet'
 import { useNavigate } from 'react-router-dom'
 import { getCurrentLocation, captureImage, type ImageCaptureResult } from '../utils/imageCapture'
-import { BenchFinderApi } from '../api'
+import { benchApi } from '../services/api'
+import { LocationMethod } from '../api'
 import '../utils/leafletFix'
 
 const PageContainer = styled.div`
@@ -434,21 +435,15 @@ const ReportMissingBenchPage: React.FC = () => {
     setStatusMessage(null)
 
     try {
-      const api = new BenchFinderApi({
-        BASE: window.location.origin,
-      })
-
-      await api.reporting.reportMissingBench({
-        requestBody: {
-          lat: location.lat,
-          lng: location.lng,
-          description: description || undefined,
-          location_method: mode,
-          user_location_lat: userLocation?.lat,
-          user_location_lng: userLocation?.lng,
-          accuracy_meters: location.accuracy,
-          image_data: capturedImage?.dataUrl,
-        },
+      await benchApi.reportMissingBench({
+        lat: location.lat,
+        lng: location.lng,
+        description: description || undefined,
+        locationMethod: mode === 'gps' ? LocationMethod.GPS : LocationMethod.MAP_CLICK,
+        userLocationLat: userLocation?.lat,
+        userLocationLng: userLocation?.lng,
+        accuracyMeters: location.accuracy,
+        imageData: capturedImage?.dataUrl,
       })
 
       setIsSuccess(true)
@@ -515,8 +510,8 @@ const ReportMissingBenchPage: React.FC = () => {
           {statusMessage && (
             <StatusMessage $type={statusMessage.type}>
               {statusMessage.type === 'error' ? <AlertCircle size={16} /> :
-               statusMessage.type === 'success' ? <Check size={16} /> :
-               <MapPin size={16} />}
+                statusMessage.type === 'success' ? <Check size={16} /> :
+                  <MapPin size={16} />}
               {statusMessage.text}
             </StatusMessage>
           )}

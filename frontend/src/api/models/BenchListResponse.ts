@@ -4,13 +4,10 @@
 /* eslint-disable */
 import type { PaginationInfo } from './PaginationInfo';
 import type { WebBenchData } from './WebBenchData';
+/**
+ * Schema for paginated bench list response.
+ */
 export type BenchListResponse = {
-    /**
-     * List of bench data
-     */
     benches: Array<WebBenchData>;
-    /**
-     * Pagination metadata
-     */
     pagination: PaginationInfo;
 };

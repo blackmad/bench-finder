@@ -3,13 +3,13 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import styled from "styled-components"
 import type { BenchListResponse, ClusteredBenchListResponse, WebBenchData } from "../api"
-import { benchApi, checkApiHealth } from "../services/benchApi"
+import { benchApi, checkApiHealth } from "../services/api"
 
 // Example component demonstrating the new OpenAPI-generated client
 const ApiExample: React.FC = () => {
   const [healthStatus, setHealthStatus] = useState<Record<
     string,
-    string
+    boolean
   > | null>(null)
 
   // Example 1: Health check using regular fetch
@@ -20,7 +20,7 @@ const ApiExample: React.FC = () => {
         setHealthStatus(health)
       } catch (error) {
         console.error("Health check failed:", error)
-        setHealthStatus({ status: "unhealthy", error: String(error) })
+        setHealthStatus({ status: false, error: false })
       }
     }
 
@@ -38,9 +38,9 @@ const ApiExample: React.FC = () => {
     queryFn: () =>
       benchApi.getBenches({
         page: 0,
-        pageSize: 5,
-        minConfidence: 0.8,
-        sortBy: "confidence",
+        page_size: 5,
+        min_confidence: 0.8,
+        sort_by: "confidence",
         clustered: false, // We want individual benches for the example
       }),
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -54,10 +54,9 @@ const ApiExample: React.FC = () => {
     setIsLoadingRandom(true)
     try {
       const result = await benchApi.getRandomBench({
-        minConfidence: 0.9,
-        source: null,
+        min_confidence: 0.9,
       })
-      setRandomBench(result.bench)
+      setRandomBench(result)
     } catch (error) {
       console.error("Failed to get random bench:", error)
     } finally {
@@ -73,12 +72,12 @@ const ApiExample: React.FC = () => {
       <Section>
         <SectionTitle>📊 API Health Status</SectionTitle>
         {healthStatus ? (
-          <HealthStatus healthy={healthStatus.status === "healthy"}>
-            <strong>Status:</strong> {healthStatus.status}
+          <HealthStatus healthy={healthStatus.status === true}>
+            <strong>Status:</strong> {healthStatus.status ? "healthy" : "unhealthy"}
             <br />
-            <strong>Database:</strong> {healthStatus.database || "unknown"}
+            <strong>Database:</strong> {healthStatus.database ? "connected" : "disconnected"}
             <br />
-            <strong>Mapillary:</strong> {healthStatus.mapillary || "unknown"}
+            <strong>Mapillary:</strong> {healthStatus.mapillary ? "connected" : "disconnected"}
           </HealthStatus>
         ) : (
           <Loading>Checking API health...</Loading>
@@ -105,52 +104,52 @@ const ApiExample: React.FC = () => {
                 </Stats>
                 <BenchList>
                   {benchesData.benches.map((bench: WebBenchData) => (
-                <BenchCard key={bench.id}>
-                  <BenchHeader>
-                    <BenchId>Bench #{bench.id}</BenchId>
-                    <ConfidenceBadge confidence={bench.best_confidence}>
-                      {(bench.best_confidence * 100).toFixed(1)}%
-                    </ConfidenceBadge>
-                  </BenchHeader>
-                  <BenchDetails>
-                    <DetailItem>
-                      <strong>Location:</strong> {bench.lat.toFixed(4)},{" "}
-                      {bench.lng.toFixed(4)}
-                    </DetailItem>
-                    <DetailItem>
-                      <strong>Source:</strong> {bench.source}
-                    </DetailItem>
-                    <DetailItem>
-                      <strong>Detection:</strong> {bench.detection_type}
-                    </DetailItem>
-                    <DetailItem>
-                      <strong>Images:</strong> {bench.image_count}
-                      {bench.has_segmentation && " 🎯"}
-                    </DetailItem>
-                    <DetailItem>
-                      <strong>Distance:</strong> {bench.distance_km.toFixed(2)}{" "}
-                      km
-                    </DetailItem>
-                  </BenchDetails>
-                  <ConfidenceDetails>
-                    {(bench.roboflow_confidence || 0) > 0 && (
-                      <span>
-                        RF: {((bench.roboflow_confidence || 0) * 100).toFixed(1)}%
-                      </span>
-                    )}
-                    {(bench.ultralytics_confidence || 0) > 0 && (
-                      <span>
-                        UL: {((bench.ultralytics_confidence || 0) * 100).toFixed(1)}%
-                      </span>
-                    )}
-                    {(bench.mapillary_confidence || 0) > 0 && (
-                      <span>
-                        MP: {((bench.mapillary_confidence || 0) * 100).toFixed(1)}%
-                      </span>
-                    )}
-                  </ConfidenceDetails>
-                </BenchCard>
-              ))}
+                    <BenchCard key={bench.id}>
+                      <BenchHeader>
+                        <BenchId>Bench #{bench.id}</BenchId>
+                        <ConfidenceBadge confidence={bench.best_confidence}>
+                          {(bench.best_confidence * 100).toFixed(1)}%
+                        </ConfidenceBadge>
+                      </BenchHeader>
+                      <BenchDetails>
+                        <DetailItem>
+                          <strong>Location:</strong> {bench.lat.toFixed(4)},{" "}
+                          {bench.lng.toFixed(4)}
+                        </DetailItem>
+                        <DetailItem>
+                          <strong>Source:</strong> {bench.source}
+                        </DetailItem>
+                        <DetailItem>
+                          <strong>Detection:</strong> {bench.detection_type}
+                        </DetailItem>
+                        <DetailItem>
+                          <strong>Images:</strong> {bench.image_count}
+                          {bench.has_segmentation && " 🎯"}
+                        </DetailItem>
+                        <DetailItem>
+                          <strong>Distance:</strong> {bench.distance_km.toFixed(2)}{" "}
+                          km
+                        </DetailItem>
+                      </BenchDetails>
+                      <ConfidenceDetails>
+                        {(bench.roboflow_confidence || 0) > 0 && (
+                          <span>
+                            RF: {((bench.roboflow_confidence || 0) * 100).toFixed(1)}%
+                          </span>
+                        )}
+                        {(bench.ultralytics_confidence || 0) > 0 && (
+                          <span>
+                            UL: {((bench.ultralytics_confidence || 0) * 100).toFixed(1)}%
+                          </span>
+                        )}
+                        {(bench.mapillary_confidence || 0) > 0 && (
+                          <span>
+                            MP: {((bench.mapillary_confidence || 0) * 100).toFixed(1)}%
+                          </span>
+                        )}
+                      </ConfidenceDetails>
+                    </BenchCard>
+                  ))}
                 </BenchList>
               </>
             )}
@@ -225,7 +224,7 @@ const ApiExample: React.FC = () => {
             {`// Type-safe API call with full IntelliSense
 const response: BenchListResponse = await benchApi.getBenches({
   page: 0,
-  minConfidence: 0.8,  // ✅ Validated (0.0 - 1.0)
+        min_confidence: 0.8,  // ✅ Validated (0.0 - 1.0)
   sortBy: 'confidence' // ✅ Enum: distance | confidence | images | recent
 })`}
           </CodeExample>

@@ -6,10 +6,16 @@ import type {
   BenchListResponse,
   ClusteredBenchListResponse,
   ConfigResponse,
-  RandomBenchResponse,
   SearchListResponse,
   SegmentationData,
+  WebBenchData,
+  BenchDetectionData,
+  ImageListResponse,
+  ReportResponse,
+  MissingBenchReportResponse,
+  ApiInfoResponse,
 } from "../api"
+import { DataSource, BenchMode, BenchReportType } from "../api"
 import { BenchFinderApi, OpenAPI } from "../api"
 import type { AppFilters } from "../contexts/AppContext"
 
@@ -56,6 +62,29 @@ api.interceptors.response.use(
   }
 )
 
+// Health check function
+export const checkApiHealth = async (): Promise<Record<string, boolean>> => {
+  const results: Record<string, boolean> = {}
+
+  try {
+    // Test main API
+    await benchFinderApi.config.getConfigApiConfigGet()
+    results.main = true
+  } catch {
+    results.main = false
+  }
+
+  try {
+    // Test API info endpoint
+    await benchFinderApi.config.getApiInfoApiInfoGet()
+    results.info = true
+  } catch {
+    results.info = false
+  }
+
+  return results
+}
+
 export const benchApi = {
   // Get paginated benches - now using generated API client
   getBenches: async (params: {
@@ -65,7 +94,9 @@ export const benchApi = {
     start_lat?: number
     start_lng?: number
     sort_by?: string
+    mode?: BenchMode
     clustered?: boolean
+    include_detection_data?: boolean
   }): Promise<BenchListResponse | ClusteredBenchListResponse> => {
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page,
@@ -74,30 +105,20 @@ export const benchApi = {
       startLat: params.start_lat,
       startLng: params.start_lng,
       sortBy: params.sort_by,
+      mode: params.mode || BenchMode.BENCHES,
       clustered: params.clustered ?? true, // Default to clustered
+      includeDetectionData: params.include_detection_data ?? false,
     })
   },
 
-  // Get benches by source - now using generated API client
-  getBenchesBySource: async (
-    source: string,
-    params: {
-      page?: number
-      page_size?: number
-      min_confidence?: number
-      start_lat?: number
-      start_lng?: number
-      sort_by?: string
-    }
-  ): Promise<BenchListResponse> => {
-    return benchFinderApi.benches.getBenchesBySourceApiBenchesSourceSourceGet({
-      source: source,
-      page: params.page,
-      pageSize: params.page_size,
-      minConfidence: params.min_confidence,
-      startLat: params.start_lat,
-      startLng: params.start_lng,
-      sortBy: params.sort_by,
+  // Get bench by ID - new method
+  getBenchById: async (
+    benchId: number,
+    includeDetectionData: boolean = false
+  ): Promise<WebBenchData> => {
+    return benchFinderApi.benches.getBenchByIdEndpointApiBenchBenchIdGet({
+      benchId,
+      includeDetectionData,
     })
   },
 
@@ -108,10 +129,12 @@ export const benchApi = {
     east: number
     west: number
     min_confidence?: number
-    source?: string
+    source?: DataSource | null
+    mode?: BenchMode
     sort_by?: string
     limit?: number
     clustered?: boolean
+    include_detection_data?: boolean
   }): Promise<BboxBenchResponse | ClusteredBenchListResponse> => {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
@@ -120,23 +143,24 @@ export const benchApi = {
       west: params.west,
       minConfidence: params.min_confidence,
       source: params.source,
+      mode: params.mode || BenchMode.BENCHES,
       sortBy: params.sort_by,
       limit: params.limit,
       clustered: params.clustered ?? true, // Default to clustered
+      includeDetectionData: params.include_detection_data ?? false,
     })
   },
 
   // Get random bench - now using generated API client
-  // Note: The API returns RandomBenchResponse but for backward compatibility
-  // we keep the same interface
   getRandomBench: async (params?: {
     min_confidence?: number
-    source?: string
-    sort_by?: string
-  }): Promise<RandomBenchResponse> => {
+    mode?: BenchMode
+    include_detection_data?: boolean
+  }): Promise<WebBenchData> => {
     return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
       minConfidence: params?.min_confidence,
-      source: params?.source,
+      mode: params?.mode || BenchMode.BENCHES,
+      includeDetectionData: params?.include_detection_data ?? false,
     })
   },
 
@@ -157,6 +181,71 @@ export const benchApi = {
   // Get app configuration - now using generated API client
   getConfig: async (): Promise<ConfigResponse> => {
     return benchFinderApi.config.getConfigApiConfigGet()
+  },
+
+  // Get API information - new method
+  getApiInfo: async (): Promise<ApiInfoResponse> => {
+    return benchFinderApi.config.getApiInfoApiInfoGet()
+  },
+
+  // Get bench images - new method
+  getBenchImages: async (benchId: number): Promise<ImageListResponse> => {
+    return benchFinderApi.images.getBenchImagesApiBenchBenchIdImagesGet({
+      benchId,
+    })
+  },
+
+  // Get bench detection data - new method
+  getBenchDetections: async (benchId: number): Promise<BenchDetectionData> => {
+    return benchFinderApi.images.getBenchDetectionsApiBenchBenchIdDetectionsGet({
+      benchId,
+    })
+  },
+
+  // Report bad bench detection - new method
+      reportBadBench: async (params: {
+        benchId: number
+        reportType: BenchReportType
+        description?: string
+        imageId?: number
+        userLocationLat?: number
+        userLocationLng?: number
+      }): Promise<ReportResponse> => {
+        return benchFinderApi.reporting.reportBadBenchApiBenchesBenchIdReportPost({
+          benchId: params.benchId,
+          requestBody: {
+            report_type: params.reportType,
+            description: params.description,
+            image_id: params.imageId,
+            user_location_lat: params.userLocationLat,
+            user_location_lng: params.userLocationLng,
+          },
+        })
+      },
+
+  // Report missing bench - new method
+  reportMissingBench: async (params: {
+    lat: number
+    lng: number
+    description?: string
+    locationMethod?: string
+    userLocationLat?: number
+    userLocationLng?: number
+    accuracyMeters?: number
+    imageData?: string
+  }): Promise<MissingBenchReportResponse> => {
+    return benchFinderApi.reporting.reportMissingBenchApiMissingBenchesPost({
+      requestBody: {
+        lat: params.lat,
+        lng: params.lng,
+        description: params.description,
+        location_method: params.locationMethod || "gps",
+        user_location_lat: params.userLocationLat,
+        user_location_lng: params.userLocationLng,
+        accuracy_meters: params.accuracyMeters,
+        image_data: params.imageData,
+      },
+    })
   },
 }
 
@@ -210,11 +299,10 @@ export const benchesService = benchFinderApi.benches
 export const imagesService = benchFinderApi.images
 export const searchService = benchFinderApi.search
 export const configService = benchFinderApi.config
-export const mapillaryService = benchFinderApi.mapillary
-export const statisticsService = benchFinderApi.statistics
+// Note: mapillary and statistics services are not available in the current API
 
 // Health check utility using the generated client
-export const checkApiHealth = async () => {
+export const checkHealth = async () => {
   return benchFinderApi.config.healthCheckHealthGet()
 }
 

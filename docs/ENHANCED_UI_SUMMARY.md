@@ -35,9 +35,14 @@ The web UI has been enhanced to support both Roboflow and Ultralytics detection 
 
 ### Start the Web Server:
 ```bash
-cd /Users/blackmad/bench_finder
-source .venv/bin/activate
-python web_server.py
+# Using Make (recommended)
+make run-server
+
+# Or using uv directly
+uv run uvicorn api.fastapi_server:app --reload --host 0.0.0.0 --port 8866
+
+# Or using the startup script
+./bin/start_fastapi dev --reload
 ```
 
 Then visit: http://localhost:8866
@@ -52,14 +57,14 @@ Then visit: http://localhost:8866
 ### Using the CLI with Different Backends:
 ```bash
 # Use Roboflow backend (default)
-python bench_finder.py "Central Park, NYC"
+./bin/bench_finder generate-candidates "Central Park, NYC"
 
 # Use Ultralytics backend
-python bench_finder.py "Central Park, NYC" --backend ultralytics
+./bin/bench_finder generate-candidates "Central Park, NYC" --backend ultralytics
 
 # Or set environment variable
 export DETECTION_BACKEND=ultralytics
-python bench_finder.py "Central Park, NYC"
+./bin/bench_finder generate-candidates "Central Park, NYC"
 ```
 
 ## 🔧 Technical Details
@@ -92,9 +97,9 @@ python bench_finder.py "Central Park, NYC"
 
 If you encounter issues, run:
 ```bash
-python debug_query.py  # Check database contents
-python test_fixed_query.py  # Test query functionality
-python test_web_ui.py  # Test web server endpoints
+uv run python debug_query.py  # Check database contents
+uv run python test_fixed_query.py  # Test query functionality
+uv run python test_web_ui.py  # Test web server endpoints
 ```
 
 The enhanced web UI is now ready for production use with full dual-backend support and advanced segmentation visualization!

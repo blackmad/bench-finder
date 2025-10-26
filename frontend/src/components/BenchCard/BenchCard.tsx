@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import styled, { keyframes } from "styled-components"
 import type { WebBenchData } from "../../api"
+import { DataSource, DetectionSource } from "../../api"
 import { useApp } from "../../contexts/AppContext"
 import ReportModal from "../ReportModal/ReportModal"
 import "leaflet/dist/leaflet.css"
@@ -139,7 +140,7 @@ const Badge = styled.div<{
   }}
 `
 
-const DebugBadge = styled(Badge)<{ $show: boolean }>`
+const DebugBadge = styled(Badge) <{ $show: boolean }>`
   display: ${({ $show }) => ($show ? "block" : "none")};
 `
 
@@ -221,17 +222,17 @@ const ConfidenceBar = styled.div<{ $confidence: number; $type: string }>`
     height: 100%;
     width: ${({ $confidence }) => $confidence * 100}%;
     background: ${({ $type, theme }) => {
-      switch ($type) {
-        case "ultralytics":
-          return theme.colors.ultralytics
-        case "roboflow":
-          return theme.colors.roboflow
-        case "mapillary":
-          return theme.colors.mapillary
-        default:
-          return theme.colors.primary
-      }
-    }};
+    switch ($type) {
+      case "ultralytics":
+        return theme.colors.ultralytics
+      case "roboflow":
+        return theme.colors.roboflow
+      case "mapillary":
+        return theme.colors.mapillary
+      default:
+        return theme.colors.primary
+    }
+  }};
     transition: width ${({ theme }) => theme.transitions.normal};
   }
 `
@@ -386,16 +387,32 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     .map(([key, value]) => `${key}: ${value}`)
 
   // Determine detection type color
-  const getDetectionTypeColor = (type: string) => {
+  const getDetectionTypeColor = (type: DetectionSource) => {
     switch (type) {
-      case "ultralytics":
+      case DetectionSource.ULTRALYTICS:
         return "#059669"
-      case "roboflow":
+      case DetectionSource.ROBOFLOW:
         return "#2563eb"
-      case "mapillary":
+      case DetectionSource.MAPILLARY:
         return "#ea580c"
+      case DetectionSource.MULTI_MODEL:
+        return "#7c3aed"
+      case DetectionSource.NONE:
+        return "#6b7280"
       default:
         return "#6b7280"
+    }
+  }
+
+  // Get source display name
+  const getSourceDisplayName = (source: DataSource) => {
+    switch (source) {
+      case DataSource.OSM:
+        return "OSM"
+      case DataSource.MAPILLARY:
+        return "Mapillary"
+      default:
+        return source
     }
   }
 
@@ -547,7 +564,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
 
           {/* Source Badge */}
           <DebugBadge $variant="source" $show={state.debugMode}>
-            {bench.source}
+            {getSourceDisplayName(bench.source)}
           </DebugBadge>
 
           {/* Segmentation Badge */}
@@ -607,10 +624,10 @@ export const BenchCard: React.FC<BenchCardProps> = ({
                 style={{
                   textTransform: "uppercase",
                   fontWeight: 600,
-                  color: getDetectionTypeColor(bench.source),
+                  color: getDetectionTypeColor(bench.detection_type),
                 }}
               >
-                {bench.source}
+                {getSourceDisplayName(bench.source)}
               </DetailValue>
             </DetailRow>
             <DetailRow>

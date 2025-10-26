@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import styled from "styled-components"
 import type { SegmentationData, WebBenchData } from "../../api"
 import { benchApi } from "../../services/api"
+import DetectionData from "../DetectionData/DetectionData"
 
 const Overlay = styled(motion.div)`
   position: fixed;
@@ -167,20 +168,6 @@ const DetectionHeader = styled.div`
   }
 `
 
-const DetectionSection = styled.div<{ $color: string }>`
-  border: 1px solid ${({ $color }) => $color};
-  border-radius: ${({ theme }) => theme.borderRadius.base};
-  padding: ${({ theme }) => theme.spacing[3]};
-  margin-bottom: ${({ theme }) => theme.spacing[3]};
-  background: ${({ $color }) => `${$color}08`};
-
-  h5 {
-    margin: 0 0 ${({ theme }) => theme.spacing[2]} 0;
-    color: ${({ $color }) => $color};
-    font-size: ${({ theme }) => theme.typography.sizes.base};
-    font-weight: ${({ theme }) => theme.typography.weights.medium};
-  }
-`
 
 const PlaceholderContent = styled.div`
   text-align: center;
@@ -345,90 +332,8 @@ const Modal: React.FC<ModalProps> = ({
     overlay.style.top = offsetY + "px"
     overlay.setAttribute("viewBox", `0 0 ${displayWidth} ${displayHeight}`)
 
-    // Render segmentation polygons (Ultralytics)
-    if (segmentationData.bench_detections?.length) {
-      segmentationData.bench_detections.forEach((detection, index) => {
-        if (detection.segments?.x && detection.segments?.y) {
-          const points: string[] = []
-          const scaleX = displayWidth / imageNaturalWidth
-          const scaleY = displayHeight / imageNaturalHeight
-
-          for (let i = 0; i < detection.segments.x.length; i++) {
-            const x = detection.segments.x[i] * scaleX
-            const y = detection.segments.y[i] * scaleY
-            points.push(`${x},${y}`)
-          }
-
-          const polygon = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "polygon"
-          )
-          polygon.setAttribute("points", points.join(" "))
-          polygon.setAttribute("class", "segmentation-polygon")
-          polygon.style.fill = `rgba(76, 175, 80, ${0.3 + index * 0.1})`
-          polygon.style.stroke = "#4caf50"
-          polygon.style.strokeWidth = "2"
-
-          overlay.appendChild(polygon)
-        }
-      })
-    }
-
-    // Render bounding boxes (Roboflow)
-    if (segmentationData.roboflow_detections?.length) {
-      segmentationData.roboflow_detections.forEach((detection, index) => {
-        if (
-          detection.x !== undefined &&
-          detection.y !== undefined &&
-          detection.width !== undefined &&
-          detection.height !== undefined
-        ) {
-          const scaleX = displayWidth / imageNaturalWidth
-          const scaleY = displayHeight / imageNaturalHeight
-
-          const centerX = detection.x * scaleX
-          const centerY = detection.y * scaleY
-          const width = detection.width * scaleX
-          const height = detection.height * scaleY
-          const x = centerX - width / 2
-          const y = centerY - height / 2
-
-          const rect = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "rect"
-          )
-          rect.setAttribute("x", x.toString())
-          rect.setAttribute("y", y.toString())
-          rect.setAttribute("width", width.toString())
-          rect.setAttribute("height", height.toString())
-          rect.setAttribute("class", "bounding-box")
-          rect.style.fill = `rgba(255, 193, 7, ${0.2 + index * 0.1})`
-          rect.style.stroke = "#ff9800"
-          rect.style.strokeWidth = "3"
-          rect.style.strokeDasharray = "5,5"
-
-          overlay.appendChild(rect)
-
-          // Add confidence label
-          if (detection.confidence) {
-            const text = document.createElementNS(
-              "http://www.w3.org/2000/svg",
-              "text"
-            )
-            text.setAttribute("x", (x + 5).toString())
-            text.setAttribute("y", (y - 5).toString())
-            text.setAttribute("class", "detection-label")
-            text.style.fill = "#ff9800"
-            text.style.fontSize = "14px"
-            text.style.fontWeight = "bold"
-            text.style.textShadow = "1px 1px 2px rgba(0,0,0,0.8)"
-            text.textContent = `${(detection.confidence * 100).toFixed(1)}%`
-
-            overlay.appendChild(text)
-          }
-        }
-      })
-    }
+    // Note: Detection overlays are now handled by the DetectionData component
+    // which displays detection information below the image
 
     // Show the overlay
     overlay.style.display = "block"
@@ -745,99 +650,16 @@ const Modal: React.FC<ModalProps> = ({
                     </InfoRow>
                   </DetectionHeader>
 
-                  {/* Ultralytics Segmentation Detections */}
-                  {segmentationData.bench_detections &&
-                    segmentationData.bench_detections.length > 0 && (
-                      <>
-                        <h5
-                          style={{ color: "#4caf50", margin: "16px 0 12px 0" }}
-                        >
-                          🎯 Segmentation Detections (Ultralytics)
-                        </h5>
-                        {segmentationData.bench_detections.map(
-                          (detection, index) => (
-                            <DetectionSection key={index} $color="#4caf50">
-                              <h5>Segmentation {index + 1}</h5>
-                              <InfoRow>
-                                <InfoLabel>Class:</InfoLabel>
-                                <InfoValue>
-                                  {detection.class || "Unknown"}
-                                </InfoValue>
-                              </InfoRow>
-                              <InfoRow>
-                                <InfoLabel>Confidence:</InfoLabel>
-                                <InfoValue>
-                                  {(detection.confidence * 100).toFixed(1)}%
-                                </InfoValue>
-                              </InfoRow>
-                              {detection.segments && detection.segments.x && (
-                                <InfoRow>
-                                  <InfoLabel>Segmentation Points:</InfoLabel>
-                                  <InfoValue>
-                                    {detection.segments.x.length} coordinates
-                                  </InfoValue>
-                                </InfoRow>
-                              )}
-                              {detection.box && (
-                                <InfoRow>
-                                  <InfoLabel>Bounding Box:</InfoLabel>
-                                  <InfoValue>
-                                    x: {detection.box.x1}-{detection.box.x2}, y:{" "}
-                                    {detection.box.y1}-{detection.box.y2}
-                                  </InfoValue>
-                                </InfoRow>
-                              )}
-                            </DetectionSection>
-                          )
-                        )}
-                      </>
-                    )}
-
-                  {/* Roboflow Bounding Box Detections */}
-                  {segmentationData.roboflow_detections &&
-                    segmentationData.roboflow_detections.length > 0 && (
-                      <>
-                        <h5
-                          style={{ color: "#ff9800", margin: "16px 0 12px 0" }}
-                        >
-                          📦 Bounding Box Detections (Roboflow)
-                        </h5>
-                        {segmentationData.roboflow_detections.map(
-                          (detection, index) => (
-                            <DetectionSection key={index} $color="#ff9800">
-                              <h5>Bounding Box {index + 1}</h5>
-                              <InfoRow>
-                                <InfoLabel>Class:</InfoLabel>
-                                <InfoValue>
-                                  {detection.class || "bench"}
-                                </InfoValue>
-                              </InfoRow>
-                              <InfoRow>
-                                <InfoLabel>Confidence:</InfoLabel>
-                                <InfoValue>
-                                  {(detection.confidence * 100).toFixed(1)}%
-                                </InfoValue>
-                              </InfoRow>
-                              <InfoRow>
-                                <InfoLabel>Center:</InfoLabel>
-                                <InfoValue>
-                                  x: {detection.x?.toFixed(1)}, y:{" "}
-                                  {detection.y?.toFixed(1)}
-                                </InfoValue>
-                              </InfoRow>
-                              <InfoRow>
-                                <InfoLabel>Size:</InfoLabel>
-                                <InfoValue>
-                                  w: {detection.width?.toFixed(1)}, h:{" "}
-                                  {detection.height?.toFixed(1)}
-                                </InfoValue>
-                              </InfoRow>
-                            </DetectionSection>
-                          )
-                        )}
-                      </>
-                    )}
+                  {/* Detection data is now handled by the DetectionData component */}
                 </DetectionInfo>
+              )}
+
+              {/* Show detection data if available */}
+              {bench.detection_items && bench.detection_items.length > 0 && (
+                <DetectionData
+                  detectionItems={bench.detection_items}
+                  detectionSource={bench.detection_type}
+                />
               )}
             </ModalContent>
           </ModalContainer>

@@ -30,6 +30,11 @@ export const theme = {
     ultralytics: "#059669",
     mapillary: "#ea580c",
 
+    // Additional colors for UI components
+    primaryHover: "#2563eb",
+    info: "#17a2b8",
+    infoLight: "#d1ecf1",
+
     // Background colors
     background: "#ffffff",
     backgroundSecondary: "#f8f9fb",

@@ -2,9 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export enum SortByEnum {
-    DISTANCE = 'distance',
-    CONFIDENCE = 'confidence',
-    IMAGES = 'images',
-    RECENT = 'recent',
+export enum LocationMethod {
+    GPS = 'gps',
+    MAP_CLICK = 'map_click',
 }

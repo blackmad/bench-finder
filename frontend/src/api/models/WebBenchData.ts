@@ -2,77 +2,37 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { ApiDetectionItem } from './ApiDetectionItem';
+import type { DataSource } from './DataSource';
+import type { DetectionSource } from './DetectionSource';
+/**
+ * Schema for web UI bench data.
+ */
 export type WebBenchData = {
-    /**
-     * Unique bench identifier
-     */
     id: number;
-    /**
-     * External provider ID
-     */
     provider_id?: (string | null);
-    /**
-     * Latitude coordinate
-     */
     lat: number;
-    /**
-     * Longitude coordinate
-     */
     lng: number;
-    /**
-     * Additional metadata tags
-     */
     tags?: Record<string, any>;
-    /**
-     * Data source (osm or mapillary)
-     */
-    source: string;
-    /**
-     * External system identifier
-     */
+    source: DataSource;
     external_id?: (string | null);
-    /**
-     * Highest detection confidence
-     */
+    bench_found?: boolean;
     best_confidence: number;
-    /**
-     * Roboflow detection confidence
-     */
     roboflow_confidence?: number;
-    /**
-     * Ultralytics detection confidence
-     */
     ultralytics_confidence?: number;
-    /**
-     * Mapillary detection confidence
-     */
     mapillary_confidence?: number;
-    /**
-     * Primary detection method used
-     */
-    detection_type: string;
-    /**
-     * Whether segmentation data is available
-     */
+    detection_type: DetectionSource;
     has_segmentation: boolean;
-    /**
-     * Number of associated images
-     */
     image_count: number;
-    /**
-     * List of image filenames
-     */
-    image_filenames?: Array<string>;
-    /**
-     * List of image IDs
-     */
-    image_ids?: Array<number>;
-    /**
-     * Distance from reference point in meters
-     */
+    image_filenames: Array<string>;
+    image_ids: Array<number>;
     distance_meters: number;
-    /**
-     * Distance from reference point in kilometers
-     */
     distance_km: number;
+    cluster_id?: (number | null);
+    cluster_center_lat?: (number | null);
+    cluster_center_lng?: (number | null);
+    cluster_bench_count?: (number | null);
+    cluster_max_distance_meters?: (number | null);
+    is_cluster_representative?: (boolean | null);
+    detection_items?: (Array<ApiDetectionItem> | null);
 };

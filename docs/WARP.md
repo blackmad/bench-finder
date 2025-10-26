@@ -6,8 +6,8 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ### Environment Setup
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies using modern tooling
+uv sync --dev
 
 # Configure environment
 cp .env.example .env
@@ -16,35 +16,48 @@ cp .env.example .env
 
 ### Running the Application
 ```bash
-# Basic bench finding
-./bench_finder.py "Central Park, New York"
+# Basic bench finding using CLI
+./bin/bench_finder generate-candidates "Central Park, New York"
 
 # With custom radius
-./bench_finder.py "Golden Gate Park, San Francisco" --radius 1000
+./bin/bench_finder generate-candidates "Golden Gate Park, San Francisco" --radius 1000
 
 # With debug logging
-./bench_finder.py "Hyde Park, London" --log-level DEBUG
+./bin/bench_finder generate-candidates "Hyde Park, London" --log-level DEBUG
 
-# Start web server (port 8866)
-python web_server.py
+# Start FastAPI web server (port 8866)
+make run-server
+# or
+uv run uvicorn api.fastapi_server:app --reload --host 0.0.0.0 --port 8866
 ```
 
 ### Testing and Development
 ```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-cov
+
 # Run specific tests
-python test_mapillary.py
-python test_ultralytics_modes.py
-python test_web_ui.py
-python test_fixed_query.py
+uv run python test_mapillary.py
+uv run python test_ultralytics_modes.py
+uv run python test_web_ui.py
+uv run python test_fixed_query.py
 
 # Debug database queries
-python debug_query.py
+uv run python debug_query.py
 
 # Database migration
-python migrate_database.py
+uv run python tools/migrate_database.py
 
 # Example usage with specific backends
-python example_ultralytics_usage.py
+uv run python example_ultralytics_usage.py
+
+# Code quality checks
+make lint
+make format
+make all-checks
 ```
 
 ### Database Operations

@@ -7,22 +7,23 @@ import React, {
   useReducer,
 } from "react"
 import type {
-  BenchListResponse,
   ClusteredBenchData,
-  ClusteredBenchListResponse,
   ConfigResponse,
   SearchSummary,
   WebBenchData,
 } from "../api"
+import { DataSource, BenchMode } from "../api"
 import { benchApi } from "../services/api"
 
 // App-specific types (not in API)
 export interface AppFilters {
   minConfidence: number
-  sourceFilter: "all" | "osm" | "mapillary"
+  sourceFilter: "all" | DataSource
   sortBy: "distance" | "confidence" | "images" | "recent"
   startLat: number
   startLng: number
+  mode: BenchMode
+  includeDetectionData: boolean
 }
 
 export type ViewMode = "cards" | "map"
@@ -40,6 +41,7 @@ export interface AppState {
   clusteredMode: boolean
   config: ConfigResponse | null
   searches: SearchSummary[]
+  error: string | null
 }
 
 // Action types
@@ -60,6 +62,8 @@ type AppAction =
   | { type: "SET_SEARCHES"; payload: SearchSummary[] }
   | { type: "RESET_BENCHES" }
   | { type: "UPDATE_LOCATION"; payload: { lat: number; lng: number } }
+  | { type: "SET_ERROR"; payload: string | null }
+  | { type: "CLEAR_ERROR" }
 
 // Initial state
 const initialState: AppState = {
@@ -71,6 +75,8 @@ const initialState: AppState = {
     sortBy: "distance",
     startLat: 52.3613577, // Amsterdam default
     startLng: 4.8666322,
+    mode: BenchMode.BENCHES,
+    includeDetectionData: false,
   },
   viewMode: "cards",
   currentPage: 0,
@@ -81,6 +87,7 @@ const initialState: AppState = {
   clusteredMode: true, // Default to clustered mode for cards view
   config: null,
   searches: [],
+  error: null,
 }
 
 // Reducer function
@@ -179,6 +186,12 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         },
       }
 
+    case "SET_ERROR":
+      return { ...state, error: action.payload }
+
+    case "CLEAR_ERROR":
+      return { ...state, error: null }
+
     default:
       return state
   }
@@ -195,6 +208,7 @@ interface AppContextType {
   setUserLocation: (lat: number, lng: number) => void
   feelingLucky: () => Promise<WebBenchData | null>
   toggleClusteredMode: () => void
+  clearError: () => void
 }
 
 // Create context
@@ -273,30 +287,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       dispatch({ type: "SET_LOADING", payload: true })
 
-      let response: BenchListResponse | ClusteredBenchListResponse
-      if (state.filters.sourceFilter === "all") {
-        response = await benchApi.getBenches({
-          page: state.currentPage,
-          page_size: state.config?.page_size || 20,
-          min_confidence: state.filters.minConfidence,
-          start_lat: state.filters.startLat,
-          start_lng: state.filters.startLng,
-          sort_by: state.filters.sortBy,
-          clustered: state.clusteredMode, // Use the clustered mode setting
-        })
-      } else {
-        response = await benchApi.getBenchesBySource(
-          state.filters.sourceFilter,
-          {
-            page: state.currentPage,
-            page_size: state.config?.page_size || 20,
-            min_confidence: state.filters.minConfidence,
-            start_lat: state.filters.startLat,
-            start_lng: state.filters.startLng,
-            sort_by: state.filters.sortBy,
-          }
-        )
-      }
+      const response = await benchApi.getBenches({
+        page: state.currentPage,
+        page_size: state.config?.page_size || 20,
+        min_confidence: state.filters.minConfidence,
+        start_lat: state.filters.startLat,
+        start_lng: state.filters.startLng,
+        sort_by: state.filters.sortBy,
+        mode: state.filters.mode,
+        clustered: state.clusteredMode,
+        include_detection_data: state.filters.includeDetectionData,
+      })
 
       // Handle both response types
       let benches: WebBenchData[]
@@ -327,6 +328,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       dispatch({ type: "SET_HAS_MORE", payload: hasNext })
     } catch (error) {
       console.error("Error loading benches:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to load benches"
+      dispatch({ type: "SET_ERROR", payload: errorMessage })
     } finally {
       dispatch({ type: "SET_LOADING", payload: false })
     }
@@ -354,27 +357,28 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "RESET_BENCHES" }) // Reset data when toggling mode
   }, [])
 
+  const clearError = useCallback(() => {
+    dispatch({ type: "CLEAR_ERROR" })
+  }, [])
+
   const feelingLucky = useCallback(async (): Promise<WebBenchData | null> => {
     try {
-      const params: any = {
+      const response = await benchApi.getRandomBench({
         min_confidence: state.filters.minConfidence,
-        sort_by: state.filters.sortBy,
-      }
-
-      if (state.filters.sourceFilter !== "all") {
-        params.source = state.filters.sourceFilter
-      }
-
-      const response = await benchApi.getRandomBench(params)
-      return response.bench
+        mode: state.filters.mode,
+        include_detection_data: state.filters.includeDetectionData,
+      })
+      return response
     } catch (error) {
       console.error("Error getting random bench:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to get random bench"
+      dispatch({ type: "SET_ERROR", payload: errorMessage })
       return null
     }
   }, [
     state.filters.minConfidence,
-    state.filters.sortBy,
-    state.filters.sourceFilter,
+    state.filters.mode,
+    state.filters.includeDetectionData,
   ])
 
   const contextValue: AppContextType = {
@@ -386,6 +390,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setUserLocation,
     feelingLucky,
     toggleClusteredMode,
+    clearError,
   }
 
   return (
