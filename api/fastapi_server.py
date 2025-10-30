@@ -60,6 +60,9 @@ from .api_models import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 # Configuration constants
 DEFAULT_START_LAT = 52.3613577  # Amsterdam, Netherlands (matches actual data)
 DEFAULT_START_LNG = 4.8666322
@@ -704,33 +707,6 @@ def get_high_confidence_benches_filtered(
             query = (
                 session.query(
                     Bench,
-                    func.coalesce(func.max(Detection.max_confidence), 0).label(
-                        "roboflow_confidence"
-                    ),
-                    func.coalesce(
-                        func.max(
-                            func.case(
-                                (
-                                    Detection.source == DetectionSource.ULTRALYTICS,
-                                    Detection.max_confidence,
-                                ),
-                                else_=0,
-                            )
-                        ),
-                        0,
-                    ).label("ultralytics_confidence"),
-                    func.coalesce(
-                        func.max(
-                            func.case(
-                                (
-                                    Detection.source == DetectionSource.MAPILLARY,
-                                    Detection.max_confidence,
-                                ),
-                                else_=0,
-                            )
-                        ),
-                        0,
-                    ).label("mapillary_confidence"),
                     func.count(func.distinct(Image.id)).label("image_count"),
                     func.group_concat(func.distinct(Image.filename)).label(
                         "image_filenames"
@@ -742,28 +718,6 @@ def get_high_confidence_benches_filtered(
                 .filter(Image.capture_success)
                 .group_by(Bench.id)
             )
-
-            # Apply mode-specific filtering
-            if mode == BenchMode.BENCHES:
-                query = query.having(
-                    func.max(
-                        func.case(
-                            (Detection.has_bench, Detection.max_confidence),
-                            else_=0,
-                        )
-                    )
-                    >= min_confidence
-                )
-            elif mode == BenchMode.NO_BENCH:
-                query = query.having(
-                    func.max(
-                        func.case(
-                            (Detection.has_bench, Detection.max_confidence),
-                            else_=0,
-                        )
-                    )
-                    == 0
-                )
 
             # Apply sorting
             if sort_by == "confidence":
@@ -794,13 +748,10 @@ def get_high_confidence_benches_filtered(
             # Process results
             benches = []
             for result in results:
-                bench = result[0]  # First element is the Bench object
-                roboflow_conf = result[1] or 0
-                ultralytics_conf = result[2] or 0
-                mapillary_conf = result[3] or 0
-                image_count = result[4] or 0
-                image_filenames_str = result[5] or ""
-                image_ids_str = result[6] or ""
+                bench: Bench = result[0]  # First element is the Bench object
+                image_count = result[1] or 0
+                image_filenames_str = result[2] or ""
+                image_ids_str = result[3] or ""
 
                 # Parse image data
                 image_filenames = (
@@ -813,24 +764,13 @@ def get_high_confidence_benches_filtered(
                 )
 
                 # Calculate best confidence
-                best_confidence = max(roboflow_conf, ultralytics_conf, mapillary_conf)
+                # TODO
+                best_confidence = 0
 
                 # Calculate distance
                 distance = calculate_distance(
                     start_lat, start_lng, bench.lat, bench.lng
                 )
-
-                # Determine detection type
-                if _safe_convert_source(bench.source) == DataSource.MAPILLARY:
-                    detection_type = DetectionSource.MAPILLARY
-                elif ultralytics_conf > 0 and ultralytics_conf >= roboflow_conf * 0.95:
-                    detection_type = DetectionSource.ULTRALYTICS
-                else:
-                    detection_type = (
-                        DetectionSource.ROBOFLOW
-                        if roboflow_conf > ultralytics_conf
-                        else DetectionSource.ULTRALYTICS
-                    )
 
                 # Get detection items if requested
                 detection_items = None
@@ -847,11 +787,8 @@ def get_high_confidence_benches_filtered(
                     external_id=bench.external_id,
                     bench_found=best_confidence > 0,
                     best_confidence=round(best_confidence, 3),
-                    roboflow_confidence=round(roboflow_conf, 3),
-                    ultralytics_confidence=round(ultralytics_conf, 3),
-                    mapillary_confidence=round(mapillary_conf, 3),
-                    detection_type=detection_type,
-                    has_segmentation=ultralytics_conf > 0 or mapillary_conf > 0,
+                    detection_type=DetectionSource.ROBOFLOW,
+                    has_segmentation=False,
                     image_count=image_count,
                     image_filenames=image_filenames,
                     image_ids=image_ids,

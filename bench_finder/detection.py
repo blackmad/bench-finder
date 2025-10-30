@@ -492,6 +492,39 @@ class BenchDetector:
             self.copy_bench_images,
         )
 
+        # Persist the single best detected image per bench
+        try:
+            if detection_results and representative_detection:
+                # Find index of representative to get image id
+                best_index = 0
+                # recompute best_index the same way to avoid identity pitfalls
+                current_best_coverage = 0.0
+                if pixel_coverage_results:
+                    current_best_coverage = pixel_coverage_results[0]
+                for i, (detection_result, pixel_coverage) in enumerate(
+                    zip(detection_results, pixel_coverage_results, strict=False)
+                ):
+                    current_cov = pixel_coverage_results[best_index]
+                    current_conf = detection_results[best_index].max_confidence
+                    if pixel_coverage > current_cov or (
+                        pixel_coverage == current_cov
+                        and detection_result.max_confidence > current_conf
+                    ):
+                        best_index = i
+
+                best_image = successful_images[best_index]
+                if best_image.id is not None:
+                    # upsert single DetectedBench row
+                    self.database.upsert_detected_bench(
+                        bench_id=db_bench.id,
+                        image_id=best_image.id,
+                        confidence=detection_results[best_index].max_confidence,
+                    )
+        except Exception:
+            logger.exception(
+                f"Failed to upsert DetectedBench for bench {bench.provider_id}"
+            )
+
         # If no bench was detected, show debug information
         if not result.bench_detected:
             display_no_bench_detected(

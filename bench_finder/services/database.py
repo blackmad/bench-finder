@@ -23,6 +23,7 @@ from bench_finder.models.unified_models import (
     BenchBase,
     BenchCandidate,
     BenchCandidateStatus,
+    DetectedBench,
     Detection,
     DetectionBase,
     DetectionItem,
@@ -625,6 +626,50 @@ class BenchDatabase:
         except Exception:
             logger.exception("Error clearing detections table")
             return 0
+
+    def upsert_detected_bench(
+        self, bench_id: int, image_id: int, confidence: float
+    ) -> int:
+        """
+        Create or update the best detected image for a bench.
+
+        Ensures at most one row per bench in detected_benches.
+
+        Returns the DetectedBench.id
+        """
+        try:
+            with self.get_session() as session:
+                existing = (
+                    session.query(DetectedBench)
+                    .filter(DetectedBench.bench_id == bench_id)
+                    .first()
+                )
+
+                if existing:
+                    existing.image_id = image_id
+                    existing.confidence = confidence
+                    session.commit()
+                    session.refresh(existing)
+                    logger.debug(
+                        f"Updated DetectedBench for bench {bench_id} -> image {image_id} (confidence {confidence:.2f})"
+                    )
+                    return existing.id or 0
+
+                row = DetectedBench(
+                    bench_id=bench_id,
+                    image_id=image_id,
+                    confidence=confidence,
+                )
+                session.add(row)
+                session.commit()
+                session.refresh(row)
+                logger.debug(
+                    f"Inserted DetectedBench for bench {bench_id} -> image {image_id} (confidence {confidence:.2f})"
+                )
+                return row.id or 0
+        except Exception:
+            logger.exception("Error upserting DetectedBench record")
+            raise
 
     def reset_bench_candidate_detection_status(self) -> int:
         """

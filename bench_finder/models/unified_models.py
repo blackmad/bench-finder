@@ -320,9 +320,6 @@ class Bench(SQLModel, table=True):
     external_id: str | None = Field(
         default=None
     )  # For Mapillary image IDs or other external IDs
-    representative_image_id: int | None = Field(
-        default=None, foreign_key="images.id"
-    )  # Best representative image
     created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
@@ -331,9 +328,6 @@ class Bench(SQLModel, table=True):
         back_populates="bench",
         cascade_delete=True,
         sa_relationship_kwargs={"foreign_keys": "Image.bench_id"},
-    )
-    representative_image: Optional["Image"] = Relationship(
-        sa_relationship_kwargs={"foreign_keys": "[Bench.representative_image_id]"}
     )
 
     def __repr__(self):
@@ -426,13 +420,6 @@ class Detection(SQLModel, table=True):
         default=None
     )  # For Mapillary detection IDs
 
-    # Ultralytics-specific fields (optional for backward compatibility)
-    # full_response: Optional[Dict[str, Any]] = Field(
-    #     default=None, sa_column_kwargs={"type_": JSON}
-    # )
-    # bench_detections: Optional[Dict[str, Any]] = Field(
-    #     default=None, sa_column_kwargs={"type_": JSON}
-    # )
     model_url: str | None = Field(default=None)
     iou_threshold: float | None = Field(default=None)
     image_size: int | None = Field(default=None)
@@ -450,6 +437,29 @@ class Detection(SQLModel, table=True):
 
     def __repr__(self):
         return f"<Detection(id={self.id}, image_id={self.image_id}, confidence={self.max_confidence})>"
+
+
+class DetectedBench(SQLModel, table=True):
+    """Represents the single best detected image per bench.
+
+    There should be at most one row per bench. Stores the chosen image_id and
+    its confidence for quick lookups and UI use.
+    """
+
+    __tablename__ = "detected_benches"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_id: int = Field(
+        foreign_key="benches.id",
+    )
+    image_id: int = Field(foreign_key="images.id", nullable=False)
+    confidence: float = Field(default=0.0)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships (no backrefs required right now)
+
+    def __repr__(self):
+        return f"<DetectedBench(bench_id={self.bench_id}, image_id={self.image_id}, confidence={self.confidence})>"
 
 
 class BenchReport(SQLModel, table=True):

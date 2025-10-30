@@ -44,7 +44,6 @@ The database is designed to support a comprehensive bench detection and manageme
 | `tags` | JSON | Source-specific metadata (OSM tags, Mapillary data) |
 | `source` | TEXT | Data source: `OSM` or `MAPILLARY` |
 | `external_id` | TEXT | External system ID (Mapillary image ID, etc.) |
-| `representative_image_id` | INTEGER | Foreign key to `images.id` (best image) |
 | `created_at` | DATETIME | Bench creation timestamp |
 
 **Relationships**:

@@ -72,6 +72,14 @@ run-server: ## Start the FastAPI development server
 	@echo "🚀 Starting FastAPI development server..."
 	uv run uvicorn api.fastapi_server:app --reload --host 0.0.0.0 --port 8866
 
+run-frontend: ## Start the frontend development server (Vite)
+	@echo "🚀 Starting frontend development server..."
+	cd frontend && npm run dev
+
+run-frontend-full: ## Start API and frontend together
+	@echo "🚀 Starting API and frontend..."
+	cd frontend && npm run dev:full
+
 run-cli: ## Run the bench-finder CLI
 	@echo "🔧 Running bench-finder CLI..."
 	uv run bench-finder --help

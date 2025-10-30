@@ -17,6 +17,7 @@ import json
 import math
 import os
 import sys
+import tempfile
 from typing import Any
 
 import requests
@@ -304,7 +305,8 @@ class FastAPIClient:
             response.raise_for_status()
 
             if save_path is None:
-                save_path = f"downloaded_{filename}"
+                safe_name = os.path.basename(filename)
+                save_path = os.path.join(tempfile.gettempdir(), safe_name)
 
             with open(save_path, "wb") as f:
                 f.write(response.content)
