@@ -5,9 +5,16 @@ This file combines database models, detection models, and API schemas using SQLM
 
 import json
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic_core import to_jsonable_python
+
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+
+    from bench_finder.models.mapillary_models import MapillaryDetection
+    from bench_finder.models.overpass_models import OSMBench
 from sqlalchemy import JSON, String
 from sqlmodel import Column, Field, Relationship, Session, SQLModel, create_engine
 
@@ -69,7 +76,7 @@ class BoundingBox(SQLModel):
         """Area of the bounding box."""
         return self.width * self.height
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         """Auto-calculate width and height if not provided."""
         # Auto-calculate width and height if not provided
         if "width" not in data and "x1" in data and "x2" in data:
@@ -216,7 +223,7 @@ class UnifiedBench(SQLModel):
     detection_id: str | None = Field(default=None, description="Mapillary detection ID")
 
     @classmethod
-    def from_osm_bench(cls, osm_bench) -> "UnifiedBench":
+    def from_osm_bench(cls, osm_bench: "OSMBench") -> "UnifiedBench":
         """Create UnifiedBench from OSMBench object."""
         return cls(
             provider_id=osm_bench.provider_id,
@@ -233,7 +240,7 @@ class UnifiedBench(SQLModel):
 
     @classmethod
     def from_mapillary_detection(
-        cls, detection, coordinates: tuple[float, float]
+        cls, detection: "MapillaryDetection", coordinates: tuple[float, float]
     ) -> "UnifiedBench":
         """Create UnifiedBench from MapillaryDetection object."""
         # coordinates is (lng, lat) from Mapillary
@@ -298,7 +305,7 @@ class Search(SQLModel, table=True):
         back_populates="search", cascade_delete=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Search(id={self.id}, query='{self.query}', status='{self.status}')>"
 
 
@@ -332,7 +339,7 @@ class Image(SQLModel, table=True):
         back_populates="image", cascade_delete=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Image(id={self.id}, bench_candidate_id={self.bench_candidate_id}, heading={self.heading})>"
 
 
@@ -372,7 +379,7 @@ class Detection(SQLModel, table=True):
         back_populates="detection", cascade_delete=True
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Detection(id={self.id}, image_id={self.image_id}, confidence={self.max_confidence})>"
 
 
@@ -417,7 +424,7 @@ class BenchReport(SQLModel, table=True):
     bench_candidate: "BenchCandidate" = Relationship()
     image: Optional["Image"] = Relationship()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<BenchReport(id={self.id}, bench_candidate_id={self.bench_candidate_id}, type='{self.report_type}', status='{self.status}')>"
 
 
@@ -453,7 +460,7 @@ class MissingBenchReport(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
     reviewed_at: datetime | None = Field(default=None)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MissingBenchReport(id={self.id}, location=({self.lat}, {self.lng}), status='{self.status}')>"
 
 
@@ -493,7 +500,7 @@ class BenchCandidate(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "Image.bench_candidate_id"},
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<BenchCandidate(id={self.id}, provider_id='{self.provider_id}', source='{self.source}')>"
 
 
@@ -537,7 +544,7 @@ class ProcessedBench(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "[ProcessedBench.best_detection_id]"}
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ProcessedBench(id={self.id}, bench_candidate_id={self.bench_candidate_id}, status='{self.detection_status}')>"
 
 
@@ -621,6 +628,29 @@ class BenchCandidateBase(SQLModel):
     confidence: float | None = None
 
 
+class BenchProcessingResult(SQLModel):
+    """Schema for bench processing results."""
+
+    bench_added: bool
+    images_captured: int
+    images_successful: int
+    detections_performed: int
+    bench_detected: bool
+    best_confidence: float
+
+
+class ProcessingStats(SQLModel):
+    """Schema for overall processing statistics."""
+
+    benches_processed: int
+    benches_added: int
+    images_captured: int
+    images_successful: int
+    detections_performed: int
+    benches_detected: int
+    best_confidence: float
+
+
 # ============================================================================
 # Database Configuration Functions
 # ============================================================================
@@ -632,7 +662,7 @@ def json_serializer(obj: Any) -> str:
 
 def create_database_engine(
     database_url: str | None = None, database_path: str | None = None
-):
+) -> "Engine":
     """
     Create SQLModel engine for the database.
 
@@ -681,12 +711,14 @@ def create_database_engine(
     return engine
 
 
-def create_database_session(engine):
+def create_database_session(engine: "Engine") -> Session:
     """Create SQLModel session."""
     return Session(engine)
 
 
-def init_database(database_url: str | None = None, database_path: str | None = None):
+def init_database(
+    database_url: str | None = None, database_path: str | None = None
+) -> "Engine":
     """
     Initialize database with all tables.
 

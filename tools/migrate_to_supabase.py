@@ -178,6 +178,8 @@ def migrate_database(
     ]
 
     total_migrated = 0
+    source_session = None
+    target_session = None
 
     try:
         source_session = source_db.get_session()
@@ -206,8 +208,10 @@ def migrate_database(
         logger.exception("Migration failed")
         raise
     finally:
-        source_session.close()
-        target_session.close()
+        if source_session is not None:
+            source_session.close()
+        if target_session is not None:
+            target_session.close()
 
 
 def main():

@@ -119,6 +119,18 @@ def add_indexes():
                 "bench_candidates(lat, lng)",
                 "Spatial index for distance-based queries",
             ),
+            # Separate indexes for efficient bbox BETWEEN queries
+            # SQLite can use both indexes efficiently for AND conditions
+            (
+                "idx_bench_candidates_lat",
+                "bench_candidates(lat)",
+                "Single-column index on lat for bbox queries",
+            ),
+            (
+                "idx_bench_candidates_lng",
+                "bench_candidates(lng)",
+                "Single-column index on lng for bbox queries",
+            ),
         ]
 
         created = 0

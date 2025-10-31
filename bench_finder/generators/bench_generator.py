@@ -23,7 +23,7 @@ class BenchCandidate:
     tags: dict[str, Any] = None  # Additional metadata/tags
     confidence: float | None = None  # Confidence score if available
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.tags is None:
             self.tags = {}
 
@@ -146,7 +146,7 @@ class BenchGenerator(ABC):
         """
         return self._stats
 
-    def _update_stats(self, success: bool, bench_count: int = 0):
+    def _update_stats(self, success: bool, bench_count: int = 0) -> None:
         """Update internal statistics after a request."""
         self._stats.total_requests += 1
         if success:

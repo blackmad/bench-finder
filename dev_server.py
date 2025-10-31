@@ -16,7 +16,7 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 
-def main():
+def main() -> None:
     """Start the development server with auto-reload."""
     print("🚀 Starting Bench Finder Development Server")
     print("📁 Project root:", project_root)

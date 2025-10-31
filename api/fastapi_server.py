@@ -18,6 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from bench_finder.config import DATABASE_PATH, IMAGES_DIR
 from bench_finder.models.enums import (
@@ -211,7 +213,7 @@ class BboxBenchResponse(BaseModel):
 
 # Application lifecycle management
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI) -> None:
     """Manage application lifecycle - startup and shutdown events."""
     # Startup
 
@@ -330,7 +332,7 @@ app.add_middleware(
 
 # Add custom exception handler for detailed error logging
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global exception handler that logs full stacktraces for debugging."""
     import logging
     import traceback
@@ -370,7 +372,7 @@ if os.path.exists(IMAGES_DIR):
 
 # Global exception handlers
 @app.exception_handler(ValueError)
-async def value_error_handler(request: Request, exc: ValueError):
+async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
     """Handle ValueError exceptions with proper HTTP status and stacktrace logging."""
     import logging
     import traceback
@@ -398,7 +400,7 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle HTTPException with stacktrace logging for 400-level errors."""
     import logging
     import traceback
@@ -429,7 +431,9 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Handle Pydantic validation errors with stacktrace logging."""
     import logging
     import traceback
@@ -489,7 +493,7 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     response_model=dict[str, str],
     tags=["config"],
 )
-async def health_check():
+async def health_check() -> HealthResponse:
     """Check if the server is running and database is accessible."""
     try:
         # Test database connection using SQLAlchemy ORM
@@ -1078,7 +1082,7 @@ async def get_benches(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
     ),
-):
+) -> BenchListResponse:
     """
     Retrieve a paginated list of benches with configurable detection modes.
 
@@ -1156,7 +1160,7 @@ async def get_random_bench(
         None,
         description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
     ),
-):
+) -> WebBenchData:
     """
     Get a randomly selected bench that meets the specified criteria.
 
@@ -1247,7 +1251,7 @@ async def get_bench_by_id_endpoint(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
     ),
-):
+) -> WebBenchData:
     """
     Get detailed information for a specific bench by its ID.
 
@@ -1263,6 +1267,45 @@ async def get_bench_by_id_endpoint(
     )
 
     return bench_data
+
+
+def _get_bbox_filtered_bench_candidate_ids(
+    session: Session, south: float, north: float, west: float, east: float
+) -> list[int] | None:
+    """
+    Get bench_candidate IDs within bounding box using R-tree if available.
+
+    Returns None if R-tree is not available, indicating fallback to regular filtering.
+    Returns list of IDs if R-tree query succeeds.
+    """
+    try:
+        # Check if R-tree table exists
+        result = session.execute(
+            text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='rtree_bench_candidates';"
+            )
+        ).fetchone()
+
+        if not result:
+            return None
+
+        # Use R-tree to get IDs within bounding box
+        # R-tree stores: minLng, maxLng, minLat, maxLat
+        # Bounding box query: WHERE minLng <= east AND maxLng >= west AND minLat <= north AND maxLat >= south
+        query = text("""
+            SELECT id FROM rtree_bench_candidates
+            WHERE minLng <= :east AND maxLng >= :west
+              AND minLat <= :north AND maxLat >= :south
+        """)
+        result = session.execute(
+            query, {"west": west, "east": east, "south": south, "north": north}
+        ).fetchall()
+
+        return [row[0] for row in result] if result else []
+
+    except Exception as e:
+        logger.debug(f"R-tree query failed, falling back to regular filtering: {e}")
+        return None
 
 
 @app.get(
@@ -1316,7 +1359,7 @@ async def get_benches_in_bbox(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
     ),
-):
+) -> BboxBenchResponse:
     """
     Get benches within a geographic bounding box.
 
@@ -1362,6 +1405,11 @@ async def get_benches_in_bbox(
         with db.get_session() as session:
             from sqlalchemy import func
 
+            # Try to use R-tree for fast spatial filtering
+            rtree_ids = _get_bbox_filtered_bench_candidate_ids(
+                session, south, north, west, east
+            )
+
             # Start from ProcessedBench, join to BenchCandidate and Detection
             base_query = (
                 session.query(
@@ -1399,25 +1447,36 @@ async def get_benches_in_bbox(
                     & (Image.capture_success == 1),
                     full=False,
                 )
-                .filter(
+            )
+
+            # Apply spatial filtering: use R-tree IDs if available, otherwise use BETWEEN
+            if rtree_ids is not None:
+                # Use R-tree filtered IDs for optimal performance
+                if not rtree_ids:
+                    # No matches in bounding box, return empty results early
+                    return BboxBenchResponse(benches=[], total_count=0)
+                base_query = base_query.filter(BenchCandidate.id.in_(rtree_ids))
+            else:
+                # Fallback to regular BETWEEN filters (uses regular indexes)
+                base_query = base_query.filter(
                     BenchCandidate.lat.between(south, north),
                     BenchCandidate.lng.between(west, east),
                 )
-                .group_by(
-                    ProcessedBench.id,
-                    BenchCandidate.id,
-                    BenchCandidate.provider_id,
-                    BenchCandidate.lat,
-                    BenchCandidate.lng,
-                    BenchCandidate.tags,
-                    BenchCandidate.source,
-                    BenchCandidate.external_id,
-                    Detection.max_confidence,
-                    Detection.source,
-                    ProcessedBench.detection_status,
-                    ProcessedBench.best_image_id,
-                    Detection.id,
-                )
+
+            base_query = base_query.group_by(
+                ProcessedBench.id,
+                BenchCandidate.id,
+                BenchCandidate.provider_id,
+                BenchCandidate.lat,
+                BenchCandidate.lng,
+                BenchCandidate.tags,
+                BenchCandidate.source,
+                BenchCandidate.external_id,
+                Detection.max_confidence,
+                Detection.source,
+                ProcessedBench.detection_status,
+                ProcessedBench.best_image_id,
+                Detection.id,
             )
 
             # Add source filtering if specified
@@ -1579,7 +1638,7 @@ async def get_benches_in_bbox(
     },
     tags=["search"],
 )
-async def get_searches():
+async def get_searches() -> SearchListResponse:
     """
     Get a list of completed search operations with metadata.
 
@@ -1640,7 +1699,7 @@ async def get_searches():
     response_model=ConfigResponse,
     tags=["config"],
 )
-async def get_config():
+async def get_config() -> ConfigResponse:
     """
     Get application configuration for frontend initialization.
 
@@ -1668,7 +1727,7 @@ async def get_config():
     response_model=ApiInfoResponse,
     tags=["config"],
 )
-async def get_api_info():
+async def get_api_info() -> ApiInfoResponse:
     """
     Get detailed API information including capabilities and usage limits.
 
@@ -1728,7 +1787,9 @@ async def get_api_info():
     },
     tags=["images"],
 )
-async def serve_image(filename: str = Path(..., description="Image filename")):
+async def serve_image(
+    filename: str = Path(..., description="Image filename"),
+) -> FileResponse:
     """
     Serve bench images from the configured storage backend (local or Firebase).
 
@@ -1806,7 +1867,7 @@ async def serve_image(filename: str = Path(..., description="Image filename")):
 )
 async def get_image_segmentation(
     image_id: int = Path(..., ge=1, description="Image ID"),
-):
+) -> SegmentationData:
     """
     Get detection visualization data for a specific image.
 
@@ -1960,7 +2021,9 @@ async def get_image_segmentation(
     },
     tags=["images"],
 )
-async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID")):
+async def get_bench_images(
+    bench_id: int = Path(..., ge=1, description="Bench ID"),
+) -> ImageListResponse:
     """
     Get all images associated with a specific bench.
 
@@ -2045,7 +2108,9 @@ async def get_bench_images(bench_id: int = Path(..., ge=1, description="Bench ID
     },
     tags=["images"],
 )
-async def get_bench_detections(bench_id: int = Path(..., ge=1, description="Bench ID")):
+async def get_bench_detections(
+    bench_id: int = Path(..., ge=1, description="Bench ID"),
+) -> BenchDetectionData:
     """
     Get comprehensive detection data for a specific bench.
 
@@ -2230,7 +2295,7 @@ async def report_bad_bench(
     image_id: int | None = Body(None, description="Specific image ID being reported"),
     user_location_lat: float | None = Body(None, description="User's GPS latitude"),
     user_location_lng: float | None = Body(None, description="User's GPS longitude"),
-):
+) -> ReportResponse:
     """
     Report a bad bench detection.
 
@@ -2395,7 +2460,7 @@ async def report_missing_bench(
     user_location_lng: float | None = Body(None, description="User's GPS longitude"),
     accuracy_meters: float | None = Body(None, description="GPS accuracy in meters"),
     image_data: str | None = Body(None, description="Base64 encoded image data"),
-):
+) -> MissingBenchReportResponse:
     """
     Report a missing bench at a specific location.
 
@@ -2540,7 +2605,7 @@ async def report_missing_bench(
     description="Test endpoint that triggers a 500 error to demonstrate stacktrace logging",
     tags=["config"],
 )
-async def test_error():
+async def test_error() -> None:
     """Test endpoint that raises an exception to demonstrate stacktrace logging."""
     raise ValueError(
         "This is a test error to demonstrate stacktrace logging in FastAPI logs"
@@ -2553,7 +2618,7 @@ async def test_error():
     description="Test endpoint that triggers a 400 error to demonstrate stacktrace logging",
     tags=["config"],
 )
-async def test_400_error():
+async def test_400_error() -> None:
     """Test endpoint that raises a ValueError to demonstrate 400 error stacktrace logging."""
     raise ValueError(
         "This is a test 400 error to demonstrate stacktrace logging in FastAPI logs"
@@ -2566,7 +2631,7 @@ async def test_400_error():
     description="Test endpoint that triggers a validation error to demonstrate stacktrace logging",
     tags=["config"],
 )
-async def test_validation_error():
+async def test_validation_error() -> dict[str, str]:
     """Test endpoint that demonstrates validation error stacktrace logging."""
     return {"message": "This endpoint requires a query parameter"}
 

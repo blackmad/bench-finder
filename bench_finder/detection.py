@@ -13,11 +13,18 @@ from typing import TYPE_CHECKING
 
 from rich.progress import (
     Progress,
+    TaskID,
 )
 from term_image.image import AutoImage
 
 from bench_finder.models.enums import BenchCandidateStatus
-from bench_finder.models.unified_models import Bench, DetectionResult, Image
+from bench_finder.models.unified_models import (
+    BenchCandidate,
+    BenchProcessingResult,
+    DetectionResult,
+    Image,
+    ProcessingStats,
+)
 from bench_finder.tools.bench_detection_cli import render_detections
 
 
@@ -48,18 +55,18 @@ from bench_finder.display import (
     display_bench_detection_results,
     display_no_bench_detected,
 )
-from bench_finder.generators.bench_generator import BenchCandidate
+from bench_finder.generators.bench_generator import (
+    BenchCandidate as BenchCandidateGenerator,
+)
 from bench_finder.models.unified_models import (
-    BenchProcessingResult,
     DetectionBase,
     DetectionItem,
-    ProcessingStats,
 )
 from bench_finder.services.database import BenchDatabase
 
 
 if TYPE_CHECKING:
-    from clients.base_detection_client import DetectionClient
+    from bench_finder.clients.base_detection_client import DetectionClient
 
 
 logger = logging.getLogger(__name__)
@@ -205,7 +212,7 @@ class BenchDetector:
                 logger.debug(
                     f"Pixel coverage calculation: {total_bench_pixels} bench pixels / {total_pixels} total pixels = {coverage_percentage:.2f}%"
                 )
-                return min(coverage_percentage, 100.0)  # Cap at 100%
+                return float(min(coverage_percentage, 100.0))  # Cap at 100%
 
             logger.debug("No pixels found - returning 0.0% coverage")
             return 0.0
@@ -215,7 +222,7 @@ class BenchDetector:
             return 0.0
 
     def process_benches_with_progress(
-        self, benches: list[BenchCandidate], progress: Progress, task
+        self, benches: list[BenchCandidateGenerator], progress: Progress, task: TaskID
     ) -> ProcessingStats:
         """
         Process each bench: run detection on existing images.
@@ -272,7 +279,9 @@ class BenchDetector:
 
         return stats
 
-    def _process_single_bench(self, bench: BenchCandidate) -> BenchProcessingResult:
+    def _process_single_bench(
+        self, bench: BenchCandidateGenerator
+    ) -> BenchProcessingResult:
         """
         Process a single bench: run detection on existing images.
 
@@ -292,27 +301,33 @@ class BenchDetector:
         )
 
         images: list[Image] = []
+        db_bench_candidate: BenchCandidate | None = None
 
-        # Find the bench in the database to get its images
+        # Find the bench candidate in the database to get its images
         try:
             with self.database.get_session() as session:
-                # Find the bench by provider_id
-                db_bench = (
-                    session.query(Bench)
+                # Find the bench candidate by provider_id
+                db_bench_candidate = (
+                    session.query(BenchCandidate)
                     .filter(
-                        Bench.provider_id == bench.provider_id,
+                        BenchCandidate.provider_id == bench.provider_id,
                     )
                     .first()
                 )
 
-                if not db_bench:
-                    logger.warning(f"Bench {bench.provider_id} not found in database")
+                if not db_bench_candidate:
+                    logger.warning(
+                        f"Bench candidate {bench.provider_id} not found in database"
+                    )
                     return result
 
-                # Get all images for this bench
+                # Get all images for this bench candidate
                 images = (
                     session.query(Image)
-                    .where(Image.bench_id == db_bench.id, Image.capture_success)
+                    .where(
+                        Image.bench_candidate_id == db_bench_candidate.id,
+                        Image.capture_success,
+                    )
                     .all()
                 )
 
@@ -330,7 +345,10 @@ class BenchDetector:
             return result
 
         # Generate unique identifier for image filenames
-        bench_identifier = bench.provider_id or f"bench_{db_bench.id}"
+        if db_bench_candidate is None or db_bench_candidate.id is None:
+            logger.error(f"Bench candidate {bench.provider_id} has no ID")
+            return result
+        bench_identifier = bench.provider_id or f"bench_{db_bench_candidate.id}"
 
         # Phase 1: Run detection on all successful images and calculate pixel coverage
         detection_results: list[DetectionResult] = []
@@ -339,8 +357,11 @@ class BenchDetector:
 
         for image in images:
             try:
+                if image.filepath is None:
+                    logger.warning(f"Image {image.id} has no filepath")
+                    continue
                 filepath = Path(__file__).parent.parent / image.filepath
-                if not filepath or not filepath.exists():
+                if not filepath.exists():
                     logger.warning(f"Image file not found: {filepath}")
                     continue
 
@@ -461,27 +482,32 @@ class BenchDetector:
                 )
 
                 # Copy the representative image
-                copied_path = self._copy_bench_image(
-                    image.filepath,
-                    winning_model,
-                    bench_identifier,
-                    image.heading,
-                )
+                if image.filepath is not None:
+                    copied_path = self._copy_bench_image(
+                        image.filepath,
+                        winning_model,
+                        bench_identifier,
+                        image.heading,
+                    )
+                else:
+                    copied_path = None
                 copy_info = f" (copied to {copied_path})" if copied_path else ""
 
+                image_path_str = image.filepath or "unknown"
                 print(
-                    f"🏆 Representative bench image: {image.filepath} "
+                    f"🏆 Representative bench image: {image_path_str} "
                     f"(heading {image.heading}°) with {pixel_coverage:.1f}% pixel coverage "
                     f"and confidence {detection_result.max_confidence:.2f} using {winning_model}{copy_info}"
                 )
                 # Pass DetectionResult object directly to render_detections
-                print(
-                    AutoImage(
-                        render_detections(
-                            image.filepath, detection_result, winning_model
+                if image.filepath is not None:
+                    print(
+                        AutoImage(
+                            render_detections(
+                                image.filepath, detection_result, winning_model
+                            )
                         )
                     )
-                )
 
         # Use display utilities for consistent output
         display_bench_detection_results(
@@ -514,9 +540,9 @@ class BenchDetector:
 
                 best_image = successful_images[best_index]
                 if best_image.id is not None:
-                    # upsert single DetectedBench row
+                    # upsert single ProcessedBench row
                     self.database.upsert_detected_bench(
-                        bench_id=db_bench.id,
+                        bench_id=db_bench_candidate.id,
                         image_id=best_image.id,
                         confidence=detection_results[best_index].max_confidence,
                     )
@@ -555,8 +581,6 @@ class BenchDetector:
         # Update candidate status to detection_done
         try:
             with self.database.get_session() as session:
-                from models.unified_models import BenchCandidate
-
                 candidate = (
                     session.query(BenchCandidate)
                     .filter(

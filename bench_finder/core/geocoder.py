@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class Geocoder:
     """Google Geocoding API client."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the geocoder with API key."""
         if not GOOGLE_MAPS_API_KEY:
             raise ValueError("GOOGLE_MAPS_API_KEY is required")
@@ -88,10 +88,12 @@ class Geocoder:
                 )
                 return None
 
-            formatted_address = reverse_result[0]["formatted_address"]
+            formatted_address = reverse_result[0].get("formatted_address", "")
+            if not formatted_address:
+                return None
             logger.debug(f"Reverse geocoded {lat}, {lng} to: {formatted_address}")
 
-            return formatted_address
+            return str(formatted_address)
 
         except googlemaps.exceptions.ApiError:
             logger.exception(f"Google Maps API error reverse geocoding {lat}, {lng}")

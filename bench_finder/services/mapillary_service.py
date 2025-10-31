@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from bench_finder.models.enums import DataSource
 from bench_finder.models.unified_models import (
-    Bench,
+    BenchCandidate,
     Detection,
     Image,
     Search,
@@ -200,9 +200,10 @@ class MapillaryBenchService:
         try:
             # Check if bench already exists (by external_id)
             existing_bench = (
-                session.query(Bench)
+                session.query(BenchCandidate)
                 .filter(
-                    Bench.external_id == api_image.image_id, Bench.source == "mapillary"
+                    BenchCandidate.external_id == api_image.image_id,
+                    BenchCandidate.source == DataSource.MAPILLARY,
                 )
                 .first()
             )
@@ -215,7 +216,7 @@ class MapillaryBenchService:
                 return self._bench_to_web_data(existing_bench, distance)
 
             # Create new bench from Mapillary detection
-            db_bench = Bench(
+            db_bench = BenchCandidate(
                 search_id=search_id,  # Use dummy search ID for Mapillary benches
                 provider_id=api_image.image_id,  # Use image_id as provider_id for Mapillary
                 lat=api_image.coordinates[1],  # API returns [lng, lat]
@@ -234,7 +235,7 @@ class MapillaryBenchService:
             if download_result and download_result.get("success", False):
                 # Use downloaded image info
                 db_image = Image(
-                    bench_id=db_bench.id,
+                    bench_candidate_id=db_bench.id if db_bench.id is not None else 0,
                     heading=0,  # We don't have heading info from Mapillary detections
                     filepath=download_result["filepath"],
                     filename=download_result["filename"],
@@ -245,7 +246,7 @@ class MapillaryBenchService:
             else:
                 # Create dummy image entry if download failed
                 db_image = Image(
-                    bench_id=db_bench.id,
+                    bench_candidate_id=db_bench.id if db_bench.id is not None else 0,
                     heading=0,
                     filepath=None,
                     filename=None,
@@ -326,7 +327,7 @@ class MapillaryBenchService:
 
     def _bench_to_web_data(
         self,
-        bench: Bench,
+        bench: BenchCandidate,
         distance: float,
         image_filenames: list[str] | None = None,
         image_ids: list[int] | None = None,
@@ -353,54 +354,6 @@ class MapillaryBenchService:
             distance_km=round(distance / 1000, 2),
         )
 
-    def get_stored_benches(
-        self,
-        center_lat: float,
-        center_lng: float,
-        radius_meters: int = 1000,
-        limit: int = 1000,
-        source: DataSource | None = None,
-    ) -> list[WebBenchData]:
-        """
-        Get stored bench detections from the database.
-
-        Args:
-            center_lat: Center latitude
-            center_lng: Center longitude
-            radius_meters: Search radius in meters
-            limit: Maximum number of results
-            source: Filter by source ('osm' or 'mapillary'), None for all
-
-        Returns:
-            List of bench data
-        """
-        radius_deg = radius_meters / 111000
-
-        with self.get_session() as session:
-            # Query benches within radius
-            query = session.query(Bench).filter(
-                Bench.lat >= center_lat - radius_deg,
-                Bench.lat <= center_lat + radius_deg,
-                Bench.lng >= center_lng - radius_deg,
-                Bench.lng <= center_lng + radius_deg,
-            )
-
-            if source:
-                query = query.filter(Bench.source == source)
-
-            benches = query.limit(limit).all()
-
-            # Convert to WebBenchData
-            results = []
-            for bench in benches:
-                distance = self._calculate_distance(
-                    center_lat, center_lng, bench.lat, bench.lng
-                )
-                web_data = self._bench_to_web_data(bench, distance)
-                results.append(web_data)
-
-            return results
-
     def get_detection_statistics(
         self,
         center_lat: float | None = None,
@@ -421,20 +374,20 @@ class MapillaryBenchService:
             Statistics about the detections
         """
         with self.get_session() as session:
-            query = session.query(Bench)
+            query = session.query(BenchCandidate)
 
             # Apply source filter
             if source:
-                query = query.filter(Bench.source == source)
+                query = query.filter(BenchCandidate.source == source)
 
             # Apply location filter if provided
             if all([center_lat, center_lng, radius_meters]):
                 radius_deg = radius_meters / 111000
                 query = query.filter(
-                    Bench.lat >= center_lat - radius_deg,
-                    Bench.lat <= center_lat + radius_deg,
-                    Bench.lng >= center_lng - radius_deg,
-                    Bench.lng <= center_lng + radius_deg,
+                    BenchCandidate.lat >= center_lat - radius_deg,
+                    BenchCandidate.lat <= center_lat + radius_deg,
+                    BenchCandidate.lng >= center_lng - radius_deg,
+                    BenchCandidate.lng <= center_lng + radius_deg,
                 )
 
             # Get bench count
@@ -447,17 +400,20 @@ class MapillaryBenchService:
                 detection_count = (
                     session.query(Detection)
                     .join(Image)
-                    .filter(Image.bench_id.in_(bench_ids), Detection.has_bench is True)
+                    .filter(
+                        Image.bench_candidate_id.in_(bench_ids),
+                        Detection.has_bench is True,
+                    )
                     .count()
                 )
 
             # Calculate unique locations (rounded to ~100m precision)
             location_stats = (
                 session.query(
-                    func.round(Bench.lat, 3).label("lat_bucket"),
-                    func.round(Bench.lng, 3).label("lng_bucket"),
+                    func.round(BenchCandidate.lat, 3).label("lat_bucket"),
+                    func.round(BenchCandidate.lng, 3).label("lng_bucket"),
                 )
-                .filter(Bench.id.in_(bench_ids) if bench_ids else False)
+                .filter(BenchCandidate.id.in_(bench_ids) if bench_ids else False)
                 .distinct()
                 .all()
             )
@@ -492,9 +448,10 @@ class MapillaryBenchService:
         """
         with self.get_session() as session:
             bench = (
-                session.query(Bench)
+                session.query(BenchCandidate)
                 .filter(
-                    Bench.external_id == mapillary_image_id, Bench.source == "mapillary"
+                    BenchCandidate.external_id == mapillary_image_id,
+                    BenchCandidate.source == DataSource.MAPILLARY,
                 )
                 .first()
             )

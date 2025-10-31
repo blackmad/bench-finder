@@ -17,7 +17,7 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def setup_logging(level: str | None = None, format_str: str | None = None):
+def setup_logging(level: str | None = None, format_str: str | None = None) -> None:
     """
     Configure logging for the application.
 
@@ -45,7 +45,9 @@ def setup_logging(level: str | None = None, format_str: str | None = None):
     logger.info(f"Logging configured at {level.upper()} level")
 
 
-def retry_on_failure(max_retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+def retry_on_failure(
+    max_retries: int = 3, delay: float = 1.0, backoff: float = 2.0
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator that retries a function on failure with exponential backoff.
 
@@ -208,7 +210,7 @@ class ProgressTracker:
 
         self.logger.info(f"Starting {description} - {total} items")
 
-    def update(self, increment: int = 1):
+    def update(self, increment: int = 1) -> None:
         """
         Update progress by incrementing the current count.
 
@@ -240,7 +242,7 @@ class ProgressTracker:
                     f"in {elapsed:.1f}s ({rate:.1f} items/s)"
                 )
 
-    def finish(self):
+    def finish(self) -> None:
         """Mark the operation as finished."""
         self.current = max(self.current, self.total)
         self.update(0)  # Force final log message

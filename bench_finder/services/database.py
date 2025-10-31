@@ -5,6 +5,7 @@ SQLAlchemy ORM operations for storing bench data, images, and detection results.
 import logging
 import os
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -257,7 +258,7 @@ class BenchDatabase:
         search_id: int,
         status: SearchStatus,
         completed_at: datetime | None = None,
-    ):
+    ) -> None:
         """
         Update the status of a search record.
 
@@ -598,12 +599,12 @@ class BenchDatabase:
             logger.exception("Error getting random streetview image")
             return None
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection if needed."""
         # Using SQLAlchemy sessions with context managers, connections are automatically closed
 
     # Additional helper methods for web server compatibility
-    def _get_connection(self):
+    def _get_connection(self) -> Any:
         """Legacy compatibility method for web server."""
         # For now, return a simple sqlite3 connection for backward compatibility
         # This will be removed once web_server.py is fully updated

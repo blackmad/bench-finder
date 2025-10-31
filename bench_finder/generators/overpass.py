@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class OverpassBenchGenerator(BenchGenerator):
     """Bench generator that uses OpenStreetMap data via Overpass API."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("OpenStreetMap Overpass")
         self.overpass_client = OverpassClient()
 

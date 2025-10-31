@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class StreetViewClient:
     """Client for Google Street View Static API."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the Street View client."""
         if not GOOGLE_MAPS_API_KEY:
             raise ValueError("GOOGLE_MAPS_API_KEY is required")
