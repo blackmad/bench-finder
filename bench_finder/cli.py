@@ -842,6 +842,82 @@ def _display_candidates_table(candidates: list, output_format: str = "table"):
         console.print(output.getvalue())
 
 
+@app.command("cleanup-deleted-osm")
+def cleanup_deleted_osm(
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="Dry run mode (default: True). Use --no-dry-run to actually delete candidates",
+    ),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    batch_size: int = typer.Option(
+        1000,
+        "--batch-size",
+        help="Number of candidates to check per batch (default: 1000)",
+    ),
+):
+    """
+    Check all OSM bench candidates and remove those that have been deleted from OpenStreetMap.
+
+    This command:
+    1. Fetches all OSM bench candidates from the database
+    2. Checks if they still exist in OSM using bulk Overpass API queries
+    3. Deletes candidates and their ProcessedBench entries if they've been removed from OSM
+
+    By default, runs in dry-run mode to preview what would be deleted.
+    Use --no-dry-run to actually perform the deletions.
+    """
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    try:
+        if dry_run:
+            console.print(
+                "[yellow]🔍 DRY RUN MODE - No changes will be made[/yellow]\n"
+            )
+        else:
+            console.print(
+                "[bold red]⚠️  LIVE MODE - Candidates will be permanently deleted[/bold red]\n"
+            )
+            if not typer.confirm(
+                "Are you sure you want to delete deleted OSM candidates?"
+            ):
+                console.print("[yellow]Operation cancelled.[/yellow]")
+                return
+
+        # Import here to avoid circular imports
+        import sys
+        from pathlib import Path
+
+        # Add tools directory to path
+        project_root = Path(__file__).parent.parent.parent
+        sys.path.insert(0, str(project_root))
+
+        from tools.cleanup_deleted_osm_benches import cleanup_deleted_osm_benches
+
+        stats = cleanup_deleted_osm_benches(dry_run=dry_run, batch_size=batch_size)
+
+        console.print("\n[bold]📊 Final Summary:[/bold]")
+        console.print(f"  • Total OSM candidates: {stats['total_osm_candidates']}")
+        console.print(f"  • Checked: {stats['checked']}")
+        console.print(f"  • Deleted candidates: {stats['deleted_candidates']}")
+        console.print(
+            f"  • Deleted processed benches: {stats['deleted_processed_benches']}"
+        )
+        console.print(f"  • Errors: {stats['errors']}")
+
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130) from None
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1) from e
+
+
 def main():
     """Main entry point for the CLI."""
     app()

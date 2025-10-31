@@ -1043,7 +1043,10 @@ async def get_random_bench(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
     ),
-    # Source filtering removed - using unified approach
+    source: DataSource | None = Query(
+        None,
+        description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
+    ),
 ):
     """
     Get a randomly selected bench that meets the specified criteria.
@@ -1051,6 +1054,11 @@ async def get_random_bench(
     This is useful for exploring the dataset or providing "discover" functionality
     in user interfaces. The randomization is performed at the database level
     for efficiency.
+
+    **Source Filtering:**
+    - `osm`: Filter to only OpenStreetMap sourced benches
+    - `mapillary`: Filter to only Mapillary sourced benches
+    - `null` (default): Include all sources
     """
     try:
         db = BenchDatabase()
@@ -1066,6 +1074,10 @@ async def get_random_bench(
                 )
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
             )
+
+            # Add source filtering if specified
+            if source is not None:
+                base_query = base_query.filter(BenchCandidate.source == source)
 
             if mode == BenchMode.BENCHES:
                 # Only benches with detected benches
@@ -1650,7 +1662,7 @@ async def serve_image(filename: str = Path(..., description="Image filename")):
     responses={
         404: {
             "model": EnhancedErrorResponse,
-            "description": "Image or detection data not found",
+            "description": "Image not found",
         },
         500: {"model": EnhancedErrorResponse, "description": "Internal server error"},
     },
@@ -1674,6 +1686,9 @@ async def get_image_segmentation(
     - `segmentation`: Polygon-based detection outlines
     - `bounding_box`: Rectangular detection regions
     - `both`: Combined segmentation and bounding box data
+
+    **Note:** If no detection data is found for the image, an empty response
+    is returned (empty detection_items list) rather than raising a 404 error.
     """
     try:
         db = BenchDatabase()
@@ -1700,9 +1715,16 @@ async def get_image_segmentation(
             detections = [d for d in image.detections if d.has_bench]
 
             if not detections:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"No detection data found for image ID {image_id}",
+                # Return empty segmentation data instead of raising an exception
+                return SegmentationData(
+                    filename=image.filename or "unknown",
+                    detection_type="bounding_box",  # Default when no data
+                    detection_items=[],
+                    image_shape=None,
+                    segmentation_available=False,
+                    bounding_box_available=False,
+                    confidence_score=0.0,
+                    source=DetectionSource.NONE,
                 )
 
             # Collect all detection items from all detections

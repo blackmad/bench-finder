@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Literal, Optional
 
 from pydantic_core import to_jsonable_python
-from sqlalchemy import JSON
+from sqlalchemy import JSON, String
 from sqlmodel import Column, Field, Relationship, Session, SQLModel, create_engine
 
 from .enums import (
@@ -514,6 +514,7 @@ class ProcessedBench(SQLModel, table=True):
     detection_status: Literal["detected", "no_bench"] = Field(
         ...,
         description="Discriminator: 'detected' if bench found, 'no_bench' otherwise",
+        sa_column=Column(String, nullable=False),
     )
     # These fields are required when detection_status="detected", None when "no_bench"
     best_image_id: int | None = Field(

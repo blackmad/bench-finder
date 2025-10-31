@@ -19,16 +19,15 @@ from api.api_models import (
 from bench_finder.config import DATABASE_PATH
 from bench_finder.models.enums import DataSource
 from bench_finder.models.unified_models import (
-    Bench,
     BenchBase,
     BenchCandidate,
     BenchCandidateStatus,
-    DetectedBench,
     Detection,
     DetectionBase,
     DetectionItem,
     Image,
     ImageBase,
+    ProcessedBench,
     Search,
     SearchBase,
     SearchStatus,
@@ -114,10 +113,10 @@ class BenchDatabase:
                 existing_bench = None
                 if bench_data.provider_id:
                     existing_bench = (
-                        session.query(Bench)
+                        session.query(BenchCandidate)
                         .filter(
-                            Bench.provider_id == bench_data.provider_id,
-                            Bench.source == bench_data.source,
+                            BenchCandidate.provider_id == bench_data.provider_id,
+                            BenchCandidate.source == bench_data.source,
                         )
                         .first()
                     )
@@ -128,7 +127,7 @@ class BenchDatabase:
                     )
                     return existing_bench.id
 
-                bench = Bench(
+                bench = BenchCandidate(
                     search_id=search_id,
                     provider_id=bench_data.provider_id,
                     lat=bench_data.lat,
@@ -164,7 +163,7 @@ class BenchDatabase:
         try:
             with self.get_session() as session:
                 image = Image(
-                    bench_id=bench_id,
+                    bench_candidate_id=bench_id,
                     heading=image_data.heading,
                     filepath=image_data.filepath,
                     filename=image_data.filename,
@@ -177,7 +176,7 @@ class BenchDatabase:
                 session.refresh(image)
 
                 logger.debug(
-                    f"Added image record {image.id} for bench {image_data.bench_id}, heading {image_data.heading}"
+                    f"Added image record {image.id} for bench candidate {bench_id}, heading {image_data.heading}"
                 )
                 return image.id
 
@@ -299,7 +298,9 @@ class BenchDatabase:
 
                 # Get bench count
                 bench_count = (
-                    session.query(Bench).filter(Bench.search_id == search_id).count()
+                    session.query(BenchCandidate)
+                    .filter(BenchCandidate.search_id == search_id)
+                    .count()
                 )
 
                 # Get image stats
@@ -308,8 +309,8 @@ class BenchDatabase:
                         func.count(Image.id).label("total_images"),
                         func.sum(Image.capture_success).label("successful_images"),
                     )
-                    .join(Bench, Image.bench_id == Bench.id)
-                    .filter(Bench.search_id == search_id)
+                    .join(BenchCandidate, Image.bench_candidate_id == BenchCandidate.id)
+                    .filter(BenchCandidate.search_id == search_id)
                     .first()
                 )
 
@@ -321,8 +322,8 @@ class BenchDatabase:
                         func.max(Detection.max_confidence).label("best_confidence"),
                     )
                     .join(Image, Detection.image_id == Image.id)
-                    .join(Bench, Image.bench_id == Bench.id)
-                    .filter(Bench.search_id == search_id)
+                    .join(BenchCandidate, Image.bench_candidate_id == BenchCandidate.id)
+                    .filter(BenchCandidate.search_id == search_id)
                     .first()
                 )
 
@@ -371,7 +372,9 @@ class BenchDatabase:
             with self.get_session() as session:
                 # Get all benches for this search with eagerly loaded relationships
                 benches = (
-                    session.query(Bench).filter(Bench.search_id == search_id).all()
+                    session.query(BenchCandidate)
+                    .filter(BenchCandidate.search_id == search_id)
+                    .all()
                 )
 
                 result = []
@@ -380,7 +383,7 @@ class BenchDatabase:
                     images_with_detections = [
                         ImageWithDetections(
                             id=image.id,
-                            bench_id=image.bench_id,
+                            bench_id=image.bench_candidate_id,
                             heading=image.heading,
                             filepath=image.filepath,
                             filename=image.filename,
@@ -631,44 +634,59 @@ class BenchDatabase:
         self, bench_id: int, image_id: int, confidence: float
     ) -> int:
         """
-        Create or update the best detected image for a bench.
+        Create or update the best detected image for a bench candidate.
 
-        Ensures at most one row per bench in detected_benches.
+        Args:
+            bench_id: bench_candidate_id (legacy parameter name kept for compatibility)
+            image_id: ID of the best image
+            confidence: Confidence score
 
-        Returns the DetectedBench.id
+        Returns the ProcessedBench.id
         """
         try:
             with self.get_session() as session:
+                # Get the best detection for this image (highest confidence)
+                best_detection = (
+                    session.query(Detection)
+                    .filter(Detection.image_id == image_id)
+                    .order_by(Detection.max_confidence.desc())
+                    .first()
+                )
+
                 existing = (
-                    session.query(DetectedBench)
-                    .filter(DetectedBench.bench_id == bench_id)
+                    session.query(ProcessedBench)
+                    .filter(ProcessedBench.bench_candidate_id == bench_id)
                     .first()
                 )
 
                 if existing:
-                    existing.image_id = image_id
-                    existing.confidence = confidence
+                    existing.best_image_id = image_id
+                    existing.best_detection_id = (
+                        best_detection.id if best_detection else None
+                    )
+                    existing.detection_status = "detected"
                     session.commit()
                     session.refresh(existing)
                     logger.debug(
-                        f"Updated DetectedBench for bench {bench_id} -> image {image_id} (confidence {confidence:.2f})"
+                        f"Updated ProcessedBench for bench candidate {bench_id} -> image {image_id} (confidence {confidence:.2f})"
                     )
                     return existing.id or 0
 
-                row = DetectedBench(
-                    bench_id=bench_id,
-                    image_id=image_id,
-                    confidence=confidence,
+                row = ProcessedBench(
+                    bench_candidate_id=bench_id,
+                    best_image_id=image_id,
+                    best_detection_id=best_detection.id if best_detection else None,
+                    detection_status="detected",
                 )
                 session.add(row)
                 session.commit()
                 session.refresh(row)
                 logger.debug(
-                    f"Inserted DetectedBench for bench {bench_id} -> image {image_id} (confidence {confidence:.2f})"
+                    f"Inserted ProcessedBench for bench candidate {bench_id} -> image {image_id} (confidence {confidence:.2f})"
                 )
                 return row.id or 0
         except Exception:
-            logger.exception("Error upserting DetectedBench record")
+            logger.exception("Error upserting ProcessedBench record")
             raise
 
     def reset_bench_candidate_detection_status(self) -> int:

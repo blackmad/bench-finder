@@ -28,7 +28,6 @@ from api.api_models import (
     ApiInfoResponse,
     BenchDetectionData,
     BenchListResponse,
-    ClusteredBenchListResponse,
     ConfigResponse,
     HealthResponse,
     ImageListResponse,
@@ -38,7 +37,7 @@ from api.api_models import (
 )
 from api.fastapi_server import BboxBenchResponse
 from bench_finder.display import create_combined_image_display, render_detections
-from bench_finder.models.enums import DetectionSource
+from bench_finder.models.enums import DataSource, DetectionSource
 from bench_finder.models.unified_models import (
     BoundingBox,
     DetectionItem,
@@ -161,6 +160,7 @@ class FastAPIClient:
         min_confidence: float = 0.8,
         mode: str = "benches",
         include_detection_data: bool = False,
+        source: DataSource | None = None,
     ) -> WebBenchData:
         """Get a random bench."""
         params = {
@@ -168,6 +168,8 @@ class FastAPIClient:
             "mode": mode,
             "include_detection_data": include_detection_data,
         }
+        if source:
+            params["source"] = source.value
         return self._make_typed_request(
             "GET", "/api/benches/random", WebBenchData, params=params
         )
@@ -181,9 +183,8 @@ class FastAPIClient:
         start_lng: float = 4.8666322,
         sort_by: str = "distance",
         mode: str = "benches",
-        clustered: bool = True,
         include_detection_data: bool = False,
-    ) -> BenchListResponse | ClusteredBenchListResponse:
+    ) -> BenchListResponse:
         """Get list of benches."""
         params = {
             "page": page,
@@ -193,18 +194,11 @@ class FastAPIClient:
             "start_lng": start_lng,
             "sort_by": sort_by,
             "mode": mode,
-            "clustered": clustered,
             "include_detection_data": include_detection_data,
         }
-        # We need to handle the union type - try clustered first, fallback to regular
-        try:
-            return self._make_typed_request(
-                "GET", "/api/benches", ClusteredBenchListResponse, params=params
-            )
-        except Exception:
-            return self._make_typed_request(
-                "GET", "/api/benches", BenchListResponse, params=params
-            )
+        return self._make_typed_request(
+            "GET", "/api/benches", BenchListResponse, params=params
+        )
 
     def get_benches_in_bbox(
         self,
@@ -213,13 +207,12 @@ class FastAPIClient:
         east: float,
         west: float,
         min_confidence: float = 0.8,
-        source: str | None = None,
+        source: DataSource | None = None,
         mode: str = "benches",
         sort_by: str = "distance",
         limit: int = 200,
-        clustered: bool = True,
         include_detection_data: bool = False,
-    ) -> BboxBenchResponse | ClusteredBenchListResponse:
+    ) -> BboxBenchResponse:
         """Get benches in bounding box."""
         params = {
             "north": north,
@@ -230,20 +223,13 @@ class FastAPIClient:
             "sort_by": sort_by,
             "mode": mode,
             "limit": limit,
-            "clustered": clustered,
             "include_detection_data": include_detection_data,
         }
         if source:
-            params["source"] = source
-        # Handle union type - try clustered first, fallback to bbox response
-        try:
-            return self._make_typed_request(
-                "GET", "/api/benches/bbox", ClusteredBenchListResponse, params=params
-            )
-        except Exception:
-            return self._make_typed_request(
-                "GET", "/api/benches/bbox", BboxBenchResponse, params=params
-            )
+            params["source"] = source.value
+        return self._make_typed_request(
+            "GET", "/api/benches/bbox", BboxBenchResponse, params=params
+        )
 
     def get_bench_images(self, bench_id: int) -> ImageListResponse:
         """Get images for a specific bench."""
@@ -359,7 +345,35 @@ def format_bench_info(
     # Basic info
     lines.append(f"🪑 Bench ID: {bench.id}")
     lines.append(f"📍 Location: {bench.lat:.6f}, {bench.lng:.6f}")
+
+    # Google Street View link
+    streetview_link = f"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={bench.lat},{bench.lng}"
+    lines.append(f"🗺️  Street View: {streetview_link}")
+
+    # OSM node link if source is OSM
+    if bench.source == DataSource.OSM:
+        if bench.provider_id:
+            # Parse provider_id format: "{osm_id}_{osm_type}"
+            parts = bench.provider_id.split("_", 1)
+            if len(parts) == 2:
+                osm_id, osm_type = parts
+                if osm_type == "node":
+                    osm_link = f"https://www.openstreetmap.org/node/{osm_id}"
+                    lines.append(f"🗺️  OSM Node: {osm_link}")
+                elif osm_type in ["way", "relation"]:
+                    osm_link = f"https://www.openstreetmap.org/{osm_type}/{osm_id}"
+                    lines.append(f"🗺️  OSM {osm_type.capitalize()}: {osm_link}")
+        elif bench.external_id:
+            # Fallback: use external_id if provider_id is not available
+            # Assume it's a node if we can't determine the type
+            osm_link = f"https://www.openstreetmap.org/node/{bench.external_id}"
+            lines.append(f"🗺️  OSM Node: {osm_link}")
+
     lines.append(f"📊 Source: {bench.source}")
+    if bench.provider_id:
+        lines.append(f"🆔 Provider ID: {bench.provider_id}")
+    if bench.external_id:
+        lines.append(f"🔖 External ID: {bench.external_id}")
     lines.append(f"🎯 Detection Type: {bench.detection_type}")
     lines.append(f"✅ Bench Found: {bench.bench_found}")
 
@@ -406,16 +420,6 @@ def format_bench_info(
             lines.append(
                 f"     ... and {len(bench.detection_items) - 3} more detection items"
             )
-
-    # Clustering info
-    if bench.cluster_id:
-        lines.append(f"🔗 Cluster ID: {bench.cluster_id}")
-        lines.append(
-            f"   Cluster Center: {bench.cluster_center_lat:.6f}, {bench.cluster_center_lng:.6f}"
-        )
-        lines.append(f"   Benches in Cluster: {bench.cluster_bench_count}")
-        if bench.is_cluster_representative:
-            lines.append("   🏆 Representative Bench")
 
     return "\n".join(lines)
 
@@ -579,11 +583,12 @@ def cmd_info(client: FastAPIClient, args):
 
 def cmd_random(client: FastAPIClient, args):
     """Random bench command."""
+    source_str = f", source={args.source.value}" if args.source else ""
     print(
-        f"🎲 Getting random bench (min_confidence={args.min_confidence}, mode={args.mode})..."
+        f"🎲 Getting random bench (min_confidence={args.min_confidence}, mode={args.mode}{source_str})..."
     )
     bench = client.get_random_bench(
-        args.min_confidence, args.mode, args.include_detection_data
+        args.min_confidence, args.mode, args.include_detection_data, args.source
     )
 
     print("\n" + "=" * 60)
@@ -611,19 +616,10 @@ def cmd_closest(client: FastAPIClient, args):
         start_lng=args.lng,
         sort_by="distance",
         mode=args.mode,
-        clustered=args.clustered,
         include_detection_data=args.include_detection_data,
     )
 
-    if isinstance(response, BenchListResponse):
-        benches = response.benches
-    elif isinstance(response, ClusteredBenchListResponse):
-        benches = [
-            cluster.representative_bench for cluster in response.clustered_benches
-        ]
-    else:
-        print("❌ Unexpected response format")
-        return
+    benches = response.benches
 
     if not benches:
         print("❌ No benches found")
@@ -652,21 +648,11 @@ def cmd_list(client: FastAPIClient, args):
         start_lng=args.start_lng,
         sort_by=args.sort_by,
         mode=args.mode,
-        clustered=args.clustered,
         include_detection_data=args.include_detection_data,
     )
 
-    if isinstance(response, BenchListResponse):
-        benches = response.benches
-        pagination = response.pagination
-    elif isinstance(response, ClusteredBenchListResponse):
-        benches = [
-            cluster.representative_bench for cluster in response.clustered_benches
-        ]
-        pagination = response.pagination
-    else:
-        print("❌ Unexpected response format")
-        return
+    benches = response.benches
+    pagination = response.pagination
 
     print(
         f"\n📊 Page {pagination.page + 1} of {pagination.total_pages} "
@@ -698,21 +684,11 @@ def cmd_bbox(client: FastAPIClient, args):
         mode=args.mode,
         sort_by=args.sort_by,
         limit=args.limit,
-        clustered=args.clustered,
         include_detection_data=args.include_detection_data,
     )
 
-    if isinstance(response, BboxBenchResponse):
-        benches = response.benches
-        total_count = response.total_count
-    elif isinstance(response, ClusteredBenchListResponse):
-        benches = [
-            cluster.representative_bench for cluster in response.clustered_benches
-        ]
-        total_count = len(benches)
-    else:
-        print("❌ Unexpected response format")
-        return
+    benches = response.benches
+    total_count = response.total_count
 
     print(f"\n📊 Found {len(benches)} benches in bounding box (total: {total_count})")
     print("=" * 80)
@@ -787,6 +763,9 @@ Examples:
   # Get a random bench with detection data
   python tools/fastapi_cli.py random --include-detection-data
 
+  # Get a random bench from OSM source only
+  python tools/fastapi_cli.py random --source osm
+
   # Find closest benches to Amsterdam
   python tools/fastapi_cli.py closest 52.3676 4.9041 --limit 5
 
@@ -834,6 +813,11 @@ Examples:
         choices=["benches", "no_bench", "both"],
         default="benches",
         help="Bench mode",
+    )
+    random_parser.add_argument(
+        "--source",
+        type=lambda x: DataSource[x.upper()],
+        help="Filter by data source: 'osm' or 'mapillary'",
     )
     random_parser.add_argument(
         "--show-images", action="store_true", help="Display bench images"
@@ -932,7 +916,9 @@ Examples:
         "--min-confidence", type=float, default=0.8, help="Minimum confidence (0.0-1.0)"
     )
     bbox_parser.add_argument(
-        "--source", choices=["osm", "mapillary"], help="Filter by data source"
+        "--source",
+        type=lambda x: DataSource[x.upper()],
+        help="Filter by data source: 'osm' or 'mapillary'",
     )
     bbox_parser.add_argument(
         "--mode",
