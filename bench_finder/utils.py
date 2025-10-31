@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
-from config import LOG_FORMAT, LOG_LEVEL
+from bench_finder.config import LOG_FORMAT, LOG_LEVEL
 
 
 # Type variables for decorator type preservation

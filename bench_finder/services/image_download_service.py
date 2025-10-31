@@ -7,18 +7,17 @@ for bench candidates without any detection logic.
 
 import logging
 
-from core.streetview import StreetViewClient
-from generators.bench_generator import BenchCandidate
-from services.database import BenchDatabase
-from utils import ProgressTracker
-
-from models.unified_models import (
+from bench_finder.core.streetview import StreetViewClient
+from bench_finder.generators.bench_generator import BenchCandidate
+from bench_finder.models.unified_models import (
     BenchBase,
     BenchCandidateStatus,
     BenchProcessingResult,
     ImageBase,
     ProcessingStats,
 )
+from bench_finder.services.database import BenchDatabase
+from bench_finder.utils import ProgressTracker
 
 
 logger = logging.getLogger(__name__)

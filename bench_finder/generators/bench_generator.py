@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from models.enums import DataSource
+from bench_finder.models.enums import DataSource
 
 
 @dataclass

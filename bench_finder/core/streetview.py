@@ -6,16 +6,16 @@ import logging
 import os
 
 import requests
-from config import (
+from PIL import Image
+
+from bench_finder.config import (
     GOOGLE_MAPS_API_KEY,
     IMAGES_DIR,
     STREETVIEW_FOV,
     STREETVIEW_HEADINGS,
     STREETVIEW_SIZE,
 )
-from PIL import Image
-
-from models.streetview_models import (
+from bench_finder.models.streetview_models import (
     StreetViewBatchCaptureResult,
     StreetViewCleanupResult,
     StreetViewImageCapture,

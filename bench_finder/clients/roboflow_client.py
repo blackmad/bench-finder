@@ -10,14 +10,18 @@ from typing import Any
 
 import cv2
 import requests
-from config import ROBOFLOW_API_KEY, ROBOFLOW_CONFIDENCE_THRESHOLD, ROBOFLOW_MODEL_ID
 
 from api.api_models import (
     CacheStatus,
     ModelCacheInfo,
 )
-from models.enums import DetectionSource
-from models.unified_models import (
+from bench_finder.config import (
+    ROBOFLOW_API_KEY,
+    ROBOFLOW_CONFIDENCE_THRESHOLD,
+    ROBOFLOW_MODEL_ID,
+)
+from bench_finder.models.enums import DetectionSource
+from bench_finder.models.unified_models import (
     BoundingBox,
     DetectionItem,
     DetectionResult,

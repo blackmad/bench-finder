@@ -6,19 +6,19 @@ import json
 import logging
 
 import requests
-from clients.base_location_client import (
+
+from bench_finder.clients.base_location_client import (
     BaseLocationClient,
     LocationSearchResult,
 )
-from config import OVERPASS_TIMEOUT, OVERPASS_URL, SEARCH_RADIUS_METERS
-
-from models.enums import DataSource
-from models.overpass_models import (
+from bench_finder.config import OVERPASS_TIMEOUT, OVERPASS_URL, SEARCH_RADIUS_METERS
+from bench_finder.models.enums import DataSource
+from bench_finder.models.overpass_models import (
     OSMBench,
     OverpassResponse,
     OverpassSearchResult,
 )
-from models.unified_models import UnifiedBench, UnifiedSearchResult
+from bench_finder.models.unified_models import UnifiedBench, UnifiedSearchResult
 
 
 logger = logging.getLogger(__name__)

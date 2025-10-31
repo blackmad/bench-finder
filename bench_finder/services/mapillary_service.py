@@ -17,8 +17,8 @@ from schemas import (
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from models.enums import DataSource
-from models.unified_models import (
+from bench_finder.models.enums import DataSource
+from bench_finder.models.unified_models import (
     Bench,
     Detection,
     Image,

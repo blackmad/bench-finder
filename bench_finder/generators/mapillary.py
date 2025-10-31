@@ -7,15 +7,14 @@ Provides a BenchGenerator that uses Mapillary crowd-sourced detections.
 import logging
 import math
 
-from clients.mapillary_client import MapillaryBenchDetector, MapillaryImage
-from config import (
+from bench_finder.clients.mapillary_client import MapillaryBenchDetector, MapillaryImage
+from bench_finder.config import (
     IMAGES_DIR,
     MAPILLARY_ACCESS_TOKEN,
     MAPILLARY_API_LIMIT_PER_REQUEST,
     MAPILLARY_MAX_CHUNK_SIZE_METERS,
 )
-
-from models.enums import DataSource
+from bench_finder.models.enums import DataSource
 
 from .bench_generator import BenchCandidate, BenchGenerator
 

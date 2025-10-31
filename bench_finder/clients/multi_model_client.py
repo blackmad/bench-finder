@@ -5,25 +5,23 @@ Tries Ultralytics first, then falls back to multiple Roboflow models.
 
 import logging
 
-from clients.base_detection_client import (
+from bench_finder.clients.base_detection_client import (
     MultiModelDetectionClient,
     MultiModelDetectionResult,
 )
-from config import (
+from bench_finder.clients.roboflow_client import RoboflowClient
+from bench_finder.clients.ultralytics_client import UltralyticsClient
+from bench_finder.config import (
     ROBOFLOW_API_KEY,
     ROBOFLOW_MODELS,
     ULTRALYTICS_API_KEY,
     ULTRALYTICS_USE_LOCAL,
 )
-
-from models.enums import DetectionSource
-from models.unified_models import (
+from bench_finder.models.enums import DetectionSource
+from bench_finder.models.unified_models import (
     DetectionAttempt,
     DetectionResult,
 )
-
-from .roboflow_client import RoboflowClient
-from .ultralytics_client import UltralyticsClient
 
 
 logger = logging.getLogger(__name__)

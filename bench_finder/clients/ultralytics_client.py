@@ -8,7 +8,8 @@ import logging
 from pathlib import Path
 
 import requests
-from config import (
+
+from bench_finder.config import (
     ULTRALYTICS_API_KEY,
     ULTRALYTICS_CONFIDENCE_THRESHOLD,
     ULTRALYTICS_IMAGE_SIZE,
@@ -18,9 +19,8 @@ from config import (
     ULTRALYTICS_MODELS_DIR,
     ULTRALYTICS_USE_LOCAL,
 )
-
-from models.enums import DetectionSource
-from models.unified_models import (
+from bench_finder.models.enums import DetectionSource
+from bench_finder.models.unified_models import (
     BoundingBox,
     DetectionItem,
     DetectionResult,

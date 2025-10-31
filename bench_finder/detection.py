@@ -16,9 +16,9 @@ from rich.progress import (
 )
 from term_image.image import AutoImage
 
-from models.enums import BenchCandidateStatus
-from models.unified_models import Bench, DetectionResult, Image
-from tools.bench_detection_cli import render_detections
+from bench_finder.models.enums import BenchCandidateStatus
+from bench_finder.models.unified_models import Bench, DetectionResult, Image
+from bench_finder.tools.bench_detection_cli import render_detections
 
 
 # Set environment variables to suppress inference model dependency warnings
@@ -37,25 +37,25 @@ os.environ.setdefault("CORE_MODEL_TROCR_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_GROUNDINGDINO_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
-from clients.multi_model_client import UnifiedMultiModelDetectionClient
-from clients.roboflow_client import RoboflowClient
-from clients.ultralytics_client import UltralyticsClient
-from config import DETECTION_BACKEND
-from display import (
+from PIL import Image as PILImage
+
+from bench_finder.clients.multi_model_client import UnifiedMultiModelDetectionClient
+from bench_finder.clients.roboflow_client import RoboflowClient
+from bench_finder.clients.ultralytics_client import UltralyticsClient
+from bench_finder.config import DETECTION_BACKEND
+from bench_finder.display import (
     create_combined_image_display,
     display_bench_detection_results,
     display_no_bench_detected,
 )
-from generators.bench_generator import BenchCandidate
-from PIL import Image as PILImage
-from services.database import BenchDatabase
-
-from models.unified_models import (
+from bench_finder.generators.bench_generator import BenchCandidate
+from bench_finder.models.unified_models import (
     BenchProcessingResult,
     DetectionBase,
     DetectionItem,
     ProcessingStats,
 )
+from bench_finder.services.database import BenchDatabase
 
 
 if TYPE_CHECKING:

@@ -6,13 +6,13 @@ import logging
 import os
 
 import requests
-from clients.base_location_client import (
+
+from bench_finder.clients.base_location_client import (
     BaseLocationClient,
     LocationSearchResult,
 )
-
-from models.enums import DataSource
-from models.mapillary_models import (
+from bench_finder.models.enums import DataSource
+from bench_finder.models.mapillary_models import (
     MapillaryDetection,
     MapillaryDetectionStatistics,
     MapillaryImage,
@@ -21,7 +21,7 @@ from models.mapillary_models import (
     MapillaryMapFeaturesResponse,
     MapillarySearchResult,
 )
-from models.unified_models import UnifiedBench, UnifiedSearchResult
+from bench_finder.models.unified_models import UnifiedBench, UnifiedSearchResult
 
 
 logger = logging.getLogger(__name__)

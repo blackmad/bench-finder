@@ -5,7 +5,8 @@ Google Geocoder integration for converting address/query strings to coordinates.
 import logging
 
 import googlemaps
-from config import GOOGLE_MAPS_API_KEY
+
+from bench_finder.config import GOOGLE_MAPS_API_KEY
 
 
 logger = logging.getLogger(__name__)

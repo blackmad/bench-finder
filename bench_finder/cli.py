@@ -7,11 +7,6 @@ import logging
 import os
 
 import typer
-from config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
-from core.geocoder import Geocoder
-from generators.bench_generator import BenchCandidate, BenchGenerator
-from generators.mapillary import MapillaryBenchGenerator
-from generators.overpass import OverpassBenchGenerator
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -22,10 +17,20 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.table import Table
-from services.database import BenchDatabase
-from utils import setup_logging
 
-from models.unified_models import BenchCandidateStatus, SearchBase, SearchStatus
+from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
+from bench_finder.core.geocoder import Geocoder
+from bench_finder.generators.bench_generator import BenchCandidate, BenchGenerator
+from bench_finder.generators.mapillary import MapillaryBenchGenerator
+from bench_finder.generators.overpass import OverpassBenchGenerator
+
+# Import enums and models separately to avoid double-loading unified_models
+from bench_finder.models.enums import BenchCandidateStatus, SearchStatus
+from bench_finder.models.unified_models import SearchBase
+
+# Import database first - this will load unified_models once
+from bench_finder.services.database import BenchDatabase
+from bench_finder.utils import setup_logging
 
 
 # Initialize Typer app and console
@@ -388,7 +393,7 @@ def reset_detections(
 
         # Get counts before reset
         with database.get_session() as session:
-            from models.unified_models import BenchCandidate, Detection
+            from bench_finder.models.unified_models import BenchCandidate, Detection
 
             detection_count = session.query(Detection).count()
             candidate_count = (
@@ -892,11 +897,13 @@ def cleanup_deleted_osm(
         import sys
         from pathlib import Path
 
-        # Add tools directory to path
+        # Add tools directory to path (tools/ is at project root, not in bench_finder/)
         project_root = Path(__file__).parent.parent.parent
         sys.path.insert(0, str(project_root))
 
-        from tools.cleanup_deleted_osm_benches import cleanup_deleted_osm_benches
+        from bench_finder.tools.cleanup_deleted_osm_benches import (
+            cleanup_deleted_osm_benches,
+        )
 
         stats = cleanup_deleted_osm_benches(dry_run=dry_run, batch_size=batch_size)
 

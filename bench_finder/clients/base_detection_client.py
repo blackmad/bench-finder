@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import Field
 
-from models.unified_models import DetectionAttempt, DetectionResult
+from bench_finder.models.unified_models import DetectionAttempt, DetectionResult
 
 
 logger = logging.getLogger(__name__)

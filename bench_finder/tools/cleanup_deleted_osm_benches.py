@@ -3,12 +3,13 @@ Cleanup script to remove OSM bench candidates that have been deleted from OpenSt
 
 This script:
 1. Fetches all OSM bench candidates from the database
-2. Checks if they still exist in OSM using bulk Overpass API queries
+2. Checks if they still exist in OSM using the OSM Direct API (api.openstreetmap.org)
 3. Deletes candidates and their ProcessedBench entries if they've been removed from OSM
 """
 
 import logging
 import sys
+import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
 
@@ -21,7 +22,6 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bench_finder.clients.overpass_client import OverpassClient  # noqa: E402
 from bench_finder.models.enums import DataSource  # noqa: E402
 from bench_finder.models.unified_models import (  # noqa: E402
     BenchCandidate,
@@ -33,16 +33,22 @@ from bench_finder.services.database import BenchDatabase  # noqa: E402
 logger = logging.getLogger(__name__)
 console = Console()
 
+# OSM Direct API configuration
+OSM_API_BASE_URL = "https://api.openstreetmap.org/api/0.6"
+OSM_API_TIMEOUT = 30  # seconds
+# OSM API has a limit of ~725 items per request, so we use 700 to be safe
+OSM_API_MAX_IDS_PER_REQUEST = 700
+
 
 def check_osm_elements_bulk(
-    overpass_client: OverpassClient, osm_ids_by_type: dict[str, list[int]]
+    osm_ids_by_type: dict[str, list[int]], timeout: int = OSM_API_TIMEOUT
 ) -> set[str]:
     """
-    Check which OSM elements still exist using bulk Overpass queries.
+    Check which OSM elements still exist using the OSM Direct API.
 
     Args:
-        overpass_client: OverpassClient instance
         osm_ids_by_type: Dictionary mapping OSM type ("node", "way", "relation") to list of IDs
+        timeout: Request timeout in seconds
 
     Returns:
         Set of provider_ids (format: "{osm_id}_{osm_type}") that still exist in OSM
@@ -54,51 +60,61 @@ def check_osm_elements_bulk(
         if not osm_ids:
             continue
 
-        try:
-            # Overpass API supports bulk queries with comma-separated IDs
-            # Format: node(123,456,789);
-            ids_str = ",".join(str(osm_id) for osm_id in osm_ids)
+        # Split into chunks to respect OSM API limit
+        for i in range(0, len(osm_ids), OSM_API_MAX_IDS_PER_REQUEST):
+            chunk = osm_ids[i : i + OSM_API_MAX_IDS_PER_REQUEST]
 
-            query = f"""
-            [out:json][timeout:{overpass_client.timeout}];
-            {osm_type}({ids_str});
-            out;
-            """
+            try:
+                # OSM Direct API format: /api/0.6/nodes?nodes=id1,id2,id3
+                ids_str = ",".join(str(osm_id) for osm_id in chunk)
+                url = f"{OSM_API_BASE_URL}/{osm_type}s?{osm_type}s={ids_str}"
 
-            logger.debug(
-                f"Checking {len(osm_ids)} {osm_type} elements via Overpass API"
-            )
+                logger.debug(
+                    f"Checking {len(chunk)} {osm_type} elements via OSM Direct API"
+                )
 
-            response = requests.post(
-                overpass_client.base_url,
-                data={"data": query},
-                timeout=overpass_client.timeout,
-            )
-            response.raise_for_status()
+                response = requests.get(url, timeout=timeout)
+                response.raise_for_status()
 
-            result = response.json()
+                # Parse XML response
+                root = ET.fromstring(response.text)
 
-            # Extract existing IDs from response
-            existing_in_batch = 0
-            if "elements" in result:
-                for element in result["elements"]:
-                    osm_id = element.get("id")
-                    # Use the osm_type we're querying for, since all elements in this batch are the same type
-                    if osm_id:
-                        provider_id = f"{osm_id}_{osm_type}"
-                        existing_provider_ids.add(provider_id)
-                        existing_in_batch += 1
+                # Extract existing IDs from XML
+                existing_in_chunk = 0
+                for element in root:
+                    # Elements are like <node id="123" ... />, <way id="456" ... />, etc.
+                    osm_id_attr = element.get("id")
+                    if osm_id_attr:
+                        try:
+                            osm_id = int(osm_id_attr)
+                            provider_id = f"{osm_id}_{osm_type}"
+                            existing_provider_ids.add(provider_id)
+                            existing_in_chunk += 1
+                        except ValueError:
+                            logger.warning(
+                                f"Invalid OSM ID format in response: {osm_id_attr}"
+                            )
 
-            logger.debug(
-                f"Found {existing_in_batch} existing {osm_type} elements out of {len(osm_ids)} checked"
-            )
+                logger.debug(
+                    f"Found {existing_in_chunk} existing {osm_type} elements out of {len(chunk)} checked"
+                )
 
-        except Exception:
-            logger.exception(f"Error checking {osm_type} elements")
-            # On error, assume all exist to avoid false positives
-            for osm_id in osm_ids:
-                provider_id = f"{osm_id}_{osm_type}"
-                existing_provider_ids.add(provider_id)
+            except requests.exceptions.HTTPError as e:
+                # If we get a 404 or other error, it might mean the elements don't exist
+                # or there's an API issue. Log and continue - we'll treat missing elements as deleted.
+                logger.warning(
+                    f"HTTP error checking {osm_type} elements (chunk {i//OSM_API_MAX_IDS_PER_REQUEST + 1}): {e}"
+                )
+                # Don't add these IDs to existing_provider_ids - they'll be treated as deleted
+            except Exception:
+                logger.exception(
+                    f"Error checking {osm_type} elements (chunk {i//OSM_API_MAX_IDS_PER_REQUEST + 1})"
+                )
+                # On unexpected error, assume all exist in this chunk to avoid false positives
+                # (but log the error so we know something went wrong)
+                for osm_id in chunk:
+                    provider_id = f"{osm_id}_{osm_type}"
+                    existing_provider_ids.add(provider_id)
 
     return existing_provider_ids
 
@@ -132,20 +148,19 @@ def parse_provider_id(provider_id: str) -> tuple[int, str] | None:
 
 
 def cleanup_deleted_osm_benches(
-    dry_run: bool = True, batch_size: int = 1000
+    dry_run: bool = True, batch_size: int = 700
 ) -> dict[str, int]:
     """
     Check all OSM bench candidates and remove those that have been deleted from OSM.
 
     Args:
         dry_run: If True, only report what would be deleted without actually deleting
-        batch_size: Number of candidates to check per batch (to avoid huge Overpass queries)
+        batch_size: Number of candidates to check per batch (default: 700, OSM API limit is ~725)
 
     Returns:
         Dictionary with statistics about the cleanup operation
     """
     database = BenchDatabase()
-    overpass_client = OverpassClient()
 
     stats = {
         "total_osm_candidates": 0,
@@ -200,7 +215,7 @@ def cleanup_deleted_osm_benches(
             f"[dim]Grouped into {len(osm_ids_by_type)} OSM types for bulk checking[/dim]\n"
         )
 
-        # Check candidates in batches to avoid huge Overpass queries
+        # Check candidates in batches to respect OSM API limits
         all_candidates_to_check = list(candidate_map.keys())
         deleted_candidate_ids = []
 
@@ -227,10 +242,8 @@ def cleanup_deleted_osm_benches(
                         osm_id, osm_type = parsed
                         batch_osm_ids_by_type[osm_type].append(osm_id)
 
-                # Check which elements still exist
-                existing_provider_ids = check_osm_elements_bulk(
-                    overpass_client, batch_osm_ids_by_type
-                )
+                # Check which elements still exist using OSM Direct API
+                existing_provider_ids = check_osm_elements_bulk(batch_osm_ids_by_type)
 
                 # Find deleted candidates
                 deleted_candidate_ids.extend(
@@ -334,8 +347,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=1000,
-        help="Number of candidates to check per batch (default: 1000)",
+        default=700,
+        help="Number of candidates to check per batch (default: 700, OSM API limit is ~725)",
     )
     parser.add_argument(
         "--log-level",
