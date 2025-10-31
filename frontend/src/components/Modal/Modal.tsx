@@ -250,6 +250,7 @@ interface ModalProps {
   allBenches?: WebBenchData[]
   currentIndex?: number
   onNavigate?: (direction: "prev" | "next") => void
+  hasMore?: boolean // Whether there are more benches that can be loaded
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -261,6 +262,7 @@ const Modal: React.FC<ModalProps> = ({
   allBenches = [],
   currentIndex = 0,
   onNavigate,
+  hasMore = false,
 }) => {
   const [segmentationData, setSegmentationData] =
     useState<SegmentationData | null>(null)
@@ -268,6 +270,8 @@ const Modal: React.FC<ModalProps> = ({
   const [error, setError] = useState<string | null>(null)
   const imageRef = useRef<HTMLImageElement>(null)
   const overlayRef = useRef<SVGSVGElement>(null)
+  // Cache for segmentation data to avoid re-fetching
+  const segmentationCacheRef = useRef<Map<number, SegmentationData>>(new Map())
 
   // Load segmentation data when imageId changes
   useEffect(() => {
@@ -289,11 +293,20 @@ const Modal: React.FC<ModalProps> = ({
         return
       }
 
+      // Check cache first
+      const cached = segmentationCacheRef.current.get(imageId)
+      if (cached) {
+        setSegmentationData(cached)
+        return
+      }
+
       setLoading(true)
       setError(null)
 
       try {
         const data = await benchApi.getImageSegmentation(imageId)
+        // Cache the data
+        segmentationCacheRef.current.set(imageId, data)
         setSegmentationData(data)
       } catch (err) {
         console.warn("No segmentation data available for image:", imageId)
@@ -311,6 +324,42 @@ const Modal: React.FC<ModalProps> = ({
 
     loadSegmentationData()
   }, [imageId, imageUrl, isOpen])
+
+  // Pre-load segmentation data for adjacent images
+  useEffect(() => {
+    if (!isOpen || allBenches.length === 0) return
+
+    const preloadSegmentation = async (imageId: number) => {
+      // Skip if already cached or loading
+      if (segmentationCacheRef.current.has(imageId)) return
+
+      try {
+        const data = await benchApi.getImageSegmentation(imageId)
+        segmentationCacheRef.current.set(imageId, data)
+      } catch (err) {
+        // Silently fail for pre-loading - we'll handle errors when actually loading
+        console.debug("Pre-load segmentation failed for image:", imageId)
+      }
+    }
+
+    // Pre-load previous image segmentation
+    if (currentIndex > 0) {
+      const prevBench = allBenches[currentIndex - 1]
+      const prevImageId = prevBench?.image_ids?.[0]
+      if (prevImageId) {
+        preloadSegmentation(prevImageId)
+      }
+    }
+
+    // Pre-load next image segmentation
+    if (currentIndex < allBenches.length - 1) {
+      const nextBench = allBenches[currentIndex + 1]
+      const nextImageId = nextBench?.image_ids?.[0]
+      if (nextImageId) {
+        preloadSegmentation(nextImageId)
+      }
+    }
+  }, [isOpen, allBenches, currentIndex])
 
   // Render segmentation overlays when image loads
   const renderSegmentationOverlays = useCallback(() => {
@@ -384,12 +433,13 @@ const Modal: React.FC<ModalProps> = ({
     const scaleY = displayHeight / imageHeight
 
     // Render detection items
+    const detectionItems = segmentationData.detection_items
     const hasItems =
-      segmentationData.detection_items && segmentationData.detection_items.length > 0
+      detectionItems && detectionItems.length > 0
     let hasRenderedItems = false
 
-    if (hasItems) {
-      segmentationData.detection_items.forEach((item, index) => {
+    if (hasItems && detectionItems) {
+      detectionItems.forEach((item, index) => {
         // Prefer polygon (segmentation) over bounding box
         if (item.polygon && item.polygon.coordinates && item.polygon.coordinates.length > 0) {
           // Render segmentation polygon
@@ -526,9 +576,12 @@ const Modal: React.FC<ModalProps> = ({
 
           console.log(
             "Right arrow - can navigate next:",
-            currentIndex < allBenches.length - 1
+            currentIndex < allBenches.length - 1 || hasMore
           )
-          if (onNavigate && currentIndex < allBenches.length - 1) {
+          if (
+            onNavigate &&
+            (currentIndex < allBenches.length - 1 || hasMore)
+          ) {
             console.log("Navigating to next bench")
             onNavigate("next")
           }
@@ -546,7 +599,7 @@ const Modal: React.FC<ModalProps> = ({
       document.removeEventListener("keydown", handleKeyDown)
       document.body.style.overflow = "unset"
     }
-  }, [isOpen, onClose, onNavigate, currentIndex, allBenches.length])
+  }, [isOpen, onClose, onNavigate, currentIndex, allBenches.length, hasMore])
 
   if (!bench) {
     return null
@@ -647,7 +700,9 @@ const Modal: React.FC<ModalProps> = ({
                           console.log("Next arrow clicked")
                           onNavigate("next")
                         }}
-                        disabled={currentIndex >= allBenches.length - 1}
+                        disabled={
+                          currentIndex >= allBenches.length - 1 && !hasMore
+                        }
                         title="Next bench (→)"
                       >
                         <ChevronRight />
@@ -666,8 +721,8 @@ const Modal: React.FC<ModalProps> = ({
                     style={{
                       display:
                         segmentationData &&
-                        segmentationData.detection_items &&
-                        segmentationData.detection_items.length > 0
+                          segmentationData.detection_items &&
+                          segmentationData.detection_items.length > 0
                           ? "block"
                           : "none",
                     }}

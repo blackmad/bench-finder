@@ -738,49 +738,50 @@ def get_high_confidence_benches_filtered(
 ) -> BenchListResponse:
     """
     Get benches with configurable detection modes from all sources using SQLAlchemy ORM.
-    Uses ProcessedBench -> BenchCandidate -> Detection -> DetectionItem
+    Optimized to minimize joins and GROUP BYs using subqueries.
     """
     try:
         db = BenchDatabase()
         with db.get_session() as session:
-            from sqlalchemy import func
+            from sqlalchemy import case, func
+            from sqlalchemy.orm import aliased
+            from sqlalchemy.types import String as SAString
 
-            # Start from ProcessedBench, join to BenchCandidate
-            # Use named column selection from ORM
-            base_query = (
+            # Create subquery for image aggregation - eliminates GROUP BY from main query
+            image_subquery = (
                 session.query(
-                    ProcessedBench,
-                    BenchCandidate,
-                    Detection.max_confidence.label("best_confidence"),
-                    Detection.source.label("detection_source"),
+                    Image.bench_candidate_id,
+                    func.count(func.distinct(Image.id)).label("image_count"),
+                    func.group_concat(func.distinct(Image.filename)).label(
+                        "image_filenames"
+                    ),
+                    func.group_concat(
+                        func.distinct(func.cast(Image.id, SAString))
+                    ).label("image_ids"),
                 )
-                .join(
-                    BenchCandidate,
-                    ProcessedBench.bench_candidate_id == BenchCandidate.id,
-                )
-                .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
+                .filter(Image.capture_success == 1)
+                .group_by(Image.bench_candidate_id)
+                .subquery()
             )
+            img_subq = aliased(image_subquery)
 
-            # Add source filtering if specified
-            if source is not None:
-                base_query = base_query.filter(BenchCandidate.source == source)
-
-            # Filter by mode using detection_status
-            if mode == BenchMode.BENCHES:
-                base_query = base_query.filter(
-                    ProcessedBench.detection_status == "detected",
-                    Detection.max_confidence >= min_confidence,
+            # Create subquery for segmentation check - eliminates N+1 query
+            # Check if polygon JSON column is not null
+            segmentation_subquery = (
+                session.query(
+                    DetectionItem.detection_id,
+                    func.max(
+                        case(
+                            (DetectionItem.__table__.c.polygon.isnot(None), 1), else_=0
+                        )
+                    ).label("has_segmentation"),
                 )
-            elif mode == BenchMode.NO_BENCH:
-                base_query = base_query.filter(
-                    ProcessedBench.detection_status == "no_bench"
-                )
-            # For BOTH mode, no additional filtering needed
+                .group_by(DetectionItem.detection_id)
+                .subquery()
+            )
+            seg_subq = aliased(segmentation_subquery)
 
-            # Get total count
-            total_count = base_query.distinct().count()
-
-            # Build main query with image counts using named columns
+            # Build main query with minimal joins - no GROUP BY needed!
             query = (
                 session.query(
                     ProcessedBench.id.label("processed_bench_id"),
@@ -797,48 +798,32 @@ def get_high_confidence_benches_filtered(
                     func.coalesce(Detection.source, DetectionSource.NONE).label(
                         "detection_source"
                     ),
-                    func.count(func.distinct(Image.id)).label("image_count"),
-                    func.group_concat(func.distinct(Image.filename)).label(
+                    func.coalesce(img_subq.c.image_count, 0).label("image_count"),
+                    func.coalesce(img_subq.c.image_filenames, "").label(
                         "image_filenames"
                     ),
-                    func.group_concat(func.distinct(Image.id)).label("image_ids"),
+                    func.coalesce(img_subq.c.image_ids, "").label("image_ids"),
                     ProcessedBench.detection_status,
                     ProcessedBench.best_image_id,
                     Detection.id.label("best_detection_id"),
+                    func.coalesce(seg_subq.c.has_segmentation, 0).label(
+                        "has_segmentation"
+                    ),
                 )
                 .join(
                     BenchCandidate,
                     ProcessedBench.bench_candidate_id == BenchCandidate.id,
                 )
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
-                .outerjoin(
-                    Image,
-                    (Image.bench_candidate_id == BenchCandidate.id)
-                    & (Image.capture_success == 1),
-                    full=False,
-                )
-                .group_by(
-                    ProcessedBench.id,
-                    BenchCandidate.id,
-                    BenchCandidate.provider_id,
-                    BenchCandidate.lat,
-                    BenchCandidate.lng,
-                    BenchCandidate.tags,
-                    BenchCandidate.source,
-                    BenchCandidate.external_id,
-                    Detection.max_confidence,
-                    Detection.source,
-                    ProcessedBench.detection_status,
-                    ProcessedBench.best_image_id,
-                    Detection.id,
-                )
+                .outerjoin(img_subq, BenchCandidate.id == img_subq.c.bench_candidate_id)
+                .outerjoin(seg_subq, Detection.id == seg_subq.c.detection_id)
             )
 
             # Add source filtering if specified
             if source is not None:
                 query = query.filter(BenchCandidate.source == source)
 
-            # Filter by mode - use where clause before group_by
+            # Filter by mode
             if mode == BenchMode.BENCHES:
                 query = query.filter(
                     ProcessedBench.detection_status == "detected",
@@ -847,7 +832,16 @@ def get_high_confidence_benches_filtered(
             elif mode == BenchMode.NO_BENCH:
                 query = query.filter(ProcessedBench.detection_status == "no_bench")
 
-            # Apply sorting using named columns
+            # Optimized total count - count distinct IDs instead of distinct().count()
+            total_count_query = query.with_entities(ProcessedBench.id).distinct()
+            total_count = (
+                session.query(func.count())
+                .select_from(total_count_query.subquery())
+                .scalar()
+                or 0
+            )
+
+            # Apply sorting
             if sort_by == "confidence":
                 query = query.order_by(
                     func.coalesce(Detection.max_confidence, 0.0).desc(),
@@ -855,7 +849,7 @@ def get_high_confidence_benches_filtered(
                 )
             elif sort_by == "images":
                 query = query.order_by(
-                    func.count(func.distinct(Image.id)).desc(),
+                    func.coalesce(img_subq.c.image_count, 0).desc(),
                     func.coalesce(Detection.max_confidence, 0.0).desc(),
                     ProcessedBench.id,
                 )
@@ -874,10 +868,60 @@ def get_high_confidence_benches_filtered(
             offset = page * page_size
             results = query.offset(offset).limit(page_size).all()
 
+            # Batch load detection items if requested - eliminates N+1 query
+            detection_items_map = {}
+            if include_detection_data:
+                # Collect all bench_candidate_ids
+                bench_candidate_ids = [r.bench_candidate_id for r in results]
+                if bench_candidate_ids:
+                    # Single optimized query with joins to get all data at once
+                    detection_items_query = (
+                        session.query(
+                            DetectionItem,
+                            Image.bench_candidate_id,
+                        )
+                        .join(Detection, DetectionItem.detection_id == Detection.id)
+                        .join(Image, Detection.image_id == Image.id)
+                        .filter(Image.bench_candidate_id.in_(bench_candidate_ids))
+                        .order_by(DetectionItem.confidence.desc())
+                        .all()
+                    )
+                    # Group by bench_candidate_id
+                    for item, bc_id in detection_items_query:
+                        if bc_id not in detection_items_map:
+                            detection_items_map[bc_id] = []
+                        # Ensure bbox and polygon are proper model instances
+                        bbox = None
+                        if item.bbox:
+                            if isinstance(item.bbox, dict):
+                                from bench_finder.models.unified_models import (
+                                    BoundingBox,
+                                )
+
+                                bbox = BoundingBox(**item.bbox)
+                            else:
+                                bbox = item.bbox
+                        polygon = None
+                        if item.polygon:
+                            if isinstance(item.polygon, dict):
+                                from bench_finder.models.unified_models import Polygon
+
+                                polygon = Polygon(**item.polygon)
+                            else:
+                                polygon = item.polygon
+                        detection_items_map[bc_id].append(
+                            ApiDetectionItem(
+                                detection_id=item.detection_id,
+                                confidence=item.confidence,
+                                bbox=bbox,
+                                class_name=item.class_name,
+                                polygon=polygon,
+                            )
+                        )
+
             # Process results
             benches = []
             for result in results:
-                # Use named column access
                 bench_candidate_id = result.bench_candidate_id
                 best_confidence = result.best_confidence or 0.0
                 detection_source = result.detection_source or DetectionSource.NONE
@@ -899,32 +943,22 @@ def get_high_confidence_benches_filtered(
                     image_filenames, image_ids, result.best_image_id
                 )
 
-                # Check for segmentation - need to query DetectionItems
-                has_segmentation = False
-                best_detection_id = result.best_detection_id
-                if best_detection_id:
-                    # Check if any DetectionItem has a polygon
-                    has_segmentation_query = (
-                        session.query(DetectionItem)
-                        .filter(DetectionItem.detection_id == best_detection_id)
-                        .filter(DetectionItem.polygon.isnot(None))
-                        .first()
-                    )
-                    has_segmentation = has_segmentation_query is not None
+                # Has segmentation is now from the query (no N+1!)
+                has_segmentation = bool(result.has_segmentation)
 
                 # Calculate distance
                 distance = calculate_distance(
                     start_lat, start_lng, result.lat, result.lng
                 )
 
-                # Get detection items if requested
-                detection_items = None
-                if include_detection_data:
-                    detection_items = get_detection_items_for_bench(
-                        session, bench_candidate_id
-                    )
+                # Get detection items from batch-loaded map
+                detection_items = (
+                    detection_items_map.get(bench_candidate_id)
+                    if include_detection_data
+                    else None
+                )
 
-                # Set source-specific confidence (don't coalesce - just use best_detection)
+                # Set source-specific confidence
                 roboflow_confidence = 0.0
                 ultralytics_confidence = 0.0
                 mapillary_confidence = 0.0
@@ -974,6 +1008,9 @@ def get_high_confidence_benches_filtered(
 
     except Exception as e:
         print(f"Error getting high confidence benches: {e}")
+        import traceback
+
+        traceback.print_exc()
         return BenchListResponse(
             benches=[],
             pagination=PaginationInfo(

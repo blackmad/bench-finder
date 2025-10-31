@@ -217,9 +217,9 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
     width: 100%;
     height: 100%;
     background: ${({ $variant }) =>
-      $variant === "primary"
-        ? "rgba(255, 255, 255, 0.1)"
-        : "rgba(0, 0, 0, 0.03)"};
+    $variant === "primary"
+      ? "rgba(255, 255, 255, 0.1)"
+      : "rgba(0, 0, 0, 0.03)"};
     transition: left ${({ theme }) => theme.transitions.normal};
   }
 
