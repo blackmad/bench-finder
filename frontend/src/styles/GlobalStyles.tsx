@@ -47,10 +47,11 @@ const GlobalStyles = createGlobalStyle`
     background: ${({ theme }) => theme.colors.gray400};
   }
 
-  /* Focus styles */
-  :focus {
+  /* Focus styles - Refined */
+  :focus-visible {
     outline: 2px solid ${({ theme }) => theme.colors.primary};
-    outline-offset: 2px;
+    outline-offset: 3px;
+    border-radius: ${({ theme }) => theme.borderRadius.base};
   }
 
   :focus:not(:focus-visible) {
@@ -59,7 +60,7 @@ const GlobalStyles = createGlobalStyle`
 
   /* Selection styles */
   ::selection {
-    background: ${({ theme }) => theme.colors.primary}20;
+    background: ${({ theme }) => theme.colors.primary}25;
     color: ${({ theme }) => theme.colors.textPrimary};
   }
 

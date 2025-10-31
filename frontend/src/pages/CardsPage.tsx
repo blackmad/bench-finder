@@ -21,8 +21,8 @@ const ViewContainer = styled.div`
   flex-direction: column;
   flex: 1;
   width: 100%;
-  height: calc(100vh - 140px);
-  min-height: calc(100vh - 140px);
+  height: calc(100vh - 100px);
+  min-height: calc(100vh - 100px);
 `
 
 const CardsContainer = styled.div`

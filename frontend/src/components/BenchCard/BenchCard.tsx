@@ -25,23 +25,24 @@ const fadeInUp = keyframes`
 
 const CardContainer = styled(motion.div)`
   background: ${({ theme }) => theme.colors.background};
-  border-radius: ${({ theme }) => theme.borderRadius.xl};
+  border-radius: ${({ theme }) => theme.borderRadius["3xl"] || theme.borderRadius["2xl"]};
   overflow: hidden;
-  box-shadow: ${({ theme }) => theme.shadows.sm};
-  border: 1px solid ${({ theme }) => theme.colors.borderLight};
+  box-shadow: ${({ theme }) => theme.shadows.base};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   transition: all ${({ theme }) => theme.transitions.normal};
   animation: ${fadeInUp} 0.4s ${({ theme }) => theme.easing.easeOut} forwards;
   opacity: 0;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${({ theme }) => theme.shadows.lg};
+    transform: translateY(-4px);
+    box-shadow: ${({ theme }) => theme.shadows.xl};
+    border-color: ${({ theme }) => theme.colors.border};
   }
 `
 
 const ImageContainer = styled.div`
   position: relative;
-  height: 200px;
+  height: 240px;
   overflow: hidden;
   background: ${({ theme }) => theme.colors.gray100};
   cursor: pointer;
@@ -74,7 +75,7 @@ const HoverOverlay = styled.div`
   left: 0;
   width: 100%;
   height: 100%;
-  background: ${({ theme }) => theme.colors.overlay};
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.2) 50%, transparent 100%);
   opacity: 0;
   transition: opacity ${({ theme }) => theme.transitions.normal};
   display: flex;
@@ -99,6 +100,8 @@ const Badge = styled.div<{
   font-size: ${({ theme }) => theme.typography.sizes.xs};
   font-weight: ${({ theme }) => theme.typography.weights.semibold};
   text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
   ${({ $variant, theme }) => {
     switch ($variant) {
@@ -113,8 +116,9 @@ const Badge = styled.div<{
         return `
           top: ${theme.spacing[4]};
           left: ${theme.spacing[4]};
-          background: rgba(255, 255, 255, 0.9);
+          background: rgba(255, 255, 255, 0.95);
           color: ${theme.colors.textPrimary};
+          border: 1px solid rgba(255, 255, 255, 0.8);
         `
       case "detection":
         return `
@@ -146,7 +150,7 @@ const DebugBadge = styled(Badge) <{ $show: boolean }>`
 `
 
 const CardContent = styled.div`
-  padding: ${({ theme }) => theme.spacing[5]};
+  padding: ${({ theme }) => theme.spacing[6]};
 `
 
 const BenchTitle = styled.h3`
@@ -277,9 +281,9 @@ const ReportButton = styled.button`
   position: absolute;
   top: ${({ theme }) => theme.spacing[4]};
   left: ${({ theme }) => theme.spacing[4]};
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(4px);
-  border: 1px solid ${({ theme }) => theme.colors.borderLight};
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: ${({ theme }) => theme.borderRadius.full};
   padding: ${({ theme }) => theme.spacing[2]};
   color: ${({ theme }) => theme.colors.textSecondary};
@@ -290,7 +294,7 @@ const ReportButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: ${({ theme }) => theme.shadows.sm};
+  box-shadow: ${({ theme }) => theme.shadows.md};
   z-index: 5;
 
   ${CardContainer}:hover & {
@@ -302,7 +306,12 @@ const ReportButton = styled.button`
     background: rgba(255, 255, 255, 1);
     color: ${({ theme }) => theme.colors.warning};
     border-color: ${({ theme }) => theme.colors.warning};
-    box-shadow: ${({ theme }) => theme.shadows.md};
+    box-shadow: ${({ theme }) => theme.shadows.lg};
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   svg {

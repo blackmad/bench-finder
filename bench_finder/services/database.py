@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from bench_finder.config import DATABASE_PATH
+from bench_finder.config import DATABASE_PATH, DATABASE_URL
 from bench_finder.models.enums import DataSource
 from bench_finder.models.unified_models import (
     BenchBase,
@@ -35,22 +35,35 @@ logger = logging.getLogger(__name__)
 class BenchDatabase:
     """SQLAlchemy ORM database manager for bench finder application."""
 
-    def __init__(self, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, db_url: str | None = None):
         """
         Initialize database connection and create tables if needed.
 
         Args:
             db_path: Path to SQLite database file (defaults to config DATABASE_PATH)
+            db_url: Full database connection URL (e.g., postgresql://... or sqlite:///...)
+                    Takes precedence over db_path if provided
         """
-        self.db_path = db_path or DATABASE_PATH
-
-        # Ensure the data directory exists
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        # Use provided db_url, or DATABASE_URL from config, or fall back to db_path/DATABASE_PATH
+        if db_url:
+            self.db_url = db_url
+            self.db_path = None
+        elif DATABASE_URL:
+            self.db_url = DATABASE_URL
+            self.db_path = None
+        else:
+            self.db_path = db_path or DATABASE_PATH
+            self.db_url = None
+            # Ensure the data directory exists for SQLite
+            os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
 
         # Initialize database
-        self.engine = init_database(self.db_path)
+        self.engine = init_database(
+            database_url=self.db_url, database_path=self.db_path
+        )
 
-        logger.info(f"Database initialized at {self.db_path}")
+        db_info = self.db_url if self.db_url else self.db_path
+        logger.info(f"Database initialized: {db_info}")
 
     def get_session(self) -> Session:
         """Get a database session."""

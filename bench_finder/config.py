@@ -98,8 +98,29 @@ DETECTION_BACKEND = os.getenv(
 ).lower()  # 'roboflow', 'ultralytics', or 'multi'
 
 # Database settings
-DATABASE_PATH = "data/benches.db"
+DATABASE_PATH = os.getenv("DATABASE_PATH", "data/benches.db")
+DATABASE_URL = os.getenv("DATABASE_URL")  # For Supabase PostgreSQL
+USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")  # Full PostgreSQL connection string
+
+# Determine which database to use
+if USE_SUPABASE and SUPABASE_DB_URL:
+    DATABASE_URL = SUPABASE_DB_URL
+elif DATABASE_URL:
+    pass  # Use provided DATABASE_URL
+else:
+    # Default to SQLite
+    DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+
 IMAGES_DIR = "images"
+
+# Image storage settings
+IMAGE_STORAGE_BACKEND = os.getenv(
+    "IMAGE_STORAGE_BACKEND", "local"
+)  # 'local' or 'firebase'
+FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET")
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")
+FIREBASE_STORAGE_PREFIX = os.getenv("FIREBASE_STORAGE_PREFIX", "images")
 
 # Mapillary settings
 MAPILLARY_IMAGE_SIZE = 2048  # Download high-resolution images

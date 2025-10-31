@@ -316,6 +316,9 @@ class Image(SQLModel, table=True):
     filepath: str | None = Field(default=None)
     filename: str | None = Field(default=None)
     file_size: int | None = Field(default=None)
+    firebase_url: str | None = Field(
+        default=None, description="Firebase Storage URL for cloud-hosted images"
+    )
     capture_success: bool = Field(nullable=False)
     capture_error: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.now)
@@ -627,11 +630,54 @@ def json_serializer(obj: Any) -> str:
     return json.dumps(to_jsonable_python(obj))
 
 
-def create_database_engine(database_path: str):
-    """Create SQLModel engine for the database."""
-    engine = create_engine(
-        f"sqlite:///{database_path}", echo=False, json_serializer=json_serializer
-    )
+def create_database_engine(
+    database_url: str | None = None, database_path: str | None = None
+):
+    """
+    Create SQLModel engine for the database.
+
+    Supports both SQLite (via path) and PostgreSQL (via connection URL).
+    If database_url is provided, it will be used directly.
+    If database_path is provided, it will create a SQLite connection string.
+
+    Args:
+        database_url: Full database connection URL (e.g., postgresql://... or sqlite:///...)
+        database_path: Path to SQLite database file (only used if database_url is None)
+
+    Returns:
+        SQLAlchemy engine
+    """
+    if database_url:
+        # Use the provided connection URL directly
+        connection_string = database_url
+    elif database_path:
+        # Create SQLite connection string
+        connection_string = f"sqlite:///{database_path}"
+    else:
+        raise ValueError("Either database_url or database_path must be provided")
+
+    # Configure engine based on database type
+    if connection_string.startswith("postgresql"):
+        # PostgreSQL connection - use connection pooling for serverless
+        engine = create_engine(
+            connection_string,
+            echo=False,
+            json_serializer=json_serializer,
+            pool_pre_ping=True,  # Verify connections before using
+            pool_size=5,
+            max_overflow=10,
+        )
+    else:
+        # SQLite connection
+        engine = create_engine(
+            connection_string,
+            echo=False,
+            json_serializer=json_serializer,
+            connect_args={"check_same_thread": False}
+            if "sqlite" in connection_string
+            else {},
+        )
+
     return engine
 
 
@@ -640,8 +686,19 @@ def create_database_session(engine):
     return Session(engine)
 
 
-def init_database(database_path: str):
-    """Initialize database with all tables."""
-    engine = create_database_engine(database_path)
+def init_database(database_url: str | None = None, database_path: str | None = None):
+    """
+    Initialize database with all tables.
+
+    Args:
+        database_url: Full database connection URL (e.g., postgresql://... or sqlite:///...)
+        database_path: Path to SQLite database file (only used if database_url is None)
+
+    Returns:
+        SQLAlchemy engine
+    """
+    engine = create_database_engine(
+        database_url=database_url, database_path=database_path
+    )
     SQLModel.metadata.create_all(engine)
     return engine

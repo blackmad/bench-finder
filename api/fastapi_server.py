@@ -1730,18 +1730,36 @@ async def get_api_info():
 )
 async def serve_image(filename: str = Path(..., description="Image filename")):
     """
-    Serve bench images from the configured images directory.
+    Serve bench images from the configured storage backend (local or Firebase).
 
     This endpoint serves static image files that have been captured and processed
-    as part of the bench detection pipeline. Images are served directly from
-    the filesystem for optimal performance.
+    as part of the bench detection pipeline. It supports both local filesystem
+    storage and Firebase Storage for cloud hosting.
+
+    **Storage Backends:**
+    - **Local**: Images served directly from filesystem
+    - **Firebase**: Images are redirected to Firebase Storage URLs (if available in DB)
 
     **Security Notes:**
-    - Only files within the configured images directory are served
+    - Only files within the configured images directory are served (local mode)
     - Path traversal attacks are prevented by FastAPI's path validation
     - File existence is validated before serving
     """
     try:
+        # First, check if the image exists in the database with a Firebase URL
+        db = BenchDatabase()
+        with db.get_session() as session:
+            image = session.query(Image).filter(Image.filename == filename).first()
+
+            # If image has Firebase URL, redirect to it
+            if image and image.firebase_url:
+                from fastapi.responses import RedirectResponse
+
+                return RedirectResponse(
+                    url=image.firebase_url, status_code=status.HTTP_302_FOUND
+                )
+
+        # Fallback to local file serving
         images_path = os.path.abspath(IMAGES_DIR)
         file_path = os.path.join(images_path, filename)
 

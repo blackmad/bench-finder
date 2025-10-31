@@ -48,7 +48,7 @@ class MapillaryBenchService:
             mapillary_access_token: Mapillary API access token
             images_dir: Directory to store downloaded images
         """
-        self.engine = create_database_engine(database_path)
+        self.engine = create_database_engine(database_path=database_path)
         self.images_dir = images_dir
         self.mapillary_client = MapillaryBenchDetector(
             mapillary_access_token, images_dir

@@ -28,6 +28,8 @@ classifiers = [
 
 dependencies = [
     "aiofiles>=24.1.0",
+    "firebase-admin>=6.0.0",
+    "psycopg2-binary>=2.9.0",  # PostgreSQL driver for SQLAlchemy
     "aiohappyeyeballs>=2.6.1",
     "aiohttp>=3.10.11",
     "aiohttp-retry>=2.8.3",
@@ -408,7 +410,7 @@ exclude_lines = [
 
 # MyPy configuration (kept for type checking, but ruff will handle most linting)
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -422,6 +424,17 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 show_error_codes = true
+# Ensure mypy can find project packages (bench_finder, api, tools)
+mypy_path = "."
+namespace_packages = true
+# Exclude directories from type checking
+exclude = [
+    "tests/.*",
+    "examples/.*",
+    "venv/.*",
+    "frontend/.*",
+    "bin/.*",
+]
 
 [[tool.mypy.overrides]]
 module = [

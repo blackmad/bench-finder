@@ -136,6 +136,7 @@ class StreetViewClient:
                 "size": STREETVIEW_SIZE,
                 "heading": heading,
                 "fov": STREETVIEW_FOV,
+                "source": "outdoor",
                 "key": self.api_key,
             }
 
@@ -213,7 +214,11 @@ class StreetViewClient:
 
         try:
             metadata_url = "https://maps.googleapis.com/maps/api/streetview/metadata"
-            params = {"location": f"{lat},{lng}", "key": self.api_key}
+            params = {
+                "location": f"{lat},{lng}",
+                "source": "outdoor",
+                "key": self.api_key,
+            }
 
             response = requests.get(metadata_url, params=params, timeout=10)
             response.raise_for_status()

@@ -1,23 +1,28 @@
 export const theme = {
   colors: {
-    // Primary palette
-    primary: "#3b82f6",
-    primaryLight: "#60a5fa",
-    primaryDark: "#2563eb",
+    // Primary palette - Nature-inspired forest green
+    primary: "#2D8659",
+    primaryLight: "#4FB286",
+    primaryDark: "#1E5C3F",
 
-    // Neutral colors
-    gray50: "#f8f9fb",
-    gray100: "#f1f5f9",
-    gray200: "#e2e8f0",
-    gray300: "#cbd5e1",
-    gray400: "#94a3b8",
-    gray500: "#64748b",
-    gray600: "#475569",
-    gray700: "#334155",
-    gray800: "#1e293b",
-    gray900: "#0f172a",
+    // Accent Colors - Warm gold for highlights
+    accent: "#D4AF37",
+    accentLight: "#E8D19A",
+    accentDark: "#B8941F",
 
-    // Semantic colors
+    // Neutral colors - Warmer, more refined grays
+    gray50: "#FAFAF9",
+    gray100: "#F5F5F4",
+    gray200: "#E7E5E4",
+    gray300: "#D6D3D1",
+    gray400: "#A8A29E",
+    gray500: "#78716C",
+    gray600: "#57534E",
+    gray700: "#44403C",
+    gray800: "#292524",
+    gray900: "#1C1917",
+
+    // Semantic colors (keep modern, accessible colors)
     success: "#10b981",
     successLight: "#34d399",
     warning: "#f59e0b",
@@ -31,34 +36,41 @@ export const theme = {
     mapillary: "#ea580c",
 
     // Additional colors for UI components
-    primaryHover: "#2563eb",
-    info: "#17a2b8",
-    infoLight: "#d1ecf1",
+    primaryHover: "#1E5C3F",
+    info: "#3B82F6",
+    infoLight: "#DBEAFE",
 
-    // Background colors
+    // Background colors - Warmer, more refined
     background: "#ffffff",
-    backgroundSecondary: "#f8f9fb",
-    backgroundTertiary: "#f1f5f9",
+    backgroundSecondary: "#FAFAF9",
+    backgroundTertiary: "#F5F5F4",
+    surface: "#ffffff",
+    surfaceElevated: "#ffffff",
 
-    // Text colors
-    textPrimary: "#1e293b",
-    textSecondary: "#64748b",
-    textTertiary: "#94a3b8",
+    // Text colors - Adjusted for new grays
+    textPrimary: "#1C1917",
+    textSecondary: "#57534E",
+    textTertiary: "#A8A29E",
 
-    // Border colors
-    border: "#e2e8f0",
-    borderLight: "#f1f5f9",
+    // Border colors - Warmer, softer
+    border: "#E7E5E4",
+    borderLight: "#F5F5F4",
 
     // Special colors
     overlay: "rgba(0, 0, 0, 0.5)",
     overlayLight: "rgba(0, 0, 0, 0.1)",
+
+    // Glassmorphism support
+    glassBackground: "rgba(255, 255, 255, 0.85)",
+    glassBorder: "rgba(0, 0, 0, 0.06)",
   },
 
   typography: {
     fonts: {
       primary:
-        "'SF Pro Display', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      mono: "'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+        "'Inter', 'SF Pro Display', 'Helvetica Neue', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      mono: "'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace",
+      display: "'Inter Display', 'Inter', sans-serif",
     },
     sizes: {
       xs: "0.75rem", // 12px
@@ -69,6 +81,7 @@ export const theme = {
       "2xl": "1.5rem", // 24px
       "3xl": "1.875rem", // 30px
       "4xl": "2.25rem", // 36px
+      "5xl": "3rem", // 48px
     },
     weights: {
       normal: 400,
@@ -80,6 +93,13 @@ export const theme = {
       tight: 1.25,
       normal: 1.5,
       relaxed: 1.625,
+      loose: 2,
+    },
+    letterSpacing: {
+      tighter: "-0.04em",
+      tight: "-0.02em",
+      normal: "0",
+      wide: "0.025em",
     },
   },
 
@@ -107,17 +127,20 @@ export const theme = {
     lg: "0.75rem", // 12px
     xl: "1rem", // 16px
     "2xl": "1.5rem", // 24px
+    "3xl": "2rem", // 32px
     full: "9999px",
   },
 
   shadows: {
-    sm: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-    base: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)",
-    md: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)",
-    lg: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)",
-    xl: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-    "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-    inner: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)",
+    sm: "0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06)",
+    base: "0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)",
+    md: "0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.06)",
+    lg: "0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.05)",
+    xl: "0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.04)",
+    "2xl": "0 25px 50px rgba(0, 0, 0, 0.15), 0 10px 15px rgba(0, 0, 0, 0.06)",
+    inner: "inset 0 2px 4px rgba(0, 0, 0, 0.05)",
+    primary: "0 4px 12px rgba(45, 134, 89, 0.25)",
+    primaryHover: "0 8px 20px rgba(45, 134, 89, 0.3)",
   },
 
   breakpoints: {
@@ -139,9 +162,9 @@ export const theme = {
   },
 
   transitions: {
-    fast: "150ms ease-in-out",
-    normal: "250ms ease-in-out",
-    slow: "300ms ease-in-out",
+    fast: "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+    normal: "250ms cubic-bezier(0.4, 0, 0.2, 1)",
+    slow: "300ms cubic-bezier(0.4, 0, 0.2, 1)",
   },
 
   // Animation curves
@@ -149,6 +172,15 @@ export const theme = {
     easeInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
     easeOut: "cubic-bezier(0, 0, 0.2, 1)",
     easeIn: "cubic-bezier(0.4, 0, 1, 1)",
+    bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+  },
+
+  // Glassmorphism effects
+  glass: {
+    background: "rgba(255, 255, 255, 0.85)",
+    backdrop: "blur(20px) saturate(180%)",
+    border: "1px solid rgba(0, 0, 0, 0.06)",
+    shadow: "0 1px 0 0 rgba(255, 255, 255, 0.5) inset, 0 4px 24px rgba(0, 0, 0, 0.04)",
   },
 }
 
