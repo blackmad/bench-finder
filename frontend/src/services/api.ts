@@ -97,6 +97,10 @@ export const benchApi = {
     source?: DataSource | null
     include_detection_data?: boolean
   }): Promise<BenchListResponse> => {
+    // Ensure mode is always explicitly set (don't rely on default parameter)
+    // If mode is undefined or null, default to BENCHES, otherwise use the provided value
+    const mode = (params.mode !== undefined && params.mode !== null) ? params.mode : BenchMode.BENCHES
+
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page,
       pageSize: params.page_size,
@@ -104,7 +108,7 @@ export const benchApi = {
       startLat: params.start_lat,
       startLng: params.start_lng,
       sortBy: params.sort_by,
-      mode: params.mode || BenchMode.BENCHES,
+      mode: mode,
       source: params.source,
       includeDetectionData: params.include_detection_data ?? false,
     })
@@ -141,7 +145,7 @@ export const benchApi = {
       west: params.west,
       minConfidence: params.min_confidence,
       source: params.source,
-      mode: params.mode || BenchMode.BENCHES,
+      mode: params.mode !== undefined ? params.mode : BenchMode.BENCHES,
       sortBy: params.sort_by,
       limit: params.limit,
       includeDetectionData: params.include_detection_data ?? false,
@@ -156,7 +160,7 @@ export const benchApi = {
   }): Promise<WebBenchData> => {
     return benchFinderApi.benches.getRandomBenchApiBenchesRandomGet({
       minConfidence: params?.min_confidence,
-      mode: params?.mode || BenchMode.BENCHES,
+      mode: params?.mode !== undefined ? params.mode : BenchMode.BENCHES,
       includeDetectionData: params?.include_detection_data ?? false,
     })
   },

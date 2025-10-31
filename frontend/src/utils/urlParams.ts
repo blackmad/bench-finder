@@ -55,15 +55,12 @@ export const searchParamsToFilters = (
   if (source !== null) {
     // Handle both lowercase (URL) and uppercase (enum) values
     const sourceLower = source.toLowerCase()
-    if (sourceLower === "all" || sourceLower === "osm" || sourceLower === "streetview") {
-      // Convert lowercase URL values to enum values
-      if (sourceLower === "osm") {
-        filters.sourceFilter = "OSM" as AppFilters["sourceFilter"]
-      } else if (sourceLower === "streetview" || sourceLower === "mapillary") {
-        filters.sourceFilter = "MAPILLARY" as AppFilters["sourceFilter"]
-      } else {
-        filters.sourceFilter = "all"
-      }
+    if (sourceLower === "all") {
+      filters.sourceFilter = "all"
+    } else if (sourceLower === "osm") {
+      filters.sourceFilter = "OSM" as AppFilters["sourceFilter"]
+    } else if (sourceLower === "streetview" || sourceLower === "mapillary") {
+      filters.sourceFilter = "MAPILLARY" as AppFilters["sourceFilter"]
     } else if (source === "OSM" || source === "MAPILLARY") {
       // Handle uppercase enum values directly
       filters.sourceFilter = source as AppFilters["sourceFilter"]
@@ -96,7 +93,14 @@ export const searchParamsToFilters = (
 
   const mode = searchParams.get("mode")
   if (mode !== null && ["benches", "no_bench", "both"].includes(mode)) {
-    filters.mode = mode as AppFilters["mode"]
+    // Explicitly convert string to BenchMode enum
+    if (mode === "no_bench") {
+      filters.mode = BenchMode.NO_BENCH
+    } else if (mode === "both") {
+      filters.mode = BenchMode.BOTH
+    } else {
+      filters.mode = BenchMode.BENCHES
+    }
   }
 
   const includeDetectionData = searchParams.get("includeDetectionData")

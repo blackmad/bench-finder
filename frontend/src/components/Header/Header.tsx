@@ -350,8 +350,10 @@ export const Header: React.FC = () => {
     field: keyof typeof state.filters,
     value: any
   ) => {
+    // Update filters and immediately reload with the new value
     updateFilters({ [field]: value })
-    await resetAndReload()
+    // Pass the updated filter value so reload uses it immediately
+    await resetAndReload({ [field]: value } as Partial<typeof state.filters>)
   }
 
   const handleCurrentLocation = useCallback(async () => {
@@ -547,9 +549,10 @@ export const Header: React.FC = () => {
                 <ControlLabel>Bench Mode</ControlLabel>
                 <Select
                   value={state.filters.mode}
-                  onChange={(e) =>
-                    handleFilterChange("mode", e.target.value as BenchMode)
-                  }
+                  onChange={(e) => {
+                    const selectedMode = e.target.value as BenchMode
+                    handleFilterChange("mode", selectedMode)
+                  }}
                 >
                   <option value={BenchMode.BENCHES}>🪑 Detected Benches</option>
                   <option value={BenchMode.NO_BENCH}>❌ No Bench Found</option>

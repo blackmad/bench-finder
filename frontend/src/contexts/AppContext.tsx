@@ -175,8 +175,8 @@ interface AppContextType {
   dispatch: React.Dispatch<AppAction>
   // Helper functions
   updateFilters: (filters: Partial<AppFilters>) => void
-  resetAndReload: () => Promise<void>
-  loadMoreBenches: () => Promise<void>
+  resetAndReload: (overrideFilters?: Partial<AppFilters>) => Promise<void>
+  loadMoreBenches: (resetPage?: boolean, overrideFilters?: Partial<AppFilters>) => Promise<void>
   setUserLocation: (lat: number, lng: number) => void
   feelingLucky: () => Promise<WebBenchData | null>
   clearError: () => void
@@ -251,7 +251,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "RESET_BENCHES" })
   }, [])
 
-  const loadMoreBenches = useCallback(async (resetPage: boolean = false): Promise<void> => {
+  const loadMoreBenches = useCallback(async (resetPage: boolean = false, overrideFilters?: Partial<AppFilters>): Promise<void> => {
     // Use a functional approach to get the latest state
     let currentPage = state.currentPage
     if (resetPage) {
@@ -263,16 +263,19 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       dispatch({ type: "SET_LOADING", payload: true })
 
+      // Use override filters if provided, otherwise use state filters
+      const filters = overrideFilters ? { ...state.filters, ...overrideFilters } : state.filters
+
       const response = await benchApi.getBenches({
         page: currentPage,
         page_size: state.config?.page_size || 20,
-        min_confidence: state.filters.minConfidence,
-        start_lat: state.filters.startLat,
-        start_lng: state.filters.startLng,
-        sort_by: state.filters.sortBy,
-        mode: state.filters.mode,
-        source: state.filters.sourceFilter !== "all" ? state.filters.sourceFilter : null,
-        include_detection_data: state.filters.includeDetectionData,
+        min_confidence: filters.minConfidence,
+        start_lat: filters.startLat,
+        start_lng: filters.startLng,
+        sort_by: filters.sortBy,
+        mode: filters.mode,
+        source: filters.sourceFilter !== "all" ? filters.sourceFilter : null,
+        include_detection_data: filters.includeDetectionData,
       })
 
       const benches = Array.isArray(response.benches) ? response.benches : []
@@ -301,10 +304,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     state.config,
   ])
 
-  const resetAndReload = useCallback(async () => {
+  const resetAndReload = useCallback(async (overrideFilters?: Partial<AppFilters>) => {
     dispatch({ type: "RESET_BENCHES" })
-    // Load benches starting from page 0
-    await loadMoreBenches(true)
+    // Load benches starting from page 0, optionally with overridden filters
+    await loadMoreBenches(true, overrideFilters)
   }, [loadMoreBenches])
 
   const setUserLocation = useCallback((lat: number, lng: number) => {
