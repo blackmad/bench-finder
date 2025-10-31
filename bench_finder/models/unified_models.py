@@ -5,7 +5,7 @@ This file combines database models, detection models, and API schemas using SQLM
 
 import json
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic_core import to_jsonable_python
 from sqlalchemy import JSON
@@ -294,7 +294,6 @@ class Search(SQLModel, table=True):
     status: SearchStatus = Field(default=SearchStatus.PENDING)
 
     # Relationships
-    benches: list["Bench"] = Relationship(back_populates="search", cascade_delete=True)
     bench_candidates: list["BenchCandidate"] = Relationship(
         back_populates="search", cascade_delete=True
     )
@@ -303,70 +302,7 @@ class Search(SQLModel, table=True):
         return f"<Search(id={self.id}, query='{self.query}', status='{self.status}')>"
 
 
-class Bench(SQLModel, table=True):
-    """Model for bench data from various sources."""
-
-    __tablename__ = "benches"
-
-    id: int | None = Field(default=None, primary_key=True)
-    search_id: int | None = Field(default=None, foreign_key="searches.id")
-    provider_id: str | None = Field(default=None)  # Unified ID from OSM or Mapillary
-    lat: float = Field(nullable=False)
-    lng: float = Field(nullable=False)
-    tags: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSON)
-    )  # JSON column for OSM tags or Mapillary metadata
-    source: DataSource = Field(default=DataSource.OSM)  # 'osm' or 'mapillary'
-    external_id: str | None = Field(
-        default=None
-    )  # For Mapillary image IDs or other external IDs
-    created_at: datetime = Field(default_factory=datetime.now)
-
-    # Relationships
-    search: Optional["Search"] = Relationship(back_populates="benches")
-    images: list["Image"] = Relationship(
-        back_populates="bench",
-        cascade_delete=True,
-        sa_relationship_kwargs={"foreign_keys": "Image.bench_id"},
-    )
-
-    def __repr__(self):
-        return f"<Bench(id={self.id}, provider_id='{self.provider_id}', source='{self.source}')>"
-
-    @classmethod
-    def from_osm_bench(cls, osm_bench) -> "Bench":
-        """Create Bench from OSMBench object."""
-        tags = (
-            osm_bench.tags.dict() if hasattr(osm_bench.tags, "dict") else osm_bench.tags
-        )
-        return cls(
-            provider_id=osm_bench.provider_id,
-            lat=osm_bench.lat,
-            lng=osm_bench.lng,
-            tags=tags,
-            source=DataSource.OSM,
-            external_id=osm_bench.external_id,
-        )
-
-    @classmethod
-    def from_mapillary_detection(
-        cls, detection, coordinates: tuple[float, float]
-    ) -> "Bench":
-        """Create Bench from MapillaryDetection object."""
-        # coordinates is (lng, lat) from Mapillary
-        lng, lat = coordinates
-        return cls(
-            provider_id=f"mapillary_{detection.detection_id}",
-            lat=lat,
-            lng=lng,
-            tags={
-                "detection_value": detection.value,
-                "image_id": detection.image_id,
-                "confidence": detection.confidence,
-            },
-            source=DataSource.MAPILLARY,
-            external_id=detection.detection_id,
-        )
+# Bench class removed - replaced by ProcessedBench (one per BenchCandidate)
 
 
 class Image(SQLModel, table=True):
@@ -375,7 +311,7 @@ class Image(SQLModel, table=True):
     __tablename__ = "images"
 
     id: int | None = Field(default=None, primary_key=True)
-    bench_id: int = Field(foreign_key="benches.id", nullable=False)
+    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
     heading: int = Field(nullable=False)
     filepath: str | None = Field(default=None)
     filename: str | None = Field(default=None)
@@ -385,18 +321,16 @@ class Image(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
-    bench: "Bench" = Relationship(
+    bench_candidate: "BenchCandidate" = Relationship(
         back_populates="images",
-        sa_relationship_kwargs={"foreign_keys": "[Image.bench_id]"},
+        sa_relationship_kwargs={"foreign_keys": "[Image.bench_candidate_id]"},
     )
     detections: list["Detection"] = Relationship(
         back_populates="image", cascade_delete=True
     )
 
     def __repr__(self):
-        return (
-            f"<Image(id={self.id}, bench_id={self.bench_id}, heading={self.heading})>"
-        )
+        return f"<Image(id={self.id}, bench_candidate_id={self.bench_candidate_id}, heading={self.heading})>"
 
 
 class Detection(SQLModel, table=True):
@@ -439,27 +373,8 @@ class Detection(SQLModel, table=True):
         return f"<Detection(id={self.id}, image_id={self.image_id}, confidence={self.max_confidence})>"
 
 
-class DetectedBench(SQLModel, table=True):
-    """Represents the single best detected image per bench.
-
-    There should be at most one row per bench. Stores the chosen image_id and
-    its confidence for quick lookups and UI use.
-    """
-
-    __tablename__ = "detected_benches"
-
-    id: int | None = Field(default=None, primary_key=True)
-    bench_id: int = Field(
-        foreign_key="benches.id",
-    )
-    image_id: int = Field(foreign_key="images.id", nullable=False)
-    confidence: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=datetime.now)
-
-    # Relationships (no backrefs required right now)
-
-    def __repr__(self):
-        return f"<DetectedBench(bench_id={self.bench_id}, image_id={self.image_id}, confidence={self.confidence})>"
+# DetectedBench removed - this functionality is now part of ProcessedBench
+# The best_image_id and best_detection_id in ProcessedBench serve the same purpose
 
 
 class BenchReport(SQLModel, table=True):
@@ -468,7 +383,7 @@ class BenchReport(SQLModel, table=True):
     __tablename__ = "bench_reports"
 
     id: int | None = Field(default=None, primary_key=True)
-    bench_id: int = Field(foreign_key="benches.id", nullable=False)
+    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
     image_id: int | None = Field(
         default=None, foreign_key="images.id"
     )  # The specific image being reported
@@ -496,11 +411,11 @@ class BenchReport(SQLModel, table=True):
     reviewed_at: datetime | None = Field(default=None)
 
     # Relationships
-    bench: "Bench" = Relationship()
+    bench_candidate: "BenchCandidate" = Relationship()
     image: Optional["Image"] = Relationship()
 
     def __repr__(self):
-        return f"<BenchReport(id={self.id}, bench_id={self.bench_id}, type='{self.report_type}', status='{self.status}')>"
+        return f"<BenchReport(id={self.id}, bench_candidate_id={self.bench_candidate_id}, type='{self.report_type}', status='{self.status}')>"
 
 
 class MissingBenchReport(SQLModel, table=True):
@@ -566,9 +481,65 @@ class BenchCandidate(SQLModel, table=True):
 
     # Relationships
     search: "Search" = Relationship(back_populates="bench_candidates")
+    processed_bench: Optional["ProcessedBench"] = Relationship(
+        back_populates="bench_candidate", sa_relationship_kwargs={"uselist": False}
+    )
+    images: list["Image"] = Relationship(
+        back_populates="bench_candidate",
+        cascade_delete=True,
+        sa_relationship_kwargs={"foreign_keys": "Image.bench_candidate_id"},
+    )
 
     def __repr__(self):
         return f"<BenchCandidate(id={self.id}, provider_id='{self.provider_id}', source='{self.source}')>"
+
+
+class ProcessedBench(SQLModel, table=True):
+    """
+    Processed bench - one per BenchCandidate.
+
+    This is a discriminated union at the type level (BenchDetected | NoBenchDetected),
+    represented by the detection_status field which can be "detected" or "no_bench".
+
+    When detection_status="detected", best_image_id and best_detection_id must be set.
+    When detection_status="no_bench", these fields are None.
+    """
+
+    __tablename__ = "processed_benches"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, unique=True
+    )
+    detection_status: Literal["detected", "no_bench"] = Field(
+        ...,
+        description="Discriminator: 'detected' if bench found, 'no_bench' otherwise",
+    )
+    # These fields are required when detection_status="detected", None when "no_bench"
+    best_image_id: int | None = Field(
+        default=None, foreign_key="images.id", nullable=True
+    )
+    best_detection_id: int | None = Field(
+        default=None, foreign_key="detections.id", nullable=True
+    )
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships
+    bench_candidate: "BenchCandidate" = Relationship(back_populates="processed_bench")
+    best_image: Optional["Image"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[ProcessedBench.best_image_id]"}
+    )
+    best_detection: Optional["Detection"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[ProcessedBench.best_detection_id]"}
+    )
+
+    def __repr__(self):
+        return f"<ProcessedBench(id={self.id}, bench_candidate_id={self.bench_candidate_id}, status='{self.detection_status}')>"
+
+
+# Type aliases for the discriminated union (for type checking/documentation)
+BenchDetected = ProcessedBench  # When detection_status="detected"
+NoBenchDetected = ProcessedBench  # When detection_status="no_bench"
 
 
 # ============================================================================
