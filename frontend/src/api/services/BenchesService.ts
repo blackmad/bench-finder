@@ -21,7 +21,7 @@ export class BenchesService {
     public getBenchesApiBenchesGet({
         page,
         pageSize = 20,
-        minConfidence = 0.8,
+        minConfidence = 0,
         startLat = 52.3613577,
         startLng = 4.8666322,
         sortBy = 'distance',
@@ -100,7 +100,7 @@ export class BenchesService {
      * @throws ApiError
      */
     public getRandomBenchApiBenchesRandomGet({
-        minConfidence = 0.8,
+        minConfidence = 0,
         mode = BenchMode.BENCHES,
         includeDetectionData = false,
     }: {
@@ -178,7 +178,7 @@ export class BenchesService {
         south,
         east,
         west,
-        minConfidence = 0.8,
+        minConfidence = 0,
         source,
         mode = BenchMode.BENCHES,
         sortBy = 'distance',

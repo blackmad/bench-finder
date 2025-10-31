@@ -34,12 +34,12 @@ const ApiExample: React.FC = () => {
     error,
     refetch,
   } = useQuery<BenchListResponse>({
-    queryKey: ["benches", { page: 0, minConfidence: 0.8 }],
+    queryKey: ["benches", { page: 0, minConfidence: 0 }],
     queryFn: () =>
       benchApi.getBenches({
         page: 0,
         page_size: 5,
-        min_confidence: 0.8,
+        min_confidence: 0,
         sort_by: "confidence",
       }),
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -223,7 +223,7 @@ const ApiExample: React.FC = () => {
             {`// Type-safe API call with full IntelliSense
 const response: BenchListResponse = await benchApi.getBenches({
   page: 0,
-        min_confidence: 0.8,  // ✅ Validated (0.0 - 1.0)
+        min_confidence: 0,  // ✅ Validated (0.0 - 1.0)
   sortBy: 'confidence' // ✅ Enum: distance | confidence | images | recent
 })`}
           </CodeExample>

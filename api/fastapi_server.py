@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # Configuration constants
 DEFAULT_START_LAT = 52.3613577  # Amsterdam, Netherlands (matches actual data)
 DEFAULT_START_LNG = 4.8666322
-DEFAULT_MIN_CONFIDENCE = 0.8
+DEFAULT_MIN_CONFIDENCE = 0
 PAGE_SIZE = 20
 
 
