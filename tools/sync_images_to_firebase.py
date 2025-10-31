@@ -25,9 +25,9 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 
-from bench_finder.models.unified_models import Image
-from bench_finder.services.database import BenchDatabase
-from bench_finder.services.image_storage import FirebaseImageStorage
+from bench_finder.models.unified_models import Image  # noqa: E402
+from bench_finder.services.database import BenchDatabase  # noqa: E402
+from bench_finder.services.image_storage import FirebaseImageStorage  # noqa: E402
 
 
 logging.basicConfig(
@@ -70,8 +70,8 @@ def sync_images_to_firebase(
             bucket_name=firebase_bucket,
             credentials_path=firebase_credentials,
         )
-    except Exception as e:
-        logger.error(f"Failed to initialize Firebase Storage: {e}")
+    except Exception:
+        logger.exception("Failed to initialize Firebase Storage")
         sys.exit(1)
 
     # Initialize database
@@ -143,8 +143,8 @@ def sync_images_to_firebase(
                     logger.info(f"✓ Uploaded {image.filename} -> {firebase_url}")
                     success_count += 1
 
-                except Exception as e:
-                    logger.error(f"✗ Failed to upload {image.filename}: {e}")
+                except Exception:
+                    logger.exception(f"✗ Failed to upload {image.filename}")
                     session.rollback()
                     fail_count += 1
 
@@ -214,8 +214,8 @@ def main():
             resume=args.resume,
             dry_run=args.dry_run,
         )
-    except Exception as e:
-        logger.error(f"Sync failed: {e}")
+    except Exception:
+        logger.exception("Sync failed")
         import traceback
 
         traceback.print_exc()

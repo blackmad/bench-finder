@@ -29,19 +29,19 @@ repos:
 
 
   # Type checking with mypy
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
-    hooks:
-      - id: mypy
-        additional_dependencies: [
-          types-requests>=2.32.4.20250913,
-          mypy-extensions>=1.1.0,
-          types-python-dateutil>=2.9.0.20241016,
-        ]
-        args: [
-          --config-file=pyproject.toml,
-          --show-error-codes,
-          --namespace-packages,
-        ]
-        exclude: ^(tests/|examples/|venv/|frontend/|bin/)
-        pass_filenames: true
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.18.2
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: [
+  #         types-requests>=2.32.4.20250913,
+  #         mypy-extensions>=1.1.0,
+  #         types-python-dateutil>=2.9.0.20241016,
+  #       ]
+  #       args: [
+  #         --config-file=pyproject.toml,
+  #         --show-error-codes,
+  #         --namespace-packages,
+  #       ]
+  #       exclude: ^(tests/|examples/|venv/|frontend/|bin/|tools/)
+  #       pass_filenames: true

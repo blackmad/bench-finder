@@ -177,41 +177,15 @@ class FirebaseImageStorage(ImageStorageService):
             storage_path_prefix: Prefix path in the storage bucket
         """
         try:
-            import firebase_admin
-            from firebase_admin import credentials, storage
-            except ImportError as e:
-                raise ImportError(
-                    "firebase-admin package is required for Firebase Storage. "
-                    "Install it with: pip install firebase-admin"
-                ) from e
-
-        # Initialize Firebase Admin SDK if not already initialized
-        try:
-            firebase_admin.get_app()
-            logger.debug("Firebase Admin SDK already initialized")
-        except ValueError:
-            # Not initialized yet
-            if credentials_path:
-                cred = credentials.Certificate(credentials_path)
-                firebase_admin.initialize_app(cred, {"storageBucket": bucket_name})
-            else:
-                # Try to use default credentials (e.g., from environment variable)
-                try:
-                    firebase_admin.initialize_app(
-                        options={"storageBucket": bucket_name}
-                    )
-                except Exception as e:
-                    raise ValueError(
-                        f"Firebase credentials not found. Provide credentials_path or set "
-                        f"GOOGLE_APPLICATION_CREDENTIALS environment variable. Error: {e}"
-                    ) from e
+            from firebase_admin import storage
+        except ImportError as err:
+            raise ImportError(
+                "firebase-admin is not installed. Please install it with 'pip install firebase-admin'"
+            ) from err
 
         self.bucket_name = bucket_name
         self.bucket = storage.bucket(bucket_name)
         self.storage_path_prefix = storage_path_prefix
-        logger.info(
-            f"FirebaseImageStorage initialized with bucket: {bucket_name}, prefix: {storage_path_prefix}"
-        )
 
     def _get_storage_path(self, filename: str) -> str:
         """Get full storage path for a filename."""

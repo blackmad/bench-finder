@@ -22,10 +22,10 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import inspect
-from sqlalchemy.orm import Session
+from sqlalchemy import inspect  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
-from bench_finder.models.unified_models import (
+from bench_finder.models.unified_models import (  # noqa: E402
     BenchCandidate,
     Detection,
     DetectionItem,
@@ -35,7 +35,7 @@ from bench_finder.models.unified_models import (
     Search,
     init_database,
 )
-from bench_finder.services.database import BenchDatabase
+from bench_finder.services.database import BenchDatabase  # noqa: E402
 
 
 logging.basicConfig(
@@ -114,8 +114,8 @@ def migrate_table(
                 f"Migrated batch {i // batch_size + 1}: {migrated_count}/{total_count} records"
             )
 
-        except Exception as e:
-            logger.error(f"Error migrating batch {i // batch_size + 1}: {e}")
+        except Exception:
+            logger.exception(f"Error migrating batch {i // batch_size + 1}")
             target_session.rollback()
             raise
 
@@ -193,8 +193,8 @@ def migrate_database(
                     dry_run=dry_run,
                 )
                 total_migrated += count
-            except Exception as e:
-                logger.error(f"Failed to migrate table {table_name}: {e}")
+            except Exception:
+                logger.exception(f"Failed to migrate table {table_name}")
                 if not dry_run:
                     raise
 
@@ -202,8 +202,8 @@ def migrate_database(
         logger.info(f"Migration complete! Total records migrated: {total_migrated}")
         logger.info("=" * 60)
 
-    except Exception as e:
-        logger.error(f"Migration failed: {e}")
+    except Exception:
+        logger.exception("Migration failed")
         raise
     finally:
         source_session.close()
@@ -246,8 +246,8 @@ def main():
             supabase_url=args.supabase_url,
             dry_run=args.dry_run,
         )
-    except Exception as e:
-        logger.error(f"Migration failed: {e}")
+    except Exception:
+        logger.exception("Migration failed")
         sys.exit(1)
 
 
