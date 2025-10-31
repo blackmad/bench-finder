@@ -271,6 +271,13 @@ const Modal: React.FC<ModalProps> = ({
 
   // Load segmentation data when imageId changes
   useEffect(() => {
+    // Immediately hide overlay when imageId/imageUrl changes to prevent leftover bounce
+    if (overlayRef.current) {
+      overlayRef.current.style.display = "none"
+      overlayRef.current.innerHTML = ""
+    }
+    setSegmentationData(null)
+
     const loadSegmentationData = async () => {
       if (!imageId || !isOpen) {
         setSegmentationData(null)
@@ -303,7 +310,7 @@ const Modal: React.FC<ModalProps> = ({
     }
 
     loadSegmentationData()
-  }, [imageId, isOpen])
+  }, [imageId, imageUrl, isOpen])
 
   // Render segmentation overlays when image loads
   const renderSegmentationOverlays = useCallback(() => {
