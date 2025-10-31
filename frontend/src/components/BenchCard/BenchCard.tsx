@@ -3,6 +3,7 @@ import L from "leaflet"
 import { Camera, Hash, MapPin, Target, Flag } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import styled, { keyframes } from "styled-components"
 import type { WebBenchData } from "../../api"
 import { DataSource, DetectionSource } from "../../api"
@@ -157,6 +158,24 @@ const BenchTitle = styled.h3`
   align-items: center;
   gap: ${({ theme }) => theme.spacing[2]};
   cursor: pointer;
+  transition: color ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+`
+
+const BenchTitleLink = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing[2]};
+  text-decoration: none;
+  color: inherit;
   transition: color ${({ theme }) => theme.transitions.fast};
 
   &:hover {
@@ -373,7 +392,6 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   const [miniMap, setMiniMap] = useState<L.Map | null>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get primary image
   const imageUrl = bench.image_filenames?.[0]
@@ -428,71 +446,68 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     }
   }
 
-  // Initialize minimap when hovered
-  const initMiniMap = () => {
+  // Initialize minimap immediately
+  useEffect(() => {
     if (!mapRef.current || miniMap) return
 
-    try {
-      const map = L.map(mapRef.current, {
-        center: [bench.lat, bench.lng],
-        zoom: 16,
-        zoomControl: false,
-        attributionControl: false,
-        scrollWheelZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-        dragging: false,
-        touchZoom: false,
-      })
+    // Small delay to ensure DOM is ready
+    const initMap = () => {
+      if (!mapRef.current || miniMap) return
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "",
-      }).addTo(map)
+      try {
+        const map = L.map(mapRef.current, {
+          center: [bench.lat, bench.lng],
+          zoom: 12,
+          zoomControl: false,
+          attributionControl: false,
+          scrollWheelZoom: false,
+          doubleClickZoom: false,
+          boxZoom: false,
+          keyboard: false,
+          dragging: false,
+          touchZoom: false,
+        })
 
-      // Add a marker for the bench
-      const benchIcon = L.divIcon({
-        html: "🪑",
-        className: "bench-minimap-marker",
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-      })
+        // Use CartoDB Positron No Labels for a clean look without labels
+        L.tileLayer("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png", {
+          attribution: "",
+        }).addTo(map)
 
-      L.marker([bench.lat, bench.lng], { icon: benchIcon }).addTo(map)
+        // Add a pin marker for the bench
+        const pinIcon = L.divIcon({
+          html: "📍",
+          className: "bench-minimap-marker",
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        })
 
-      setMiniMap(map)
-      setHoverMapLoaded(true)
-    } catch (error) {
-      console.warn("Failed to initialize minimap:", error)
+        L.marker([bench.lat, bench.lng], { icon: pinIcon }).addTo(map)
+
+        // Invalidate size after a brief delay to ensure proper rendering
+        setTimeout(() => {
+          map.invalidateSize()
+        }, 150)
+
+        setMiniMap(map)
+        setHoverMapLoaded(true)
+      } catch (error) {
+        console.warn("Failed to initialize minimap:", error)
+      }
     }
-  }
 
-  const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
+    // Use requestAnimationFrame to ensure DOM is ready
+    const timeoutId = setTimeout(initMap, 100)
+
+    return () => {
+      clearTimeout(timeoutId)
     }
-
-    // Delay initialization to avoid creating maps for quick hovers
-    hoverTimeoutRef.current = setTimeout(() => {
-      initMiniMap()
-    }, 300)
-  }
-
-  const handleMouseLeave = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current)
-      hoverTimeoutRef.current = null
-    }
-  }
+  }, [bench.lat, bench.lng])
 
   // Cleanup minimap on unmount
   useEffect(() => {
     return () => {
       if (miniMap) {
         miniMap.remove()
-      }
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current)
       }
     }
   }, [miniMap])
@@ -513,8 +528,6 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           delay: animationDelay,
           ease: "easeOut",
         }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
         <ImageContainer onClick={handleImageClick}>
           {imageUrl ? (
@@ -576,18 +589,21 @@ export const BenchCard: React.FC<BenchCardProps> = ({
 
           {/* Hover Map */}
           <HoverMap>
-            {hoverMapLoaded ? (
-              <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
-            ) : (
-              <MiniMapPlaceholder>📍 Map Preview</MiniMapPlaceholder>
+            <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+            {!hoverMapLoaded && (
+              <MiniMapPlaceholder style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
+                📍 Map Preview
+              </MiniMapPlaceholder>
             )}
           </HoverMap>
         </ImageContainer>
 
         <CardContent>
-          <BenchTitle onClick={handleTitleClick}>
-            <MapPin />
-            Bench #{bench.id}
+          <BenchTitle>
+            <BenchTitleLink to={`/bench/${bench.id}`}>
+              <MapPin />
+              Bench #{bench.id}
+            </BenchTitleLink>
           </BenchTitle>
 
           <BenchDetails>

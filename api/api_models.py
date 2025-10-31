@@ -177,6 +177,8 @@ class WebBenchData(BaseModel):
     image_count: int
     image_filenames: list[str]
     image_ids: list[int]
+    best_image_id: int | None = None  # ID of the best image used for detection
+    best_detection_id: int | None = None  # ID of the best detection
     distance_meters: int
     distance_km: float
     # Optional detection data (only included when requested)

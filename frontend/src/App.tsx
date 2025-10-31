@@ -9,6 +9,7 @@ import { ThemeProvider } from "styled-components"
 import ApiExample from "./components/ApiExample"
 import ErrorToast from "./components/ErrorToast/ErrorToast"
 import { AppProvider, useApp } from "./contexts/AppContext"
+import BenchDetailPage from "./pages/BenchDetailPage"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
 import ReportMissingBenchPage from "./pages/ReportMissingBenchPage"
@@ -36,6 +37,7 @@ const AppWithErrorHandling = () => {
           <Route path="/" element={<Navigate to="/cards" replace />} />
           <Route path="/cards" element={<CardsPage />} />
           <Route path="/map" element={<MapPage />} />
+          <Route path="/bench/:id" element={<BenchDetailPage />} />
           <Route path="/report-missing-bench" element={<ReportMissingBenchPage />} />
           <Route path="/api-demo" element={<ApiExample />} />
         </Routes>

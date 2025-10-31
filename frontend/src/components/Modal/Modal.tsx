@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react"
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import styled from "styled-components"
 import type { SegmentationData, WebBenchData } from "../../api"
 import { benchApi } from "../../services/api"
@@ -68,6 +69,37 @@ const CloseButton = styled.button`
     width: 24px;
     height: 24px;
   }
+`
+
+const PermalinkButton = styled(Link)`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing[2]};
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  text-decoration: none;
+  padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[3]};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  font-size: ${({ theme }) => theme.typography.sizes.sm};
+  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  transition: all ${({ theme }) => theme.transitions.fast};
+  margin-left: ${({ theme }) => theme.spacing[3]};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.primaryDark};
+    transform: translateY(-1px);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`
+
+const ModalHeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing[2]};
 `
 
 const ModalContent = styled.div`
@@ -332,11 +364,81 @@ const Modal: React.FC<ModalProps> = ({
     overlay.style.top = offsetY + "px"
     overlay.setAttribute("viewBox", `0 0 ${displayWidth} ${displayHeight}`)
 
-    // Note: Detection overlays are now handled by the DetectionData component
-    // which displays detection information below the image
+    // Get image shape from segmentation data or use natural dimensions
+    const imageShape = segmentationData.image_shape || [
+      imageNaturalWidth,
+      imageNaturalHeight,
+    ]
+    const imageWidth = imageShape[0] || imageNaturalWidth
+    const imageHeight = imageShape[1] || imageNaturalHeight
 
-    // Show the overlay
-    overlay.style.display = "block"
+    // Calculate scale factors from natural image size to display size
+    const scaleX = displayWidth / imageWidth
+    const scaleY = displayHeight / imageHeight
+
+    // Render detection items
+    const hasItems =
+      segmentationData.detection_items && segmentationData.detection_items.length > 0
+    let hasRenderedItems = false
+
+    if (hasItems) {
+      segmentationData.detection_items.forEach((item, index) => {
+        // Prefer polygon (segmentation) over bounding box
+        if (item.polygon && item.polygon.coordinates && item.polygon.coordinates.length > 0) {
+          // Render segmentation polygon
+          const points = item.polygon.coordinates
+            .map(([x, y]) => `${x * scaleX},${y * scaleY}`)
+            .join(" ")
+
+          const polygon = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "polygon"
+          )
+          polygon.setAttribute("points", points)
+          polygon.setAttribute("fill", "rgba(59, 130, 246, 0.3)") // Blue fill with transparency
+          polygon.setAttribute("stroke", "#3b82f6") // Blue border
+          polygon.setAttribute("stroke-width", "2")
+          polygon.setAttribute("stroke-linejoin", "round")
+          polygon.setAttribute(
+            "data-detection-id",
+            item.detection_id?.toString() || index.toString()
+          )
+
+          overlay.appendChild(polygon)
+          hasRenderedItems = true
+        } else if (item.bbox) {
+          // Render bounding box
+          const { x1, y1, x2, y2 } = item.bbox
+          const rectX = x1 * scaleX
+          const rectY = y1 * scaleY
+          const rectWidth = (x2 - x1) * scaleX
+          const rectHeight = (y2 - y1) * scaleY
+
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          )
+          rect.setAttribute("x", rectX.toString())
+          rect.setAttribute("y", rectY.toString())
+          rect.setAttribute("width", rectWidth.toString())
+          rect.setAttribute("height", rectHeight.toString())
+          rect.setAttribute("fill", "rgba(34, 197, 94, 0.2)") // Green fill with transparency
+          rect.setAttribute("stroke", "#22c55e") // Green border
+          rect.setAttribute("stroke-width", "2")
+          rect.setAttribute("rx", "4") // Rounded corners
+          rect.setAttribute(
+            "data-detection-id",
+            item.detection_id?.toString() || index.toString()
+          )
+
+          overlay.appendChild(rect)
+          hasRenderedItems = true
+        }
+      })
+    }
+
+    // Show or hide overlay based on whether we rendered anything
+    overlay.style.display = hasRenderedItems ? "block" : "none"
   }, [segmentationData])
 
   // Handle image load to render overlays
@@ -504,9 +606,15 @@ const Modal: React.FC<ModalProps> = ({
                   </span>
                 )}
               </ModalTitle>
-              <CloseButton onClick={onClose}>
-                <X />
-              </CloseButton>
+              <ModalHeaderActions>
+                <PermalinkButton to={`/bench/${bench.id}`}>
+                  <ExternalLink />
+                  View Full Page
+                </PermalinkButton>
+                <CloseButton onClick={onClose}>
+                  <X />
+                </CloseButton>
+              </ModalHeaderActions>
             </ModalHeader>
 
             <ModalContent>
@@ -548,7 +656,14 @@ const Modal: React.FC<ModalProps> = ({
                   />
                   <SegmentationOverlay
                     ref={overlayRef}
-                    style={{ display: segmentationData ? "block" : "none" }}
+                    style={{
+                      display:
+                        segmentationData &&
+                        segmentationData.detection_items &&
+                        segmentationData.detection_items.length > 0
+                          ? "block"
+                          : "none",
+                    }}
                   />
                 </ImageContainer>
               ) : (

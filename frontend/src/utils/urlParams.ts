@@ -9,7 +9,9 @@ export const filtersToSearchParams = (filters: AppFilters): URLSearchParams => {
   }
 
   if (filters.sourceFilter !== "all") {
-    params.set("source", filters.sourceFilter)
+    // Convert enum values to lowercase for URL (OSM -> osm, MAPILLARY -> mapillary)
+    const sourceValue = filters.sourceFilter === "OSM" ? "osm" : filters.sourceFilter === "MAPILLARY" ? "mapillary" : filters.sourceFilter
+    params.set("source", sourceValue.toLowerCase())
   }
 
   if (filters.sortBy !== "distance") {
@@ -39,8 +41,22 @@ export const searchParamsToFilters = (
   }
 
   const source = searchParams.get("source")
-  if (source !== null && ["all", "osm", "streetview"].includes(source)) {
-    filters.sourceFilter = source as AppFilters["sourceFilter"]
+  if (source !== null) {
+    // Handle both lowercase (URL) and uppercase (enum) values
+    const sourceLower = source.toLowerCase()
+    if (sourceLower === "all" || sourceLower === "osm" || sourceLower === "streetview") {
+      // Convert lowercase URL values to enum values
+      if (sourceLower === "osm") {
+        filters.sourceFilter = "OSM" as AppFilters["sourceFilter"]
+      } else if (sourceLower === "streetview" || sourceLower === "mapillary") {
+        filters.sourceFilter = "MAPILLARY" as AppFilters["sourceFilter"]
+      } else {
+        filters.sourceFilter = "all"
+      }
+    } else if (source === "OSM" || source === "MAPILLARY") {
+      // Handle uppercase enum values directly
+      filters.sourceFilter = source as AppFilters["sourceFilter"]
+    }
   }
 
   const sortBy = searchParams.get("sortBy")
@@ -73,18 +89,52 @@ export const searchParamsToFilters = (
 // Get current URL with updated search parameters
 export const buildUrlWithFilters = (
   filters: AppFilters,
-  pathname: string = window.location.pathname
+  pathname: string = window.location.pathname,
+  preserveParams: string[] = []
 ): string => {
+  // Start with existing params to preserve non-filter params (like zoom)
+  const existingParams = new URLSearchParams(window.location.search)
   const params = filtersToSearchParams(filters)
+
+  // Preserve specified params from existing URL
+  for (const key of preserveParams) {
+    const existingValue = existingParams.get(key)
+    if (existingValue !== null) {
+      params.set(key, existingValue)
+    }
+  }
+
   const search = params.toString()
   return search ? `${pathname}?${search}` : pathname
 }
 
-// Update URL without triggering navigation
+// Update URL without triggering navigation (using React Router's setSearchParams)
 export const updateUrlWithFilters = (
   filters: AppFilters,
-  pathname?: string
+  setSearchParams: (params: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams), opts?: { replace?: boolean }) => void,
+  preserveParams: string[] = ["zoom"] // Preserve zoom by default
 ) => {
-  const url = buildUrlWithFilters(filters, pathname)
+  setSearchParams((prev) => {
+    const params = filtersToSearchParams(filters)
+
+    // Preserve specified params from existing URL
+    for (const key of preserveParams) {
+      const existingValue = prev.get(key)
+      if (existingValue !== null) {
+        params.set(key, existingValue)
+      }
+    }
+
+    return params
+  }, { replace: true })
+}
+
+// Legacy function for backwards compatibility (using window.history)
+export const updateUrlWithFiltersLegacy = (
+  filters: AppFilters,
+  pathname?: string,
+  preserveParams: string[] = ["zoom"] // Preserve zoom by default
+) => {
+  const url = buildUrlWithFilters(filters, pathname, preserveParams)
   window.history.replaceState({}, "", url)
 }

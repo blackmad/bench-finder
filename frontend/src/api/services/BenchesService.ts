@@ -28,6 +28,7 @@ export class BenchesService {
         mode = BenchMode.BENCHES,
         clustered = true,
         includeDetectionData = false,
+        source,
     }: {
         /**
          * Page number (0-based)
@@ -65,6 +66,10 @@ export class BenchesService {
          * Include detection items (bbox, polygon) in response (default: False)
          */
         includeDetectionData?: boolean,
+        /**
+         * Filter by data source: 'osm' or 'mapillary' (default: all sources)
+         */
+        source?: (DataSource | null),
     }): CancelablePromise<(BenchListResponse | ClusteredBenchListResponse)> {
         return this.httpRequest.request({
             method: 'GET',
@@ -79,6 +84,7 @@ export class BenchesService {
                 'mode': mode,
                 'clustered': clustered,
                 'include_detection_data': includeDetectionData,
+                'source': source,
             },
             errors: {
                 400: `Invalid query parameters`,

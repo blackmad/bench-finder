@@ -111,7 +111,7 @@ const InfiniteScrollTrigger = styled.div`
 
 const CardsPage: React.FC = () => {
   const { state, loadMoreBenches, updateFilters } = useApp()
-  const [searchParams, _setSearchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [selectedBench, setSelectedBench] = React.useState<WebBenchData | null>(
     null
   )
@@ -149,9 +149,9 @@ const CardsPage: React.FC = () => {
   // Update URL when filters change
   useEffect(() => {
     if (state.config) {
-      updateUrlWithFilters(state.filters, "/cards")
+      updateUrlWithFilters(state.filters, setSearchParams)
     }
-  }, [state.filters, state.config])
+  }, [state.filters, state.config, setSearchParams])
 
   // Load initial data when filters change or when navigating to cards view
   useEffect(() => {

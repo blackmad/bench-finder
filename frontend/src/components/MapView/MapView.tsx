@@ -2,6 +2,7 @@ import { divIcon, type LatLngBounds } from "leaflet"
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet"
+import { Link, useSearchParams } from "react-router-dom"
 import styled from "styled-components"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
@@ -12,6 +13,7 @@ import type {
 import { useApp } from "../../contexts/AppContext"
 import { benchApi } from "../../services/api"
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner"
+import Modal from "../Modal/Modal"
 
 const MapViewContainer = styled.div`
   position: relative;
@@ -164,6 +166,26 @@ const MapCardTitle = styled.div`
   line-height: ${({ theme }) => theme.typography.lineHeights.tight};
 `
 
+const MapCardTitleLink = styled(Link)`
+  color: inherit;
+  text-decoration: none;
+  transition: color ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`
+
+const PopupTitleLink = styled(Link)`
+  color: inherit;
+  text-decoration: none;
+  transition: color ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary};
+  }
+`
+
 const MapCardConfidence = styled.div<{ $show: boolean }>`
   display: ${({ $show }) => ($show ? "block" : "none")};
   background: ${({ theme }) => theme.colors.success};
@@ -234,31 +256,111 @@ const SearchControls = styled.div`
 // Component to handle map events
 const MapEventHandler: React.FC<{
   onBoundsChange: (bounds: LatLngBounds) => void
-}> = ({ onBoundsChange }) => {
+  onViewChange: (center: [number, number], zoom: number) => void
+  isUpdatingFromUrl: React.MutableRefObject<boolean>
+}> = ({ onBoundsChange, onViewChange, isUpdatingFromUrl }) => {
   const map = useMap()
+
+  // Use refs to keep callbacks stable
+  const onBoundsChangeRef = useRef(onBoundsChange)
+  const onViewChangeRef = useRef(onViewChange)
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange
+    onViewChangeRef.current = onViewChange
+  }, [onBoundsChange, onViewChange])
 
   useEffect(() => {
     const handleMoveEnd = () => {
+      // Skip if this is from a programmatic update
+      if (isUpdatingFromUrl.current) {
+        return
+      }
       const bounds = map.getBounds()
-      onBoundsChange(bounds)
+      const center = map.getCenter()
+      const zoom = map.getZoom()
+      onBoundsChangeRef.current(bounds)
+      onViewChangeRef.current([center.lat, center.lng], zoom)
+    }
+
+    const handleZoomEnd = () => {
+      // Skip if this is from a programmatic update
+      if (isUpdatingFromUrl.current) {
+        return
+      }
+      const center = map.getCenter()
+      const zoom = map.getZoom()
+      onViewChangeRef.current([center.lat, center.lng], zoom)
     }
 
     map.on("moveend", handleMoveEnd)
+    map.on("zoomend", handleZoomEnd)
 
     // Trigger map resize after mount to ensure proper rendering
     setTimeout(() => {
       map.invalidateSize()
     }, 100)
 
-    // Initial bounds
+    // Initial bounds and view - but skip URL update
     setTimeout(() => {
-      handleMoveEnd()
+      const bounds = map.getBounds()
+      onBoundsChangeRef.current(bounds)
+      // Don't call onViewChange on initial mount to avoid URL updates
     }, 200)
 
     return () => {
       map.off("moveend", handleMoveEnd)
+      map.off("zoomend", handleZoomEnd)
     }
-  }, [map, onBoundsChange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]) // Only depend on map instance, callbacks accessed via refs
+
+  return null
+}
+
+// Component to programmatically update map view from URL
+const MapViewUpdater: React.FC<{
+  center: [number, number]
+  zoom: number
+  isUpdatingFromUrl: React.MutableRefObject<boolean>
+}> = ({ center, zoom, isUpdatingFromUrl }) => {
+  const map = useMap()
+  const lastCenterRef = useRef<[number, number] | null>(null)
+  const lastZoomRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const currentCenter = map.getCenter()
+    const currentZoom = map.getZoom()
+
+    // Only update if the view actually changed and it's different from what we last set
+    const centerChanged =
+      Math.abs(currentCenter.lat - center[0]) > 0.0001 ||
+      Math.abs(currentCenter.lng - center[1]) > 0.0001
+    const zoomChanged = Math.abs(currentZoom - zoom) > 0.1
+
+    // Also check if this is different from what we last set (to avoid loops)
+    const isDifferentFromLast =
+      !lastCenterRef.current ||
+      !lastZoomRef.current ||
+      Math.abs(lastCenterRef.current[0] - center[0]) > 0.0001 ||
+      Math.abs(lastCenterRef.current[1] - center[1]) > 0.0001 ||
+      Math.abs(lastZoomRef.current - zoom) > 0.1
+
+    if ((centerChanged || zoomChanged) && isDifferentFromLast) {
+      // Set flag before updating to prevent URL updates
+      isUpdatingFromUrl.current = true
+      lastCenterRef.current = center
+      lastZoomRef.current = zoom
+
+      map.setView(center, zoom, { animate: false })
+
+      // Reset flag after map has updated (events fire asynchronously)
+      setTimeout(() => {
+        isUpdatingFromUrl.current = false
+      }, 300)
+    }
+  }, [map, center, zoom])
 
   return null
 }
@@ -270,6 +372,7 @@ interface MapData {
 
 const MapView: React.FC = () => {
   const { state } = useApp()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [mapData, setMapData] = useState<MapData>({
     benches: [],
     totalCount: 0,
@@ -277,6 +380,15 @@ const MapView: React.FC = () => {
   const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const urlUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isUpdatingFromUrlRef = useRef(false)
+
+  // Modal state
+  const [selectedBench, setSelectedBench] = useState<WebBenchData | null>(null)
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null)
+  const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [currentModalIndex, setCurrentModalIndex] = useState(0)
 
   const searchMapArea = useCallback(
     async (bounds?: LatLngBounds) => {
@@ -344,19 +456,251 @@ const MapView: React.FC = () => {
 
   const handleBenchClick = useCallback((benchId: number) => {
     setSelectedBenchId(benchId)
+
+    // Find the bench in the list and open modal
+    const bench = mapData.benches.find((b) => b.id === benchId)
+    if (bench) {
+      const benchIndex = mapData.benches.findIndex((b) => b.id === benchId)
+      const imageUrl = bench.image_filenames?.[0]
+        ? `/images/${bench.image_filenames[0]}`
+        : null
+      const imageId = bench.image_ids?.[0] || null
+
+      setSelectedBench(bench)
+      setSelectedImageUrl(imageUrl)
+      setSelectedImageId(imageId)
+      setCurrentModalIndex(benchIndex >= 0 ? benchIndex : 0)
+      setModalOpen(true)
+    }
+  }, [mapData.benches])
+
+  const handleModalClose = useCallback(() => {
+    setModalOpen(false)
+    setSelectedBench(null)
+    setSelectedImageUrl(null)
+    setSelectedImageId(null)
+    setCurrentModalIndex(0)
   }, [])
 
-  const defaultCenter: [number, number] = [
-    state.filters.startLat,
-    state.filters.startLng,
-  ]
+  const handleModalNavigate = useCallback(
+    (direction: "prev" | "next") => {
+      const benchesForNavigation = mapData.benches
+
+      if (!benchesForNavigation || benchesForNavigation.length === 0) return
+
+      let newIndex =
+        direction === "prev" ? currentModalIndex - 1 : currentModalIndex + 1
+
+      // Clamp to valid range
+      newIndex = Math.max(0, Math.min(benchesForNavigation.length - 1, newIndex))
+
+      const newBench = benchesForNavigation[newIndex]
+      if (newBench) {
+        const imageUrl = newBench.image_filenames?.[0]
+          ? `/images/${newBench.image_filenames[0]}`
+          : null
+        const imageId = newBench.image_ids?.[0] || null
+
+        setSelectedBench(newBench)
+        setSelectedImageUrl(imageUrl)
+        setSelectedImageId(imageId)
+        setCurrentModalIndex(newIndex)
+        setSelectedBenchId(newBench.id)
+      }
+    },
+    [currentModalIndex, mapData.benches]
+  )
+
+  // Get initial center and zoom from URL or fallback to filters/defaults
+  const getInitialCenter = (): [number, number] => {
+    const urlLat = searchParams.get("lat")
+    const urlLng = searchParams.get("lng")
+
+    if (urlLat && urlLng) {
+      const lat = parseFloat(urlLat)
+      const lng = parseFloat(urlLng)
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        return [lat, lng]
+      }
+    }
+
+    return [state.filters.startLat, state.filters.startLng]
+  }
+
+  const getInitialZoom = (): number => {
+    const urlZoom = searchParams.get("zoom")
+    if (urlZoom) {
+      const zoom = parseFloat(urlZoom)
+      if (!Number.isNaN(zoom) && zoom >= 0 && zoom <= 19) {
+        return zoom
+      }
+    }
+    return 13
+  }
+
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() => getInitialCenter())
+  const [mapZoom, setMapZoom] = useState<number>(() => getInitialZoom())
+  const isInitialMountRef = useRef(true)
+
+  // Refs to track current map state without causing re-renders
+  const mapCenterRef = useRef<[number, number]>(mapCenter)
+  const mapZoomRef = useRef<number>(mapZoom)
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    mapCenterRef.current = mapCenter
+  }, [mapCenter])
+
+  useEffect(() => {
+    mapZoomRef.current = mapZoom
+  }, [mapZoom])
+
+  // Mark initial mount as complete after a brief delay
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      isInitialMountRef.current = false
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Track last URL we set to avoid redundant updates
+  const lastSetUrlRef = useRef<string>("")
+
+  // Update URL with map view parameters (debounced)
+  const updateUrlWithMapView = useCallback(
+    (center: [number, number], zoom: number) => {
+      if (isUpdatingFromUrlRef.current || isInitialMountRef.current) {
+        return
+      }
+
+      if (urlUpdateTimeoutRef.current) {
+        clearTimeout(urlUpdateTimeoutRef.current)
+      }
+
+      urlUpdateTimeoutRef.current = setTimeout(() => {
+        // Double-check flag before updating
+        if (isUpdatingFromUrlRef.current) {
+          return
+        }
+
+        // Get fresh searchParams to avoid stale closure issues
+        const currentParams = new URLSearchParams(window.location.search)
+
+        // Update lat/lng (these are already used by filters, so we'll update them)
+        currentParams.set("lat", center[0].toFixed(7))
+        currentParams.set("lng", center[1].toFixed(7))
+
+        // Update zoom
+        currentParams.set("zoom", zoom.toString())
+
+        const newUrlString = currentParams.toString()
+
+        // Only update if URL actually changed
+        if (newUrlString !== lastSetUrlRef.current) {
+          lastSetUrlRef.current = newUrlString
+          lastProcessedUrlRef.current = newUrlString
+          setSearchParams(currentParams, { replace: true })
+        }
+      }, 200) // Reduced debounce for more responsive updates
+    },
+    [setSearchParams]
+  )
+
+  // Handle map view changes (zoom/pan)
+  const handleViewChange = useCallback(
+    (center: [number, number], zoom: number) => {
+      setMapCenter(center)
+      setMapZoom(zoom)
+      updateUrlWithMapView(center, zoom)
+    },
+    [updateUrlWithMapView]
+  )
+
+  // Track the last URL values we processed to avoid processing our own updates
+  const lastProcessedUrlRef = useRef<string>("")
+
+  // Sync map with URL changes (but only if not triggered by our own updates)
+  useEffect(() => {
+    // Skip if we're currently updating from our own action
+    if (isUpdatingFromUrlRef.current || isInitialMountRef.current) {
+      return
+    }
+
+    // Create a string representation of current URL params to detect changes
+    const currentUrlParams = searchParams.toString()
+
+    // Skip if this is the same URL we just processed
+    if (currentUrlParams === lastProcessedUrlRef.current) {
+      return
+    }
+
+    const urlLat = searchParams.get("lat")
+    const urlLng = searchParams.get("lng")
+    const urlZoom = searchParams.get("zoom")
+
+    // Check if URL values differ significantly from current state (using refs to avoid dependency issues)
+    // This indicates an external URL change (e.g., browser back/forward, manual URL edit)
+    if (urlLat && urlLng && urlZoom) {
+      const lat = parseFloat(urlLat)
+      const lng = parseFloat(urlLng)
+      const zoom = parseFloat(urlZoom)
+
+      if (
+        !Number.isNaN(lat) &&
+        !Number.isNaN(lng) &&
+        !Number.isNaN(zoom) &&
+        (Math.abs(lat - mapCenterRef.current[0]) > 0.0001 ||
+          Math.abs(lng - mapCenterRef.current[1]) > 0.0001 ||
+          Math.abs(zoom - mapZoomRef.current) > 0.1)
+      ) {
+        // This is an external URL change - update map view
+        lastProcessedUrlRef.current = currentUrlParams
+        isUpdatingFromUrlRef.current = true
+        setMapCenter([lat, lng])
+        setMapZoom(zoom)
+
+        // Reset flag after a delay to allow map to update
+        setTimeout(() => {
+          isUpdatingFromUrlRef.current = false
+        }, 500)
+      }
+    } else if (urlLat && urlLng) {
+      // URL has lat/lng but no zoom - update center only if it differs
+      const lat = parseFloat(urlLat)
+      const lng = parseFloat(urlLng)
+      if (
+        !Number.isNaN(lat) &&
+        !Number.isNaN(lng) &&
+        (Math.abs(lat - mapCenterRef.current[0]) > 0.0001 ||
+          Math.abs(lng - mapCenterRef.current[1]) > 0.0001)
+      ) {
+        lastProcessedUrlRef.current = currentUrlParams
+        isUpdatingFromUrlRef.current = true
+        setMapCenter([lat, lng])
+        setTimeout(() => {
+          isUpdatingFromUrlRef.current = false
+        }, 500)
+      }
+    }
+    // Only depend on searchParams to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (urlUpdateTimeoutRef.current) {
+        clearTimeout(urlUpdateTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <MapViewContainer>
       <MainMap>
         <MapContainer
-          center={defaultCenter}
-          zoom={13}
+          center={mapCenter}
+          zoom={mapZoom}
           style={{ height: "500px", width: "100%", minHeight: "500px" }}
           zoomControl={true}
         >
@@ -366,7 +710,17 @@ const MapView: React.FC = () => {
             maxZoom={19}
           />
 
-          <MapEventHandler onBoundsChange={handleBoundsChange} />
+          <MapViewUpdater
+            center={mapCenter}
+            zoom={mapZoom}
+            isUpdatingFromUrl={isUpdatingFromUrlRef}
+          />
+
+          <MapEventHandler
+            onBoundsChange={handleBoundsChange}
+            onViewChange={handleViewChange}
+            isUpdatingFromUrl={isUpdatingFromUrlRef}
+          />
 
           {/* Render individual benches */}
           {mapData.benches?.map((bench) => (
@@ -399,7 +753,11 @@ const MapView: React.FC = () => {
               >
                 <Popup>
                   <div style={{ minWidth: "200px" }}>
-                    <h4>Bench #{bench.id}</h4>
+                    <h4>
+                      <PopupTitleLink to={`/bench/${bench.id}`}>
+                        Bench #{bench.id}
+                      </PopupTitleLink>
+                    </h4>
                     <p>
                       <strong>Confidence:</strong>{" "}
                       {(bench.best_confidence * 100).toFixed(1)}%
@@ -482,7 +840,11 @@ const MapView: React.FC = () => {
                       </MapCardImage>
                       <MapCardContent>
                         <MapCardHeader>
-                          <MapCardTitle>Bench #{bench.id}</MapCardTitle>
+                          <MapCardTitle>
+                            <MapCardTitleLink to={`/bench/${bench.id}`}>
+                              Bench #{bench.id}
+                            </MapCardTitleLink>
+                          </MapCardTitle>
                           <MapCardConfidence $show={state.debugMode}>
                             {(bench.best_confidence * 100).toFixed(0)}%
                           </MapCardConfidence>
@@ -503,6 +865,18 @@ const MapView: React.FC = () => {
             )}
         </SidebarContent>
       </MapSidebar>
+
+      {/* Modal for bench details */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        bench={selectedBench}
+        imageUrl={selectedImageUrl}
+        imageId={selectedImageId}
+        allBenches={mapData.benches}
+        currentIndex={currentModalIndex}
+        onNavigate={handleModalNavigate}
+      />
     </MapViewContainer>
   )
 }

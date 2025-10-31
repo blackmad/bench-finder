@@ -94,6 +94,7 @@ export const benchApi = {
     start_lng?: number
     sort_by?: string
     mode?: BenchMode
+    source?: DataSource | null
     include_detection_data?: boolean
   }): Promise<BenchListResponse> => {
     return benchFinderApi.benches.getBenchesApiBenchesGet({
@@ -104,6 +105,7 @@ export const benchApi = {
       startLng: params.start_lng,
       sortBy: params.sort_by,
       mode: params.mode || BenchMode.BENCHES,
+      source: params.source,
       includeDetectionData: params.include_detection_data ?? false,
     })
   },

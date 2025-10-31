@@ -394,6 +394,10 @@ def format_bench_info(
 
     # Images
     lines.append(f"🖼️  Images: {bench.image_count}")
+    if bench.best_image_id:
+        lines.append(f"⭐ Best Image ID: {bench.best_image_id}")
+    if bench.best_detection_id:
+        lines.append(f"⭐ Best Detection ID: {bench.best_detection_id}")
     if show_images and bench.image_filenames:
         lines.append("   Image files:")
         for filename in bench.image_filenames[:5]:  # Show first 5
@@ -820,15 +824,19 @@ Examples:
         help="Filter by data source: 'osm' or 'mapillary'",
     )
     random_parser.add_argument(
-        "--show-images", action="store_true", help="Display bench images"
+        "--show-images",
+        action="store_true",
+        help="Display bench images (default: True)",
     )
     random_parser.add_argument(
-        "--show-annotations", action="store_true", help="Show detection annotations"
+        "--show-annotations",
+        action="store_true",
+        help="Show detection annotations (default: True)",
     )
     random_parser.add_argument(
         "--include-detection-data",
         action="store_true",
-        help="Include detection items (bbox, polygon) in response",
+        help="Include detection items (bbox, polygon) in response (default: True)",
     )
 
     # Closest command
@@ -850,15 +858,19 @@ Examples:
         help="Bench mode",
     )
     closest_parser.add_argument(
-        "--show-images", action="store_true", help="Display bench images"
+        "--show-images",
+        action="store_true",
+        help="Display bench images (default: True)",
     )
     closest_parser.add_argument(
-        "--show-annotations", action="store_true", help="Show detection annotations"
+        "--show-annotations",
+        action="store_true",
+        help="Show detection annotations (default: True)",
     )
     closest_parser.add_argument(
         "--include-detection-data",
         action="store_true",
-        help="Include detection items (bbox, polygon) in response",
+        help="Include detection items (bbox, polygon) in response (default: True)",
     )
 
     # List command
@@ -895,15 +907,19 @@ Examples:
         help="Bench mode",
     )
     list_parser.add_argument(
-        "--show-images", action="store_true", help="Display bench images"
+        "--show-images",
+        action="store_true",
+        help="Display bench images (default: True)",
     )
     list_parser.add_argument(
-        "--show-annotations", action="store_true", help="Show detection annotations"
+        "--show-annotations",
+        action="store_true",
+        help="Show detection annotations (default: True)",
     )
     list_parser.add_argument(
         "--include-detection-data",
         action="store_true",
-        help="Include detection items (bbox, polygon) in response",
+        help="Include detection items (bbox, polygon) in response (default: True)",
     )
 
     # Bbox command
@@ -936,15 +952,19 @@ Examples:
         "--limit", type=int, default=200, help="Maximum number of results"
     )
     bbox_parser.add_argument(
-        "--show-images", action="store_true", help="Display bench images"
+        "--show-images",
+        action="store_true",
+        help="Display bench images (default: True)",
     )
     bbox_parser.add_argument(
-        "--show-annotations", action="store_true", help="Show detection annotations"
+        "--show-annotations",
+        action="store_true",
+        help="Show detection annotations (default: True)",
     )
     bbox_parser.add_argument(
         "--include-detection-data",
         action="store_true",
-        help="Include detection items (bbox, polygon) in response",
+        help="Include detection items (bbox, polygon) in response (default: True)",
     )
 
     # Searches command
@@ -957,15 +977,19 @@ Examples:
         "--min-confidence", type=float, default=0.8, help="Minimum confidence (0.0-1.0)"
     )
     bench_parser.add_argument(
-        "--show-images", action="store_true", help="Display bench images"
+        "--show-images",
+        action="store_true",
+        help="Display bench images (default: True)",
     )
     bench_parser.add_argument(
-        "--show-annotations", action="store_true", help="Show detection annotations"
+        "--show-annotations",
+        action="store_true",
+        help="Show detection annotations (default: True)",
     )
     bench_parser.add_argument(
         "--include-detection-data",
         action="store_true",
-        help="Include detection items (bbox, polygon) in response",
+        help="Include detection items (bbox, polygon) in response (default: True)",
     )
 
     # Detections command
@@ -981,6 +1005,17 @@ Examples:
     if not args.command:
         parser.print_help()
         return
+
+    # Set defaults for show flags to True (argparse store_true defaults to False)
+    # We want these to default to True, so set them if the attribute exists
+    if hasattr(args, "show_images"):
+        args.show_images = getattr(args, "show_images", True) or True
+    if hasattr(args, "show_annotations"):
+        args.show_annotations = getattr(args, "show_annotations", True) or True
+    if hasattr(args, "include_detection_data"):
+        args.include_detection_data = (
+            getattr(args, "include_detection_data", True) or True
+        )
 
     # Initialize client
     client = FastAPIClient(args.server)

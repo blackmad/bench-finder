@@ -69,6 +69,45 @@ DEFAULT_MIN_CONFIDENCE = 0.8
 PAGE_SIZE = 20
 
 
+def sort_images_by_best(
+    image_filenames: list[str], image_ids: list[int], best_image_id: int | None
+) -> tuple[list[str], list[int]]:
+    """
+    Sort image arrays so the best image is first.
+
+    Args:
+        image_filenames: List of image filenames
+        image_ids: List of image IDs (must match filenames in order)
+        best_image_id: ID of the best image, or None
+
+    Returns:
+        Tuple of (sorted_filenames, sorted_ids) with best image first
+    """
+    if not best_image_id or not image_ids:
+        return image_filenames, image_ids
+
+    # Find the index of the best image
+    try:
+        best_index = image_ids.index(best_image_id)
+    except ValueError:
+        # best_image_id not in the list, return as-is
+        return image_filenames, image_ids
+
+    # If it's already first, no need to sort
+    if best_index == 0:
+        return image_filenames, image_ids
+
+    # Reorder so best image is first
+    sorted_filenames = [image_filenames[best_index]] + [
+        f for i, f in enumerate(image_filenames) if i != best_index
+    ]
+    sorted_ids = [image_ids[best_index]] + [
+        img_id for i, img_id in enumerate(image_ids) if i != best_index
+    ]
+
+    return sorted_filenames, sorted_ids
+
+
 class EnhancedErrorResponse(BaseModel):
     """Enhanced error response with detailed debugging information."""
 
@@ -596,10 +635,19 @@ def get_bench_by_id(
             )
 
             image_count = len(successful_images)
-            image_filenames = [
-                img.filename for img in successful_images if img.filename
-            ]
-            image_ids = [img.id for img in successful_images]
+            # Build matched pairs - only include images with filenames
+            image_filenames = []
+            image_ids = []
+            for img in successful_images:
+                if img.filename:
+                    image_filenames.append(img.filename)
+                    image_ids.append(img.id)
+
+            # Sort images so best image is first
+            best_image_id = processed_bench.best_image_id
+            image_filenames, image_ids = sort_images_by_best(
+                image_filenames, image_ids, best_image_id
+            )
 
             # Initialize confidence scores - don't coalesce, just use best_detection if available
             best_confidence = 0.0
@@ -660,6 +708,8 @@ def get_bench_by_id(
                 image_count=image_count,
                 image_filenames=image_filenames,
                 image_ids=image_ids,
+                best_image_id=processed_bench.best_image_id,
+                best_detection_id=processed_bench.best_detection_id,
                 distance_meters=0,  # Not applicable for single bench
                 distance_km=0.0,  # Not applicable for single bench
                 detection_items=detection_items,
@@ -684,6 +734,7 @@ def get_high_confidence_benches_filtered(
     sort_by: str = "distance",
     mode: BenchMode = BenchMode.BENCHES,
     include_detection_data: bool = False,
+    source: DataSource | None = None,
 ) -> BenchListResponse:
     """
     Get benches with configurable detection modes from all sources using SQLAlchemy ORM.
@@ -709,6 +760,10 @@ def get_high_confidence_benches_filtered(
                 )
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
             )
+
+            # Add source filtering if specified
+            if source is not None:
+                base_query = base_query.filter(BenchCandidate.source == source)
 
             # Filter by mode using detection_status
             if mode == BenchMode.BENCHES:
@@ -748,6 +803,7 @@ def get_high_confidence_benches_filtered(
                     ),
                     func.group_concat(func.distinct(Image.id)).label("image_ids"),
                     ProcessedBench.detection_status,
+                    ProcessedBench.best_image_id,
                     Detection.id.label("best_detection_id"),
                 )
                 .join(
@@ -773,9 +829,14 @@ def get_high_confidence_benches_filtered(
                     Detection.max_confidence,
                     Detection.source,
                     ProcessedBench.detection_status,
+                    ProcessedBench.best_image_id,
                     Detection.id,
                 )
             )
+
+            # Add source filtering if specified
+            if source is not None:
+                query = query.filter(BenchCandidate.source == source)
 
             # Filter by mode - use where clause before group_by
             if mode == BenchMode.BENCHES:
@@ -833,6 +894,11 @@ def get_high_confidence_benches_filtered(
                     else []
                 )
 
+                # Sort images so best image is first
+                image_filenames, image_ids = sort_images_by_best(
+                    image_filenames, image_ids, result.best_image_id
+                )
+
                 # Check for segmentation - need to query DetectionItems
                 has_segmentation = False
                 best_detection_id = result.best_detection_id
@@ -887,6 +953,8 @@ def get_high_confidence_benches_filtered(
                     image_count=result.image_count or 0,
                     image_filenames=image_filenames,
                     image_ids=image_ids,
+                    best_image_id=result.best_image_id,
+                    best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
                     detection_items=detection_items,
@@ -961,7 +1029,10 @@ async def get_benches(
         pattern="^(distance|confidence|images|recent)$",
         description="Sort criteria",
     ),
-    # Source filtering removed - using unified approach
+    source: DataSource | None = Query(
+        None,
+        description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
+    ),
     mode: BenchMode = Query(
         BenchMode.BENCHES,
         description="Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'",
@@ -1002,6 +1073,7 @@ async def get_benches(
             sort_by=sort_by,
             mode=mode,
             include_detection_data=include_detection_data,
+            source=source,
         )
         return result
     except Exception as e:
@@ -1272,6 +1344,7 @@ async def get_benches_in_bbox(
                     ),
                     Detection.id.label("best_detection_id"),
                     ProcessedBench.detection_status,
+                    ProcessedBench.best_image_id,
                     func.count(func.distinct(Image.id)).label("image_count"),
                     func.group_concat(func.distinct(Image.filename)).label(
                         "image_filenames"
@@ -1304,8 +1377,9 @@ async def get_benches_in_bbox(
                     BenchCandidate.external_id,
                     Detection.max_confidence,
                     Detection.source,
-                    Detection.id,
                     ProcessedBench.detection_status,
+                    ProcessedBench.best_image_id,
+                    Detection.id,
                 )
             )
 
@@ -1375,6 +1449,11 @@ async def get_benches_in_bbox(
                     else []
                 )
 
+                # Sort images so best image is first
+                image_filenames, image_ids = sort_images_by_best(
+                    image_filenames, image_ids, result.best_image_id
+                )
+
                 # Check for segmentation - check DetectionItems polygon field
                 has_segmentation = False
                 best_detection_id = result.best_detection_id
@@ -1428,6 +1507,8 @@ async def get_benches_in_bbox(
                     image_count=result.image_count or 0,
                     image_filenames=image_filenames,
                     image_ids=image_ids,
+                    best_image_id=result.best_image_id,
+                    best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
                     detection_items=detection_items,

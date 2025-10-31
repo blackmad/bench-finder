@@ -24,24 +24,40 @@ const ViewContainer = styled.div`
 
 const MapPage: React.FC = () => {
   const { state, updateFilters } = useApp()
-  const [searchParams, _setSearchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  // Initialize filters from URL on mount
+  // Initialize filters from URL on mount (only once when config is ready)
   useEffect(() => {
     if (state.config) {
       const urlFilters = searchParamsToFilters(searchParams, state.filters)
-      if (Object.keys(urlFilters).length > 0) {
+      const hasChanges = Object.keys(urlFilters).some((key) => {
+        const filterKey = key as keyof typeof urlFilters
+        return state.filters[filterKey] !== urlFilters[filterKey]
+      })
+
+      if (hasChanges) {
         updateFilters(urlFilters)
       }
     }
-  }, [state.config, searchParams, updateFilters, state.filters])
+    // Only run when config or searchParams change, not when filters change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.config, searchParams])
 
-  // Update URL when filters change
+  // Update URL when filters change (but not map view params - those are handled by MapView)
   useEffect(() => {
     if (state.config) {
-      updateUrlWithFilters(state.filters, "/map")
+      // Only update filter-related params, preserve map view params like zoom
+      updateUrlWithFilters(state.filters, setSearchParams, ["zoom"])
     }
-  }, [state.filters, state.config])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    state.config,
+    state.filters.minConfidence,
+    state.filters.sourceFilter,
+    state.filters.sortBy,
+    setSearchParams,
+    // Don't include startLat/startLng as those are managed by MapView
+  ])
 
   return (
     <PageContainer>

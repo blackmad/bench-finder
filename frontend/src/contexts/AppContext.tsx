@@ -266,6 +266,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         start_lng: state.filters.startLng,
         sort_by: state.filters.sortBy,
         mode: state.filters.mode,
+        source: state.filters.sourceFilter !== "all" ? state.filters.sourceFilter : null,
         include_detection_data: state.filters.includeDetectionData,
       })
 
