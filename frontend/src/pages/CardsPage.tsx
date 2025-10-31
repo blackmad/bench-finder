@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react"
+import React, { useCallback, useEffect, useRef } from "react"
 import { useInView } from "react-intersection-observer"
 import { useSearchParams } from "react-router-dom"
 import styled from "styled-components"
@@ -8,7 +8,7 @@ import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
 import { type AppFilters, useApp } from "../contexts/AppContext"
-import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
+import { filtersToSearchParams, searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -123,6 +123,8 @@ const CardsPage: React.FC = () => {
   )
   const [modalOpen, setModalOpen] = React.useState(false)
   const [currentModalIndex, setCurrentModalIndex] = React.useState(0)
+  // Track pending navigation after loading more benches
+  const pendingNavigationRef = useRef<number | null>(null)
 
   // Intersection observer for infinite scroll
   const { ref: infiniteScrollRef, inView } = useInView({
@@ -130,26 +132,48 @@ const CardsPage: React.FC = () => {
     rootMargin: "100px",
   })
 
+  // Track previous searchParams to detect URL changes
+  const prevSearchParamsRef = React.useRef<string>(searchParams.toString())
+
   // Initialize filters from URL on mount - only run when config or searchParams change
   useEffect(() => {
     if (state.config) {
-      const urlFilters = searchParamsToFilters(searchParams, state.filters)
+      const currentParamsString = searchParams.toString()
+      // Only update if URL actually changed (not from our own update)
+      if (currentParamsString !== prevSearchParamsRef.current) {
+        prevSearchParamsRef.current = currentParamsString
 
-      // Only update if filters actually differ from current state
-      const hasChanges = Object.entries(urlFilters).some(([key, value]) => {
-        return state.filters[key as keyof AppFilters] !== value
-      })
+        const urlFilters = searchParamsToFilters(searchParams, state.filters)
 
-      if (hasChanges) {
-        updateFilters(urlFilters)
+        // Only update if filters actually differ from current state
+        // Handle enum/string comparison properly
+        const hasChanges = Object.keys(urlFilters).length > 0 && Object.entries(urlFilters).some(([key, value]) => {
+          const currentValue = state.filters[key as keyof AppFilters]
+          // Handle enum/string comparison (mode, sourceFilter)
+          if (key === 'mode' || key === 'sourceFilter') {
+            return String(currentValue) !== String(value)
+          }
+          return currentValue !== value
+        })
+
+        if (hasChanges) {
+          updateFilters(urlFilters)
+        }
       }
     }
-  }, [state.config, searchParams, updateFilters])
+  }, [state.config, searchParams, updateFilters, state.filters])
 
   // Update URL when filters change
   useEffect(() => {
     if (state.config) {
-      updateUrlWithFilters(state.filters, setSearchParams)
+      const newParamsString = filtersToSearchParams(state.filters).toString()
+      const currentParamsString = searchParams.toString()
+
+      // Only update URL if it's different (prevents infinite loops)
+      if (newParamsString !== currentParamsString) {
+        prevSearchParamsRef.current = newParamsString
+        updateUrlWithFilters(state.filters, setSearchParams)
+      }
     }
   }, [state.filters, state.config, setSearchParams])
 
@@ -168,6 +192,48 @@ const CardsPage: React.FC = () => {
       loadMoreBenches()
     }
   }, [inView, state.hasMore, state.loading, loadMoreBenches])
+
+  // Pre-load next page when user gets close to the end (within 5 benches)
+  useEffect(() => {
+    const benchesCount = state.benches?.length || 0
+    const currentIndex = currentModalIndex
+    const benchesFromEnd = benchesCount - currentIndex - 1
+
+    // Pre-load when within 5 benches of the end, but only if modal is open and navigating
+    if (
+      modalOpen &&
+      benchesFromEnd <= 5 &&
+      state.hasMore &&
+      !state.loading &&
+      benchesCount > 0
+    ) {
+      loadMoreBenches()
+    }
+  }, [currentModalIndex, modalOpen, state.benches?.length, state.hasMore, state.loading, loadMoreBenches])
+
+
+  // Complete pending navigation after benches are loaded
+  useEffect(() => {
+    if (pendingNavigationRef.current !== null && state.benches.length > 0) {
+      const targetIndex = pendingNavigationRef.current
+      if (targetIndex < state.benches.length) {
+        const newBench = state.benches[targetIndex]
+        if (
+          newBench &&
+          newBench.image_filenames &&
+          newBench.image_filenames.length > 0
+        ) {
+          const firstImageFilename = newBench.image_filenames[0]
+          const imageUrl = `/images/${firstImageFilename}`
+          setSelectedBench(newBench)
+          setSelectedImageUrl(imageUrl)
+          setSelectedImageId(newBench.image_ids?.[0] || 0)
+          setCurrentModalIndex(targetIndex)
+        }
+      }
+      pendingNavigationRef.current = null
+    }
+  }, [state.benches, state.loading])
 
   const handleImageClick = useCallback(
     (bench: WebBenchData, imageUrl: string, imageId: number) => {
@@ -196,13 +262,28 @@ const CardsPage: React.FC = () => {
   }, [])
 
   const handleModalNavigate = useCallback(
-    (direction: "prev" | "next") => {
+    async (direction: "prev" | "next") => {
       const benchesForNavigation = state.benches
 
       if (!benchesForNavigation || benchesForNavigation.length === 0) return
 
       let newIndex =
         direction === "prev" ? currentModalIndex - 1 : currentModalIndex + 1
+
+      // If navigating next and we're at the last bench, try to load more
+      if (direction === "next" && newIndex >= benchesForNavigation.length) {
+        // Check if there are more benches to load
+        if (state.hasMore && !state.loading) {
+          // Set pending navigation index
+          pendingNavigationRef.current = newIndex
+          // Load more benches - navigation will complete via useEffect
+          await loadMoreBenches()
+          return
+        } else {
+          // No more benches to load, clamp to last index
+          newIndex = benchesForNavigation.length - 1
+        }
+      }
 
       // Clamp to valid range
       newIndex = Math.max(0, Math.min(benchesForNavigation.length - 1, newIndex))
@@ -232,7 +313,7 @@ const CardsPage: React.FC = () => {
         setCurrentModalIndex(newIndex)
       }
     },
-    [currentModalIndex, state.benches]
+    [currentModalIndex, state.benches, state.hasMore, state.loading, loadMoreBenches]
   )
 
   // Determine which benches to display
@@ -302,6 +383,7 @@ const CardsPage: React.FC = () => {
         allBenches={benchesToDisplay || []}
         currentIndex={currentModalIndex}
         onNavigate={handleModalNavigate}
+        hasMore={state.hasMore}
       />
     </PageContainer>
   )

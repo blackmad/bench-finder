@@ -10,21 +10,25 @@ import { DataSource, BenchMode } from "../../api"
 const HeaderContainer = styled.header`
   background: ${({ theme }) => theme.colors.background};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
+  box-shadow: ${({ theme }) => theme.shadows.base};
   position: sticky;
   top: 0;
   z-index: ${({ theme }) => theme.zIndex.sticky};
-  padding: ${({ theme }) => theme.spacing[5]} 0;
+  padding: ${({ theme }) => theme.spacing[6]} 0;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.95);
 `
 
 const HeaderContent = styled.div`
   width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
   padding: 0 ${({ theme }) => theme.spacing[5]};
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: ${({ theme }) => theme.spacing[5]};
+  gap: ${({ theme }) => theme.spacing[6]};
 `
 
 const HeaderLeft = styled.div`
@@ -36,21 +40,27 @@ const HeaderLeft = styled.div`
 const Title = styled.h1`
   color: ${({ theme }) => theme.colors.textPrimary};
   font-size: ${({ theme }) => theme.typography.sizes["2xl"]};
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
   font-family: ${({ theme }) => theme.typography.fonts.primary};
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing[3]};
 `
 
+const TitleIcon = styled.span`
+  font-size: 1.2em;
+  line-height: 1;
+`
+
 const ViewToggle = styled.div`
   display: flex;
   background: ${({ theme }) => theme.colors.gray100};
-  border-radius: ${({ theme }) => theme.borderRadius.md};
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
   padding: ${({ theme }) => theme.spacing[1]};
   gap: ${({ theme }) => theme.spacing[1]};
+  box-shadow: ${({ theme }) => theme.shadows.inner};
 `
 
 interface ViewButtonProps {
@@ -63,7 +73,7 @@ const ViewButton = styled.button<ViewButtonProps>`
   gap: ${({ theme }) => theme.spacing[2]};
   padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
   border: none;
-  border-radius: ${({ theme }) => theme.borderRadius.base};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
   background: ${({ $active, theme }) =>
     $active ? theme.colors.background : "transparent"};
   color: ${({ $active, theme }) =>
@@ -74,6 +84,7 @@ const ViewButton = styled.button<ViewButtonProps>`
   font-weight: ${({ theme }) => theme.typography.weights.medium};
   font-family: ${({ theme }) => theme.typography.fonts.primary};
   box-shadow: ${({ $active, theme }) => ($active ? theme.shadows.sm : "none")};
+  position: relative;
 
   &:hover {
     color: ${({ theme }) => theme.colors.textPrimary};
@@ -81,9 +92,15 @@ const ViewButton = styled.button<ViewButtonProps>`
     $active ? theme.colors.background : theme.colors.gray200};
   }
 
+  &:active {
+    transform: scale(0.98);
+  }
+
   svg {
     width: 18px;
     height: 18px;
+    opacity: ${({ $active }) => ($active ? 1 : 0.7)};
+    transition: opacity ${({ theme }) => theme.transitions.fast};
   }
 
   @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
@@ -97,7 +114,7 @@ const Controls = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing[4]};
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
 `
 
 const ControlGroup = styled.div`
@@ -109,47 +126,64 @@ const ControlGroup = styled.div`
 const ControlLabel = styled.label`
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: ${({ theme }) => theme.typography.sizes.xs};
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
   font-family: ${({ theme }) => theme.typography.fonts.primary};
   text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.05em;
+  margin-bottom: ${({ theme }) => theme.spacing[1]};
 `
 
 const Select = styled.select`
   padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[3]};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.base};
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
   background: ${({ theme }) => theme.colors.background};
   color: ${({ theme }) => theme.colors.textPrimary};
   font-size: ${({ theme }) => theme.typography.sizes.sm};
   font-family: ${({ theme }) => theme.typography.fonts.primary};
   cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  min-width: 140px;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.gray300};
+    background: ${({ theme }) => theme.colors.gray50};
+  }
 
   &:focus {
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
     box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary}1a;
+    background: ${({ theme }) => theme.colors.background};
   }
 `
 
 const Input = styled.input`
   padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[3]};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: ${({ theme }) => theme.borderRadius.base};
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
   background: ${({ theme }) => theme.colors.background};
   color: ${({ theme }) => theme.colors.textPrimary};
   font-size: ${({ theme }) => theme.typography.sizes.sm};
-  font-family: ${({ theme }) => theme.typography.fonts.primary};
+  font-family: ${({ theme }) => theme.typography.fonts.mono};
   width: 120px;
+  transition: all ${({ theme }) => theme.transitions.fast};
 
   &::placeholder {
     color: ${({ theme }) => theme.colors.textTertiary};
+    font-family: ${({ theme }) => theme.typography.fonts.primary};
+  }
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.gray300};
+    background: ${({ theme }) => theme.colors.gray50};
   }
 
   &:focus {
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
     box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary}1a;
+    background: ${({ theme }) => theme.colors.background};
   }
 `
 
@@ -158,7 +192,7 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
   align-items: center;
   gap: ${({ theme }) => theme.spacing[2]};
   padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
-  border: 1px solid ${({ $variant, theme }) =>
+  border: 1.5px solid ${({ $variant, theme }) =>
     $variant === "primary" ? theme.colors.primary : theme.colors.border};
   border-radius: ${({ theme }) => theme.borderRadius.lg};
   background: ${({ $variant, theme }) =>
@@ -167,11 +201,27 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
     $variant === "primary" ? "#ffffff" : theme.colors.textSecondary};
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
-  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  font-weight: ${({ theme }) => theme.typography.weights.semibold};
   font-size: ${({ theme }) => theme.typography.sizes.sm};
   font-family: ${({ theme }) => theme.typography.fonts.primary};
   box-shadow: ${({ $variant, theme }) =>
-    $variant === "primary" ? `0 1px 3px ${theme.colors.primary}30` : "none"};
+    $variant === "primary" ? `0 2px 4px ${theme.colors.primary}25` : theme.shadows.sm};
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: ${({ $variant }) =>
+      $variant === "primary"
+        ? "rgba(255, 255, 255, 0.1)"
+        : "rgba(0, 0, 0, 0.03)"};
+    transition: left ${({ theme }) => theme.transitions.normal};
+  }
 
   &:hover {
     background: ${({ $variant, theme }) =>
@@ -180,23 +230,40 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
     $variant === "primary" ? theme.colors.primaryDark : theme.colors.gray300};
     box-shadow: ${({ $variant, theme }) =>
     $variant === "primary"
-      ? `0 2px 4px ${theme.colors.primary}40`
-      : theme.shadows.sm};
+      ? `0 4px 8px ${theme.colors.primary}35`
+      : theme.shadows.md};
+    transform: translateY(-1px);
+
+    &::before {
+      left: 100%;
+    }
   }
 
   &:active {
-    transform: translateY(1px);
+    transform: translateY(0);
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+    box-shadow: none;
+
+    &:hover {
+      transform: none;
+    }
   }
 
   svg {
     width: 16px;
     height: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .label {
+    position: relative;
+    z-index: 1;
   }
 
   @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
@@ -231,6 +298,10 @@ const Stats = styled.div`
   font-size: ${({ theme }) => theme.typography.sizes.sm};
   font-weight: ${({ theme }) => theme.typography.weights.medium};
   font-family: ${({ theme }) => theme.typography.fonts.primary};
+  padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[3]};
+  background: ${({ theme }) => theme.colors.gray50};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  border: 1px solid ${({ theme }) => theme.colors.borderLight};
 `
 
 const CoordinatesGroup = styled.div`
@@ -372,7 +443,10 @@ export const Header: React.FC = () => {
     <HeaderContainer>
       <HeaderContent>
         <HeaderLeft>
-          <Title>🪑 Bench Finder</Title>
+          <Title>
+            <TitleIcon>🪑</TitleIcon>
+            Bench Finder
+          </Title>
           <ViewToggle>
             <ViewButton
               $active={currentViewMode === "cards"}

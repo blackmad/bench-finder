@@ -1,10 +1,11 @@
+import { BenchMode } from "../api"
 import type { AppFilters } from "../contexts/AppContext"
 
 // Serialize filters to URL search parameters
 export const filtersToSearchParams = (filters: AppFilters): URLSearchParams => {
   const params = new URLSearchParams()
 
-  if (filters.minConfidence !== 0.2) {
+  if (filters.minConfidence !== 0) {
     params.set("minConfidence", filters.minConfidence.toString())
   }
 
@@ -16,6 +17,16 @@ export const filtersToSearchParams = (filters: AppFilters): URLSearchParams => {
 
   if (filters.sortBy !== "distance") {
     params.set("sortBy", filters.sortBy)
+  }
+
+  // Mode filter - default is BENCHES, so only include if different
+  if (filters.mode !== BenchMode.BENCHES) {
+    params.set("mode", filters.mode)
+  }
+
+  // Include detection data - only include if true (default is false)
+  if (filters.includeDetectionData) {
+    params.set("includeDetectionData", "true")
   }
 
   // Always include coordinates as they're essential
@@ -62,7 +73,7 @@ export const searchParamsToFilters = (
   const sortBy = searchParams.get("sortBy")
   if (
     sortBy !== null &&
-    ["distance", "confidence", "recent"].includes(sortBy)
+    ["distance", "confidence", "images", "recent"].includes(sortBy)
   ) {
     filters.sortBy = sortBy as AppFilters["sortBy"]
   }
@@ -81,6 +92,16 @@ export const searchParamsToFilters = (
     if (!Number.isNaN(parsed) && parsed >= -180 && parsed <= 180) {
       filters.startLng = parsed
     }
+  }
+
+  const mode = searchParams.get("mode")
+  if (mode !== null && ["benches", "no_bench", "both"].includes(mode)) {
+    filters.mode = mode as AppFilters["mode"]
+  }
+
+  const includeDetectionData = searchParams.get("includeDetectionData")
+  if (includeDetectionData !== null) {
+    filters.includeDetectionData = includeDetectionData === "true"
   }
 
   return filters

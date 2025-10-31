@@ -63,7 +63,7 @@ type AppAction =
 const initialState: AppState = {
   benches: [],
   filters: {
-    minConfidence: 0.2,
+    minConfidence: 0,
     sourceFilter: "all",
     sortBy: "distance",
     startLat: 52.3613577, // Amsterdam default
@@ -103,7 +103,6 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           ...(Array.isArray(action.payload) ? action.payload : []),
         ],
       }
-
 
     case "SET_FILTERS":
       return {
@@ -252,14 +251,20 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "RESET_BENCHES" })
   }, [])
 
-  const loadMoreBenches = useCallback(async (): Promise<void> => {
+  const loadMoreBenches = useCallback(async (resetPage: boolean = false): Promise<void> => {
+    // Use a functional approach to get the latest state
+    let currentPage = state.currentPage
+    if (resetPage) {
+      currentPage = 0
+    }
+
     if (state.loading || !state.hasMore) return
 
     try {
       dispatch({ type: "SET_LOADING", payload: true })
 
       const response = await benchApi.getBenches({
-        page: state.currentPage,
+        page: currentPage,
         page_size: state.config?.page_size || 20,
         min_confidence: state.filters.minConfidence,
         start_lat: state.filters.startLat,
@@ -273,13 +278,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       const benches = Array.isArray(response.benches) ? response.benches : []
       const hasNext = response.pagination.has_next
 
-      if (state.currentPage === 0) {
+      if (currentPage === 0) {
         dispatch({ type: "SET_BENCHES", payload: benches })
       } else {
         dispatch({ type: "ADD_BENCHES", payload: benches })
       }
 
-      dispatch({ type: "SET_CURRENT_PAGE", payload: state.currentPage + 1 })
+      dispatch({ type: "SET_CURRENT_PAGE", payload: currentPage + 1 })
       dispatch({ type: "SET_HAS_MORE", payload: hasNext })
     } catch (error) {
       console.error("Error loading benches:", error)
@@ -298,14 +303,13 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const resetAndReload = useCallback(async () => {
     dispatch({ type: "RESET_BENCHES" })
-    // Trigger a reload of benches after reset
-    await loadMoreBenches()
+    // Load benches starting from page 0
+    await loadMoreBenches(true)
   }, [loadMoreBenches])
 
   const setUserLocation = useCallback((lat: number, lng: number) => {
     dispatch({ type: "UPDATE_LOCATION", payload: { lat, lng } })
   }, [])
-
 
   const clearError = useCallback(() => {
     dispatch({ type: "CLEAR_ERROR" })
