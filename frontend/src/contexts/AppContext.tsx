@@ -7,7 +7,6 @@ import React, {
   useReducer,
 } from "react"
 import type {
-  ClusteredBenchData,
   ConfigResponse,
   SearchSummary,
   WebBenchData,
@@ -30,7 +29,6 @@ export type ViewMode = "cards" | "map"
 
 export interface AppState {
   benches: WebBenchData[]
-  clusteredBenches: ClusteredBenchData[]
   filters: AppFilters
   viewMode: ViewMode
   currentPage: number
@@ -38,7 +36,6 @@ export interface AppState {
   hasMore: boolean
   selectedBenchId: number | null
   debugMode: boolean
-  clusteredMode: boolean
   config: ConfigResponse | null
   searches: SearchSummary[]
   error: string | null
@@ -49,15 +46,12 @@ type AppAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_BENCHES"; payload: WebBenchData[] }
   | { type: "ADD_BENCHES"; payload: WebBenchData[] }
-  | { type: "SET_CLUSTERED_BENCHES"; payload: ClusteredBenchData[] }
-  | { type: "ADD_CLUSTERED_BENCHES"; payload: ClusteredBenchData[] }
   | { type: "SET_FILTERS"; payload: Partial<AppFilters> }
   | { type: "SET_VIEW_MODE"; payload: ViewMode }
   | { type: "SET_CURRENT_PAGE"; payload: number }
   | { type: "SET_HAS_MORE"; payload: boolean }
   | { type: "SET_SELECTED_BENCH"; payload: number | null }
   | { type: "TOGGLE_DEBUG_MODE" }
-  | { type: "TOGGLE_CLUSTERED_MODE" }
   | { type: "SET_CONFIG"; payload: ConfigResponse }
   | { type: "SET_SEARCHES"; payload: SearchSummary[] }
   | { type: "RESET_BENCHES" }
@@ -68,7 +62,6 @@ type AppAction =
 // Initial state
 const initialState: AppState = {
   benches: [],
-  clusteredBenches: [],
   filters: {
     minConfidence: 0.2,
     sourceFilter: "all",
@@ -84,7 +77,6 @@ const initialState: AppState = {
   hasMore: true,
   selectedBenchId: null,
   debugMode: false,
-  clusteredMode: true, // Default to clustered mode for cards view
   config: null,
   searches: [],
   error: null,
@@ -112,21 +104,6 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         ],
       }
 
-    case "SET_CLUSTERED_BENCHES":
-      return {
-        ...state,
-        clusteredBenches: Array.isArray(action.payload) ? action.payload : [],
-        currentPage: 0,
-      }
-
-    case "ADD_CLUSTERED_BENCHES":
-      return {
-        ...state,
-        clusteredBenches: [
-          ...(state.clusteredBenches || []),
-          ...(Array.isArray(action.payload) ? action.payload : []),
-        ],
-      }
 
     case "SET_FILTERS":
       return {
@@ -149,9 +126,6 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case "TOGGLE_DEBUG_MODE":
       return { ...state, debugMode: !state.debugMode }
 
-    case "TOGGLE_CLUSTERED_MODE":
-      return { ...state, clusteredMode: !state.clusteredMode }
-
     case "SET_CONFIG":
       return {
         ...state,
@@ -171,7 +145,6 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         benches: [],
-        clusteredBenches: [],
         currentPage: 0,
         hasMore: true,
       }
@@ -207,7 +180,6 @@ interface AppContextType {
   loadMoreBenches: () => Promise<void>
   setUserLocation: (lat: number, lng: number) => void
   feelingLucky: () => Promise<WebBenchData | null>
-  toggleClusteredMode: () => void
   clearError: () => void
 }
 
@@ -223,7 +195,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, {
     ...initialState,
     benches: initialState.benches || [], // Extra safeguard
-    clusteredBenches: initialState.clusteredBenches || [], // Extra safeguard
   })
 
   // Initialize app data
@@ -295,33 +266,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         start_lng: state.filters.startLng,
         sort_by: state.filters.sortBy,
         mode: state.filters.mode,
-        clustered: state.clusteredMode,
         include_detection_data: state.filters.includeDetectionData,
       })
 
-      // Handle both response types
-      let benches: WebBenchData[]
-      let clusteredBenches: ClusteredBenchData[]
-      let hasNext: boolean
-
-      if ("benches" in response) {
-        // BenchListResponse
-        benches = Array.isArray(response.benches) ? response.benches : []
-        clusteredBenches = []
-        hasNext = response.pagination.has_next
-      } else {
-        // ClusteredBenchListResponse - store both clustered data and flattened benches
-        clusteredBenches = response.clustered_benches || []
-        benches = clusteredBenches.flatMap(cluster => cluster.all_benches)
-        hasNext = response.pagination.has_next
-      }
+      const benches = Array.isArray(response.benches) ? response.benches : []
+      const hasNext = response.pagination.has_next
 
       if (state.currentPage === 0) {
         dispatch({ type: "SET_BENCHES", payload: benches })
-        dispatch({ type: "SET_CLUSTERED_BENCHES", payload: clusteredBenches })
       } else {
         dispatch({ type: "ADD_BENCHES", payload: benches })
-        dispatch({ type: "ADD_CLUSTERED_BENCHES", payload: clusteredBenches })
       }
 
       dispatch({ type: "SET_CURRENT_PAGE", payload: state.currentPage + 1 })
@@ -339,7 +293,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     state.currentPage,
     state.filters,
     state.config,
-    state.clusteredMode,
   ])
 
   const resetAndReload = useCallback(async () => {
@@ -352,10 +305,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "UPDATE_LOCATION", payload: { lat, lng } })
   }, [])
 
-  const toggleClusteredMode = useCallback(() => {
-    dispatch({ type: "TOGGLE_CLUSTERED_MODE" })
-    dispatch({ type: "RESET_BENCHES" }) // Reset data when toggling mode
-  }, [])
 
   const clearError = useCallback(() => {
     dispatch({ type: "CLEAR_ERROR" })
@@ -389,7 +338,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     loadMoreBenches,
     setUserLocation,
     feelingLucky,
-    toggleClusteredMode,
     clearError,
   }
 

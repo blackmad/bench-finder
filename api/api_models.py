@@ -179,38 +179,8 @@ class WebBenchData(BaseModel):
     image_ids: list[int]
     distance_meters: int
     distance_km: float
-    # Clustering information (optional, only present when serving clustered data)
-    cluster_id: int | None = None
-    cluster_center_lat: float | None = None
-    cluster_center_lng: float | None = None
-    cluster_bench_count: int | None = None
-    cluster_max_distance_meters: float | None = None
-    is_cluster_representative: bool | None = None
     # Optional detection data (only included when requested)
     detection_items: list[ApiDetectionItem] | None = None
-
-
-class ClusterInfo(BaseModel):
-    """Schema for cluster metadata."""
-
-    cluster_id: int
-    center_lat: float
-    center_lng: float
-    bench_count: int
-    max_distance_meters: float
-    avg_confidence: float
-    sources: list[DataSource]  # List of data sources in cluster
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-
-
-class ClusteredBenchData(BaseModel):
-    """Schema for clustered bench data showing both cluster and individual bench info."""
-
-    cluster: ClusterInfo
-    representative_bench: WebBenchData  # The "best" bench in the cluster
-    all_benches: list[WebBenchData]  # All benches in the cluster
-    distance_to_cluster_center: float  # Distance from query point to cluster center
 
 
 # ============================================================================
@@ -233,14 +203,6 @@ class BenchListResponse(BaseModel):
 
     benches: list[WebBenchData]
     pagination: PaginationInfo
-
-
-class ClusteredBenchListResponse(BaseModel):
-    """Schema for paginated clustered bench list response."""
-
-    clustered_benches: list[ClusteredBenchData]
-    pagination: PaginationInfo
-    clustering_info: dict[str, Any] = {}  # Metadata about clustering configuration
 
 
 class ImageListResponse(BaseModel):

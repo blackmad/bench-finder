@@ -4,7 +4,6 @@ import axios from "axios"
 import type {
   BboxBenchResponse,
   BenchListResponse,
-  ClusteredBenchListResponse,
   ConfigResponse,
   SearchListResponse,
   SegmentationData,
@@ -95,9 +94,8 @@ export const benchApi = {
     start_lng?: number
     sort_by?: string
     mode?: BenchMode
-    clustered?: boolean
     include_detection_data?: boolean
-  }): Promise<BenchListResponse | ClusteredBenchListResponse> => {
+  }): Promise<BenchListResponse> => {
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page,
       pageSize: params.page_size,
@@ -106,7 +104,6 @@ export const benchApi = {
       startLng: params.start_lng,
       sortBy: params.sort_by,
       mode: params.mode || BenchMode.BENCHES,
-      clustered: params.clustered ?? true, // Default to clustered
       includeDetectionData: params.include_detection_data ?? false,
     })
   },
@@ -133,9 +130,8 @@ export const benchApi = {
     mode?: BenchMode
     sort_by?: string
     limit?: number
-    clustered?: boolean
     include_detection_data?: boolean
-  }): Promise<BboxBenchResponse | ClusteredBenchListResponse> => {
+  }): Promise<BboxBenchResponse> => {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
       south: params.south,
@@ -146,7 +142,6 @@ export const benchApi = {
       mode: params.mode || BenchMode.BENCHES,
       sortBy: params.sort_by,
       limit: params.limit,
-      clustered: params.clustered ?? true, // Default to clustered
       includeDetectionData: params.include_detection_data ?? false,
     })
   },

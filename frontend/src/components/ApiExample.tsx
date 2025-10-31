@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import type React from "react"
 import { useEffect, useState } from "react"
 import styled from "styled-components"
-import type { BenchListResponse, ClusteredBenchListResponse, WebBenchData } from "../api"
+import type { BenchListResponse, WebBenchData } from "../api"
 import { benchApi, checkApiHealth } from "../services/api"
 
 // Example component demonstrating the new OpenAPI-generated client
@@ -33,7 +33,7 @@ const ApiExample: React.FC = () => {
     isLoading,
     error,
     refetch,
-  } = useQuery<BenchListResponse | ClusteredBenchListResponse>({
+  } = useQuery<BenchListResponse>({
     queryKey: ["benches", { page: 0, minConfidence: 0.8 }],
     queryFn: () =>
       benchApi.getBenches({
@@ -41,7 +41,6 @@ const ApiExample: React.FC = () => {
         page_size: 5,
         min_confidence: 0.8,
         sort_by: "confidence",
-        clustered: false, // We want individual benches for the example
       }),
     staleTime: 1000 * 60 * 5, // 5 minutes
   })

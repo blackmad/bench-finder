@@ -250,7 +250,6 @@ export const Header: React.FC = () => {
     resetAndReload,
     setUserLocation,
     feelingLucky,
-    toggleClusteredMode,
   } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
@@ -363,7 +362,7 @@ export const Header: React.FC = () => {
     }
   }
   const totalShown = state.benches?.length || 0
-  const modeText = currentViewMode === "cards" && state.clusteredMode ? " (from clusters)" : ""
+  const modeText = ""
   const statsText =
     currentViewMode === "cards"
       ? `Showing ${totalShown} high-confidence benches${modeText}`
@@ -493,23 +492,6 @@ export const Header: React.FC = () => {
                 >
                   <option value="no">Basic Info Only</option>
                   <option value="yes">Include Detection Data</option>
-                </Select>
-              </ControlGroup>
-              <ControlGroup>
-                <ControlLabel>Data Mode</ControlLabel>
-                <Select
-                  value={state.clusteredMode ? "clustered" : "individual"}
-                  onChange={async (e) => {
-                    if (
-                      (e.target.value === "clustered") !== state.clusteredMode
-                    ) {
-                      toggleClusteredMode()
-                      await resetAndReload()
-                    }
-                  }}
-                >
-                  <option value="clustered">🗂️ Clustered</option>
-                  <option value="individual">📋 Individual</option>
                 </Select>
               </ControlGroup>
             </>

@@ -47,15 +47,14 @@ from display import (
     display_no_bench_detected,
 )
 from generators.bench_generator import BenchCandidate
-from PIL import Image as PILImage
-from services.database import BenchDatabase
-
 from models.unified_models import (
     BenchProcessingResult,
     DetectionBase,
     DetectionItem,
     ProcessingStats,
 )
+from PIL import Image as PILImage
+from services.database import BenchDatabase
 
 
 if TYPE_CHECKING:
@@ -282,7 +281,7 @@ class BenchDetector:
         Returns:
             BenchProcessingResult for this bench
         """
-        result = BenchProcessingResult(
+        result: BenchProcessingResult = BenchProcessingResult(
             bench_added=False,
             images_captured=0,
             images_successful=0,

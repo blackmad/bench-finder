@@ -34,7 +34,6 @@ from bench_finder.models.unified_models import (
     Image,
     Search,
 )
-from bench_finder.services.clustered_bench_service import ClusteredBenchService
 from bench_finder.services.database import BenchDatabase
 
 from .api_models import (
@@ -43,7 +42,6 @@ from .api_models import (
     BenchDetectionData,
     BenchListResponse,
     BenchMode,
-    ClusteredBenchListResponse,
     ConfigResponse,
     ErrorResponse,
     HealthResponse,
@@ -871,9 +869,6 @@ async def get_benches(
         BenchMode.BENCHES,
         description="Return mode: 'benches' (detected), 'no_bench' (not detected), or 'both'",
     ),
-    clustered: bool = Query(
-        True, description="Return clustered results when available (default: True)"
-    ),
     include_detection_data: bool = Query(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
@@ -890,15 +885,10 @@ async def get_benches(
     Results can be sorted by various criteria including distance from a reference point,
     detection confidence, number of images, or creation date.
 
-    **Clustering:**
-    When `clustered=True` (default), returns clustered bench data that groups nearby benches together.
-    Each cluster includes a representative bench and the list of all benches in the cluster.
-    When `clustered=False`, returns individual benches as before.
-
     **Sorting Options:**
     - `distance`: Sort by distance from start_lat/start_lng (default)
     - `confidence`: Sort by highest detection confidence first
-    - `images`: Sort by number of images per bench (or benches per cluster when clustered)
+    - `images`: Sort by number of images per bench
     - `recent`: Sort by most recently added benches
 
     **Data Sources:**
@@ -906,21 +896,6 @@ async def get_benches(
     - `mapillary`: Street-level imagery from Mapillary with AI detections
     """
     try:
-        # Check if clustering is requested and available
-        if clustered:
-            clustered_service = ClusteredBenchService()
-            if clustered_service.is_clustering_available():
-                # Return clustered results
-                return clustered_service.get_clustered_benches_filtered(
-                    page=page,
-                    page_size=page_size,
-                    min_confidence=min_confidence,
-                    start_lat=start_lat,
-                    start_lng=start_lng,
-                    sort_by=sort_by,
-                )
-
-        # Fall back to individual bench results
         result = get_high_confidence_benches_filtered(
             page=page,
             page_size=page_size,
@@ -1120,9 +1095,6 @@ async def get_benches_in_bbox(
         description="Sort criteria",
     ),
     limit: int = Query(200, ge=1, le=500, description="Maximum number of results"),
-    clustered: bool = Query(
-        True, description="Return clustered results when available (default: True)"
-    ),
     include_detection_data: bool = Query(
         False,
         description="Include detection items (bbox, polygon) in response (default: False)",
@@ -1144,10 +1116,6 @@ async def get_benches_in_bbox(
     - `osm`: Filter to only OpenStreetMap sourced benches
     - `mapillary`: Filter to only Mapillary sourced benches
     - `null` (default): Include all sources
-
-    **Clustering:**
-    When `clustered=True` (default), returns clustered bench data for map display.
-    This reduces visual clutter by grouping nearby benches together.
 
     **Geographic Validation:**
     - North must be greater than South
@@ -1172,23 +1140,7 @@ async def get_benches_in_bbox(
                 detail="East boundary must be greater than west boundary",
             )
 
-        # Check if clustering is requested and available
-        if clustered:
-            clustered_service = ClusteredBenchService()
-            if clustered_service.is_clustering_available():
-                # Return clustered results for bbox
-                return clustered_service.get_clustered_benches_in_bbox(
-                    north=north,
-                    south=south,
-                    east=east,
-                    west=west,
-                    min_confidence=min_confidence,
-                    source_filter=source.value if source else None,
-                    sort_by=sort_by,
-                    limit=limit,
-                )
-
-        # Fall back to individual bench results using ORM
+        # Get individual bench results using ORM
         db = BenchDatabase()
         with db.get_session() as session:
             from sqlalchemy import and_, func, or_

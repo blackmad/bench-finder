@@ -866,9 +866,6 @@ Examples:
         help="Bench mode",
     )
     closest_parser.add_argument(
-        "--clustered", action="store_true", default=True, help="Use clustered results"
-    )
-    closest_parser.add_argument(
         "--show-images", action="store_true", help="Display bench images"
     )
     closest_parser.add_argument(
@@ -914,9 +911,6 @@ Examples:
         help="Bench mode",
     )
     list_parser.add_argument(
-        "--clustered", action="store_true", default=True, help="Use clustered results"
-    )
-    list_parser.add_argument(
         "--show-images", action="store_true", help="Display bench images"
     )
     list_parser.add_argument(
@@ -954,9 +948,6 @@ Examples:
     )
     bbox_parser.add_argument(
         "--limit", type=int, default=200, help="Maximum number of results"
-    )
-    bbox_parser.add_argument(
-        "--clustered", action="store_true", default=True, help="Use clustered results"
     )
     bbox_parser.add_argument(
         "--show-images", action="store_true", help="Display bench images"

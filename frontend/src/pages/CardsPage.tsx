@@ -155,14 +155,12 @@ const CardsPage: React.FC = () => {
 
   // Load initial data when filters change or when navigating to cards view
   useEffect(() => {
-    const hasNoData = state.clusteredMode
-      ? (state.clusteredBenches?.length || 0) === 0
-      : (state.benches?.length || 0) === 0
+    const hasNoData = (state.benches?.length || 0) === 0
 
     if (hasNoData && !state.loading && state.config) {
       loadMoreBenches()
     }
-  }, [state.config, state.benches?.length, state.clusteredBenches?.length, state.clusteredMode, state.loading, loadMoreBenches])
+  }, [state.config, state.benches?.length, state.loading, loadMoreBenches])
 
   // Handle infinite scroll
   useEffect(() => {
@@ -173,10 +171,7 @@ const CardsPage: React.FC = () => {
 
   const handleImageClick = useCallback(
     (bench: WebBenchData, imageUrl: string, imageId: number) => {
-      // In clustered mode, find the index in representative benches, otherwise use all benches
-      const benchesForIndex = state.clusteredMode && state.clusteredBenches?.length > 0
-        ? state.clusteredBenches.map(cluster => cluster.representative_bench)
-        : state.benches
+      const benchesForIndex = state.benches
       const benchIndex = benchesForIndex?.findIndex((b) => b.id === bench.id) || 0
       setSelectedBench(bench)
       setSelectedImageUrl(imageUrl)
@@ -184,7 +179,7 @@ const CardsPage: React.FC = () => {
       setCurrentModalIndex(benchIndex >= 0 ? benchIndex : 0)
       setModalOpen(true)
     },
-    [state.benches, state.clusteredBenches, state.clusteredMode]
+    [state.benches]
   )
 
   const handleStreetViewClick = useCallback((lat: number, lng: number) => {
@@ -202,10 +197,7 @@ const CardsPage: React.FC = () => {
 
   const handleModalNavigate = useCallback(
     (direction: "prev" | "next") => {
-      // In clustered mode, navigate through representative benches
-      const benchesForNavigation = state.clusteredMode && state.clusteredBenches?.length > 0
-        ? state.clusteredBenches.map(cluster => cluster.representative_bench)
-        : state.benches
+      const benchesForNavigation = state.benches
 
       if (!benchesForNavigation || benchesForNavigation.length === 0) return
 
@@ -220,7 +212,6 @@ const CardsPage: React.FC = () => {
         currentIndex: currentModalIndex,
         newIndex,
         totalBenches: benchesForNavigation.length,
-        clusteredMode: state.clusteredMode,
       })
 
       const newBench = benchesForNavigation[newIndex]
@@ -241,13 +232,11 @@ const CardsPage: React.FC = () => {
         setCurrentModalIndex(newIndex)
       }
     },
-    [currentModalIndex, state.benches, state.clusteredBenches, state.clusteredMode]
+    [currentModalIndex, state.benches]
   )
 
   // Determine which benches to display
-  const benchesToDisplay = state.clusteredMode && state.clusteredBenches?.length > 0
-    ? state.clusteredBenches.map(cluster => cluster.representative_bench)
-    : state.benches
+  const benchesToDisplay = state.benches
 
   const showNoResults =
     (benchesToDisplay?.length || 0) === 0 &&

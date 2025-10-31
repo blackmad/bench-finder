@@ -7,8 +7,6 @@ import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 import type {
   BboxBenchResponse,
-  ClusteredBenchData,
-  ClusteredBenchListResponse,
   WebBenchData,
 } from "../../api"
 import { useApp } from "../../contexts/AppContext"
@@ -266,24 +264,17 @@ const MapEventHandler: React.FC<{
 }
 
 interface MapData {
-  type: "individual" | "clustered"
-  benches?: WebBenchData[]
-  clusters?: ClusteredBenchData[]
+  benches: WebBenchData[]
   totalCount: number
-  clusteringInfo?: Record<string, any>
 }
 
 const MapView: React.FC = () => {
   const { state } = useApp()
   const [mapData, setMapData] = useState<MapData>({
-    type: "individual",
     benches: [],
     totalCount: 0,
   })
   const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null)
-  const [selectedClusterId, setSelectedClusterId] = useState<number | null>(
-    null
-  )
   const [loading, setLoading] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -301,7 +292,6 @@ const MapView: React.FC = () => {
           min_confidence: state.filters.minConfidence,
           limit: 200,
           sort_by: state.filters.sortBy,
-          clustered: true, // Enable clustering by default
         }
 
         if (state.filters.sourceFilter !== "all") {
@@ -310,32 +300,17 @@ const MapView: React.FC = () => {
 
         const response = await benchApi.getBenchesInBbox(params)
 
-        // Handle both clustered and individual responses
-        if ("clustered_benches" in response) {
-          // Clustered response
-          const clusteredResponse = response as ClusteredBenchListResponse
-          setMapData({
-            type: "clustered",
-            clusters: clusteredResponse.clustered_benches,
-            totalCount:
-              clusteredResponse.pagination?.total_count ||
-              clusteredResponse.clustered_benches?.length || 0,
-            clusteringInfo: clusteredResponse.clustering_info,
-          })
-        } else {
-          // Individual bench response
-          const individualResponse = response as BboxBenchResponse
-          setMapData({
-            type: "individual",
-            benches: individualResponse.benches as WebBenchData[],
-            totalCount:
-              individualResponse.total_count ||
-              individualResponse.benches.length,
-          })
-        }
+        // Handle individual bench response
+        const individualResponse = response as BboxBenchResponse
+        setMapData({
+          benches: individualResponse.benches as WebBenchData[],
+          totalCount:
+            individualResponse.total_count ||
+            individualResponse.benches.length,
+        })
       } catch (error) {
         console.error("Map search failed:", error)
-        setMapData({ type: "individual", benches: [], totalCount: 0 })
+        setMapData({ benches: [], totalCount: 0 })
       } finally {
         setLoading(false)
       }
@@ -369,12 +344,6 @@ const MapView: React.FC = () => {
 
   const handleBenchClick = useCallback((benchId: number) => {
     setSelectedBenchId(benchId)
-    setSelectedClusterId(null)
-  }, [])
-
-  const handleClusterClick = useCallback((clusterId: number) => {
-    setSelectedClusterId(clusterId)
-    setSelectedBenchId(null)
   }, [])
 
   const defaultCenter: [number, number] = [
@@ -399,71 +368,8 @@ const MapView: React.FC = () => {
 
           <MapEventHandler onBoundsChange={handleBoundsChange} />
 
-          {/* Render clusters */}
-          {mapData.type === "clustered" &&
-            mapData.clusters?.map((clusterData) => (
-              <Marker
-                key={`cluster-${clusterData.cluster.cluster_id}`}
-                position={[
-                  clusterData.cluster.center_lat,
-                  clusterData.cluster.center_lng,
-                ]}
-                icon={divIcon({
-                  className: "custom-cluster-marker",
-                  html: `<div style="
-                  width: 32px;
-                  height: 32px;
-                  background: ${clusterData.cluster.cluster_id === selectedClusterId ? "#ef4444" : "#10b981"};
-                  border: 3px solid white;
-                  border-radius: 50%;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  color: white;
-                  font-size: 11px;
-                  font-weight: bold;
-                  cursor: pointer;
-                  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-                ">${clusterData.cluster.bench_count}</div>`,
-                  iconSize: [36, 36],
-                  iconAnchor: [18, 18],
-                })}
-                eventHandlers={{
-                  click: () =>
-                    handleClusterClick(clusterData.cluster.cluster_id),
-                }}
-              >
-                <Popup>
-                  <div style={{ minWidth: "250px" }}>
-                    <h4>
-                      Cluster of {clusterData.cluster.bench_count} Benches
-                    </h4>
-                    <p>
-                      <strong>Average Confidence:</strong>{" "}
-                      {(clusterData.cluster.avg_confidence * 100).toFixed(1)}%
-                    </p>
-                    <p>
-                      <strong>Sources:</strong>{" "}
-                      {clusterData.cluster.sources.join(", ")}
-                    </p>
-                    <p>
-                      <strong>Distance:</strong>{" "}
-                      {clusterData.distance_to_cluster_center < 1000
-                        ? `${Math.round(clusterData.distance_to_cluster_center)}m`
-                        : `${(clusterData.distance_to_cluster_center / 1000).toFixed(1)}km`}
-                    </p>
-                    <p>
-                      <strong>Representative:</strong> Bench #
-                      {clusterData.representative_bench.id}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-
           {/* Render individual benches */}
-          {mapData.type === "individual" &&
-            mapData.benches?.map((bench) => (
+          {mapData.benches?.map((bench) => (
               <Marker
                 key={bench.id}
                 position={[bench.lat, bench.lng]}
@@ -523,25 +429,11 @@ const MapView: React.FC = () => {
 
       <MapSidebar>
         <SidebarHeader>
-          <h3>
-            {mapData.type === "clustered"
-              ? "Nearby Clusters"
-              : "Nearby Benches"}
-          </h3>
+          <h3>Nearby Benches</h3>
           <SidebarStats>
             {loading
               ? "Searching..."
-              : mapData.type === "clustered"
-                ? `${mapData.clusters?.length || 0} clusters (${mapData.totalCount} benches)`
-                : `${mapData.benches?.length || 0} benches in view`}
-            {mapData.clusteringInfo?.clustering_enabled && (
-              <div
-                style={{ fontSize: "0.75em", marginTop: "4px", opacity: 0.8 }}
-              >
-                📎 Clustering active (
-                {mapData.clusteringInfo.clustering_distance_meters}m radius)
-              </div>
-            )}
+              : `${mapData.benches?.length || 0} benches in view`}
           </SidebarStats>
         </SidebarHeader>
 
@@ -561,72 +453,8 @@ const MapView: React.FC = () => {
             </SidebarPlaceholder>
           )}
 
-          {/* Render clustered data */}
-          {!loading &&
-            mapData.type === "clustered" &&
-            mapData.clusters &&
-            mapData.clusters.length > 0 && (
-              <div>
-                {mapData.clusters.map((clusterData) => {
-                  const repBench = clusterData.representative_bench
-                  const imageUrl = repBench.image_filenames?.[0]
-                    ? `/images/${repBench.image_filenames[0]}`
-                    : null
-
-                  return (
-                    <MapBenchCard
-                      key={`cluster-${clusterData.cluster.cluster_id}`}
-                      $selected={
-                        selectedClusterId === clusterData.cluster.cluster_id
-                      }
-                      onClick={() =>
-                        handleClusterClick(clusterData.cluster.cluster_id)
-                      }
-                    >
-                      <MapCardImage>
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={`Cluster ${clusterData.cluster.cluster_id}`}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="placeholder">📍</div>
-                        )}
-                      </MapCardImage>
-                      <MapCardContent>
-                        <MapCardHeader>
-                          <MapCardTitle>
-                            Cluster of {clusterData.cluster.bench_count} Benches
-                          </MapCardTitle>
-                          <MapCardConfidence $show={state.debugMode}>
-                            {(clusterData.cluster.avg_confidence * 100).toFixed(
-                              0
-                            )}
-                            %
-                          </MapCardConfidence>
-                        </MapCardHeader>
-                        <MapCardMeta>
-                          <span>
-                            📍{" "}
-                            {clusterData.distance_to_cluster_center < 1000
-                              ? `${Math.round(clusterData.distance_to_cluster_center)}m`
-                              : `${(clusterData.distance_to_cluster_center / 1000).toFixed(1)}km`}
-                          </span>
-                          <span>
-                            🏷️ {clusterData.cluster.sources.join(", ")}
-                          </span>
-                        </MapCardMeta>
-                      </MapCardContent>
-                    </MapBenchCard>
-                  )
-                })}
-              </div>
-            )}
-
           {/* Render individual benches */}
           {!loading &&
-            mapData.type === "individual" &&
             mapData.benches &&
             mapData.benches.length > 0 && (
               <div>
