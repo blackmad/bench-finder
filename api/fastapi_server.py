@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from bench_finder.config import DATABASE_PATH, IMAGES_DIR
+from bench_finder.config import DATABASE_PATH, DATABASE_URL, IMAGES_DIR
 from bench_finder.models.enums import (
     BenchReportType,
     DataSource,
@@ -223,7 +223,16 @@ async def lifespan(_app: FastAPI) -> None:
     # Startup
 
     print("🚀 Starting Bench Finder FastAPI server...")
-    print(f"📁 Database: {DATABASE_PATH}")
+    # Display the actual database connection being used
+    if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
+        db_type = "PostgreSQL (Supabase)"
+        db_info = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
+        print(f"📁 Database: {db_type} - {db_info}")
+    elif DATABASE_URL:
+        db_type = "Database (via URL)"
+        print(f"📁 Database: {db_type} - {DATABASE_URL[:50]}...")
+    else:
+        print(f"📁 Database: SQLite - {DATABASE_PATH}")
     print(f"🖼️  Images directory: {IMAGES_DIR}")
 
     # Configure logging for better error visibility
