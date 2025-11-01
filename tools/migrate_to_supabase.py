@@ -9,7 +9,8 @@ Usage:
     python tools/migrate_to_supabase.py \\
         [--sqlite-path data/benches.db] \\
         [--supabase-url postgresql://user:pass@host/db] \\
-        [--dry-run]
+        [--dry-run] \\
+        [--clear-tables]
 
 If --supabase-url is not provided, DATABASE_POSTGRES_URL from .env will be used.
 """
@@ -30,7 +31,7 @@ _ = load_dotenv()
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import inspect  # noqa: E402
+from sqlalchemy import inspect, text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from bench_finder.models.unified_models import (  # noqa: E402
@@ -131,10 +132,96 @@ def migrate_table(
     return migrated_count
 
 
+def clear_tables(
+    target_session: Session,
+    target_tables: list[str],
+    dry_run: bool = False,
+):
+    """
+    Clear all tables in the target database.
+
+    Clears tables in reverse dependency order (tables with foreign keys first)
+    to avoid foreign key constraint violations.
+
+    Args:
+        target_session: Target database session
+        target_tables: List of table names in target database
+        dry_run: If True, only log what would be cleared
+    """
+    logger.info("=" * 60)
+    logger.info("Clearing all tables in target database")
+    logger.info("=" * 60)
+
+    if dry_run:
+        logger.info("[DRY RUN] Would clear all tables")
+
+    # Define clear order (reverse of migration order to respect FK constraints)
+    # Tables with foreign keys first, then parent tables
+    clear_order = [
+        "missing_bench_reports",
+        "processed_benches",
+        "detection_items",
+        "detections",
+        "bench_reports",  # May reference bench_candidates and images
+        "reverse_geocodes",  # May reference bench_candidates
+        "images",
+        "bench_candidates",
+        "searches",
+    ]
+
+    # Filter to only tables that exist in target
+    clear_order = [table for table in clear_order if table in target_tables]
+
+    # Add any remaining tables that weren't in the clear_order
+    remaining_tables = [t for t in target_tables if t not in clear_order]
+    clear_order.extend(remaining_tables)
+
+    total_cleared = 0
+
+    for table_name in clear_order:
+        try:
+            if dry_run:
+                # Count records in dry-run mode
+                result = target_session.execute(
+                    text(f"SELECT COUNT(*) FROM {table_name}")
+                )
+                count = result.scalar()
+                if count is not None:
+                    logger.info(
+                        f"[DRY RUN] Would clear {count} records from {table_name}"
+                    )
+                    total_cleared += count or 0
+            else:
+                # Get count before deletion for logging
+                count_result = target_session.execute(
+                    text(f"SELECT COUNT(*) FROM {table_name}")
+                )
+                count_before = count_result.scalar() or 0
+
+                # Delete all records
+                _ = target_session.execute(text(f"DELETE FROM {table_name}"))
+                target_session.commit()
+                logger.info(f"Cleared {count_before} records from {table_name}")
+                total_cleared += count_before
+        except Exception:
+            logger.exception(f"Error clearing table {table_name}")
+            if not dry_run:
+                target_session.rollback()
+                raise
+
+    logger.info("=" * 60)
+    if dry_run:
+        logger.info(f"[DRY RUN] Would clear {total_cleared} total records")
+    else:
+        logger.info(f"Successfully cleared {total_cleared} total records")
+    logger.info("=" * 60)
+
+
 def migrate_database(
     sqlite_path: str,
     supabase_url: str,
     dry_run: bool = False,
+    clear_tables_first: bool = False,
 ):
     """
     Migrate all data from SQLite to Supabase.
@@ -143,6 +230,7 @@ def migrate_database(
         sqlite_path: Path to SQLite database file
         supabase_url: Supabase PostgreSQL connection URL
         dry_run: If True, only validate without migrating
+        clear_tables_first: If True, clear all tables in target before migrating
     """
     logger.info("=" * 60)
     logger.info("Database Migration: SQLite -> Supabase")
@@ -192,6 +280,10 @@ def migrate_database(
     try:
         source_session = source_db.get_session()
         target_session = Session(target_engine)
+
+        # Clear tables if requested
+        if clear_tables_first:
+            clear_tables(target_session, target_tables, dry_run=dry_run)
 
         for model_class, table_name in migration_order:
             try:
@@ -247,6 +339,11 @@ def main():
         action="store_true",
         help="Dry run mode - validate but don't migrate data",
     )
+    parser.add_argument(
+        "--clear-tables",
+        action="store_true",
+        help="Clear all tables in target database before migrating",
+    )
 
     args = parser.parse_args()
 
@@ -276,6 +373,7 @@ def main():
             sqlite_path=args.sqlite_path,
             supabase_url=supabase_url,
             dry_run=args.dry_run,
+            clear_tables_first=args.clear_tables,
         )
     except Exception:
         logger.exception("Migration failed")
