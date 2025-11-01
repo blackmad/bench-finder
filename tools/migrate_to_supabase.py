@@ -158,24 +158,6 @@ def migrate_database(
 
     # Create target database connection (Supabase)
     logger.info("Connecting to target database (Supabase)...")
-    # Log connection string (mask password)
-    if "@" in supabase_url:
-        safe_url = supabase_url.split("@")[0].split(":")[:2]
-        safe_url.append("***@" + supabase_url.split("@")[1])
-        logger.info(f"Connection string: {'://'.join(safe_url)}")
-    else:
-        logger.info(f"Connection string: {supabase_url[:50]}...")
-
-    # Verify psycopg2 is available
-    try:
-        import psycopg2
-
-        version = getattr(psycopg2, "__version__", "unknown")
-        logger.info(f"✓ psycopg2-binary found: {version}")
-    except ImportError:
-        logger.exception("✗ psycopg2-binary not found. Install with: uv sync")
-        raise
-
     target_engine = init_database(database_url=supabase_url)
     logger.info("Target database tables initialized")
 
@@ -276,6 +258,13 @@ def main():
             "or set DATABASE_POSTGRES_URL in .env file"
         )
         sys.exit(1)
+
+    # Normalize postgres:// to postgresql:// (SQLAlchemy requirement)
+    if supabase_url.startswith("postgres://"):
+        logger.info(
+            "Converting postgres:// to postgresql:// for SQLAlchemy compatibility"
+        )
+        supabase_url = supabase_url.replace("postgres://", "postgresql://", 1)
 
     # Validate SQLite path exists
     if not Path(args.sqlite_path).exists():

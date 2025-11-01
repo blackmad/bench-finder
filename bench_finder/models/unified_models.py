@@ -711,27 +711,15 @@ def create_database_engine(
 
     Args:
         database_url: Full database connection URL (e.g., postgresql://... or sqlite:///...)
+                     Automatically converts postgres:// to postgresql:// for SQLAlchemy compatibility
         database_path: Path to SQLite database file (only used if database_url is None)
 
     Returns:
         SQLAlchemy engine
     """
     if database_url:
-        # Use the provided connection URL directly
-        connection_string = database_url
-        # Normalize postgres:// to postgresql:// (SQLAlchemy requires postgresql://)
-        if connection_string.startswith("postgres://"):
-            connection_string = connection_string.replace(
-                "postgres://", "postgresql://", 1
-            )
-        # Ensure psycopg2 driver is specified explicitly
-        if (
-            connection_string.startswith("postgresql://")
-            and "+" not in connection_string.split("://")[0]
-        ):
-            connection_string = connection_string.replace(
-                "postgresql://", "postgresql+psycopg2://", 1
-            )
+        # Normalize postgres:// to postgresql:// (SQLAlchemy requirement)
+        connection_string = database_url.replace("postgres://", "postgresql://", 1)
     elif database_path:
         # Create SQLite connection string
         connection_string = f"sqlite:///{database_path}"
