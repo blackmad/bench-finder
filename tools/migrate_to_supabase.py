@@ -7,16 +7,24 @@ into a Supabase PostgreSQL database, maintaining all relationships and data inte
 
 Usage:
     python tools/migrate_to_supabase.py \\
-        --sqlite-path data/benches.db \\
-        --supabase-url postgresql://user:pass@host/db \\
+        [--sqlite-path data/benches.db] \\
+        [--supabase-url postgresql://user:pass@host/db] \\
         [--dry-run]
+
+If --supabase-url is not provided, DATABASE_URL from .env will be used.
 """
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+
+# Load environment variables from .env file
+_ = load_dotenv()
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -228,8 +236,11 @@ def main():
     parser.add_argument(
         "--supabase-url",
         type=str,
-        required=True,
-        help="Supabase PostgreSQL connection URL (postgresql://user:pass@host/db)",
+        default=None,
+        help=(
+            "Supabase PostgreSQL connection URL (postgresql://user:pass@host/db). "
+            "If not provided, DATABASE_URL from .env will be used."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -239,6 +250,15 @@ def main():
 
     args = parser.parse_args()
 
+    # Get Supabase URL from argument or environment variable
+    supabase_url = args.supabase_url or os.getenv("DATABASE_URL")
+    if not supabase_url:
+        logger.error(
+            "Supabase URL not provided. Either use --supabase-url argument "
+            "or set DATABASE_URL in .env file"
+        )
+        sys.exit(1)
+
     # Validate SQLite path exists
     if not Path(args.sqlite_path).exists():
         logger.error(f"SQLite database not found: {args.sqlite_path}")
@@ -247,7 +267,7 @@ def main():
     try:
         migrate_database(
             sqlite_path=args.sqlite_path,
-            supabase_url=args.supabase_url,
+            supabase_url=supabase_url,
             dry_run=args.dry_run,
         )
     except Exception:
