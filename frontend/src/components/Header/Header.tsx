@@ -1,4 +1,4 @@
-import { Grid, MapIcon, MapPin, Settings, Shuffle, Plus } from "lucide-react"
+import { Grid, MapIcon, Navigation2, Settings, Shuffle, Plus } from "lucide-react"
 import type React from "react"
 import { useCallback, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
@@ -390,8 +390,29 @@ export const Header: React.FC = () => {
         }
       )
 
-      setUserLocation(position.coords.latitude, position.coords.longitude)
-      await resetAndReload()
+      const lat = position.coords.latitude
+      const lng = position.coords.longitude
+
+      setUserLocation(lat, lng)
+
+      // If in map view, navigate to the new location to trigger map update
+      if (currentViewMode === "map") {
+        const updatedFilters = {
+          ...state.filters,
+          startLat: lat,
+          startLng: lng,
+        }
+        // Include zoom in URL (default to 16 for a closer view of the area)
+        const filterParams = buildUrlWithFilters(updatedFilters, "/map", ["zoom"]).split("?")[1] || ""
+        const existingParams = new URLSearchParams(filterParams)
+        // Set to 16 for new location (higher zoom level)
+        existingParams.set("zoom", "16")
+        const url = `/map?${existingParams.toString()}`
+        navigate(url)
+      } else {
+        // In cards view, just reload the benches
+        await resetAndReload()
+      }
     } catch (error: any) {
       let message = "Unable to get location"
       switch (error.code) {
@@ -411,7 +432,7 @@ export const Header: React.FC = () => {
     } finally {
       setLocationLoading(false)
     }
-  }, [setUserLocation, resetAndReload])
+  }, [setUserLocation, resetAndReload, currentViewMode, state.filters, navigate])
 
   const handleFeelingLucky = useCallback(async () => {
     setLuckyLoading(true)
@@ -440,16 +461,6 @@ export const Header: React.FC = () => {
     }
   }, [feelingLucky, setUserLocation, currentViewMode, dispatch, resetAndReload])
 
-  const handleStartPointChange = async (value: string) => {
-    if (value === "current") {
-      await handleCurrentLocation()
-    } else if (value !== "custom") {
-      const [lat, lng] = value.split(",").map(Number)
-      setUserLocation(lat, lng)
-      await resetAndReload()
-    }
-  }
-
   return (
     <HeaderContainer>
       <HeaderContent>
@@ -477,25 +488,6 @@ export const Header: React.FC = () => {
         </HeaderLeft>
 
         <Controls>
-          <ControlGroup>
-            <ControlLabel>Starting Point</ControlLabel>
-            <Select
-              value="custom"
-              onChange={(e) => handleStartPointChange(e.target.value)}
-            >
-              <option value="current">📍 Current Location</option>
-              <option value="custom">Custom Location</option>
-              {state.searches.map((search) => (
-                <option
-                  key={search.id}
-                  value={`${search.start_lat},${search.start_lng}`}
-                >
-                  {search.query} ({search.bench_count} benches)
-                </option>
-              ))}
-            </Select>
-          </ControlGroup>
-
           <CoordinatesGroup>
             <ControlGroup>
               <ControlLabel>Latitude</ControlLabel>
@@ -549,9 +541,9 @@ export const Header: React.FC = () => {
                     handleFilterChange("sourceFilter", e.target.value === "all" ? "all" : e.target.value as DataSource)
                   }
                 >
-                  <option value="all">All Sources</option>
                   <option value={DataSource.OSM}>OSM + StreetView</option>
                   <option value={DataSource.MAPILLARY}>Mapillary</option>
+                  <option value="all">All Sources</option>
                 </Select>
               </ControlGroup>
               <ControlGroup>
@@ -613,9 +605,9 @@ export const Header: React.FC = () => {
             disabled={locationLoading}
             title="Use my current location"
           >
-            <MapPin />
+            <Navigation2 />
             <span className="label">
-              {locationLoading ? "Locating..." : "Current Location"}
+              {locationLoading ? "Locating..." : "My Location"}
             </span>
           </ActionButton>
 

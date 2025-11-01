@@ -1027,13 +1027,6 @@
                 </div>
             </div>
             <div class="controls">
-                <div class="control-group">
-                    <label>Starting Point</label>
-                    <select id="startPoint">
-                        <option value="current">📍 Current Location</option>
-                        <option value="custom">Custom Location</option>
-                    </select>
-                </div>
                 <div class="control-group coords-group">
                     <label>Latitude</label>
                     <input type="number" id="startLat" step="0.000001" placeholder="52.3613577">
@@ -1066,6 +1059,10 @@
                 <button class="lucky-btn" id="luckyBtn" title="Take me to a random bench!">
                     <span class="icon">🎲</span>
                     <span class="label">I'm Feeling Lucky</span>
+                </button>
+                <button class="lucky-btn" id="locationBtn" title="Use my current location">
+                    <span class="icon">📍</span>
+                    <span class="label">My Location</span>
                 </button>
                 <button class="debug-toggle" id="debugToggle" title="Show technical details">
                     <span class="icon">🔧</span>
@@ -1168,12 +1165,10 @@
 
             async init() {
                 await this.loadConfig();
-                await this.loadSearches();
                 this.setupEventListeners();
 
                 // Try to use current location if available, otherwise fall back to default
                 if ('geolocation' in navigator) {
-                    document.getElementById('startPoint').value = 'current';
                     // Automatically get current location on first load
                     this.useCurrentLocationSilent();
                 } else {
@@ -1194,22 +1189,6 @@
                 }
             }
 
-            async loadSearches() {
-                try {
-                    const response = await fetch('/api/searches');
-                    const data = await response.json();
-                    const select = document.getElementById('startPoint');
-
-                    data.searches.forEach(search => {
-                        const option = document.createElement('option');
-                        option.value = `${search.start_lat},${search.start_lng}`;
-                        option.textContent = `${search.query} (${search.bench_count} benches)`;
-                        select.appendChild(option);
-                    });
-                } catch (error) {
-                    console.error('Error loading searches:', error);
-                }
-            }
 
             setupEventListeners() {
                 // View toggle buttons
@@ -1224,6 +1203,11 @@
                 // Lucky button
                 document.getElementById('luckyBtn').addEventListener('click', () => {
                     this.feelingLucky();
+                });
+
+                // Location button
+                document.getElementById('locationBtn').addEventListener('click', () => {
+                    this.useCurrentLocation();
                 });
 
                 // Debug toggle
@@ -1241,17 +1225,6 @@
                 });
 
                 // Controls
-                document.getElementById('startPoint').addEventListener('change', (e) => {
-                    if (e.target.value === 'current') {
-                        this.useCurrentLocation();
-                    } else if (e.target.value !== 'custom') {
-                        const [lat, lng] = e.target.value.split(',');
-                        document.getElementById('startLat').value = lat;
-                        document.getElementById('startLng').value = lng;
-                        this.resetAndReload();
-                    }
-                });
-
                 ['startLat', 'startLng', 'minConfidence', 'sourceFilter', 'sortBy'].forEach(id => {
                     document.getElementById(id).addEventListener('change', () => {
                         this.resetAndReload();
@@ -1284,12 +1257,12 @@
             }
 
             useCurrentLocation() {
-                const startPointSelect = document.getElementById('startPoint');
-                const originalText = startPointSelect.options[startPointSelect.selectedIndex].text;
+                const locationBtn = document.getElementById('locationBtn');
+                const originalContent = locationBtn.innerHTML;
 
                 // Show loading state
-                startPointSelect.options[startPointSelect.selectedIndex].text = '🔍 Getting location...';
-                startPointSelect.disabled = true;
+                locationBtn.innerHTML = '<span class="icon">🔍</span><span class="label">Locating...</span>';
+                locationBtn.disabled = true;
 
                 this.getCurrentLocation(
                     (lat, lng) => {
@@ -1307,8 +1280,8 @@
                         }
 
                         // Restore button state
-                        startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
-                        startPointSelect.disabled = false;
+                        locationBtn.innerHTML = originalContent;
+                        locationBtn.disabled = false;
                     },
                     (error) => {
                         console.error('Geolocation error:', error);
@@ -1328,10 +1301,9 @@
 
                         alert(`${errorMessage}. Please enter coordinates manually or allow location access.`);
 
-                        // Reset to custom option
-                        startPointSelect.value = 'custom';
-                        startPointSelect.options[startPointSelect.selectedIndex].text = originalText;
-                        startPointSelect.disabled = false;
+                        // Restore button state
+                        locationBtn.innerHTML = originalContent;
+                        locationBtn.disabled = false;
                     }
                 );
             }
@@ -1349,7 +1321,6 @@
                     (error) => {
                         console.warn('Silent geolocation failed, using default location:', error);
                         // Fall back to default location without showing error to user
-                        document.getElementById('startPoint').value = 'custom';
                         this.loadBenches();
                     }
                 );

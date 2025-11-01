@@ -10,26 +10,42 @@ import type {
   BboxBenchResponse,
   WebBenchData,
 } from "../../api"
+import { BenchMode } from "../../api"
 import { useApp } from "../../contexts/AppContext"
 import { benchApi } from "../../services/api"
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner"
 import Modal from "../Modal/Modal"
+import ReportModal from "../ReportModal/ReportModal"
 
 const MapViewContainer = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 500px;
   display: flex;
-  background: #f0f0f0; /* Temporary debug background */
+  overflow: hidden; /* Prevent container scrolling */
+  background: #f0f0f0;
 `
 
 const MainMap = styled.div`
   flex: 1;
   height: 100%;
-  min-height: 500px;
   position: relative;
-  background: #e0e0e0; /* Temporary debug background */
+  background: #e0e0e0;
+  overflow: hidden; /* Pin map - prevent scrolling */
+  min-width: 0; /* Allow flex shrinking */
+  min-height: 0; /* Allow flex shrinking */
+
+  /* Ensure Leaflet container fills parent */
+  .leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* Prevent Leaflet from causing page scroll */
+  .leaflet-pane {
+    position: absolute;
+  }
 `
 
 const MapSidebar = styled.div`
@@ -105,26 +121,34 @@ const SidebarLoading = styled.div`
   }
 `
 
-const MapBenchCard = styled.div<{ $selected?: boolean }>`
+const MapBenchCard = styled.div<{ $selected?: boolean; $hovered?: boolean }>`
   border-bottom: 1px solid ${({ theme }) => theme.colors.borderLight};
-  padding: ${({ theme }) => theme.spacing[3]};
+  padding: ${({ theme }) => theme.spacing[4]};
   cursor: pointer;
   transition: background-color ${({ theme }) => theme.transitions.fast};
   display: flex;
   gap: ${({ theme }) => theme.spacing[4]};
-  background: ${({ $selected, theme }) =>
-    $selected ? `${theme.colors.primary}10` : "transparent"};
-  border-left: ${({ $selected, theme }) =>
-    $selected ? `3px solid ${theme.colors.primary}` : "3px solid transparent"};
+  background: ${({ $selected, $hovered, theme }) =>
+    $selected
+      ? `${theme.colors.primary}10`
+      : $hovered
+        ? `${theme.colors.primary}08`
+        : "transparent"};
+  border-left: ${({ $selected, $hovered, theme }) =>
+    $selected
+      ? `3px solid ${theme.colors.primary}`
+      : $hovered
+        ? `3px solid ${theme.colors.primary}80`
+        : "3px solid transparent"};
 
   &:hover {
-    background: ${({ theme }) => theme.colors.backgroundTertiary};
+    background: ${({ theme }) => `${theme.colors.primary}08`};
   }
 `
 
 const MapCardImage = styled.div`
-  width: 120px;
-  height: 80px;
+  width: 180px;
+  height: 120px;
   border-radius: ${({ theme }) => theme.borderRadius.lg};
   overflow: hidden;
   flex-shrink: 0;
@@ -142,7 +166,7 @@ const MapCardImage = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: ${({ theme }) => theme.typography.sizes.xl};
+    font-size: ${({ theme }) => theme.typography.sizes["2xl"]};
     color: ${({ theme }) => theme.colors.gray400};
   }
 `
@@ -211,46 +235,63 @@ const MapCardMeta = styled.div`
   }
 `
 
-const SearchControls = styled.div`
+const SearchButton = styled.button`
   position: absolute;
   top: ${({ theme }) => theme.spacing[5]};
   right: ${({ theme }) => theme.spacing[5]};
   z-index: 1000;
-  background: ${({ theme }) => theme.colors.background};
-  padding: ${({ theme }) => theme.spacing[4]};
-  border-radius: ${({ theme }) => theme.borderRadius.xl};
+  padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
+  border: none;
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  cursor: pointer;
+  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  font-size: ${({ theme }) => theme.typography.sizes.sm};
+  transition: background ${({ theme }) => theme.transitions.fast};
   box-shadow: ${({ theme }) => theme.shadows.lg};
-  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing[2]};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.primaryDark};
+  }
 
   @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
     top: ${({ theme }) => theme.spacing[3]};
     right: ${({ theme }) => theme.spacing[3]};
-    left: ${({ theme }) => theme.spacing[3]};
-    max-width: none;
-    padding: ${({ theme }) => theme.spacing[3]};
   }
+`
 
-  h4 {
-    margin: 0 0 ${({ theme }) => theme.spacing[4]} 0;
-    font-size: ${({ theme }) => theme.typography.sizes.base};
-    color: ${({ theme }) => theme.colors.textPrimary};
-  }
+const MapLoadingOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+`
 
-  button {
-    width: 100%;
-    padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[4]};
-    border: none;
-    border-radius: ${({ theme }) => theme.borderRadius.base};
-    background: ${({ theme }) => theme.colors.primary};
-    color: white;
-    cursor: pointer;
-    font-weight: ${({ theme }) => theme.typography.weights.medium};
-    transition: background ${({ theme }) => theme.transitions.fast};
+const LoadingContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing[4]};
+  color: white;
+  text-align: center;
+`
 
-    &:hover {
-      background: ${({ theme }) => theme.colors.primaryDark};
-    }
-  }
+const LoadingText = styled.div`
+  font-size: ${({ theme }) => theme.typography.sizes.base};
+  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  color: white;
 `
 
 // Component to handle map events
@@ -258,7 +299,8 @@ const MapEventHandler: React.FC<{
   onBoundsChange: (bounds: LatLngBounds) => void
   onViewChange: (center: [number, number], zoom: number) => void
   isUpdatingFromUrl: React.MutableRefObject<boolean>
-}> = ({ onBoundsChange, onViewChange, isUpdatingFromUrl }) => {
+  onUserInteraction: () => void
+}> = ({ onBoundsChange, onViewChange, isUpdatingFromUrl, onUserInteraction }) => {
   const map = useMap()
 
   // Use refs to keep callbacks stable
@@ -278,10 +320,19 @@ const MapEventHandler: React.FC<{
         return
       }
       const bounds = map.getBounds()
-      const center = map.getCenter()
-      const zoom = map.getZoom()
       onBoundsChangeRef.current(bounds)
-      onViewChangeRef.current([center.lat, center.lng], zoom)
+      // Only trigger view change if user actually moved the map
+      // Small delay to ensure this isn't from our own setView call
+      setTimeout(() => {
+        if (!isUpdatingFromUrl.current) {
+          // Get fresh values inside timeout to avoid stale closures
+          const center = map.getCenter()
+          const zoom = map.getZoom()
+          onViewChangeRef.current([center.lat, center.lng], zoom)
+          // Mark that user has interacted with the map
+          onUserInteraction()
+        }
+      }, 50)
     }
 
     const handleZoomEnd = () => {
@@ -289,9 +340,17 @@ const MapEventHandler: React.FC<{
       if (isUpdatingFromUrl.current) {
         return
       }
-      const center = map.getCenter()
-      const zoom = map.getZoom()
-      onViewChangeRef.current([center.lat, center.lng], zoom)
+      // Small delay to ensure this isn't from our own setView call
+      setTimeout(() => {
+        if (!isUpdatingFromUrl.current) {
+          // Get fresh values inside timeout to avoid stale closures
+          const center = map.getCenter()
+          const zoom = map.getZoom()
+          onViewChangeRef.current([center.lat, center.lng], zoom)
+          // Mark that user has interacted with the map
+          onUserInteraction()
+        }
+      }, 50)
     }
 
     map.on("moveend", handleMoveEnd)
@@ -314,7 +373,7 @@ const MapEventHandler: React.FC<{
       map.off("zoomend", handleZoomEnd)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]) // Only depend on map instance, callbacks accessed via refs
+  }, [map, onUserInteraction]) // Only depend on map instance, callbacks accessed via refs
 
   return null
 }
@@ -333,7 +392,7 @@ const MapViewUpdater: React.FC<{
     const currentCenter = map.getCenter()
     const currentZoom = map.getZoom()
 
-    // Only update if the view actually changed and it's different from what we last set
+    // Check if the requested view is significantly different from current map state
     const centerChanged =
       Math.abs(currentCenter.lat - center[0]) > 0.0001 ||
       Math.abs(currentCenter.lng - center[1]) > 0.0001
@@ -347,6 +406,7 @@ const MapViewUpdater: React.FC<{
       Math.abs(lastCenterRef.current[1] - center[1]) > 0.0001 ||
       Math.abs(lastZoomRef.current - zoom) > 0.1
 
+    // Only update if both the map needs updating AND the values are different from last update
     if ((centerChanged || zoomChanged) && isDifferentFromLast) {
       // Set flag before updating to prevent URL updates
       isUpdatingFromUrl.current = true
@@ -356,11 +416,69 @@ const MapViewUpdater: React.FC<{
       map.setView(center, zoom, { animate: false })
 
       // Reset flag after map has updated (events fire asynchronously)
+      // Use a longer timeout to ensure moveend/zoomend events have fired
       setTimeout(() => {
         isUpdatingFromUrl.current = false
-      }, 300)
+      }, 600)
+    } else if (!centerChanged && !zoomChanged) {
+      // Map is already at the correct position, just update our refs without moving
+      lastCenterRef.current = center
+      lastZoomRef.current = zoom
     }
   }, [map, center, zoom])
+
+  return null
+}
+
+// Component to capture map instance for search button
+const MapInstanceCapture: React.FC<{
+  mapRef: React.MutableRefObject<any>
+}> = ({ mapRef }) => {
+  const map = useMap()
+  useEffect(() => {
+    mapRef.current = map
+  }, [map, mapRef])
+  return null
+}
+
+// Component to trigger search when filters change
+const FilterChangeHandler: React.FC<{
+  onBoundsChange: (bounds: LatLngBounds) => void
+  filters: {
+    mode: BenchMode
+    minConfidence: number
+    sortBy: string
+    sourceFilter: string
+  }
+}> = ({ onBoundsChange, filters }) => {
+  const map = useMap()
+  const lastFiltersRef = useRef(filters)
+  const isFirstMountRef = useRef(true)
+
+  useEffect(() => {
+    // Skip on initial mount - let the initial bounds change handler trigger the first search
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false
+      lastFiltersRef.current = filters
+      return
+    }
+
+    // Check if filters have changed
+    const filtersChanged =
+      lastFiltersRef.current.mode !== filters.mode ||
+      lastFiltersRef.current.minConfidence !== filters.minConfidence ||
+      lastFiltersRef.current.sortBy !== filters.sortBy ||
+      lastFiltersRef.current.sourceFilter !== filters.sourceFilter
+
+    if (filtersChanged) {
+      lastFiltersRef.current = filters
+      // Trigger a search with current map bounds when filters change
+      const bounds = map.getBounds()
+      if (bounds.isValid()) {
+        onBoundsChange(bounds)
+      }
+    }
+  }, [filters, map, onBoundsChange])
 
   return null
 }
@@ -378,10 +496,13 @@ const MapView: React.FC = () => {
     totalCount: 0,
   })
   const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null)
+  const [hoveredBenchId, setHoveredBenchId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showSearchButton, setShowSearchButton] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const urlUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isUpdatingFromUrlRef = useRef(false)
+  const mapRef = useRef<any>(null)
 
   // Modal state
   const [selectedBench, setSelectedBench] = useState<WebBenchData | null>(null)
@@ -389,6 +510,7 @@ const MapView: React.FC = () => {
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [currentModalIndex, setCurrentModalIndex] = useState(0)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
 
   const searchMapArea = useCallback(
     async (bounds?: LatLngBounds) => {
@@ -404,11 +526,11 @@ const MapView: React.FC = () => {
           min_confidence: state.filters.minConfidence,
           limit: 200,
           sort_by: state.filters.sortBy,
+          mode: state.filters.mode,
         }
 
-        if (state.filters.sourceFilter !== "all") {
-          ;(params as any).source = state.filters.sourceFilter
-        }
+          // Include source filter (defaults to OSM, None for all sources)
+          ; (params as any).source = state.filters.sourceFilter !== "all" ? state.filters.sourceFilter : null
 
         const response = await benchApi.getBenchesInBbox(params)
 
@@ -431,6 +553,7 @@ const MapView: React.FC = () => {
       state.filters.minConfidence,
       state.filters.sortBy,
       state.filters.sourceFilter,
+      state.filters.mode,
     ]
   )
 
@@ -449,10 +572,14 @@ const MapView: React.FC = () => {
     [searchMapArea]
   )
 
-  const handleSearchHere = () => {
-    // This would be triggered by the search button
-    // For now, it's handled automatically by map movement
-  }
+  const handleSearchHere = useCallback(() => {
+    if (!mapRef.current) return
+    const bounds = mapRef.current.getBounds()
+    if (bounds && bounds.isValid()) {
+      searchMapArea(bounds)
+      setShowSearchButton(false)
+    }
+  }, [searchMapArea])
 
   const handleBenchClick = useCallback((benchId: number) => {
     setSelectedBenchId(benchId)
@@ -511,6 +638,15 @@ const MapView: React.FC = () => {
     [currentModalIndex, mapData.benches]
   )
 
+  const handleImageSelect = useCallback(
+    (imageUrl: string, imageId: number) => {
+      if (!selectedBench) return
+      setSelectedImageUrl(imageUrl)
+      setSelectedImageId(imageId)
+    },
+    [selectedBench]
+  )
+
   // Get initial center and zoom from URL or fallback to filters/defaults
   const getInitialCenter = (): [number, number] => {
     const urlLat = searchParams.get("lat")
@@ -565,6 +701,8 @@ const MapView: React.FC = () => {
 
   // Track last URL we set to avoid redundant updates
   const lastSetUrlRef = useRef<string>("")
+  // Track last values we set to URL for more robust comparison
+  const lastSetValuesRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
 
   // Update URL with map view parameters (debounced)
   const updateUrlWithMapView = useCallback(
@@ -586,22 +724,45 @@ const MapView: React.FC = () => {
         // Get fresh searchParams to avoid stale closure issues
         const currentParams = new URLSearchParams(window.location.search)
 
+        // Round to match precision we'll compare against
+        const latStr = center[0].toFixed(7)
+        const lngStr = center[1].toFixed(7)
+        const zoomStr = zoom.toString()
+        const latNum = parseFloat(latStr)
+        const lngNum = parseFloat(lngStr)
+        const zoomNum = parseFloat(zoomStr)
+
+        // Check if values actually changed before updating (compare with last set values)
+        if (lastSetValuesRef.current) {
+          const valuesChanged =
+            Math.abs(lastSetValuesRef.current.lat - latNum) > 0.00001 ||
+            Math.abs(lastSetValuesRef.current.lng - lngNum) > 0.00001 ||
+            Math.abs(lastSetValuesRef.current.zoom - zoomNum) > 0.1
+
+          if (!valuesChanged) {
+            // No change needed - values are the same as what we last set
+            return
+          }
+        }
+
         // Update lat/lng (these are already used by filters, so we'll update them)
-        currentParams.set("lat", center[0].toFixed(7))
-        currentParams.set("lng", center[1].toFixed(7))
+        currentParams.set("lat", latStr)
+        currentParams.set("lng", lngStr)
 
         // Update zoom
-        currentParams.set("zoom", zoom.toString())
+        currentParams.set("zoom", zoomStr)
 
         const newUrlString = currentParams.toString()
 
         // Only update if URL actually changed
         if (newUrlString !== lastSetUrlRef.current) {
           lastSetUrlRef.current = newUrlString
+          lastSetValuesRef.current = { lat: latNum, lng: lngNum, zoom: zoomNum }
+          // Mark this URL as the one we're about to set, so we don't process our own update
           lastProcessedUrlRef.current = newUrlString
           setSearchParams(currentParams, { replace: true })
         }
-      }, 200) // Reduced debounce for more responsive updates
+      }, 300) // Debounce to avoid rapid updates
     },
     [setSearchParams]
   )
@@ -616,6 +777,11 @@ const MapView: React.FC = () => {
     [updateUrlWithMapView]
   )
 
+  // Handle user interaction with map
+  const handleUserInteraction = useCallback(() => {
+    setShowSearchButton(true)
+  }, [])
+
   // Track the last URL values we processed to avoid processing our own updates
   const lastProcessedUrlRef = useRef<string>("")
 
@@ -629,8 +795,8 @@ const MapView: React.FC = () => {
     // Create a string representation of current URL params to detect changes
     const currentUrlParams = searchParams.toString()
 
-    // Skip if this is the same URL we just processed
-    if (currentUrlParams === lastProcessedUrlRef.current) {
+    // Skip if this is the same URL we just processed or set
+    if (currentUrlParams === lastProcessedUrlRef.current || currentUrlParams === lastSetUrlRef.current) {
       return
     }
 
@@ -645,15 +811,36 @@ const MapView: React.FC = () => {
       const lng = parseFloat(urlLng)
       const zoom = parseFloat(urlZoom)
 
+      // Also check if these are the same values we just set (in case URL string differs due to other params)
+      const isSameAsLastSet =
+        lastSetValuesRef.current &&
+        Math.abs(lastSetValuesRef.current.lat - lat) < 0.00001 &&
+        Math.abs(lastSetValuesRef.current.lng - lng) < 0.00001 &&
+        Math.abs(lastSetValuesRef.current.zoom - zoom) < 0.1
+
+      // Also check if map params match current map state (filter-only URL changes)
+      const matchesCurrentMap =
+        Math.abs(lat - mapCenterRef.current[0]) < 0.00001 &&
+        Math.abs(lng - mapCenterRef.current[1]) < 0.00001 &&
+        Math.abs(zoom - mapZoomRef.current) < 0.1
+
+      if (isSameAsLastSet || matchesCurrentMap) {
+        // This is either our own update or only filter params changed - just mark it as processed and skip
+        lastProcessedUrlRef.current = currentUrlParams
+        return
+      }
+
       if (
         !Number.isNaN(lat) &&
         !Number.isNaN(lng) &&
         !Number.isNaN(zoom) &&
+        zoom >= 0 &&
+        zoom <= 19 &&
         (Math.abs(lat - mapCenterRef.current[0]) > 0.0001 ||
           Math.abs(lng - mapCenterRef.current[1]) > 0.0001 ||
           Math.abs(zoom - mapZoomRef.current) > 0.1)
       ) {
-        // This is an external URL change - update map view
+        // This is an external URL change with different map params - update map view
         lastProcessedUrlRef.current = currentUrlParams
         isUpdatingFromUrlRef.current = true
         setMapCenter([lat, lng])
@@ -662,12 +849,32 @@ const MapView: React.FC = () => {
         // Reset flag after a delay to allow map to update
         setTimeout(() => {
           isUpdatingFromUrlRef.current = false
-        }, 500)
+          // Hide search button when map is updated programmatically
+          setShowSearchButton(false)
+        }, 600)
       }
     } else if (urlLat && urlLng) {
       // URL has lat/lng but no zoom - update center only if it differs
       const lat = parseFloat(urlLat)
       const lng = parseFloat(urlLng)
+
+      // Check if these are the same values we just set
+      const isSameAsLastSet =
+        lastSetValuesRef.current &&
+        Math.abs(lastSetValuesRef.current.lat - lat) < 0.00001 &&
+        Math.abs(lastSetValuesRef.current.lng - lng) < 0.00001
+
+      // Check if matches current map state
+      const matchesCurrentMap =
+        Math.abs(lat - mapCenterRef.current[0]) < 0.00001 &&
+        Math.abs(lng - mapCenterRef.current[1]) < 0.00001
+
+      if (isSameAsLastSet || matchesCurrentMap) {
+        // This is either our own update or only filter params changed - just mark it as processed and skip
+        lastProcessedUrlRef.current = currentUrlParams
+        return
+      }
+
       if (
         !Number.isNaN(lat) &&
         !Number.isNaN(lng) &&
@@ -679,8 +886,13 @@ const MapView: React.FC = () => {
         setMapCenter([lat, lng])
         setTimeout(() => {
           isUpdatingFromUrlRef.current = false
-        }, 500)
+          // Hide search button when map is updated programmatically
+          setShowSearchButton(false)
+        }, 600)
       }
+    } else {
+      // No map params in URL - just mark as processed (might be filter-only change)
+      lastProcessedUrlRef.current = currentUrlParams
     }
     // Only depend on searchParams to avoid infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -701,8 +913,9 @@ const MapView: React.FC = () => {
         <MapContainer
           center={mapCenter}
           zoom={mapZoom}
-          style={{ height: "500px", width: "100%", minHeight: "500px" }}
+          style={{ height: "100%", width: "100%" }}
           zoomControl={true}
+          scrollWheelZoom={true}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -716,36 +929,60 @@ const MapView: React.FC = () => {
             isUpdatingFromUrl={isUpdatingFromUrlRef}
           />
 
+          <MapInstanceCapture mapRef={mapRef} />
+
           <MapEventHandler
             onBoundsChange={handleBoundsChange}
             onViewChange={handleViewChange}
             isUpdatingFromUrl={isUpdatingFromUrlRef}
+            onUserInteraction={handleUserInteraction}
+          />
+
+          <FilterChangeHandler
+            onBoundsChange={handleBoundsChange}
+            filters={{
+              mode: state.filters.mode,
+              minConfidence: state.filters.minConfidence,
+              sortBy: state.filters.sortBy,
+              sourceFilter: state.filters.sourceFilter,
+            }}
           />
 
           {/* Render individual benches */}
-          {mapData.benches?.map((bench) => (
+          {mapData.benches?.map((bench) => {
+            const isSelected = bench.id === selectedBenchId
+            const isHovered = bench.id === hoveredBenchId
+            const markerColor = isSelected ? "#ef4444" : isHovered ? "#f59e0b" : "#3b82f6"
+            const markerSize = isSelected || isHovered ? 32 : 24
+            const iconSizeValue = isSelected || isHovered ? 36 : 28
+            const anchorValue = isSelected || isHovered ? 18 : 14
+            const markerIconSize: [number, number] = [iconSizeValue, iconSizeValue]
+            const markerAnchor: [number, number] = [anchorValue, anchorValue]
+
+            return (
               <Marker
                 key={bench.id}
                 position={[bench.lat, bench.lng]}
                 icon={divIcon({
                   className: "custom-bench-marker",
                   html: `<div style="
-                  width: 24px;
-                  height: 24px;
-                  background: ${bench.id === selectedBenchId ? "#ef4444" : "#3b82f6"};
+                  width: ${markerSize}px;
+                  height: ${markerSize}px;
+                  background: ${markerColor};
                   border: 2px solid white;
                   border-radius: 50%;
                   display: flex;
                   align-items: center;
                   justify-content: center;
                   color: white;
-                  font-size: 10px;
+                  font-size: ${isSelected || isHovered ? "14px" : "10px"};
                   font-weight: bold;
                   cursor: pointer;
-                  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                  transition: all 0.2s ease;
                 ">🪑</div>`,
-                  iconSize: [28, 28],
-                  iconAnchor: [14, 14],
+                  iconSize: markerIconSize,
+                  iconAnchor: markerAnchor,
                 })}
                 eventHandlers={{
                   click: () => handleBenchClick(bench.id),
@@ -774,15 +1011,24 @@ const MapView: React.FC = () => {
                   </div>
                 </Popup>
               </Marker>
-            ))}
+            )
+          })}
         </MapContainer>
 
-        <SearchControls>
-          <h4>Search This Area</h4>
-          <button onClick={handleSearchHere} type="button">
+        {loading && (
+          <MapLoadingOverlay>
+            <LoadingContent>
+              <LoadingSpinner size="large" />
+              <LoadingText>Searching for benches...</LoadingText>
+            </LoadingContent>
+          </MapLoadingOverlay>
+        )}
+
+        {showSearchButton && (
+          <SearchButton onClick={handleSearchHere} type="button">
             🔍 Search Here
-          </button>
-        </SearchControls>
+          </SearchButton>
+        )}
       </MainMap>
 
       <MapSidebar>
@@ -825,7 +1071,10 @@ const MapView: React.FC = () => {
                     <MapBenchCard
                       key={bench.id}
                       $selected={selectedBenchId === bench.id}
+                      $hovered={hoveredBenchId === bench.id}
                       onClick={() => handleBenchClick(bench.id)}
+                      onMouseEnter={() => setHoveredBenchId(bench.id)}
+                      onMouseLeave={() => setHoveredBenchId(null)}
                     >
                       <MapCardImage>
                         {imageUrl ? (
@@ -876,7 +1125,20 @@ const MapView: React.FC = () => {
         allBenches={mapData.benches}
         currentIndex={currentModalIndex}
         onNavigate={handleModalNavigate}
+        onReport={() => setIsReportModalOpen(true)}
+        onImageSelect={handleImageSelect}
       />
+
+      {/* Report Modal */}
+      {selectedBench && (
+        <ReportModal
+          bench={selectedBench}
+          imageUrl={selectedImageUrl || undefined}
+          imageId={selectedImageId || undefined}
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+        />
+      )}
     </MapViewContainer>
   )
 }
