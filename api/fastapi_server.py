@@ -187,7 +187,10 @@ class BboxQueryParams(BaseModel):
         le=1.0,
         description="Minimum detection confidence score",
     )
-    source: DataSource | None = Field(None, description="Filter by data source")
+    source: DataSource | None = Field(
+        DataSource.OSM,
+        description="Filter by data source (default: OSM, None for all sources)",
+    )
     sort_by: str = Field(
         "distance",
         pattern="^(distance|confidence|images|recent)$",
@@ -738,7 +741,7 @@ def get_high_confidence_benches_filtered(
     sort_by: str = "distance",
     mode: BenchMode = BenchMode.BENCHES,
     include_detection_data: bool = False,
-    source: DataSource | None = None,
+    source: DataSource | None = DataSource.OSM,
 ) -> BenchListResponse:
     """
     Get benches with configurable detection modes from all sources using SQLAlchemy ORM.
@@ -823,7 +826,7 @@ def get_high_confidence_benches_filtered(
                 .outerjoin(seg_subq, Detection.id == seg_subq.c.detection_id)
             )
 
-            # Add source filtering if specified
+            # Add source filtering (defaults to OSM, None means all sources)
             if source is not None:
                 query = query.filter(BenchCandidate.source == source)
 
@@ -1071,8 +1074,8 @@ async def get_benches(
         description="Sort criteria",
     ),
     source: DataSource | None = Query(
-        None,
-        description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
+        DataSource.OSM,
+        description="Filter by data source: 'osm' or 'mapillary' (default: OSM, None for all sources)",
     ),
     mode: BenchMode = Query(
         BenchMode.BENCHES,
@@ -1157,8 +1160,8 @@ async def get_random_bench(
         description="Include detection items (bbox, polygon) in response (default: False)",
     ),
     source: DataSource | None = Query(
-        None,
-        description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
+        DataSource.OSM,
+        description="Filter by data source: 'osm' or 'mapillary' (default: OSM, None for all sources)",
     ),
 ) -> WebBenchData:
     """
@@ -1188,7 +1191,7 @@ async def get_random_bench(
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
             )
 
-            # Add source filtering if specified
+            # Add source filtering (defaults to OSM, None means all sources)
             if source is not None:
                 base_query = base_query.filter(BenchCandidate.source == source)
 
@@ -1342,8 +1345,8 @@ async def get_benches_in_bbox(
         description="Minimum detection confidence",
     ),
     source: DataSource | None = Query(
-        None,
-        description="Filter by data source: 'osm' or 'mapillary' (default: all sources)",
+        DataSource.OSM,
+        description="Filter by data source: 'osm' or 'mapillary' (default: OSM, None for all sources)",
     ),
     mode: BenchMode = Query(
         BenchMode.BENCHES,
@@ -1400,18 +1403,61 @@ async def get_benches_in_bbox(
                 detail="East boundary must be greater than west boundary",
             )
 
-        # Get individual bench results using ORM - start from ProcessedBench
+        # Get individual bench results using ORM - optimized with subqueries
         db = BenchDatabase()
         with db.get_session() as session:
-            from sqlalchemy import func
+            from sqlalchemy import case, func
+            from sqlalchemy.orm import aliased
+            from sqlalchemy.types import String as SAString
 
             # Try to use R-tree for fast spatial filtering
             rtree_ids = _get_bbox_filtered_bench_candidate_ids(
                 session, south, north, west, east
             )
 
-            # Start from ProcessedBench, join to BenchCandidate and Detection
-            base_query = (
+            # Early return if R-tree found no matches
+            if rtree_ids is not None and not rtree_ids:
+                return BboxBenchResponse(
+                    benches=[],
+                    total_count=0,
+                    bbox={"north": north, "south": south, "east": east, "west": west},
+                )
+
+            # Create subquery for image aggregation - eliminates GROUP BY from main query
+            image_subquery = (
+                session.query(
+                    Image.bench_candidate_id,
+                    func.count(func.distinct(Image.id)).label("image_count"),
+                    func.group_concat(func.distinct(Image.filename)).label(
+                        "image_filenames"
+                    ),
+                    func.group_concat(
+                        func.distinct(func.cast(Image.id, SAString))
+                    ).label("image_ids"),
+                )
+                .filter(Image.capture_success == 1)
+                .group_by(Image.bench_candidate_id)
+                .subquery()
+            )
+            img_subq = aliased(image_subquery)
+
+            # Create subquery for segmentation check - eliminates N+1 query
+            segmentation_subquery = (
+                session.query(
+                    DetectionItem.detection_id,
+                    func.max(
+                        case(
+                            (DetectionItem.__table__.c.polygon.isnot(None), 1), else_=0
+                        )
+                    ).label("has_segmentation"),
+                )
+                .group_by(DetectionItem.detection_id)
+                .subquery()
+            )
+            seg_subq = aliased(segmentation_subquery)
+
+            # Build main query with minimal joins - no GROUP BY needed!
+            query = (
                 session.query(
                     ProcessedBench.id.label("processed_bench_id"),
                     BenchCandidate.id.label("bench_candidate_id"),
@@ -1427,108 +1473,136 @@ async def get_benches_in_bbox(
                     func.coalesce(Detection.source, DetectionSource.NONE).label(
                         "detection_source"
                     ),
-                    Detection.id.label("best_detection_id"),
-                    ProcessedBench.detection_status,
-                    ProcessedBench.best_image_id,
-                    func.count(func.distinct(Image.id)).label("image_count"),
-                    func.group_concat(func.distinct(Image.filename)).label(
+                    func.coalesce(img_subq.c.image_count, 0).label("image_count"),
+                    func.coalesce(img_subq.c.image_filenames, "").label(
                         "image_filenames"
                     ),
-                    func.group_concat(func.distinct(Image.id)).label("image_ids"),
+                    func.coalesce(img_subq.c.image_ids, "").label("image_ids"),
+                    ProcessedBench.detection_status,
+                    ProcessedBench.best_image_id,
+                    Detection.id.label("best_detection_id"),
+                    func.coalesce(seg_subq.c.has_segmentation, 0).label(
+                        "has_segmentation"
+                    ),
                 )
                 .join(
                     BenchCandidate,
                     ProcessedBench.bench_candidate_id == BenchCandidate.id,
                 )
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
-                .outerjoin(
-                    Image,
-                    (Image.bench_candidate_id == BenchCandidate.id)
-                    & (Image.capture_success == 1),
-                    full=False,
-                )
+                .outerjoin(img_subq, BenchCandidate.id == img_subq.c.bench_candidate_id)
+                .outerjoin(seg_subq, Detection.id == seg_subq.c.detection_id)
             )
 
             # Apply spatial filtering: use R-tree IDs if available, otherwise use BETWEEN
             if rtree_ids is not None:
                 # Use R-tree filtered IDs for optimal performance
-                if not rtree_ids:
-                    # No matches in bounding box, return empty results early
-                    return BboxBenchResponse(benches=[], total_count=0)
-                base_query = base_query.filter(BenchCandidate.id.in_(rtree_ids))
+                query = query.filter(BenchCandidate.id.in_(rtree_ids))
             else:
                 # Fallback to regular BETWEEN filters (uses regular indexes)
-                base_query = base_query.filter(
+                query = query.filter(
                     BenchCandidate.lat.between(south, north),
                     BenchCandidate.lng.between(west, east),
                 )
 
-            base_query = base_query.group_by(
-                ProcessedBench.id,
-                BenchCandidate.id,
-                BenchCandidate.provider_id,
-                BenchCandidate.lat,
-                BenchCandidate.lng,
-                BenchCandidate.tags,
-                BenchCandidate.source,
-                BenchCandidate.external_id,
-                Detection.max_confidence,
-                Detection.source,
-                ProcessedBench.detection_status,
-                ProcessedBench.best_image_id,
-                Detection.id,
-            )
-
-            # Add source filtering if specified
+            # Add source filtering (defaults to OSM, None means all sources)
             if source is not None:
-                base_query = base_query.filter(BenchCandidate.source == source)
+                query = query.filter(BenchCandidate.source == source)
 
             # Apply mode-specific filtering
             if mode == BenchMode.BENCHES:
-                base_query = base_query.filter(
+                query = query.filter(
                     ProcessedBench.detection_status == "detected",
                     func.coalesce(Detection.max_confidence, 0.0) >= min_confidence,
                 )
             elif mode == BenchMode.NO_BENCH:
-                base_query = base_query.filter(
-                    ProcessedBench.detection_status == "no_bench"
-                )
+                query = query.filter(ProcessedBench.detection_status == "no_bench")
 
             # Apply sorting
             center_lat = (north + south) / 2
             center_lng = (east + west) / 2
 
             if sort_by == "confidence":
-                base_query = base_query.order_by(
+                query = query.order_by(
                     func.coalesce(Detection.max_confidence, 0.0).desc(),
                     ProcessedBench.id,
                 )
             elif sort_by == "images":
-                base_query = base_query.order_by(
-                    func.count(func.distinct(Image.id)).desc(),
+                query = query.order_by(
+                    func.coalesce(img_subq.c.image_count, 0).desc(),
                     func.coalesce(Detection.max_confidence, 0.0).desc(),
                     ProcessedBench.id,
                 )
             elif sort_by == "recent":
-                base_query = base_query.order_by(ProcessedBench.id.desc())
+                query = query.order_by(ProcessedBench.id.desc())
             else:  # distance (default)
                 distance_expr = (BenchCandidate.lat - center_lat) * (
                     BenchCandidate.lat - center_lat
                 ) + (BenchCandidate.lng - center_lng) * (
                     BenchCandidate.lng - center_lng
                 )
-                base_query = base_query.order_by(
+                query = query.order_by(
                     distance_expr.asc(),
                     func.coalesce(Detection.max_confidence, 0.0).desc(),
                 )
 
             # Apply limit
-            results = base_query.limit(limit).all()
+            results = query.limit(limit).all()
+
+            # Batch load detection items if requested - eliminates N+1 query
+            detection_items_map = {}
+            if include_detection_data:
+                # Collect all bench_candidate_ids
+                bench_candidate_ids = [r.bench_candidate_id for r in results]
+                if bench_candidate_ids:
+                    # Single optimized query with joins to get all data at once
+                    detection_items_query = (
+                        session.query(
+                            DetectionItem,
+                            Image.bench_candidate_id,
+                        )
+                        .join(Detection, DetectionItem.detection_id == Detection.id)
+                        .join(Image, Detection.image_id == Image.id)
+                        .filter(Image.bench_candidate_id.in_(bench_candidate_ids))
+                        .order_by(DetectionItem.confidence.desc())
+                        .all()
+                    )
+                    # Group by bench_candidate_id
+                    for item, bc_id in detection_items_query:
+                        if bc_id not in detection_items_map:
+                            detection_items_map[bc_id] = []
+                        # Ensure bbox and polygon are proper model instances
+                        bbox = None
+                        if item.bbox:
+                            if isinstance(item.bbox, dict):
+                                from bench_finder.models.unified_models import (
+                                    BoundingBox,
+                                )
+
+                                bbox = BoundingBox(**item.bbox)
+                            else:
+                                bbox = item.bbox
+                        polygon = None
+                        if item.polygon:
+                            if isinstance(item.polygon, dict):
+                                from bench_finder.models.unified_models import Polygon
+
+                                polygon = Polygon(**item.polygon)
+                            else:
+                                polygon = item.polygon
+                        detection_items_map[bc_id].append(
+                            ApiDetectionItem(
+                                detection_id=item.detection_id,
+                                confidence=item.confidence,
+                                bbox=bbox,
+                                class_name=item.class_name,
+                                polygon=polygon,
+                            )
+                        )
 
             # Process results
             benches = []
             for result in results:
-                # Use named column access
                 bench_candidate_id = result.bench_candidate_id
                 best_confidence = result.best_confidence or 0.0
                 detection_source = result.detection_source or DetectionSource.NONE
@@ -1550,24 +1624,22 @@ async def get_benches_in_bbox(
                     image_filenames, image_ids, result.best_image_id
                 )
 
-                # Check for segmentation - check DetectionItems polygon field
-                has_segmentation = False
-                best_detection_id = result.best_detection_id
-                if best_detection_id:
-                    has_segmentation_query = (
-                        session.query(DetectionItem)
-                        .filter(DetectionItem.detection_id == best_detection_id)
-                        .filter(DetectionItem.polygon.isnot(None))
-                        .first()
-                    )
-                    has_segmentation = has_segmentation_query is not None
+                # Has segmentation is now from the query (no N+1!)
+                has_segmentation = bool(result.has_segmentation)
 
                 # Calculate distance from center
                 distance = calculate_distance(
                     center_lat, center_lng, result.lat, result.lng
                 )
 
-                # Set source-specific confidence - don't coalesce, just use best_detection
+                # Get detection items from batch-loaded map
+                detection_items = (
+                    detection_items_map.get(bench_candidate_id)
+                    if include_detection_data
+                    else None
+                )
+
+                # Set source-specific confidence
                 roboflow_confidence = 0.0
                 ultralytics_confidence = 0.0
                 mapillary_confidence = 0.0
@@ -1577,13 +1649,6 @@ async def get_benches_in_bbox(
                     ultralytics_confidence = best_confidence
                 elif detection_source == DetectionSource.MAPILLARY:
                     mapillary_confidence = best_confidence
-
-                # Get detection items if requested
-                detection_items = None
-                if include_detection_data:
-                    detection_items = get_detection_items_for_bench(
-                        session, bench_candidate_id
-                    )
 
                 bench_data = WebBenchData(
                     id=result.processed_bench_id,
