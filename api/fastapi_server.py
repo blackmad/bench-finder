@@ -383,6 +383,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 if os.path.exists(IMAGES_DIR):
     app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
+# Frontend static files are now served directly by Vercel, not through FastAPI
+
 
 # Global exception handlers
 @app.exception_handler(ValueError)
@@ -2772,6 +2774,10 @@ async def test_400_error() -> None:
 async def test_validation_error() -> dict[str, str]:
     """Test endpoint that demonstrates validation error stacktrace logging."""
     return {"message": "This endpoint requires a query parameter"}
+
+
+# Frontend is now served directly by Vercel's static file serving
+# No catch-all route needed here - Vercel handles SPA routing via vercel.json
 
 
 if __name__ == "__main__":

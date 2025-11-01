@@ -99,18 +99,21 @@ DETECTION_BACKEND = os.getenv(
 
 # Database settings
 DATABASE_PATH = os.getenv("DATABASE_PATH", "data/benches.db")
-DATABASE_URL = os.getenv("DATABASE_URL")  # For Supabase PostgreSQL
-USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
-SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")  # Full PostgreSQL connection string
+DATABASE_URL = os.getenv(
+    "DATABASE_URL"
+)  # PostgreSQL connection string (e.g., postgresql://user:pass@host/db)
 
 # Determine which database to use
-if USE_SUPABASE and SUPABASE_DB_URL:
-    DATABASE_URL = SUPABASE_DB_URL
-elif DATABASE_URL:
-    pass  # Use provided DATABASE_URL
-else:
+# If DATABASE_URL is provided, use it (PostgreSQL). Otherwise, default to SQLite
+if not DATABASE_URL:
     # Default to SQLite
     DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+
+# Legacy support: If USE_SUPABASE flag is set, prefer SUPABASE_DB_URL for backward compatibility
+USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
+if USE_SUPABASE and SUPABASE_DB_URL:
+    DATABASE_URL = SUPABASE_DB_URL
 
 IMAGES_DIR = "images"
 

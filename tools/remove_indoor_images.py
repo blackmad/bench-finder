@@ -20,17 +20,20 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torchvision.transforms as transforms
 from PIL import Image as PILImage
+from torchvision import transforms
+
 
 try:
-    import torchvision.models as models
+    from torchvision import models
+
     _TORCHVISION_AVAILABLE = True
 except ImportError:
     _TORCHVISION_AVAILABLE = False
     models = None  # type: ignore[assignment]
 
 from term_image.image import AutoImage, ITerm2Image
+
 
 ITerm2Image.set_render_method("WHOLE")
 
@@ -56,16 +59,24 @@ REFERENCE_SLICE_WIDTH = 50
 REFERENCE_SLICE_HEIGHT = 15
 
 # Places365 URLs for downloading model and category files
-PLACES365_MODEL_URL = "http://places2.csail.mit.edu/models_places365/resnet18_places365.pth.tar"
+PLACES365_MODEL_URL = (
+    "http://places2.csail.mit.edu/models_places365/resnet18_places365.pth.tar"
+)
 PLACES365_CATEGORIES_URL = "https://raw.githubusercontent.com/CSAILVision/places365/master/categories_places365.txt"
-PLACES365_IO_URL = "https://raw.githubusercontent.com/CSAILVision/places365/master/IO_places365.txt"
+PLACES365_IO_URL = (
+    "https://raw.githubusercontent.com/CSAILVision/places365/master/IO_places365.txt"
+)
 
 # Cache directory for Places365 files
 PLACES365_CACHE_DIR = Path.home() / ".cache" / "places365"
 PLACES365_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def extract_reference_slice(image_path: str, width: int = REFERENCE_SLICE_WIDTH, height: int = REFERENCE_SLICE_HEIGHT) -> PILImage.Image:
+def extract_reference_slice(
+    image_path: str,
+    width: int = REFERENCE_SLICE_WIDTH,
+    height: int = REFERENCE_SLICE_HEIGHT,
+) -> PILImage.Image:
     """
     Extract a fixed-size slice from the lower right corner of a reference image.
 
@@ -93,7 +104,11 @@ def extract_reference_slice(image_path: str, width: int = REFERENCE_SLICE_WIDTH,
         return corner.copy()
 
 
-def extract_corner_slice(image_path: str, width: int = REFERENCE_SLICE_WIDTH, height: int = REFERENCE_SLICE_HEIGHT) -> PILImage.Image:
+def extract_corner_slice(
+    image_path: str,
+    width: int = REFERENCE_SLICE_WIDTH,
+    height: int = REFERENCE_SLICE_HEIGHT,
+) -> PILImage.Image:
     """
     Extract a fixed-size slice from the lower right corner of an image for comparison.
 
@@ -108,7 +123,9 @@ def extract_corner_slice(image_path: str, width: int = REFERENCE_SLICE_WIDTH, he
     return extract_reference_slice(image_path, width, height)
 
 
-def images_similar(img1: PILImage.Image, img2: PILImage.Image, threshold: float = 0.85) -> tuple[bool, float]:
+def images_similar(
+    img1: PILImage.Image, img2: PILImage.Image, threshold: float = 0.85
+) -> tuple[bool, float]:
     """
     Compare two images using structural similarity and mean squared error.
 
@@ -148,14 +165,20 @@ def images_similar(img1: PILImage.Image, img2: PILImage.Image, threshold: float 
             full=False,
         )
         # ssim can return just a float or a tuple, handle both
-        similarity = float(similarity_result[0]) if isinstance(similarity_result, tuple) else float(similarity_result)
+        similarity = (
+            float(similarity_result[0])
+            if isinstance(similarity_result, tuple)
+            else float(similarity_result)
+        )
         return (similarity >= threshold, similarity)
     except Exception:
         # Fallback to simple comparison on error
         return _simple_image_comparison(img1, img2, threshold)
 
 
-def _simple_image_comparison(img1: PILImage.Image, img2: PILImage.Image, threshold: float = 0.85) -> tuple[bool, float]:
+def _simple_image_comparison(
+    img1: PILImage.Image, img2: PILImage.Image, threshold: float = 0.85
+) -> tuple[bool, float]:
     """
     Simple pixel-based comparison using mean squared error.
 
@@ -187,7 +210,7 @@ def download_file(url: str, dest_path: Path) -> None:
     if dest_path.exists():
         logger.debug(f"File already exists: {dest_path}")
         return
-    
+
     logger.info(f"Downloading {url} to {dest_path}...")
     try:
         urllib.request.urlretrieve(url, dest_path)
@@ -199,7 +222,7 @@ def download_file(url: str, dest_path: Path) -> None:
 def load_places365_categories() -> tuple[dict[int, str], dict[int, bool]]:
     """
     Load Places365 category labels and indoor/outdoor mappings.
-    
+
     Returns:
         Tuple of (category_dict, indoor_outdoor_dict)
         - category_dict: Maps category index to category name
@@ -207,15 +230,15 @@ def load_places365_categories() -> tuple[dict[int, str], dict[int, bool]]:
     """
     categories_file = PLACES365_CACHE_DIR / "categories_places365.txt"
     io_file = PLACES365_CACHE_DIR / "IO_places365.txt"
-    
+
     # Download category file if needed
     if not categories_file.exists():
         download_file(PLACES365_CATEGORIES_URL, categories_file)
-    
+
     # Download indoor/outdoor file if needed
     if not io_file.exists():
         download_file(PLACES365_IO_URL, io_file)
-    
+
     # Load categories (format: "0 /a/abbey" -> extract "abbey" by removing first 3 chars)
     category_dict = {}
     with open(categories_file) as class_file:
@@ -225,7 +248,7 @@ def load_places365_categories() -> tuple[dict[int, str], dict[int, bool]]:
                 # Extract category name by removing first 3 characters (e.g., "/a/")
                 category_name = parts[0][3:] if len(parts[0]) > 3 else parts[0]
                 category_dict[idx] = category_name
-    
+
     # Load indoor/outdoor labels
     # Format: "0 1" where 1=indoor, 2=outdoor, so we subtract 1 to get 0=indoor, 1=outdoor
     indoor_outdoor_dict = {}
@@ -236,7 +259,7 @@ def load_places365_categories() -> tuple[dict[int, str], dict[int, bool]]:
                 # items[-1] is 1 or 2, subtract 1 to get 0 (indoor) or 1 (outdoor)
                 io_label = int(items[-1]) - 1
                 indoor_outdoor_dict[idx] = io_label == 0  # 0 = indoor, 1 = outdoor
-    
+
     logger.info(f"Loaded {len(category_dict)} Places365 categories")
     return category_dict, indoor_outdoor_dict
 
@@ -244,10 +267,10 @@ def load_places365_categories() -> tuple[dict[int, str], dict[int, bool]]:
 def load_places365_model():
     """
     Load Places365-CNN model (ResNet18 trained on Places365 dataset).
-    
+
     Returns:
         Tuple of (model, device, category_dict, indoor_outdoor_dict)
-    
+
     Raises:
         ImportError: If torchvision is not available
         RuntimeError: If model cannot be loaded
@@ -257,34 +280,37 @@ def load_places365_model():
             "torchvision is required for Places365 classification. "
             "Install it with: pip install torchvision"
         )
-    
+
     try:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+
         # Load Places365 categories
         category_dict, indoor_outdoor_dict = load_places365_categories()
-        
+
         # Create ResNet18 architecture
         model = models.resnet18(num_classes=365)  # Places365 has 365 categories
-        
+
         # Download and load Places365 weights
         weights_file = PLACES365_CACHE_DIR / "resnet18_places365.pth.tar"
         if not weights_file.exists():
             download_file(PLACES365_MODEL_URL, weights_file)
-        
+
         # Load the state dict (Places365 format uses checkpoint['state_dict'])
         checkpoint = torch.load(weights_file, map_location=lambda storage, loc: storage)
-        
+
         # Remove 'module.' prefix if present (from DataParallel)
-        state_dict = {str.replace(k, 'module.', ''): v for k, v in checkpoint['state_dict'].items()}
-        
+        state_dict = {
+            str.replace(k, "module.", ""): v
+            for k, v in checkpoint["state_dict"].items()
+        }
+
         _ = model.load_state_dict(state_dict, strict=False)
         model.eval()
         model.to(device)
-        
+
         logger.info(f"Loaded Places365 ResNet18 model (device: {device})")
         return model, device, category_dict, indoor_outdoor_dict
-        
+
     except Exception as e:
         raise RuntimeError(f"Failed to load Places365 model: {e}") from e
 
@@ -314,40 +340,44 @@ def classify_indoor_outdoor_places365(
     """
     if model is None:
         raise ValueError("Places365 model is required")
-    
+
     try:
         # Load and preprocess image
         img = PILImage.open(image_path).convert("RGB")
-        
+
         # Places365 preprocessing
-        transform = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-        
+        transform = transforms.Compose(
+            [
+                transforms.Resize((256, 256)),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+
         img_tensor = transform(img)  # Returns torch.Tensor
         # Type check: transform always returns Tensor, not Image
         assert isinstance(img_tensor, torch.Tensor), "Transform should return Tensor"
         img_tensor = img_tensor.unsqueeze(0).to(device)
-        
+
         # Run inference
         with torch.no_grad():
             outputs = model(img_tensor)
             probabilities = torch.nn.functional.softmax(outputs[0], dim=0)
             top_prob, top_idx = torch.topk(probabilities, 5)  # Get top 5 predictions
-            
+
             # Get top prediction
             top_idx_val = int(top_idx[0].item())
             top_prob_val = float(top_prob[0].item())
-            
+
             # Map to category name and indoor/outdoor
             category_name = category_dict.get(top_idx_val, f"unknown_{top_idx_val}")
             is_indoor = indoor_outdoor_dict.get(top_idx_val, False)
-            
+
             return is_indoor, category_name, top_prob_val
-        
+
     except Exception as e:
         logger.error(f"Error classifying image with Places365: {e}")
         raise
@@ -379,7 +409,9 @@ def detect_indoor_by_pixel_comparison(
         candidate_slice = extract_corner_slice(image_path)
 
         # Compare with reference
-        is_similar, similarity = images_similar(reference_slice, candidate_slice, similarity_threshold)
+        is_similar, similarity = images_similar(
+            reference_slice, candidate_slice, similarity_threshold
+        )
 
         # If similar to reference (Google), it's outdoor
         # If different from reference, it might be indoor (needs second check)
@@ -484,17 +516,23 @@ def process_indoor_images(
     else:
         # Default reference image
         reference_image_path = images_path / "bench_3373237632_node_heading_0.jpg"
-    
+
     if not reference_image_path.exists():
         logger.error(f"Reference image not found: {reference_image_path}")
-        logger.error("Please ensure the reference image exists to extract the 'Google' slice")
-        logger.error(f"You can specify a different reference image with --reference-image")
+        logger.error(
+            "Please ensure the reference image exists to extract the 'Google' slice"
+        )
+        logger.error(
+            "You can specify a different reference image with --reference-image"
+        )
         sys.exit(1)
 
     logger.info(f"Loading reference slice from: {reference_image_path}")
     try:
         reference_slice = extract_reference_slice(str(reference_image_path))
-        logger.info(f"Extracted reference slice: {reference_slice.size[0]}x{reference_slice.size[1]} pixels")
+        logger.info(
+            f"Extracted reference slice: {reference_slice.size[0]}x{reference_slice.size[1]} pixels"
+        )
     except Exception as e:
         logger.error(f"Failed to extract reference slice: {e}")
         sys.exit(1)
@@ -502,11 +540,15 @@ def process_indoor_images(
     # Load Places365 model for second validation (required)
     logger.info("Loading Places365-CNN model for indoor/outdoor classification...")
     try:
-        places365_model, device, category_dict, indoor_outdoor_dict = load_places365_model()
+        places365_model, device, category_dict, indoor_outdoor_dict = (
+            load_places365_model()
+        )
         logger.info("Places365 model loaded successfully")
     except (ImportError, RuntimeError) as e:
         logger.error(f"Failed to load Places365 model: {e}")
-        logger.error("Places365 is required for this script. Please install torchvision.")
+        logger.error(
+            "Places365 is required for this script. Please install torchvision."
+        )
         sys.exit(1)
 
     # Initialize database
@@ -553,8 +595,13 @@ def process_indoor_images(
 
             try:
                 # Step 1: Detect if different from reference using pixel comparison
-                is_indoor_candidate, similarity_score, corner_slice = detect_indoor_by_pixel_comparison(
-                    str(file_path), reference_slice, similarity_threshold=similarity_threshold, return_slice=True
+                is_indoor_candidate, similarity_score, corner_slice = (
+                    detect_indoor_by_pixel_comparison(
+                        str(file_path),
+                        reference_slice,
+                        similarity_threshold=similarity_threshold,
+                        return_slice=True,
+                    )
                 )
 
                 if is_indoor_candidate:
@@ -562,17 +609,23 @@ def process_indoor_images(
                     relative_path = get_relative_path(
                         file_path, images_path, project_root_local
                     )
-                    
+
                     # Run second check with Places365 (required)
-                    is_indoor_confirmed, category_name, classification_confidence = classify_indoor_outdoor_places365(
-                        str(file_path), places365_model, category_dict, indoor_outdoor_dict, device
+                    is_indoor_confirmed, category_name, classification_confidence = (
+                        classify_indoor_outdoor_places365(
+                            str(file_path),
+                            places365_model,
+                            category_dict,
+                            indoor_outdoor_dict,
+                            device,
+                        )
                     )
-                    
+
                     # Only mark as indoor if BOTH checks pass:
                     # 1. Pixel comparison says it's different from reference (indoor candidate)
                     # 2. Scene classification confirms it's indoor
                     is_indoor = is_indoor_candidate and (is_indoor_confirmed is True)
-                    
+
                     if is_indoor:
                         logger.info(
                             f"Indoor image detected: {relative_path} "
@@ -587,11 +640,20 @@ def process_indoor_images(
                                 term_img = AutoImage(pil_img)
                                 print(term_img)
                             except Exception as e:
-                                logger.debug(f"Could not display image in terminal: {e}")
+                                logger.debug(
+                                    f"Could not display image in terminal: {e}"
+                                )
                         else:
                             logger.debug(f"Image file does not exist: {file_path}")
 
-                        indoor_images.append((image, file_path, similarity_score, classification_confidence))
+                        indoor_images.append(
+                            (
+                                image,
+                                file_path,
+                                similarity_score,
+                                classification_confidence,
+                            )
+                        )
                     elif is_indoor_candidate:
                         logger.debug(
                             f"Pixel comparison flagged {relative_path} but Places365 classification says outdoor "
@@ -621,7 +683,12 @@ def process_indoor_images(
         logger.info("\n" + "=" * 60)
         logger.info("Summary of indoor images:")
         logger.info("=" * 60)
-        for image, file_path, similarity_score, classification_confidence in indoor_images:
+        for (
+            image,
+            file_path,
+            similarity_score,
+            classification_confidence,
+        ) in indoor_images:
             relative_path = get_relative_path(
                 file_path, images_path, project_root_local
             )
@@ -662,7 +729,12 @@ def process_indoor_images(
         deleted_count = 0
         reset_bench_candidates = set()
 
-        for image, file_path, similarity_score, classification_confidence in indoor_images:
+        for (
+            image,
+            file_path,
+            similarity_score,
+            classification_confidence,
+        ) in indoor_images:
             try:
                 # Move image file
                 if file_path.exists():
