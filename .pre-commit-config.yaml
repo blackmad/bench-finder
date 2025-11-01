@@ -49,10 +49,10 @@ repos:
   # Local hooks for frontend
   - repo: local
     hooks:
-      # Biome check for linting and formatting
+      # Biome check for linting and formatting (with auto-fix)
       - id: biome-check
-        name: Biome check
-        entry: bash -c 'cd frontend && npm run check'
+        name: Biome check (auto-fix)
+        entry: bash -c 'cd frontend && npm run check:fix'
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx|json)$
         pass_filenames: false
@@ -61,7 +61,7 @@ repos:
       # TypeScript type checking and Vite build
       - id: typescript-build
         name: TypeScript build check
-        entry: bash -c 'cd frontend && tsc -b && vite build'
+        entry: bash -c 'cd frontend && npm run build'
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
