@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     from bench_finder.models.mapillary_models import MapillaryDetection
     from bench_finder.models.overpass_models import OSMBench
-from sqlalchemy import JSON, String
+from sqlalchemy import Index, JSON, String
 from sqlmodel import Column, Field, Relationship, Session, SQLModel, create_engine
 
 from .enums import (
@@ -468,19 +468,20 @@ class BenchCandidate(SQLModel, table=True):
     """Model for storing bench candidates found during the search phase."""
 
     __tablename__ = "bench_candidates"
+    __table_args__ = (
+        Index("idx_bench_candidate_source_external_id", "source", "external_id", unique=True),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     search_id: int = Field(foreign_key="searches.id", nullable=False)
-    provider_id: str | None = Field(default=None)  # Unified ID from OSM or Mapillary
+    provider_id: str = Field(nullable=False)  # Unified ID from OSM or Mapillary
     lat: float = Field(nullable=False)
     lng: float = Field(nullable=False)
     tags: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSON)
     )  # JSON column for OSM tags or Mapillary metadata
     source: DataSource = Field(default=DataSource.OSM)  # 'osm' or 'mapillary'
-    external_id: str | None = Field(
-        default=None
-    )  # For Mapillary image IDs or other external IDs
+    external_id: str = Field(nullable=False)  # For Mapillary image IDs or other external IDs
     confidence: float | None = Field(
         default=None
     )  # Confidence score if available from source
@@ -570,12 +571,12 @@ class SearchBase(SQLModel):
 class BenchBase(SQLModel):
     """Base schema for bench data."""
 
-    provider_id: str | None = None  # Unified ID from OSM or Mapillary
+    provider_id: str  # Unified ID from OSM or Mapillary
     lat: float
     lng: float
     tags: dict[str, Any] = {}
     source: DataSource = DataSource.OSM  # 'osm' or 'mapillary'
-    external_id: str | None = None  # For Mapillary image IDs
+    external_id: str  # For Mapillary image IDs or other external IDs
 
 
 class ImageBase(SQLModel):
@@ -619,12 +620,12 @@ class DetectionBase(SQLModel):
 class BenchCandidateBase(SQLModel):
     """Base schema for bench candidate data."""
 
-    provider_id: str | None = None
+    provider_id: str
     lat: float
     lng: float
     tags: dict[str, Any] | None = None
     source: DataSource = DataSource.OSM
-    external_id: str | None = None
+    external_id: str
     confidence: float | None = None
 
 

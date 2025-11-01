@@ -107,30 +107,30 @@ class BenchDatabase:
         """
         Add a bench record to the database.
 
+        Checks for existing entries by source+external_id to prevent duplicates.
+
         Args:
             bench_data: BenchBase schema with bench data from OSM
             search_id: Optional search ID to associate with the bench
 
         Returns:
-            The ID of the created bench record
+            The ID of the created or existing bench record
         """
         try:
             with self.get_session() as session:
-                # Check if bench already exists by provider_id
-                existing_bench = None
-                if bench_data.provider_id:
-                    existing_bench = (
-                        session.query(BenchCandidate)
-                        .filter(
-                            BenchCandidate.provider_id == bench_data.provider_id,
-                            BenchCandidate.source == bench_data.source,
-                        )
-                        .first()
+                # Check if bench already exists by source + external_id
+                existing_bench = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.source == bench_data.source,
+                        BenchCandidate.external_id == bench_data.external_id,
                     )
+                    .first()
+                )
 
                 if existing_bench:
                     logger.debug(
-                        f"Bench {bench_data.provider_id} already exists as record {existing_bench.id}"
+                        f"Bench already exists: source={bench_data.source}, external_id={bench_data.external_id}, id={existing_bench.id}"
                     )
                     return existing_bench.id
 
@@ -293,11 +293,13 @@ class BenchDatabase:
         lng: float,
         tags: dict,
         source: DataSource,
-        external_id: str | None = None,
+        external_id: str,
         confidence: float | None = None,
     ) -> int | None:
         """
         Add a bench candidate to the database.
+
+        Checks for existing entries by source+external_id to prevent duplicates.
 
         Args:
             search_id: ID of the search this candidate belongs to
@@ -306,14 +308,30 @@ class BenchDatabase:
             lng: Longitude
             tags: JSON tags/metadata
             source: Source of the candidate ('osm', 'mapillary', etc.)
-            external_id: External ID if applicable
+            external_id: External ID (required)
             confidence: Confidence score if available
 
         Returns:
-            ID of the created bench candidate, or None if failed
+            ID of the created or existing bench candidate, or None if failed
         """
         try:
             with self.get_session() as session:
+                # Check if candidate already exists by source + external_id
+                existing_candidate = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.source == source,
+                        BenchCandidate.external_id == external_id,
+                    )
+                    .first()
+                )
+
+                if existing_candidate:
+                    logger.debug(
+                        f"Bench candidate already exists: source={source}, external_id={external_id}, id={existing_candidate.id}"
+                    )
+                    return existing_candidate.id
+
                 candidate = BenchCandidate(
                     search_id=search_id,
                     provider_id=provider_id,
@@ -326,6 +344,7 @@ class BenchDatabase:
                 )
                 session.add(candidate)
                 session.commit()
+                session.refresh(candidate)
                 logger.debug(f"Added bench candidate: {provider_id} from {source}")
                 return candidate.id
 
