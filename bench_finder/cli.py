@@ -25,7 +25,7 @@ from bench_finder.generators.mapillary import MapillaryBenchGenerator
 from bench_finder.generators.overpass import OverpassBenchGenerator
 
 # Import enums and models separately to avoid double-loading unified_models
-from bench_finder.models.enums import BenchCandidateStatus, SearchStatus
+from bench_finder.models.enums import BenchCandidateStatus, DataSource, SearchStatus
 from bench_finder.models.unified_models import SearchBase
 
 # Import database first - this will load unified_models once
@@ -52,6 +52,12 @@ def generate_candidates(
         "--radius",
         "-r",
         help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})",
+    ),
+    source: list[str] = typer.Option(
+        None,
+        "--source",
+        "-s",
+        help="Filter by source(s): osm, mapillary (can be specified multiple times). If not specified, all sources are used.",
     ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
@@ -128,34 +134,66 @@ def generate_candidates(
     ) as progress:
         candidates_task = progress.add_task("Finding bench candidates...", total=None)
 
+        # Normalize source filter if provided
+        source_filter: set[DataSource] | None = None
+        if source:
+            # Normalize source names (handle both lowercase and uppercase)
+            source_normalized = [s.upper() for s in source]
+            # Map common aliases
+            source_mapping = {
+                "OSM": DataSource.OSM,
+                "MAPILLARY": DataSource.MAPILLARY,
+            }
+            source_filter = set()
+            for s in source_normalized:
+                if s in source_mapping:
+                    source_filter.add(source_mapping[s])
+                else:
+                    console.print(
+                        f"[yellow]⚠️  Unknown source: {s}. Valid sources are: osm, mapillary[/yellow]"
+                    )
+                    raise typer.Exit(1)
+
+            if source_filter:
+                source_names = ", ".join([s.value for s in source_filter])
+                console.print(f"[dim]Filtering sources: {source_names}[/dim]\n")
+
         # Create bench generators
         generators: list[BenchGenerator] = []
 
-        # Always add OSM generator
-        try:
-            osm_generator = OverpassBenchGenerator()
-            generators.append(osm_generator)
-            logger.info("Added OpenStreetMap generator")
-        except Exception:
-            logger.exception("Failed to initialize OSM generator")
+        # Always add OSM generator (if not filtered out)
+        if not source_filter or DataSource.OSM in source_filter:
+            try:
+                osm_generator = OverpassBenchGenerator()
+                generators.append(osm_generator)
+                logger.info("Added OpenStreetMap generator")
+            except Exception:
+                logger.exception("Failed to initialize OSM generator")
 
-        # Add Mapillary generator if token is available
-        try:
-            if MAPILLARY_ACCESS_TOKEN:
-                mapillary_generator = MapillaryBenchGenerator()
-                generators.append(mapillary_generator)
-                logger.info("Added Mapillary generator")
-            else:
-                logger.warning(
-                    "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
-                )
-        except Exception as e:
-            logger.warning(f"Failed to initialize Mapillary generator: {e}")
+        # Add Mapillary generator if token is available (if not filtered out)
+        if not source_filter or DataSource.MAPILLARY in source_filter:
+            try:
+                if MAPILLARY_ACCESS_TOKEN:
+                    mapillary_generator = MapillaryBenchGenerator()
+                    generators.append(mapillary_generator)
+                    logger.info("Added Mapillary generator")
+                else:
+                    logger.warning(
+                        "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to initialize Mapillary generator: {e}")
 
         if not generators:
-            console.print(
-                "[bold red]❌ No bench generators could be initialized[/bold red]"
-            )
+            if source_filter:
+                requested_sources = ", ".join([s.value for s in source_filter])
+                console.print(
+                    f"[bold red]❌ No bench generators could be initialized for requested source(s): {requested_sources}[/bold red]"
+                )
+            else:
+                console.print(
+                    "[bold red]❌ No bench generators could be initialized[/bold red]"
+                )
             raise typer.Exit(1)
 
         # Find candidates using all generators
@@ -923,6 +961,760 @@ def cleanup_deleted_osm(
         console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
         logger.exception("Unexpected error")
         raise typer.Exit(1) from e
+
+
+@app.command("statistics")
+def statistics(
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    format: str = typer.Option("table", "--format", help="Output format: table, json"),  # noqa: A002
+):
+    """
+    Display comprehensive database statistics for debugging and monitoring.
+
+    Shows counts, breakdowns, and statistics across all database tables including:
+    - Searches, bench candidates, images, detections
+    - Status breakdowns and success rates
+    - Recent activity and confidence statistics
+    """
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    try:
+        database = BenchDatabase()
+
+        with database.get_session() as session:
+            from sqlalchemy import func
+
+            from bench_finder.models.unified_models import (
+                BenchCandidate,
+                BenchReport,
+                Detection,
+                DetectionItem,
+                Image,
+                MissingBenchReport,
+                ProcessedBench,
+                Search,
+            )
+
+            stats = {}
+
+            # ============================================================
+            # Overall Counts
+            # ============================================================
+            stats["total_searches"] = session.query(Search).count()
+            stats["total_bench_candidates"] = session.query(BenchCandidate).count()
+            stats["total_images"] = session.query(Image).count()
+            stats["total_detections"] = session.query(Detection).count()
+            stats["total_detection_items"] = session.query(DetectionItem).count()
+            stats["total_processed_benches"] = session.query(ProcessedBench).count()
+            stats["total_bench_reports"] = session.query(BenchReport).count()
+            stats["total_missing_bench_reports"] = session.query(
+                MissingBenchReport
+            ).count()
+
+            # ============================================================
+            # Search Breakdowns
+            # ============================================================
+            search_status_counts = (
+                session.query(Search.status, func.count(Search.id))
+                .group_by(Search.status)
+                .all()
+            )
+            stats["search_status"] = {
+                str(status): count for status, count in search_status_counts
+            }
+
+            # ============================================================
+            # Bench Candidate Breakdowns
+            # ============================================================
+            candidate_status_counts = (
+                session.query(BenchCandidate.status, func.count(BenchCandidate.id))
+                .group_by(BenchCandidate.status)
+                .all()
+            )
+            stats["candidate_status"] = {
+                str(status): count for status, count in candidate_status_counts
+            }
+
+            candidate_source_counts = (
+                session.query(BenchCandidate.source, func.count(BenchCandidate.id))
+                .group_by(BenchCandidate.source)
+                .all()
+            )
+            stats["candidate_source"] = {
+                str(source): count for source, count in candidate_source_counts
+            }
+
+            # ============================================================
+            # Image Statistics
+            # ============================================================
+            images_successful = (
+                session.query(Image).filter(Image.capture_success.is_(True)).count()
+            )
+            images_failed = (
+                session.query(Image).filter(Image.capture_success.is_(False)).count()
+            )
+            stats["images"] = {
+                "total": stats["total_images"],
+                "successful": images_successful,
+                "failed": images_failed,
+                "success_rate": (
+                    round(images_successful / stats["total_images"] * 100, 2)
+                    if stats["total_images"] > 0
+                    else 0.0
+                ),
+            }
+
+            # Image file size statistics
+            image_size_stats = (
+                session.query(
+                    func.avg(Image.file_size).label("avg_size"),
+                    func.min(Image.file_size).label("min_size"),
+                    func.max(Image.file_size).label("max_size"),
+                    func.sum(Image.file_size).label("total_size"),
+                )
+                .filter(Image.file_size.isnot(None))
+                .first()
+            )
+            if image_size_stats and image_size_stats.avg_size:
+                stats["image_sizes"] = {
+                    "avg_bytes": int(image_size_stats.avg_size),
+                    "min_bytes": int(image_size_stats.min_size or 0),
+                    "max_bytes": int(image_size_stats.max_size or 0),
+                    "total_bytes": int(image_size_stats.total_size or 0),
+                    "total_mb": round(image_size_stats.total_size / (1024 * 1024), 2)
+                    if image_size_stats.total_size
+                    else 0.0,
+                }
+
+            # ============================================================
+            # Detection Statistics
+            # ============================================================
+            detections_successful = (
+                session.query(Detection)
+                .filter(Detection.detection_success.is_(True))
+                .count()
+            )
+            detections_failed = (
+                session.query(Detection)
+                .filter(Detection.detection_success.is_(False))
+                .count()
+            )
+            detections_with_bench = (
+                session.query(Detection).filter(Detection.has_bench.is_(True)).count()
+            )
+            stats["detections"] = {
+                "total": stats["total_detections"],
+                "successful": detections_successful,
+                "failed": detections_failed,
+                "with_bench": detections_with_bench,
+                "success_rate": (
+                    round(detections_successful / stats["total_detections"] * 100, 2)
+                    if stats["total_detections"] > 0
+                    else 0.0
+                ),
+                "bench_detection_rate": (
+                    round(detections_with_bench / stats["total_detections"] * 100, 2)
+                    if stats["total_detections"] > 0
+                    else 0.0
+                ),
+            }
+
+            # Detection source breakdown
+            detection_source_counts = (
+                session.query(Detection.source, func.count(Detection.id))
+                .group_by(Detection.source)
+                .all()
+            )
+            stats["detection_sources"] = {
+                str(source): count for source, count in detection_source_counts
+            }
+
+            # Confidence statistics
+            confidence_stats = (
+                session.query(
+                    func.avg(Detection.max_confidence).label("avg_confidence"),
+                    func.min(Detection.max_confidence).label("min_confidence"),
+                    func.max(Detection.max_confidence).label("max_confidence"),
+                )
+                .filter(Detection.max_confidence > 0)
+                .first()
+            )
+            if confidence_stats and confidence_stats.avg_confidence:
+                stats["confidence"] = {
+                    "avg": round(confidence_stats.avg_confidence, 3),
+                    "min": round(confidence_stats.min_confidence or 0.0, 3),
+                    "max": round(confidence_stats.max_confidence or 0.0, 3),
+                }
+
+            # Bench count statistics
+            bench_count_stats = (
+                session.query(
+                    func.avg(Detection.bench_count).label("avg_count"),
+                    func.max(Detection.bench_count).label("max_count"),
+                )
+                .filter(Detection.bench_count > 0)
+                .first()
+            )
+            if bench_count_stats and bench_count_stats.avg_count:
+                stats["bench_counts"] = {
+                    "avg_per_detection": round(bench_count_stats.avg_count, 2),
+                    "max_per_detection": int(bench_count_stats.max_count or 0),
+                }
+
+            # ============================================================
+            # Processed Bench Statistics
+            # ============================================================
+            processed_detected = (
+                session.query(ProcessedBench)
+                .filter(ProcessedBench.detection_status == "detected")
+                .count()
+            )
+            processed_no_bench = (
+                session.query(ProcessedBench)
+                .filter(ProcessedBench.detection_status == "no_bench")
+                .count()
+            )
+            stats["processed_benches"] = {
+                "total": stats["total_processed_benches"],
+                "detected": processed_detected,
+                "no_bench": processed_no_bench,
+                "detection_rate": (
+                    round(
+                        processed_detected / stats["total_processed_benches"] * 100, 2
+                    )
+                    if stats["total_processed_benches"] > 0
+                    else 0.0
+                ),
+            }
+
+            # ============================================================
+            # Foreign Key Relationship Statistics
+            # ============================================================
+            # Candidates without ProcessedBench records
+            candidates_without_processed = (
+                session.query(BenchCandidate)
+                .outerjoin(
+                    ProcessedBench,
+                    BenchCandidate.id == ProcessedBench.bench_candidate_id,
+                )
+                .filter(ProcessedBench.id.is_(None))
+                .count()
+            )
+
+            # Candidates without Images
+            candidates_without_images = (
+                session.query(BenchCandidate)
+                .outerjoin(Image, BenchCandidate.id == Image.bench_candidate_id)
+                .filter(Image.id.is_(None))
+                .count()
+            )
+
+            # Candidates with images count
+            candidates_with_images = (
+                session.query(BenchCandidate)
+                .join(Image, BenchCandidate.id == Image.bench_candidate_id)
+                .distinct()
+                .count()
+            )
+
+            # Images without Detections
+            images_without_detections = (
+                session.query(Image)
+                .outerjoin(Detection, Image.id == Detection.image_id)
+                .filter(Detection.id.is_(None))
+                .count()
+            )
+
+            # Images with detections count
+            images_with_detections = (
+                session.query(Image)
+                .join(Detection, Image.id == Detection.image_id)
+                .distinct()
+                .count()
+            )
+
+            # Detections without DetectionItems
+            detections_without_items = (
+                session.query(Detection)
+                .outerjoin(DetectionItem, Detection.id == DetectionItem.detection_id)
+                .filter(DetectionItem.id.is_(None))
+                .count()
+            )
+
+            # Detections with items count
+            detections_with_items = (
+                session.query(Detection)
+                .join(DetectionItem, Detection.id == DetectionItem.detection_id)
+                .distinct()
+                .count()
+            )
+
+            # ProcessedBenches with null best_image_id (detected status should have this)
+            processed_with_null_image = (
+                session.query(ProcessedBench)
+                .filter(
+                    ProcessedBench.detection_status == "detected",
+                    ProcessedBench.best_image_id.is_(None),
+                )
+                .count()
+            )
+
+            # ProcessedBenches with null best_detection_id (detected status should have this)
+            processed_with_null_detection = (
+                session.query(ProcessedBench)
+                .filter(
+                    ProcessedBench.detection_status == "detected",
+                    ProcessedBench.best_detection_id.is_(None),
+                )
+                .count()
+            )
+
+            # Images with null filepath
+            images_without_filepath = (
+                session.query(Image).filter(Image.filepath.is_(None)).count()
+            )
+
+            # Images with filepath but file doesn't exist
+            images_with_missing_files = 0
+            if stats["total_images"] > 0:
+                all_images = (
+                    session.query(Image).filter(Image.filepath.isnot(None)).all()
+                )
+                for img in all_images:
+                    if img.filepath and not os.path.exists(img.filepath):
+                        images_with_missing_files += 1
+
+            stats["foreign_keys"] = {
+                "candidates_without_processed": candidates_without_processed,
+                "candidates_with_images": candidates_with_images,
+                "candidates_without_images": candidates_without_images,
+                "images_with_detections": images_with_detections,
+                "images_without_detections": images_without_detections,
+                "detections_with_items": detections_with_items,
+                "detections_without_items": detections_without_items,
+                "processed_with_null_image": processed_with_null_image,
+                "processed_with_null_detection": processed_with_null_detection,
+                "images_without_filepath": images_without_filepath,
+                "images_with_missing_files": images_with_missing_files,
+            }
+
+            # Calculate percentages
+            if stats["total_bench_candidates"] > 0:
+                stats["foreign_keys"]["candidates_without_processed_pct"] = round(
+                    candidates_without_processed
+                    / stats["total_bench_candidates"]
+                    * 100,
+                    2,
+                )
+                stats["foreign_keys"]["candidates_without_images_pct"] = round(
+                    candidates_without_images / stats["total_bench_candidates"] * 100, 2
+                )
+            else:
+                stats["foreign_keys"]["candidates_without_processed_pct"] = 0.0
+                stats["foreign_keys"]["candidates_without_images_pct"] = 0.0
+
+            if stats["total_images"] > 0:
+                stats["foreign_keys"]["images_without_detections_pct"] = round(
+                    images_without_detections / stats["total_images"] * 100, 2
+                )
+            else:
+                stats["foreign_keys"]["images_without_detections_pct"] = 0.0
+
+            if stats["total_detections"] > 0:
+                stats["foreign_keys"]["detections_without_items_pct"] = round(
+                    detections_without_items / stats["total_detections"] * 100, 2
+                )
+            else:
+                stats["foreign_keys"]["detections_without_items_pct"] = 0.0
+
+            # ============================================================
+            # Bench Report Statistics
+            # ============================================================
+            report_type_counts = (
+                session.query(BenchReport.report_type, func.count(BenchReport.id))
+                .group_by(BenchReport.report_type)
+                .all()
+            )
+            stats["bench_reports"] = {
+                "total": stats["total_bench_reports"],
+                "by_type": {str(rtype): count for rtype, count in report_type_counts},
+            }
+
+            report_status_counts = (
+                session.query(BenchReport.status, func.count(BenchReport.id))
+                .group_by(BenchReport.status)
+                .all()
+            )
+            stats["bench_reports"]["by_status"] = {
+                str(status): count for status, count in report_status_counts
+            }
+
+            # ============================================================
+            # Missing Bench Report Statistics
+            # ============================================================
+            missing_report_status_counts = (
+                session.query(
+                    MissingBenchReport.status, func.count(MissingBenchReport.id)
+                )
+                .group_by(MissingBenchReport.status)
+                .all()
+            )
+            stats["missing_bench_reports"] = {
+                "total": stats["total_missing_bench_reports"],
+                "by_status": {
+                    str(status): count for status, count in missing_report_status_counts
+                },
+            }
+
+            # ============================================================
+            # Recent Activity
+            # ============================================================
+            latest_search = (
+                session.query(Search).order_by(Search.created_at.desc()).first()
+            )
+            stats["recent_activity"] = {}
+            if latest_search:
+                stats["recent_activity"]["latest_search"] = {
+                    "id": latest_search.id,
+                    "query": latest_search.query,
+                    "status": str(latest_search.status),
+                    "created_at": latest_search.created_at.isoformat()
+                    if latest_search.created_at
+                    else None,
+                    "candidates": session.query(BenchCandidate)
+                    .filter(BenchCandidate.search_id == latest_search.id)
+                    .count(),
+                }
+
+            latest_candidate = (
+                session.query(BenchCandidate)
+                .order_by(BenchCandidate.created_at.desc())
+                .first()
+            )
+            if latest_candidate:
+                stats["recent_activity"]["latest_candidate"] = {
+                    "id": latest_candidate.id,
+                    "source": str(latest_candidate.source),
+                    "status": str(latest_candidate.status),
+                    "created_at": latest_candidate.created_at.isoformat()
+                    if latest_candidate.created_at
+                    else None,
+                }
+
+            latest_image = (
+                session.query(Image).order_by(Image.created_at.desc()).first()
+            )
+            if latest_image:
+                stats["recent_activity"]["latest_image"] = {
+                    "id": latest_image.id,
+                    "success": latest_image.capture_success,
+                    "file_size": latest_image.file_size,
+                    "created_at": latest_image.created_at.isoformat()
+                    if latest_image.created_at
+                    else None,
+                }
+
+            latest_detection = (
+                session.query(Detection).order_by(Detection.created_at.desc()).first()
+            )
+            if latest_detection:
+                stats["recent_activity"]["latest_detection"] = {
+                    "id": latest_detection.id,
+                    "has_bench": latest_detection.has_bench,
+                    "confidence": latest_detection.max_confidence,
+                    "source": str(latest_detection.source),
+                    "created_at": latest_detection.created_at.isoformat()
+                    if latest_detection.created_at
+                    else None,
+                }
+
+        # Display statistics
+        if format == "json":
+            import json
+
+            console.print(json.dumps(stats, indent=2))
+        else:
+            _display_statistics_table(stats)
+
+    except KeyboardInterrupt:
+        console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
+        raise typer.Exit(130) from None
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1) from e
+
+
+def _display_statistics_table(stats: dict):
+    """Display statistics in a formatted table."""
+    console.print("[bold blue]📊 Database Statistics[/bold blue]\n")
+
+    # Overall counts
+    table = Table(title="Overall Counts", show_header=True, header_style="bold magenta")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Count", style="green", justify="right")
+    table.add_row("Searches", str(stats["total_searches"]))
+    table.add_row("Bench Candidates", str(stats["total_bench_candidates"]))
+    table.add_row("Images", str(stats["total_images"]))
+    table.add_row("Detections", str(stats["total_detections"]))
+    table.add_row("Detection Items", str(stats["total_detection_items"]))
+    table.add_row("Processed Benches", str(stats["total_processed_benches"]))
+    table.add_row("Bench Reports", str(stats["total_bench_reports"]))
+    table.add_row("Missing Bench Reports", str(stats["total_missing_bench_reports"]))
+    console.print(table)
+    console.print()
+
+    # Search breakdown
+    if stats.get("search_status"):
+        table = Table(title="Searches by Status", show_header=True)
+        table.add_column("Status", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        for status, count in sorted(stats["search_status"].items()):
+            table.add_row(status, str(count))
+        console.print(table)
+        console.print()
+
+    # Bench candidate breakdowns
+    if stats.get("candidate_status"):
+        table = Table(title="Bench Candidates by Status", show_header=True)
+        table.add_column("Status", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        for status, count in sorted(stats["candidate_status"].items()):
+            table.add_row(status, str(count))
+        console.print(table)
+        console.print()
+
+    if stats.get("candidate_source"):
+        table = Table(title="Bench Candidates by Source", show_header=True)
+        table.add_column("Source", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        for source, count in sorted(stats["candidate_source"].items()):
+            table.add_row(source, str(count))
+        console.print(table)
+        console.print()
+
+    # Image statistics
+    if stats.get("images"):
+        img_stats = stats["images"]
+        table = Table(title="Image Statistics", show_header=True)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green", justify="right")
+        table.add_row("Total Images", str(img_stats["total"]))
+        table.add_row("Successful", str(img_stats["successful"]))
+        table.add_row("Failed", str(img_stats["failed"]))
+        table.add_row("Success Rate", f"{img_stats['success_rate']}%")
+        console.print(table)
+
+        if stats.get("image_sizes"):
+            size_stats = stats["image_sizes"]
+            table = Table(title="Image Storage", show_header=True)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green", justify="right")
+            table.add_row("Total Size", f"{size_stats['total_mb']} MB")
+            table.add_row("Average Size", f"{size_stats['avg_bytes']:,} bytes")
+            table.add_row("Min Size", f"{size_stats['min_bytes']:,} bytes")
+            table.add_row("Max Size", f"{size_stats['max_bytes']:,} bytes")
+            console.print(table)
+        console.print()
+
+    # Detection statistics
+    if stats.get("detections"):
+        det_stats = stats["detections"]
+        table = Table(title="Detection Statistics", show_header=True)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green", justify="right")
+        table.add_row("Total Detections", str(det_stats["total"]))
+        table.add_row("Successful", str(det_stats["successful"]))
+        table.add_row("Failed", str(det_stats["failed"]))
+        table.add_row("With Bench", str(det_stats["with_bench"]))
+        table.add_row("Success Rate", f"{det_stats['success_rate']}%")
+        table.add_row("Bench Detection Rate", f"{det_stats['bench_detection_rate']}%")
+        console.print(table)
+
+        if stats.get("detection_sources"):
+            table = Table(title="Detections by Source", show_header=True)
+            table.add_column("Source", style="cyan")
+            table.add_column("Count", style="green", justify="right")
+            for source, count in sorted(stats["detection_sources"].items()):
+                table.add_row(source, str(count))
+            console.print(table)
+
+        if stats.get("confidence"):
+            conf_stats = stats["confidence"]
+            table = Table(title="Confidence Statistics", show_header=True)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green", justify="right")
+            table.add_row("Average", f"{conf_stats['avg']:.3f}")
+            table.add_row("Minimum", f"{conf_stats['min']:.3f}")
+            table.add_row("Maximum", f"{conf_stats['max']:.3f}")
+            console.print(table)
+
+        if stats.get("bench_counts"):
+            bench_stats = stats["bench_counts"]
+            table = Table(title="Bench Count per Detection", show_header=True)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="green", justify="right")
+            table.add_row("Average", f"{bench_stats['avg_per_detection']:.2f}")
+            table.add_row("Maximum", str(bench_stats["max_per_detection"]))
+            console.print(table)
+        console.print()
+
+    # Processed bench statistics
+    if stats.get("processed_benches"):
+        proc_stats = stats["processed_benches"]
+        table = Table(title="Processed Benches", show_header=True)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green", justify="right")
+        table.add_row("Total", str(proc_stats["total"]))
+        table.add_row("Detected", str(proc_stats["detected"]))
+        table.add_row("No Bench", str(proc_stats["no_bench"]))
+        table.add_row("Detection Rate", f"{proc_stats['detection_rate']}%")
+        console.print(table)
+        console.print()
+
+    # Foreign key relationship statistics
+    if stats.get("foreign_keys"):
+        fk_stats = stats["foreign_keys"]
+        table = Table(title="Foreign Key Relationships", show_header=True)
+        table.add_column("Relationship", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        table.add_column("Percentage", style="yellow", justify="right")
+
+        # Candidates relationships
+        table.add_row(
+            "Candidates WITHOUT ProcessedBench",
+            str(fk_stats["candidates_without_processed"]),
+            f"{fk_stats.get('candidates_without_processed_pct', 0.0)}%",
+        )
+        table.add_row(
+            "Candidates WITH Images",
+            str(fk_stats["candidates_with_images"]),
+            "-",
+        )
+        table.add_row(
+            "Candidates WITHOUT Images",
+            str(fk_stats["candidates_without_images"]),
+            f"{fk_stats.get('candidates_without_images_pct', 0.0)}%",
+        )
+
+        # Images relationships
+        table.add_row(
+            "Images WITH Detections",
+            str(fk_stats["images_with_detections"]),
+            "-",
+        )
+        table.add_row(
+            "Images WITHOUT Detections",
+            str(fk_stats["images_without_detections"]),
+            f"{fk_stats.get('images_without_detections_pct', 0.0)}%",
+        )
+
+        # Detections relationships
+        table.add_row(
+            "Detections WITH Items",
+            str(fk_stats["detections_with_items"]),
+            "-",
+        )
+        table.add_row(
+            "Detections WITHOUT Items",
+            str(fk_stats["detections_without_items"]),
+            f"{fk_stats.get('detections_without_items_pct', 0.0)}%",
+        )
+
+        console.print(table)
+
+        # Data integrity issues
+        issues = []
+        if fk_stats["processed_with_null_image"] > 0:
+            issues.append(
+                f"  ⚠️  {fk_stats['processed_with_null_image']} ProcessedBenches with 'detected' status but NULL best_image_id"
+            )
+        if fk_stats["processed_with_null_detection"] > 0:
+            issues.append(
+                f"  ⚠️  {fk_stats['processed_with_null_detection']} ProcessedBenches with 'detected' status but NULL best_detection_id"
+            )
+        if fk_stats["images_without_filepath"] > 0:
+            issues.append(
+                f"  ⚠️  {fk_stats['images_without_filepath']} Images without filepath"
+            )
+        if fk_stats["images_with_missing_files"] > 0:
+            issues.append(
+                f"  ⚠️  {fk_stats['images_with_missing_files']} Images with filepath but file doesn't exist"
+            )
+
+        if issues:
+            console.print("\n[bold yellow]Data Integrity Issues:[/bold yellow]")
+            for issue in issues:
+                console.print(issue)
+            console.print()
+
+    # Bench reports
+    if stats.get("bench_reports") and stats["bench_reports"]["total"] > 0:
+        report_stats = stats["bench_reports"]
+        table = Table(title="Bench Reports", show_header=True)
+        table.add_column("Type/Status", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        table.add_row("Total", str(report_stats["total"]))
+        if report_stats.get("by_type"):
+            for rtype, count in sorted(report_stats["by_type"].items()):
+                table.add_row(f"Type: {rtype}", str(count))
+        if report_stats.get("by_status"):
+            for status, count in sorted(report_stats["by_status"].items()):
+                table.add_row(f"Status: {status}", str(count))
+        console.print(table)
+        console.print()
+
+    # Missing bench reports
+    if (
+        stats.get("missing_bench_reports")
+        and stats["missing_bench_reports"]["total"] > 0
+    ):
+        missing_stats = stats["missing_bench_reports"]
+        table = Table(title="Missing Bench Reports", show_header=True)
+        table.add_column("Status", style="cyan")
+        table.add_column("Count", style="green", justify="right")
+        table.add_row("Total", str(missing_stats["total"]))
+        if missing_stats.get("by_status"):
+            for status, count in sorted(missing_stats["by_status"].items()):
+                table.add_row(status, str(count))
+        console.print(table)
+        console.print()
+
+    # Recent activity
+    if stats.get("recent_activity"):
+        console.print("[bold]Recent Activity:[/bold]")
+        recent = stats["recent_activity"]
+        if recent.get("latest_search"):
+            ls = recent["latest_search"]
+            console.print(
+                f"  Latest Search: ID {ls['id']} - '{ls['query']}' ({ls['status']}) - "
+                f"{ls['candidates']} candidates - {ls['created_at']}"
+            )
+        if recent.get("latest_candidate"):
+            lc = recent["latest_candidate"]
+            console.print(
+                f"  Latest Candidate: ID {lc['id']} - {lc['source']} ({lc['status']}) - "
+                f"{lc['created_at']}"
+            )
+        if recent.get("latest_image"):
+            li = recent["latest_image"]
+            status_str = "✅" if li["success"] else "❌"
+            size_str = f"{li['file_size']:,} bytes" if li["file_size"] else "N/A"
+            console.print(
+                f"  Latest Image: ID {li['id']} - {status_str} ({size_str}) - {li['created_at']}"
+            )
+        if recent.get("latest_detection"):
+            ld = recent["latest_detection"]
+            bench_str = "✅ Bench" if ld["has_bench"] else "❌ No Bench"
+            console.print(
+                f"  Latest Detection: ID {ld['id']} - {bench_str} (conf: {ld['confidence']:.3f}, "
+                f"source: {ld['source']}) - {ld['created_at']}"
+            )
+        console.print()
 
 
 def main():
