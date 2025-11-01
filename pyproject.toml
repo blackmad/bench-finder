@@ -225,6 +225,41 @@ types = [
     "types-requests>=2.32.4.20250913",
     "mypy-extensions>=1.1.0",
 ]
+api = [
+    # Minimal dependencies for FastAPI server on Vercel
+    # This excludes all ML/computer vision dependencies (torch, ultralytics, opencv, etc.)
+    "fastapi>=0.110.3",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.6",
+    "pydantic>=2.11.10",
+    "pydantic-settings>=2.7.1",
+    "pydantic-core>=2.33.2",
+    "sqlalchemy>=2.0.43",
+    "sqlmodel>=0.0.27",
+    "psycopg2-binary>=2.9.0",
+    "python-dotenv>=1.0.1",
+    "aiofiles>=24.1.0",
+    "httpx>=0.28.1",
+]
+
+# Dependency groups for modern package managers (PEP 735)
+[dependency-groups]
+api = [
+    # Minimal dependencies for FastAPI server on Vercel
+    # This excludes all ML/computer vision dependencies (torch, ultralytics, opencv, etc.)
+    "fastapi>=0.110.3",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.6",
+    "pydantic>=2.11.10",
+    "pydantic-settings>=2.7.1",
+    "pydantic-core>=2.33.2",
+    "sqlalchemy>=2.0.43",
+    "sqlmodel>=0.0.27",
+    "psycopg2-binary>=2.9.0",
+    "python-dotenv>=1.0.1",
+    "aiofiles>=24.1.0",
+    "httpx>=0.28.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/your-org/bench-finder"

@@ -122,14 +122,41 @@ def sync_images_to_firebase(
 
         # Sync images
         success_count = 0
+        skip_count = 0
         fail_count = 0
 
         async def sync_all():
             """Sync all images to Firebase."""
-            nonlocal success_count, fail_count
+            nonlocal success_count, skip_count, fail_count
 
             for image, local_path in images_to_sync:
                 try:
+                    # Check if image already exists in Firebase Storage
+                    if firebase_storage.exists(image.filename):
+                        # Image exists - get URL and update database if needed
+                        if not image.firebase_url:
+                            firebase_url = await firebase_storage.get_image_url(
+                                image.filename
+                            )
+                            if firebase_url:
+                                image.firebase_url = firebase_url
+                                session.add(image)
+                                session.commit()
+                                logger.info(
+                                    f"✓ Found existing {image.filename} -> {firebase_url}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Image {image.filename} exists but couldn't get URL"
+                                )
+                        else:
+                            logger.debug(
+                                f"⊘ Skipping {image.filename} - already exists in Firebase"
+                            )
+                        skip_count += 1
+                        continue
+
+                    # Image doesn't exist - upload it
                     logger.info(f"Uploading {image.filename}...")
                     firebase_url = await firebase_storage.upload_image(
                         str(local_path), image.filename
@@ -151,6 +178,7 @@ def sync_images_to_firebase(
             logger.info("=" * 60)
             logger.info("Sync complete!")
             logger.info(f"  Successfully uploaded: {success_count}")
+            logger.info(f"  Already existed (skipped): {skip_count}")
             logger.info(f"  Failed: {fail_count}")
             logger.info("=" * 60)
 
