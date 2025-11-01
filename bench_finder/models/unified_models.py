@@ -464,6 +464,42 @@ class MissingBenchReport(SQLModel, table=True):
         return f"<MissingBenchReport(id={self.id}, location=({self.lat}, {self.lng}), status='{self.status}')>"
 
 
+class ReverseGeocode(SQLModel, table=True):
+    """Model for storing reverse geocoding results for bench candidates."""
+
+    __tablename__ = "reverse_geocodes"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, unique=True
+    )
+    formatted_address: str = Field(
+        nullable=False, description="Formatted address from reverse geocoding"
+    )
+    # Structured address components
+    street_number: str | None = Field(default=None, description="Street number")
+    street_name: str | None = Field(default=None, description="Street name/route")
+    city: str | None = Field(default=None, description="City/locality")
+    state: str | None = Field(
+        default=None, description="State/administrative area level 1"
+    )
+    postal_code: str | None = Field(default=None, description="Postal/ZIP code")
+    country: str | None = Field(default=None, description="Country")
+    raw_response: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="Raw API response for future reference",
+    )
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime | None = Field(default=None)
+
+    # Relationships
+    bench_candidate: "BenchCandidate" = Relationship(back_populates="reverse_geocode")
+
+    def __repr__(self) -> str:
+        return f"<ReverseGeocode(id={self.id}, bench_candidate_id={self.bench_candidate_id}, address='{self.formatted_address[:50]}...')>"
+
+
 class BenchCandidate(SQLModel, table=True):
     """Model for storing bench candidates found during the search phase."""
 
@@ -498,6 +534,9 @@ class BenchCandidate(SQLModel, table=True):
         back_populates="bench_candidate",
         cascade_delete=True,
         sa_relationship_kwargs={"foreign_keys": "Image.bench_candidate_id"},
+    )
+    reverse_geocode: Optional["ReverseGeocode"] = Relationship(
+        back_populates="bench_candidate", sa_relationship_kwargs={"uselist": False}
     )
 
     def __repr__(self) -> str:

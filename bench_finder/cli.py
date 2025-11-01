@@ -219,8 +219,9 @@ def generate_candidates(
         deduplicated_candidates = _deduplicate_bench_candidates(all_candidates)
 
         # Store candidates in database
+        reverse_geocoded_count = 0
         for candidate in deduplicated_candidates:
-            database.add_bench_candidate(
+            bench_candidate_id = database.add_bench_candidate(
                 search_id=search_id,
                 provider_id=candidate.provider_id,
                 lat=candidate.lat,
@@ -231,9 +232,41 @@ def generate_candidates(
                 confidence=candidate.confidence,
             )
 
+            # Reverse geocode the candidate (structured)
+            if bench_candidate_id:
+                try:
+                    from bench_finder.core.geocoder import Geocoder
+
+                    geocoder = Geocoder()
+                    structured_address = geocoder.reverse_geocode_structured(
+                        candidate.lat, candidate.lng
+                    )
+                    if structured_address:
+                        database.add_or_update_reverse_geocode(
+                            bench_candidate_id=bench_candidate_id,
+                            formatted_address=structured_address["formatted_address"],
+                            street_number=structured_address.get("street_number"),
+                            street_name=structured_address.get("street_name"),
+                            city=structured_address.get("city"),
+                            state=structured_address.get("state"),
+                            postal_code=structured_address.get("postal_code"),
+                            country=structured_address.get("country"),
+                            raw_response=structured_address.get("raw_response"),
+                        )
+                        reverse_geocoded_count += 1
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to reverse geocode candidate {bench_candidate_id}: {e}"
+                    )
+
         progress.update(
             candidates_task, description="✅ Bench candidates found and stored"
         )
+
+        if reverse_geocoded_count > 0:
+            console.print(
+                f"[dim]📍 Reverse geocoded {reverse_geocoded_count} candidates[/dim]"
+            )
 
     # Display results
     console.print(
@@ -574,9 +607,6 @@ def show_random_image(
 
 @app.command("fetch-images")
 def fetch_images(
-    search_id: int | None = typer.Argument(
-        None, help="Search ID to fetch images for (defaults to latest search)"
-    ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
@@ -588,68 +618,85 @@ def fetch_images(
     status: str = typer.Option(
         BenchCandidateStatus.PENDING,
         "--status",
-        help="Process candidates with this status (pending, image_download_done, detection_done, or all)",
+        help="Process candidates with this status (pending, image_download_done, detection_done)",
+    ),
+    cached_only: bool = typer.Option(
+        False,
+        "--cached-only",
+        help="Only use images that are already cached in the database, skip downloading new images",
     ),
 ):
     """
     Download and cache images for bench candidates from the database.
 
     This command processes existing bench candidates by:
-    1. Loading candidates from the bench_candidates table
+    1. Loading candidates from the bench_candidates table with 'pending' status
     2. Converting them to Bench records
-    3. Capturing Street View images
+    3. Capturing Street View images (unless --cached-only is set)
     4. Storing images in the database
 
     Use this after running generate-candidates to download images.
     Detection can be run separately if needed.
+
+    With --cached-only: Only process candidates that already have images in the database,
+    skipping any new downloads from Street View API.
+
+    This command ignores search_id and processes all candidates with the specified status.
     """
     # Setup logging first
     setup_logging(level=log_level)
     logger = logging.getLogger(__name__)
 
     try:
-        # Initialize database and get candidates
+        # Initialize database and get candidates using SQLAlchemy ORM
         database = BenchDatabase()
 
-        # If no search_id provided, use the latest search
-        if search_id is None:
-            search_id = database.get_latest_search_id()
-            if search_id is None:
-                console.print(
-                    "[red]No searches found in database. Please run a search first.[/red]"
-                )
-                return
-            console.print(f"[blue]Using latest search ID: {search_id}[/blue]")
+        # Query all candidates with the specified status using SQLAlchemy ORM
+        with database.get_session() as session:
+            from bench_finder.models.unified_models import (
+                BenchCandidate as DBBenchCandidate,
+            )
 
-        # Get candidates based on status filter
-        if status == "all":
-            candidates = database.get_bench_candidates(search_id)
-        else:
-            candidates = database.get_bench_candidates_by_status(search_id, status)
+            # Parse status string to enum
+            try:
+                status_enum = BenchCandidateStatus(status)
+            except ValueError:
+                console.print(
+                    f"[red]Invalid status: {status}. Valid values: pending, image_download_done, detection_done[/red]"
+                )
+                raise typer.Exit(1)
+
+            # Query all candidates with the specified status (ignoring search_id)
+            query = session.query(DBBenchCandidate).filter(
+                DBBenchCandidate.status == status_enum
+            )
+
+            # Apply max_candidates limit if specified
+            if max_candidates:
+                query = query.limit(max_candidates)
+
+            candidates = query.all()
 
         if not candidates:
             console.print(
-                f"[yellow]No candidates found for search ID {search_id}[/yellow]"
+                f"[yellow]No candidates found with status '{status}'[/yellow]"
             )
             return
 
-        # Limit candidates if specified
-        if max_candidates and len(candidates) > max_candidates:
-            candidates = candidates[:max_candidates]
-            console.print(f"[dim]Limited to first {max_candidates} candidates[/dim]")
-
+        mode_str = "cached-only" if cached_only else "download"
         console.print(
-            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (search_id: {search_id}, status: {status})[/bold blue]\n"
+            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (status: {status}, mode: {mode_str})[/bold blue]\n"
         )
 
         # Initialize image download service
-        from services.image_download_service import ImageDownloadService
+        from bench_finder.services.image_download_service import ImageDownloadService
 
-        image_service = ImageDownloadService()
+        image_service = ImageDownloadService(cached_only=cached_only)
 
         console.print("[dim]Image download service initialized[/dim]\n")
 
         bench_candidates = []
+        candidate_search_ids = {}  # Map provider_id to search_id for status updates
         for candidate in candidates:
             # Ensure provider_id is always a string
             provider_id = candidate.provider_id or f"candidate_{candidate.id}"
@@ -663,6 +710,8 @@ def fetch_images(
                 confidence=candidate.confidence,
             )
             bench_candidates.append(bench_candidate)
+            # Store search_id for this candidate (needed for status updates)
+            candidate_search_ids[provider_id] = candidate.search_id
 
         # Process the candidates using the image download service with progress bar
         with Progress(
@@ -675,30 +724,146 @@ def fetch_images(
             TimeRemainingColumn(),
             console=console,
         ) as progress:
+            task_description = (
+                "📸 Processing cached images for"
+                if cached_only
+                else "📸 Downloading images for"
+            )
             task = progress.add_task(
-                f"📸 Downloading images for {len(bench_candidates)} candidates",
+                f"{task_description} {len(bench_candidates)} candidates",
                 total=len(bench_candidates),
             )
 
-            results = image_service.process_benches_with_progress(
-                search_id, bench_candidates, progress, task
+            # Process each candidate with its own search_id
+            from bench_finder.models.unified_models import ProcessingStats
+
+            stats = ProcessingStats(
+                benches_processed=0,
+                benches_added=0,
+                images_captured=0,
+                images_successful=0,
+                detections_performed=0,
+                benches_detected=0,
+                best_confidence=0.0,
             )
 
+            # Track additional statistics
+            candidates_with_cached_images = 0  # Had images already
+            candidates_skipped = 0  # No images and none downloaded
+            candidates_downloaded = 0  # Downloaded new images
+
+            for bench_candidate in bench_candidates:
+                search_id = candidate_search_ids.get(bench_candidate.provider_id)
+                if search_id is None:
+                    logger.warning(
+                        f"No search_id found for candidate {bench_candidate.provider_id}, skipping"
+                    )
+                    candidates_skipped += 1
+                    continue
+
+                # Check if candidate already has images (before processing)
+                had_existing_images = False
+                if not cached_only:
+                    with database.get_session() as session:
+                        from bench_finder.models.unified_models import (
+                            BenchCandidate as DBBenchCandidate,
+                        )
+                        from bench_finder.models.unified_models import (
+                            Image,
+                        )
+
+                        db_candidate = (
+                            session.query(DBBenchCandidate)
+                            .filter(
+                                DBBenchCandidate.provider_id
+                                == bench_candidate.provider_id,
+                                DBBenchCandidate.search_id == search_id,
+                            )
+                            .first()
+                        )
+                        if db_candidate:
+                            existing_count = (
+                                session.query(Image)
+                                .filter(Image.bench_candidate_id == db_candidate.id)
+                                .count()
+                            )
+                            had_existing_images = existing_count > 0
+
+                result = image_service._process_single_bench(search_id, bench_candidate)
+                stats.benches_processed += 1
+
+                if cached_only:
+                    # In cached-only mode, track if we found cached images
+                    if result.images_successful > 0:
+                        candidates_with_cached_images += 1
+                    else:
+                        candidates_skipped += 1
+                # In normal mode, distinguish between cached and downloaded
+                elif result.images_successful > 0:
+                    if had_existing_images:
+                        # Candidate already had images, we just processed existing ones
+                        candidates_with_cached_images += 1
+                    else:
+                        # New images were downloaded
+                        candidates_downloaded += 1
+                else:
+                    # No images found or downloaded
+                    candidates_skipped += 1
+
+                if result.bench_added:
+                    stats.benches_added += 1
+                stats.images_captured += result.images_captured
+                stats.images_successful += result.images_successful
+                progress.update(task, advance=1)
+
+            results = stats
+            summary_stats = {
+                "candidates_with_cached_images": candidates_with_cached_images,
+                "candidates_skipped": candidates_skipped,
+                "candidates_downloaded": candidates_downloaded,
+            }
+
         # Display results
-        console.print("\n[bold green]✅ Image downloading complete![/bold green]")
-        console.print("[bold]📊 Download Summary:[/bold]")
+        action_str = (
+            "Processing complete" if cached_only else "Image downloading complete"
+        )
+        console.print(f"\n[bold green]✅ {action_str}![/bold green]")
+        console.print("[bold]📊 Summary:[/bold]")
         console.print(f"   • Candidates processed: {results.benches_processed}")
         console.print(f"   • Benches added to database: {results.benches_added}")
         console.print(f"   • Images captured: {results.images_captured}")
         console.print(f"   • Images successful: {results.images_successful}")
 
-        console.print(
-            "\n[dim]💡 Note: This command only downloads and caches images. Run detection separately if needed.[/dim]"
-        )
+        # Display candidate statistics
+        console.print("\n[bold]📈 Candidate Statistics:[/bold]")
+        if cached_only:
+            console.print(
+                f"   • Candidates with cached images: {summary_stats['candidates_with_cached_images']}"
+            )
+            console.print(
+                f"   • Candidates skipped (no cached images): {summary_stats['candidates_skipped']}"
+            )
+            console.print(
+                "\n[dim]💡 Note: Only processed candidates with existing cached images. No new downloads were made.[/dim]"
+            )
+        else:
+            console.print(
+                f"   • Candidates with images downloaded: {summary_stats['candidates_downloaded']}"
+            )
+            console.print(
+                f"   • Candidates with cached images (already had images): {summary_stats['candidates_with_cached_images']}"
+            )
+            console.print(
+                f"   • Candidates skipped (no images): {summary_stats['candidates_skipped']}"
+            )
+            console.print(
+                "\n[dim]💡 Note: This command only downloads and caches images. Run detection separately if needed.[/dim]"
+            )
 
-        # Update search status to completed
-        database.update_search_status(search_id, "completed")
-        console.print("\n[dim]📝 Updated search status to 'completed'[/dim]")
+        # Note: We don't update search status here since we're processing across multiple searches
+        console.print(
+            "\n[dim]💡 Note: Search statuses were updated for individual candidates.[/dim]"
+        )
 
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")

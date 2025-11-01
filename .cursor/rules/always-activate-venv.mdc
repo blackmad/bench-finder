@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Always activate python venv before running commands if available

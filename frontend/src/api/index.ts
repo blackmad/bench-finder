@@ -36,6 +36,7 @@ export type { ReportResponse } from './models/ReportResponse';
 export type { SearchListResponse } from './models/SearchListResponse';
 export type { SearchSummary } from './models/SearchSummary';
 export type { SegmentationData } from './models/SegmentationData';
+export type { StructuredAddress } from './models/StructuredAddress';
 export type { ValidationError } from './models/ValidationError';
 export type { WebBenchData } from './models/WebBenchData';
 

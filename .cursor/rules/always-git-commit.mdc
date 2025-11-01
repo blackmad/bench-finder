@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+when a change is completed, always commit a good well formatted git message

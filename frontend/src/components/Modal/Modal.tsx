@@ -4,9 +4,48 @@ import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import styled from "styled-components"
-import type { SegmentationData, WebBenchData } from "../../api"
+import type { StructuredAddress, SegmentationData, WebBenchData } from "../../api"
 import { benchApi } from "../../services/api"
 import DetectionData from "../DetectionData/DetectionData"
+
+// Helper function to format structured address for display
+function formatStructuredAddress(addr: StructuredAddress | null | undefined): string {
+  if (!addr) return ""
+
+  // Build address from components, fallback to formatted_address
+  const parts: string[] = []
+
+  if (addr.street_number && addr.street_name) {
+    parts.push(`${addr.street_number} ${addr.street_name}`)
+  } else if (addr.street_name) {
+    parts.push(addr.street_name)
+  }
+
+  if (addr.city) {
+    parts.push(addr.city)
+  }
+
+  if (addr.state) {
+    if (addr.postal_code) {
+      parts.push(`${addr.state} ${addr.postal_code}`)
+    } else {
+      parts.push(addr.state)
+    }
+  } else if (addr.postal_code) {
+    parts.push(addr.postal_code)
+  }
+
+  if (addr.country) {
+    parts.push(addr.country)
+  }
+
+  // Use formatted address if we have few components, otherwise use our formatted version
+  if (parts.length > 0) {
+    return parts.join(", ")
+  }
+
+  return addr.formatted_address || ""
+}
 
 const Overlay = styled(motion.div)`
   position: fixed;
@@ -958,6 +997,12 @@ const Modal: React.FC<ModalProps> = ({
                     {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
                   </InfoValue>
                 </InfoRow>
+                {bench.reverse_geocode && (
+                  <InfoRow>
+                    <InfoLabel>Address:</InfoLabel>
+                    <InfoValue>{formatStructuredAddress(bench.reverse_geocode)}</InfoValue>
+                  </InfoRow>
+                )}
                 <InfoRow>
                   <InfoLabel>Distance:</InfoLabel>
                   <InfoValue>

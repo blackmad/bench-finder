@@ -28,6 +28,7 @@ export type WebBenchData = {
     image_ids: Array<number>;
     distance_meters: number;
     distance_km: number;
+    reverse_geocode?: (StructuredAddress | null);
     cluster_id?: (number | null);
     cluster_center_lat?: (number | null);
     cluster_center_lng?: (number | null);

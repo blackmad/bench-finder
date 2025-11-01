@@ -22,6 +22,7 @@ from bench_finder.models.unified_models import (
     Image,
     ImageBase,
     ProcessedBench,
+    ReverseGeocode,
     Search,
     SearchBase,
     SearchStatus,
@@ -598,6 +599,144 @@ class BenchDatabase:
         except Exception:
             logger.exception("Error getting random streetview image")
             return None
+
+    def add_or_update_reverse_geocode(
+        self,
+        bench_candidate_id: int,
+        formatted_address: str,
+        street_number: str | None = None,
+        street_name: str | None = None,
+        city: str | None = None,
+        state: str | None = None,
+        postal_code: str | None = None,
+        country: str | None = None,
+        raw_response: dict[str, Any] | None = None,
+    ) -> int | None:
+        """
+        Add or update reverse geocode for a bench candidate.
+
+        Args:
+            bench_candidate_id: ID of the bench candidate
+            formatted_address: Formatted address string from reverse geocoding
+            street_number: Street number (optional)
+            street_name: Street name/route (optional)
+            city: City/locality (optional)
+            state: State/administrative area (optional)
+            postal_code: Postal/ZIP code (optional)
+            country: Country code (optional)
+            raw_response: Optional raw API response for future reference
+
+        Returns:
+            ID of the created/updated reverse geocode record, or None if failed
+        """
+        try:
+            with self.get_session() as session:
+                # Check if reverse geocode already exists
+                existing = (
+                    session.query(ReverseGeocode)
+                    .filter(ReverseGeocode.bench_candidate_id == bench_candidate_id)
+                    .first()
+                )
+
+                if existing:
+                    # Update existing record
+                    existing.formatted_address = formatted_address
+                    existing.street_number = street_number
+                    existing.street_name = street_name
+                    existing.city = city
+                    existing.state = state
+                    existing.postal_code = postal_code
+                    existing.country = country
+                    existing.raw_response = raw_response
+                    existing.updated_at = datetime.now()
+                    session.commit()
+                    session.refresh(existing)
+                    logger.debug(
+                        f"Updated reverse geocode for bench candidate {bench_candidate_id}"
+                    )
+                    return existing.id
+                else:
+                    # Create new record
+                    reverse_geocode = ReverseGeocode(
+                        bench_candidate_id=bench_candidate_id,
+                        formatted_address=formatted_address,
+                        street_number=street_number,
+                        street_name=street_name,
+                        city=city,
+                        state=state,
+                        postal_code=postal_code,
+                        country=country,
+                        raw_response=raw_response,
+                    )
+                    session.add(reverse_geocode)
+                    session.commit()
+                    session.refresh(reverse_geocode)
+                    logger.debug(
+                        f"Added reverse geocode for bench candidate {bench_candidate_id}: {formatted_address[:50]}..."
+                    )
+                    return reverse_geocode.id
+
+        except Exception:
+            logger.exception(
+                f"Error adding/updating reverse geocode for bench candidate {bench_candidate_id}"
+            )
+            return None
+
+    def get_reverse_geocode(self, bench_candidate_id: int) -> ReverseGeocode | None:
+        """
+        Get reverse geocode for a bench candidate.
+
+        Args:
+            bench_candidate_id: ID of the bench candidate
+
+        Returns:
+            ReverseGeocode object if found, None otherwise
+        """
+        try:
+            with self.get_session() as session:
+                reverse_geocode = (
+                    session.query(ReverseGeocode)
+                    .filter(ReverseGeocode.bench_candidate_id == bench_candidate_id)
+                    .first()
+                )
+                return reverse_geocode
+
+        except Exception:
+            logger.exception(
+                f"Error getting reverse geocode for bench candidate {bench_candidate_id}"
+            )
+            return None
+
+    def get_bench_candidates_without_reverse_geocode(
+        self, limit: int | None = None
+    ) -> list[BenchCandidate]:
+        """
+        Get bench candidates that don't have reverse geocode yet.
+
+        Args:
+            limit: Optional limit on number of candidates to return
+
+        Returns:
+            List of BenchCandidate objects without reverse geocode
+        """
+        try:
+            with self.get_session() as session:
+                # Get candidates that don't have a reverse geocode
+                query = (
+                    session.query(BenchCandidate)
+                    .outerjoin(ReverseGeocode)
+                    .filter(ReverseGeocode.id.is_(None))
+                )
+
+                if limit:
+                    query = query.limit(limit)
+
+                candidates = query.all()
+                return candidates
+
+        except Exception:
+            logger.exception("Error getting bench candidates without reverse geocode")
+            return []
 
     def close(self) -> None:
         """Close database connection if needed."""

@@ -9,9 +9,9 @@ import logging
 
 from bench_finder.core.streetview import StreetViewClient
 from bench_finder.generators.bench_generator import BenchCandidate
+from bench_finder.models.enums import BenchCandidateStatus
 from bench_finder.models.unified_models import (
     BenchBase,
-    BenchCandidateStatus,
     BenchProcessingResult,
     ImageBase,
     ProcessingStats,
@@ -26,13 +26,21 @@ logger = logging.getLogger(__name__)
 class ImageDownloadService:
     """Service for downloading and caching images for bench candidates."""
 
-    def __init__(self):
-        """Initialize the image download service."""
+    def __init__(self, cached_only: bool = False):
+        """
+        Initialize the image download service.
+
+        Args:
+            cached_only: If True, only process candidates that already have images
+                        in the database, skipping any new downloads.
+        """
+        self.cached_only = cached_only
         self.streetview_client = StreetViewClient()
         self.database = BenchDatabase()
 
+        mode_str = "cached-only mode" if cached_only else "download mode"
         logger.info(
-            "ImageDownloadService initialized for image downloading and caching"
+            f"ImageDownloadService initialized for image downloading and caching ({mode_str})"
         )
 
     def process_benches(
@@ -182,71 +190,134 @@ class ImageDownloadService:
                 f"Invalid coordinates in bench data: lat={bench.lat}, lng={bench.lng}. Error: {e}"
             ) from e
 
-        # Add bench to database
-        try:
-            bench_data = BenchBase(
-                provider_id=bench.provider_id,
-                lat=lat,  # Use validated coordinates
-                lng=lng,
-                tags=bench.tags,
-                source=bench.source,
-                external_id=bench.external_id,
-            )
-            bench_id = self.database.add_bench(bench_data)
-            if bench_id:
-                result.bench_added = True
-                logger.debug(f"Added bench {bench.provider_id} as DB record {bench_id}")
-            else:
-                logger.warning(f"Failed to add bench {bench.provider_id} to database")
-                return result
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to add bench {bench.provider_id} to database: {e}"
-            ) from e
-
-        # Generate unique identifier for image filenames
-        bench_identifier = bench.provider_id or f"bench_{bench_id}"
-
-        # Capture street view images
-        try:
-            image_results = self.streetview_client.capture_bench_images(
-                lat,
-                lng,
-                bench_identifier,  # Use validated coordinates
-            )
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to capture images for bench {bench.provider_id}: {e}"
-            ) from e
-
-        result.images_captured = len(image_results.captures)
-        result.images_successful = sum(
-            1 for img in image_results.captures if img.success
-        )
-
-        # Add all images to database
-        for image_capture in image_results.captures:
+        # In cached-only mode, check if images already exist for this candidate
+        if self.cached_only:
             try:
-                self.database.add_image(
-                    ImageBase(
-                        heading=image_capture.heading,
-                        filepath=image_capture.filepath,
-                        filename=image_capture.filename,
-                        file_size=image_capture.file_size,
-                        capture_success=image_capture.success,
-                        capture_error=image_capture.error,
+                with self.database.get_session() as session:
+                    from bench_finder.models.unified_models import (
+                        BenchCandidate as DBBenchCandidate,
                     )
-                )
+                    from bench_finder.models.unified_models import (
+                        Image,
+                    )
 
-                logger.debug(
-                    f"Added image record for bench {bench.provider_id}, heading {image_capture.heading}"
-                )
+                    # Find the bench candidate in the database
+                    db_candidate = (
+                        session.query(DBBenchCandidate)
+                        .filter(
+                            DBBenchCandidate.provider_id == bench.provider_id,
+                            DBBenchCandidate.search_id == search_id,
+                        )
+                        .first()
+                    )
 
-            except Exception:
-                logger.exception(
-                    f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}"
+                    if not db_candidate:
+                        logger.debug(
+                            f"Cached-only mode: Candidate {bench.provider_id} not found in database, skipping"
+                        )
+                        return result
+
+                    # Check if images already exist for this candidate
+                    existing_images = (
+                        session.query(Image)
+                        .filter(Image.bench_candidate_id == db_candidate.id)
+                        .all()
+                    )
+
+                    if not existing_images:
+                        logger.debug(
+                            f"Cached-only mode: No cached images found for candidate {bench.provider_id}, skipping"
+                        )
+                        return result
+
+                    # Count successful images
+                    successful_images = [
+                        img for img in existing_images if img.capture_success
+                    ]
+                    result.images_captured = len(existing_images)
+                    result.images_successful = len(successful_images)
+
+                    logger.debug(
+                        f"Cached-only mode: Found {result.images_successful}/{result.images_captured} cached images for {bench.provider_id}"
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"Error checking cached images for {bench.provider_id}: {e}"
                 )
-                continue
+                return result
+
+        else:
+            # Normal mode: Add bench to database and capture images
+            try:
+                bench_data = BenchBase(
+                    provider_id=bench.provider_id,
+                    lat=lat,  # Use validated coordinates
+                    lng=lng,
+                    tags=bench.tags,
+                    source=bench.source,
+                    external_id=bench.external_id,
+                )
+                bench_id = self.database.add_bench(bench_data, search_id=search_id)
+                if bench_id:
+                    result.bench_added = True
+                    logger.debug(
+                        f"Added bench {bench.provider_id} as DB record {bench_id}"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to add bench {bench.provider_id} to database"
+                    )
+                    return result
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to add bench {bench.provider_id} to database: {e}"
+                ) from e
+
+            # Generate unique identifier for image filenames
+            bench_identifier = bench.provider_id or f"bench_{bench_id}"
+
+            # Capture street view images
+            try:
+                image_results = self.streetview_client.capture_bench_images(
+                    lat,
+                    lng,
+                    bench_identifier,  # Use validated coordinates
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to capture images for bench {bench.provider_id}: {e}"
+                ) from e
+
+            result.images_captured = len(image_results.captures)
+            result.images_successful = sum(
+                1 for img in image_results.captures if img.success
+            )
+
+            # Add all images to database
+            for image_capture in image_results.captures:
+                try:
+                    self.database.add_image(
+                        ImageBase(
+                            heading=image_capture.heading,
+                            filepath=image_capture.filepath,
+                            filename=image_capture.filename,
+                            file_size=image_capture.file_size,
+                            capture_success=image_capture.success,
+                            capture_error=image_capture.error,
+                        ),
+                        bench_id=bench_id,
+                    )
+
+                    logger.debug(
+                        f"Added image record for bench {bench.provider_id}, heading {image_capture.heading}"
+                    )
+
+                except Exception:
+                    logger.exception(
+                        f"Failed to add image record for bench {bench.provider_id}, heading {image_capture.heading}"
+                    )
+                    continue
 
         logger.debug(
             f"Processed bench {bench.provider_id}: {result.images_successful}/{result.images_captured} images captured"
@@ -256,7 +327,7 @@ class ImageDownloadService:
         # We need to find the candidate ID from the database
         try:
             with self.database.get_session() as session:
-                from models.unified_models import BenchCandidate
+                from bench_finder.models.unified_models import BenchCandidate
 
                 candidate = (
                     session.query(BenchCandidate)
@@ -267,7 +338,7 @@ class ImageDownloadService:
                     .first()
                 )
 
-                if candidate:
+                if candidate and candidate.id:
                     # Only update status if it's not already image_download_done or detection_done
                     if candidate.status not in [
                         BenchCandidateStatus.IMAGE_DOWNLOAD_DONE,

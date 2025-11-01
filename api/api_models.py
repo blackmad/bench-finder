@@ -157,6 +157,18 @@ class SearchResults(BaseModel):
 # ============================================================================
 
 
+class StructuredAddress(BaseModel):
+    """Schema for structured address components."""
+
+    formatted_address: str
+    street_number: str | None = None
+    street_name: str | None = None
+    city: str | None = None
+    state: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+
+
 class WebBenchData(BaseModel):
     """Schema for web UI bench data."""
 
@@ -181,6 +193,9 @@ class WebBenchData(BaseModel):
     best_detection_id: int | None = None  # ID of the best detection
     distance_meters: int
     distance_km: float
+    reverse_geocode: StructuredAddress | None = (
+        None  # Structured address from reverse geocoding
+    )
     # Optional detection data (only included when requested)
     detection_items: list[ApiDetectionItem] | None = None
 

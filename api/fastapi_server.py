@@ -35,6 +35,7 @@ from bench_finder.models.unified_models import (
     DetectionItem,
     Image,
     ProcessedBench,
+    ReverseGeocode,
     Search,
 )
 from bench_finder.services.database import BenchDatabase
@@ -57,6 +58,7 @@ from .api_models import (
     SearchListResponse,
     SearchSummary,
     SegmentationData,
+    StructuredAddress,
     WebBenchData,
 )
 
@@ -571,6 +573,31 @@ def get_detection_items_for_bench(
     return detection_items
 
 
+# Helper function to build structured address from query result
+def _build_structured_address(result) -> "StructuredAddress | None":
+    """
+    Build StructuredAddress from query result with reverse geocode fields.
+
+    Args:
+        result: Query result with rg_* fields (rg_formatted_address, rg_city, etc.)
+
+    Returns:
+        StructuredAddress object if formatted_address exists, None otherwise
+    """
+    if not hasattr(result, "rg_formatted_address") or not result.rg_formatted_address:
+        return None
+
+    return StructuredAddress(
+        formatted_address=result.rg_formatted_address,
+        street_number=getattr(result, "rg_street_number", None),
+        street_name=getattr(result, "rg_street_name", None),
+        city=getattr(result, "rg_city", None),
+        state=getattr(result, "rg_state", None),
+        postal_code=getattr(result, "rg_postal_code", None),
+        country=getattr(result, "rg_country", None),
+    )
+
+
 # Unified helper function for getting a single bench by ID
 def _safe_convert_source(source) -> DataSource:
     """Safely convert a source value to DataSource enum."""
@@ -613,7 +640,9 @@ def get_bench_by_id(
             processed_bench = (
                 session.query(ProcessedBench)
                 .options(
-                    joinedload(ProcessedBench.bench_candidate),
+                    joinedload(ProcessedBench.bench_candidate).joinedload(
+                        BenchCandidate.reverse_geocode
+                    ),
                     joinedload(ProcessedBench.best_detection).joinedload(
                         Detection.detection_items
                     ),
@@ -694,6 +723,20 @@ def get_bench_by_id(
                     session, bench_candidate.id
                 )
 
+            # Get reverse geocode if available
+            reverse_geocode = None
+            if bench_candidate.reverse_geocode:
+                rg = bench_candidate.reverse_geocode
+                reverse_geocode = StructuredAddress(
+                    formatted_address=rg.formatted_address,
+                    street_number=rg.street_number,
+                    street_name=rg.street_name,
+                    city=rg.city,
+                    state=rg.state,
+                    postal_code=rg.postal_code,
+                    country=rg.country,
+                )
+
             # Ensure source is properly converted to enum
             bench_source = _safe_convert_source(bench_candidate.source)
 
@@ -719,6 +762,7 @@ def get_bench_by_id(
                 best_detection_id=processed_bench.best_detection_id,
                 distance_meters=0,  # Not applicable for single bench
                 distance_km=0.0,  # Not applicable for single bench
+                reverse_geocode=reverse_geocode,
                 detection_items=detection_items,
             )
 
@@ -816,6 +860,14 @@ def get_high_confidence_benches_filtered(
                     func.coalesce(seg_subq.c.has_segmentation, 0).label(
                         "has_segmentation"
                     ),
+                    # Structured address fields
+                    ReverseGeocode.formatted_address.label("rg_formatted_address"),
+                    ReverseGeocode.street_number.label("rg_street_number"),
+                    ReverseGeocode.street_name.label("rg_street_name"),
+                    ReverseGeocode.city.label("rg_city"),
+                    ReverseGeocode.state.label("rg_state"),
+                    ReverseGeocode.postal_code.label("rg_postal_code"),
+                    ReverseGeocode.country.label("rg_country"),
                 )
                 .join(
                     BenchCandidate,
@@ -824,6 +876,10 @@ def get_high_confidence_benches_filtered(
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
                 .outerjoin(img_subq, BenchCandidate.id == img_subq.c.bench_candidate_id)
                 .outerjoin(seg_subq, Detection.id == seg_subq.c.detection_id)
+                .outerjoin(
+                    ReverseGeocode,
+                    BenchCandidate.id == ReverseGeocode.bench_candidate_id,
+                )
             )
 
             # Add source filtering (defaults to OSM, None means all sources)
@@ -998,6 +1054,10 @@ def get_high_confidence_benches_filtered(
                     best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
+                    reverse_geocode=_build_structured_address(result)
+                    if hasattr(result, "rg_formatted_address")
+                    and result.rg_formatted_address
+                    else None,
                     detection_items=detection_items,
                 )
 
@@ -1672,6 +1732,10 @@ async def get_benches_in_bbox(
                     best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
+                    reverse_geocode=_build_structured_address(result)
+                    if hasattr(result, "rg_formatted_address")
+                    and result.rg_formatted_address
+                    else None,
                     detection_items=detection_items,
                 )
 

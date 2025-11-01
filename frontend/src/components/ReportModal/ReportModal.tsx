@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, AlertTriangle, MapPin, Send, Check } from 'lucide-react'
 import styled from 'styled-components'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -17,7 +17,7 @@ const Overlay = styled(motion.div)`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1080;
   padding: ${({ theme }) => theme.spacing[4]};
 `
 
@@ -251,8 +251,13 @@ interface ReportModalProps {
   onClose: () => void
 }
 
-const REPORT_TYPES = [
-  { value: BenchReportType.BAD_DETECTION, label: 'Bad Detection - No bench here' },
+const getReportTypes = (benchFound: boolean | undefined) => [
+  {
+    value: BenchReportType.BAD_DETECTION,
+    label: benchFound === false
+      ? 'Bench visible in photo but not detected'
+      : 'Bad Detection - No bench here'
+  },
   { value: BenchReportType.INCORRECT_LOCATION, label: 'Incorrect Location' },
   { value: BenchReportType.POOR_IMAGE_QUALITY, label: 'Poor Image Quality' },
 ]
@@ -269,6 +274,19 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+
+  // Update report types based on whether bench was detected
+  const reportTypes = getReportTypes(bench.bench_found)
+
+  // Reset form when modal opens/closes or bench changes
+  useEffect(() => {
+    if (isOpen) {
+      setReportType(BenchReportType.BAD_DETECTION)
+      setDescription('')
+      setIsSuccess(false)
+      setUserLocation(null)
+    }
+  }, [isOpen, bench.id])
 
   const handleSubmit = async () => {
     if (isSubmitting) return
@@ -373,7 +391,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     value={reportType}
                     onChange={(e) => setReportType(e.target.value as BenchReportType)}
                   >
-                    {REPORT_TYPES.map((type) => (
+                    {reportTypes.map((type) => (
                       <option key={type.value} value={type.value}>
                         {type.label}
                       </option>
