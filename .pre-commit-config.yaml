@@ -45,3 +45,24 @@ repos:
   #       ]
   #       exclude: ^(tests/|examples/|venv/|frontend/|bin/|tools/)
   #       pass_filenames: true
+
+  # Local hooks for frontend
+  - repo: local
+    hooks:
+      # Biome check for linting and formatting
+      - id: biome-check
+        name: Biome check
+        entry: bash -c 'cd frontend && npm run check'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json)$
+        pass_filenames: false
+        always_run: false
+
+      # TypeScript type checking and Vite build
+      - id: typescript-build
+        name: TypeScript build check
+        entry: bash -c 'cd frontend && tsc -b && vite build'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+        always_run: false
