@@ -79,12 +79,16 @@ const HoverOverlay = styled.div`
   opacity: 0;
   transition: opacity ${({ theme }) => theme.transitions.normal};
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  padding-bottom: 120px;
+  padding-left: ${({ theme }) => theme.spacing[4]};
+  padding-right: 140px;
   color: white;
   font-size: ${({ theme }) => theme.typography.sizes.sm};
   text-align: center;
   pointer-events: none;
+  z-index: 1;
 
   ${ImageContainer}:hover & {
     opacity: 1;
@@ -107,7 +111,7 @@ const Badge = styled.div<{
     switch ($variant) {
       case "confidence":
         return `
-          top: ${theme.spacing[4]};
+          top: ${theme.spacing[12]};
           right: ${theme.spacing[4]};
           background: ${theme.colors.success};
           color: white;
@@ -115,7 +119,7 @@ const Badge = styled.div<{
       case "distance":
         return `
           top: ${theme.spacing[4]};
-          left: ${theme.spacing[4]};
+          right: ${theme.spacing[4]};
           background: rgba(255, 255, 255, 0.95);
           color: ${theme.colors.textPrimary};
           border: 1px solid rgba(255, 255, 255, 0.8);
@@ -129,7 +133,7 @@ const Badge = styled.div<{
         `
       case "source":
         return `
-          top: ${theme.spacing[12]};
+          top: ${theme.spacing[20]};
           right: ${theme.spacing[4]};
           background: ${theme.colors.gray600};
           color: white;
@@ -399,6 +403,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   const { state } = useApp()
   const [hoverMapLoaded, setHoverMapLoaded] = useState(false)
   const [miniMap, setMiniMap] = useState<L.Map | null>(null)
+  const [mapMarker, setMapMarker] = useState<L.Marker | null>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
 
@@ -408,9 +413,9 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     : null
   const imageId = bench.image_ids?.[0] || null
 
-  // Format tags (exclude amenity tag)
+  // Format tags (exclude amenity tag and null values)
   const tags = Object.entries(bench.tags || {})
-    .filter(([key]) => key !== "amenity")
+    .filter(([key, value]) => key !== "amenity" && value != null && value !== "null")
     .map(([key, value]) => `${key}: ${value}`)
 
   // Determine detection type color
@@ -455,7 +460,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     }
   }
 
-  // Initialize minimap immediately
+  // Initialize minimap once
   useEffect(() => {
     if (!mapRef.current || miniMap) return
 
@@ -490,7 +495,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           iconAnchor: [10, 10],
         })
 
-        L.marker([bench.lat, bench.lng], { icon: pinIcon }).addTo(map)
+        const marker = L.marker([bench.lat, bench.lng], { icon: pinIcon }).addTo(map)
 
         // Invalidate size after a brief delay to ensure proper rendering
         setTimeout(() => {
@@ -498,6 +503,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
         }, 150)
 
         setMiniMap(map)
+        setMapMarker(marker)
         setHoverMapLoaded(true)
       } catch (error) {
         console.warn("Failed to initialize minimap:", error)
@@ -512,14 +518,27 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     }
   }, [bench.lat, bench.lng])
 
+  // Update map position when coordinates change
+  useEffect(() => {
+    if (miniMap && mapMarker) {
+      miniMap.setView([bench.lat, bench.lng], 12)
+      mapMarker.setLatLng([bench.lat, bench.lng])
+    }
+  }, [bench.lat, bench.lng, miniMap, mapMarker])
+
   // Cleanup minimap on unmount
   useEffect(() => {
     return () => {
       if (miniMap) {
         miniMap.remove()
+        setMiniMap(null)
+      }
+      if (mapMarker) {
+        mapMarker.remove()
+        setMapMarker(null)
       }
     }
-  }, [miniMap])
+  }, [miniMap, mapMarker])
 
   const cardVariants = {
     hidden: { opacity: 0, y: 30 },
@@ -631,13 +650,6 @@ export const BenchCard: React.FC<BenchCardProps> = ({
               <DetailValue>
                 {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
               </DetailValue>
-            </DetailRow>
-            <DetailRow>
-              <DetailLabel>
-                <Camera />
-                Images:
-              </DetailLabel>
-              <DetailValue>{bench.image_count}</DetailValue>
             </DetailRow>
           </BenchDetails>
 

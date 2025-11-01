@@ -9,9 +9,9 @@ export const filtersToSearchParams = (filters: AppFilters): URLSearchParams => {
     params.set("minConfidence", filters.minConfidence.toString())
   }
 
+  // Always include source in URL (defaults to OSM)
+  const sourceValue = filters.sourceFilter === "OSM" ? "osm" : filters.sourceFilter === "MAPILLARY" ? "mapillary" : filters.sourceFilter
   if (filters.sourceFilter !== "all") {
-    // Convert enum values to lowercase for URL (OSM -> osm, MAPILLARY -> mapillary)
-    const sourceValue = filters.sourceFilter === "OSM" ? "osm" : filters.sourceFilter === "MAPILLARY" ? "mapillary" : filters.sourceFilter
     params.set("source", sourceValue.toLowerCase())
   }
 
@@ -52,6 +52,7 @@ export const searchParamsToFilters = (
   }
 
   const source = searchParams.get("source")
+  // Default to OSM if no source specified
   if (source !== null) {
     // Handle both lowercase (URL) and uppercase (enum) values
     const sourceLower = source.toLowerCase()
@@ -65,6 +66,9 @@ export const searchParamsToFilters = (
       // Handle uppercase enum values directly
       filters.sourceFilter = source as AppFilters["sourceFilter"]
     }
+  } else {
+    // Default to OSM if not specified
+    filters.sourceFilter = "OSM" as AppFilters["sourceFilter"]
   }
 
   const sortBy = searchParams.get("sortBy")

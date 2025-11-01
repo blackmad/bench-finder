@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, ExternalLink, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, ExternalLink, X, Flag } from "lucide-react"
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
@@ -88,6 +88,32 @@ const PermalinkButton = styled(Link)`
   &:hover {
     background: ${({ theme }) => theme.colors.primaryDark};
     transform: translateY(-1px);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+`
+
+const ReportButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing[2]};
+  background: ${({ theme }) => theme.colors.background};
+  color: ${({ theme }) => theme.colors.warning};
+  border: 1px solid ${({ theme }) => theme.colors.warning};
+  padding: ${({ theme }) => theme.spacing[2]} ${({ theme }) => theme.spacing[3]};
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  font-size: ${({ theme }) => theme.typography.sizes.sm};
+  font-weight: ${({ theme }) => theme.typography.weights.medium};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.warning}20;
+    border-color: ${({ theme }) => theme.colors.warning};
+    color: ${({ theme }) => theme.colors.warning};
   }
 
   svg {
@@ -240,6 +266,85 @@ const InfoValue = styled.span`
   font-family: ${({ theme }) => theme.typography.fonts.mono};
 `
 
+const ThumbnailGallery = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.spacing[3]};
+  margin-top: ${({ theme }) => theme.spacing[4]};
+  padding: ${({ theme }) => theme.spacing[3]};
+  background: ${({ theme }) => theme.colors.backgroundTertiary};
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  /* Scrollbar styling */
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: ${({ theme }) => theme.colors.gray200};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colors.gray400};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
+
+    &:hover {
+      background: ${({ theme }) => theme.colors.gray500};
+    }
+  }
+`
+
+const Thumbnail = styled.div<{ $selected?: boolean; $hasDetection?: boolean }>`
+  position: relative;
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  overflow: hidden;
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  border: 3px solid
+    ${({ $selected, $hasDetection, theme }) => {
+    if ($selected) return theme.colors.primary
+    if ($hasDetection) return theme.colors.success
+    return "transparent"
+  }};
+  box-shadow: ${({ $selected, $hasDetection, theme }) => {
+    if ($selected) return `0 0 0 2px ${theme.colors.primary}40`
+    if ($hasDetection) return `0 0 0 2px ${theme.colors.success}40`
+    return "none"
+  }};
+
+  &:hover {
+    transform: scale(1.05);
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Detection indicator badge */
+  &::after {
+    content: ${({ $hasDetection }) => ($hasDetection ? '"🎯"' : "none")};
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: ${({ theme }) => theme.colors.success};
+    color: white;
+    font-size: 12px;
+    padding: 2px 4px;
+    border-radius: ${({ theme }) => theme.borderRadius.sm};
+    z-index: 10;
+    pointer-events: none;
+  }
+`
+
 interface ModalProps {
   isOpen: boolean
   onClose: () => void
@@ -251,6 +356,10 @@ interface ModalProps {
   currentIndex?: number
   onNavigate?: (direction: "prev" | "next") => void
   hasMore?: boolean // Whether there are more benches that can be loaded
+  // Report functionality
+  onReport?: () => void
+  // Image selection callback for thumbnail clicks
+  onImageSelect?: (imageUrl: string, imageId: number) => void
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -263,11 +372,16 @@ const Modal: React.FC<ModalProps> = ({
   currentIndex = 0,
   onNavigate,
   hasMore = false,
+  onReport,
+  onImageSelect,
 }) => {
   const [segmentationData, setSegmentationData] =
     useState<SegmentationData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imagesWithDetections, setImagesWithDetections] = useState<Set<number>>(
+    new Set()
+  )
   const imageRef = useRef<HTMLImageElement>(null)
   const overlayRef = useRef<SVGSVGElement>(null)
   // Cache for segmentation data to avoid re-fetching
@@ -324,6 +438,58 @@ const Modal: React.FC<ModalProps> = ({
 
     loadSegmentationData()
   }, [imageId, imageUrl, isOpen])
+
+  // Check which images have detections for thumbnail highlighting
+  useEffect(() => {
+    if (!bench || !isOpen) {
+      setImagesWithDetections(new Set())
+      return
+    }
+
+    const checkImageDetections = async () => {
+      const detectionSet = new Set<number>()
+
+      // Check all images for this bench
+      if (bench.image_ids && bench.image_ids.length > 0) {
+        const checkPromises = bench.image_ids.map(async (imgId) => {
+          // Check cache first
+          if (segmentationCacheRef.current.has(imgId)) {
+            const cached = segmentationCacheRef.current.get(imgId)
+            if (
+              cached &&
+              cached.detection_items &&
+              cached.detection_items.length > 0
+            ) {
+              detectionSet.add(imgId)
+            }
+            return
+          }
+
+          // Fetch segmentation data to check for detections
+          try {
+            const data = await benchApi.getImageSegmentation(imgId)
+            segmentationCacheRef.current.set(imgId, data)
+            if (
+              data &&
+              data.detection_items &&
+              data.detection_items.length > 0
+            ) {
+              detectionSet.add(imgId)
+            }
+          } catch (err) {
+            // Image doesn't have segmentation data - that's fine
+            console.debug("No detection data for image:", imgId)
+          }
+        })
+
+        await Promise.all(checkPromises)
+      }
+
+      setImagesWithDetections(detectionSet)
+    }
+
+    checkImageDetections()
+  }, [bench?.id, bench?.image_ids, isOpen])
 
   // Pre-load segmentation data for adjacent images
   useEffect(() => {
@@ -671,6 +837,12 @@ const Modal: React.FC<ModalProps> = ({
                   <ExternalLink />
                   View Full Page
                 </PermalinkButton>
+                {onReport && (
+                  <ReportButton onClick={onReport} title="Report Issue">
+                    <Flag />
+                    Report
+                  </ReportButton>
+                )}
                 <CloseButton onClick={onClose}>
                   <X />
                 </CloseButton>
@@ -679,55 +851,95 @@ const Modal: React.FC<ModalProps> = ({
 
             <ModalContent>
               {imageUrl ? (
-                <ImageContainer>
-                  {/* Navigation arrows - only show if we have multiple benches */}
-                  {onNavigate && allBenches.length > 1 && (
-                    <>
-                      <NavigationArrow
-                        direction="prev"
-                        onClick={() => {
-                          console.log("Previous arrow clicked")
-                          onNavigate("prev")
-                        }}
-                        disabled={currentIndex <= 0}
-                        title="Previous bench (←)"
-                      >
-                        <ChevronLeft />
-                      </NavigationArrow>
-                      <NavigationArrow
-                        direction="next"
-                        onClick={() => {
-                          console.log("Next arrow clicked")
-                          onNavigate("next")
-                        }}
-                        disabled={
-                          currentIndex >= allBenches.length - 1 && !hasMore
-                        }
-                        title="Next bench (→)"
-                      >
-                        <ChevronRight />
-                      </NavigationArrow>
-                    </>
-                  )}
+                <>
+                  <ImageContainer>
+                    {/* Navigation arrows - only show if we have multiple benches */}
+                    {onNavigate && allBenches.length > 1 && (
+                      <>
+                        <NavigationArrow
+                          direction="prev"
+                          onClick={() => {
+                            console.log("Previous arrow clicked")
+                            onNavigate("prev")
+                          }}
+                          disabled={currentIndex <= 0}
+                          title="Previous bench (←)"
+                        >
+                          <ChevronLeft />
+                        </NavigationArrow>
+                        <NavigationArrow
+                          direction="next"
+                          onClick={() => {
+                            console.log("Next arrow clicked")
+                            onNavigate("next")
+                          }}
+                          disabled={
+                            currentIndex >= allBenches.length - 1 && !hasMore
+                          }
+                          title="Next bench (→)"
+                        >
+                          <ChevronRight />
+                        </NavigationArrow>
+                      </>
+                    )}
 
-                  <ModalImage
-                    ref={imageRef}
-                    src={imageUrl}
-                    alt={`Bench ${bench.id}`}
-                    onLoad={handleImageLoad}
-                  />
-                  <SegmentationOverlay
-                    ref={overlayRef}
-                    style={{
-                      display:
-                        segmentationData &&
-                          segmentationData.detection_items &&
-                          segmentationData.detection_items.length > 0
-                          ? "block"
-                          : "none",
-                    }}
-                  />
-                </ImageContainer>
+                    <ModalImage
+                      ref={imageRef}
+                      src={imageUrl}
+                      alt={`Bench ${bench.id}`}
+                      onLoad={handleImageLoad}
+                    />
+                    <SegmentationOverlay
+                      ref={overlayRef}
+                      style={{
+                        display:
+                          segmentationData &&
+                            segmentationData.detection_items &&
+                            segmentationData.detection_items.length > 0
+                            ? "block"
+                            : "none",
+                      }}
+                    />
+                  </ImageContainer>
+
+                  {/* Thumbnail Gallery */}
+                  {bench.image_filenames &&
+                    bench.image_filenames.length > 1 && (
+                      <ThumbnailGallery>
+                        {bench.image_filenames.map((filename, index) => {
+                          const imgId = bench.image_ids?.[index] || null
+                          const thumbnailUrl = `/images/${filename}`
+                          const isSelected = imgId === imageId
+                          const hasDetection =
+                            imgId !== null && imagesWithDetections.has(imgId)
+
+                          return (
+                            <Thumbnail
+                              key={index}
+                              $selected={isSelected}
+                              $hasDetection={hasDetection}
+                              onClick={() => {
+                                if (onImageSelect && imgId !== null) {
+                                  onImageSelect(thumbnailUrl, imgId)
+                                }
+                              }}
+                              title={
+                                hasDetection
+                                  ? "This image has detections"
+                                  : "Click to view this image"
+                              }
+                            >
+                              <img
+                                src={thumbnailUrl}
+                                alt={`Thumbnail ${index + 1}`}
+                                loading="lazy"
+                              />
+                            </Thumbnail>
+                          )
+                        })}
+                      </ThumbnailGallery>
+                    )}
+                </>
               ) : (
                 <PlaceholderContent>
                   <div className="icon">🪑</div>

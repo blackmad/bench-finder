@@ -64,7 +64,7 @@ const initialState: AppState = {
   benches: [],
   filters: {
     minConfidence: 0,
-    sourceFilter: "all",
+    sourceFilter: DataSource.OSM,
     sortBy: "distance",
     startLat: 52.3613577, // Amsterdam default
     startLng: 4.8666322,

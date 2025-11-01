@@ -492,9 +492,9 @@ const BenchDetailPage: React.FC = () => {
     }
   }
 
-  // Format tags (exclude amenity tag)
+  // Format tags (exclude amenity tag and null values)
   const tags = Object.entries(bench.tags || {})
-    .filter(([key]) => key !== "amenity")
+    .filter(([key, value]) => key !== "amenity" && value != null && value !== "null")
     .map(([key, value]) => ({ key, value }))
 
   const handleImageClick = (
@@ -539,13 +539,21 @@ const BenchDetailPage: React.FC = () => {
     }
   }
 
+  const handleImageSelect = (imageUrl: string, imageId: number) => {
+    setSelectedImageUrl(imageUrl)
+    setSelectedImageId(imageId)
+    // Find the index of the selected image
+    const index = bench.image_ids?.findIndex((id) => id === imageId) ?? 0
+    setCurrentModalIndex(index)
+  }
+
   // Create array of image data for navigation (needed for Modal's navigation logic)
   const imageDataForNavigation = bench
     ? bench.image_filenames.map((filename, index) => ({
-        ...bench,
-        image_filenames: [filename],
-        image_ids: [bench.image_ids?.[index] || 0],
-      }))
+      ...bench,
+      image_filenames: [filename],
+      image_ids: [bench.image_ids?.[index] || 0],
+    }))
     : []
 
   const handleOpenStreetMap = () => {
@@ -574,254 +582,255 @@ const BenchDetailPage: React.FC = () => {
           </BackLink>
 
           <DetailCard>
-          <Title>
-            Bench #{bench.id}
-            <Badge $variant={bench.bench_found ? "detected" : "no_bench"}>
-              {bench.bench_found ? "✅ Bench Detected" : "❌ No Bench"}
-            </Badge>
-            <Badge
-              $variant={
-                bench.source === DataSource.OSM ? "osm" : "mapillary"
-              }
-            >
-              {getSourceDisplayName(bench.source)}
-            </Badge>
-          </Title>
+            <Title>
+              Bench #{bench.id}
+              <Badge $variant={bench.bench_found ? "detected" : "no_bench"}>
+                {bench.bench_found ? "✅ Bench Detected" : "❌ No Bench"}
+              </Badge>
+              <Badge
+                $variant={
+                  bench.source === DataSource.OSM ? "osm" : "mapillary"
+                }
+              >
+                {getSourceDisplayName(bench.source)}
+              </Badge>
+            </Title>
 
-          {/* Image Gallery */}
-          {bench.image_filenames && bench.image_filenames.length > 0 && (
+            {/* Image Gallery */}
+            {bench.image_filenames && bench.image_filenames.length > 0 && (
+              <Section>
+                <SectionTitle>
+                  <Camera />
+                  Images ({bench.image_count})
+                </SectionTitle>
+                <ImageGallery>
+                  {bench.image_filenames.map((filename, index) => {
+                    const imgId = bench.image_ids?.[index] || null
+                    const isBestImage = bench.best_image_id === imgId
+                    return (
+                      <ImageContainer
+                        key={index}
+                        $isBestImage={isBestImage}
+                        onClick={() =>
+                          handleImageClick(`/images/${filename}`, imgId || 0, index)
+                        }
+                      >
+                        <GalleryImage
+                          src={`/images/${filename}`}
+                          alt={`Bench ${bench.id} - Image ${index + 1}${isBestImage ? " (Best Image)" : ""
+                            }`}
+                          loading="lazy"
+                        />
+                      </ImageContainer>
+                    )
+                  })}
+                </ImageGallery>
+              </Section>
+            )}
+
+            {/* Map */}
+            <MapSection>
+              <SectionTitle>
+                <MapPin />
+                Location Map
+              </SectionTitle>
+              <MapContainerStyled>
+                <MapContainer
+                  center={[bench.lat, bench.lng]}
+                  zoom={16}
+                  style={{ height: "100%", width: "100%" }}
+                  zoomControl={true}
+                  scrollWheelZoom={true}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    maxZoom={19}
+                  />
+                  <MapCenterUpdater center={[bench.lat, bench.lng]} zoom={16} />
+                  <Marker
+                    position={[bench.lat, bench.lng]}
+                    icon={L.divIcon({
+                      html: "🪑",
+                      className: "bench-detail-marker",
+                      iconSize: [30, 30],
+                      iconAnchor: [15, 15],
+                    })}
+                  />
+                </MapContainer>
+              </MapContainerStyled>
+            </MapSection>
+
+            {/* Basic Information */}
             <Section>
               <SectionTitle>
-                <Camera />
-                Images ({bench.image_count})
+                <Target />
+                Location Information
               </SectionTitle>
-              <ImageGallery>
-                {bench.image_filenames.map((filename, index) => {
-                  const imgId = bench.image_ids?.[index] || null
-                  const isBestImage = bench.best_image_id === imgId
-                  return (
-                    <ImageContainer
-                      key={index}
-                      $isBestImage={isBestImage}
-                      onClick={() =>
-                        handleImageClick(`/images/${filename}`, imgId || 0, index)
-                      }
-                    >
-                      <GalleryImage
-                        src={`/images/${filename}`}
-                        alt={`Bench ${bench.id} - Image ${index + 1}${
-                          isBestImage ? " (Best Image)" : ""
-                        }`}
-                        loading="lazy"
-                      />
-                    </ImageContainer>
-                  )
-                })}
-              </ImageGallery>
-            </Section>
-          )}
-
-          {/* Map */}
-          <MapSection>
-            <SectionTitle>
-              <MapPin />
-              Location Map
-            </SectionTitle>
-            <MapContainerStyled>
-              <MapContainer
-                center={[bench.lat, bench.lng]}
-                zoom={16}
-                style={{ height: "100%", width: "100%" }}
-                zoomControl={true}
-                scrollWheelZoom={true}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  maxZoom={19}
-                />
-                <MapCenterUpdater center={[bench.lat, bench.lng]} zoom={16} />
-                <Marker
-                  position={[bench.lat, bench.lng]}
-                  icon={L.divIcon({
-                    html: "🪑",
-                    className: "bench-detail-marker",
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15],
-                  })}
-                />
-              </MapContainer>
-            </MapContainerStyled>
-          </MapSection>
-
-          {/* Basic Information */}
-          <Section>
-            <SectionTitle>
-              <Target />
-              Location Information
-            </SectionTitle>
-            <InfoGrid>
-              <InfoItem>
-                <InfoLabel>
-                  <MapPin />
-                  Coordinates
-                </InfoLabel>
-                <InfoValue>
-                  {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
-                </InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>
-                  <Hash />
-                  Provider ID
-                </InfoLabel>
-                <InfoValue>{bench.provider_id || "N/A"}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>
-                  <Camera />
-                  Image Count
-                </InfoLabel>
-                <InfoValue>{bench.image_count}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Detection Status</InfoLabel>
-                <InfoValue>
-                  {bench.bench_found
-                    ? "Bench detected"
-                    : "No bench detected"}
-                </InfoValue>
-              </InfoItem>
-            </InfoGrid>
-          </Section>
-
-          {/* Detection Confidence */}
-          <Section>
-            <SectionTitle>Detection Confidence</SectionTitle>
-            <InfoGrid>
-              <InfoItem>
-                <InfoLabel>Best Confidence ({bench.detection_type})</InfoLabel>
-                <InfoValue>
-                  {(bench.best_confidence * 100).toFixed(1)}%
-                </InfoValue>
-                <ConfidenceBar
-                  $confidence={bench.best_confidence}
-                  $type={bench.detection_type}
-                />
-              </InfoItem>
-              {bench.ultralytics_confidence &&
-                bench.ultralytics_confidence > 0 && (
-                  <InfoItem>
-                    <InfoLabel>Ultralytics</InfoLabel>
-                    <InfoValue>
-                      {(bench.ultralytics_confidence * 100).toFixed(1)}%
-                    </InfoValue>
-                    <ConfidenceBar
-                      $confidence={bench.ultralytics_confidence}
-                      $type="ultralytics"
-                    />
-                  </InfoItem>
-                )}
-              {bench.roboflow_confidence && bench.roboflow_confidence > 0 && (
+              <InfoGrid>
                 <InfoItem>
-                  <InfoLabel>Roboflow</InfoLabel>
+                  <InfoLabel>
+                    <MapPin />
+                    Coordinates
+                  </InfoLabel>
                   <InfoValue>
-                    {(bench.roboflow_confidence * 100).toFixed(1)}%
+                    {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
+                  </InfoValue>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLabel>
+                    <Hash />
+                    Provider ID
+                  </InfoLabel>
+                  <InfoValue>{bench.provider_id || "N/A"}</InfoValue>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLabel>
+                    <Camera />
+                    Image Count
+                  </InfoLabel>
+                  <InfoValue>{bench.image_count}</InfoValue>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLabel>Detection Status</InfoLabel>
+                  <InfoValue>
+                    {bench.bench_found
+                      ? "Bench detected"
+                      : "No bench detected"}
+                  </InfoValue>
+                </InfoItem>
+              </InfoGrid>
+            </Section>
+
+            {/* Detection Confidence */}
+            <Section>
+              <SectionTitle>Detection Confidence</SectionTitle>
+              <InfoGrid>
+                <InfoItem>
+                  <InfoLabel>Best Confidence ({bench.detection_type})</InfoLabel>
+                  <InfoValue>
+                    {(bench.best_confidence * 100).toFixed(1)}%
                   </InfoValue>
                   <ConfidenceBar
-                    $confidence={bench.roboflow_confidence}
-                    $type="roboflow"
+                    $confidence={bench.best_confidence}
+                    $type={bench.detection_type}
                   />
                 </InfoItem>
-              )}
-              {bench.mapillary_confidence &&
-                bench.mapillary_confidence > 0 && (
+                {bench.ultralytics_confidence &&
+                  bench.ultralytics_confidence > 0 && (
+                    <InfoItem>
+                      <InfoLabel>Ultralytics</InfoLabel>
+                      <InfoValue>
+                        {(bench.ultralytics_confidence * 100).toFixed(1)}%
+                      </InfoValue>
+                      <ConfidenceBar
+                        $confidence={bench.ultralytics_confidence}
+                        $type="ultralytics"
+                      />
+                    </InfoItem>
+                  )}
+                {bench.roboflow_confidence && bench.roboflow_confidence > 0 && (
                   <InfoItem>
-                    <InfoLabel>Mapillary</InfoLabel>
+                    <InfoLabel>Roboflow</InfoLabel>
                     <InfoValue>
-                      {(bench.mapillary_confidence * 100).toFixed(1)}%
+                      {(bench.roboflow_confidence * 100).toFixed(1)}%
                     </InfoValue>
                     <ConfidenceBar
-                      $confidence={bench.mapillary_confidence}
-                      $type="mapillary"
+                      $confidence={bench.roboflow_confidence}
+                      $type="roboflow"
                     />
                   </InfoItem>
                 )}
-            </InfoGrid>
-            {bench.has_segmentation && (
-              <Badge $variant="default" style={{ marginTop: "16px" }}>
-                🎯 Has Segmentation Data
-              </Badge>
+                {bench.mapillary_confidence &&
+                  bench.mapillary_confidence > 0 && (
+                    <InfoItem>
+                      <InfoLabel>Mapillary</InfoLabel>
+                      <InfoValue>
+                        {(bench.mapillary_confidence * 100).toFixed(1)}%
+                      </InfoValue>
+                      <ConfidenceBar
+                        $confidence={bench.mapillary_confidence}
+                        $type="mapillary"
+                      />
+                    </InfoItem>
+                  )}
+              </InfoGrid>
+              {bench.has_segmentation && (
+                <Badge $variant="default" style={{ marginTop: "16px" }}>
+                  🎯 Has Segmentation Data
+                </Badge>
+              )}
+            </Section>
+
+            {/* Detection Data */}
+            {bench.detection_items && bench.detection_items.length > 0 && (
+              <Section>
+                <SectionTitle>Detection Details</SectionTitle>
+                <DetectionData detectionItems={bench.detection_items} />
+              </Section>
             )}
-          </Section>
 
-          {/* Detection Data */}
-          {bench.detection_items && bench.detection_items.length > 0 && (
-            <Section>
-              <SectionTitle>Detection Details</SectionTitle>
-              <DetectionData detectionItems={bench.detection_items} />
-            </Section>
-          )}
+            {/* Tags */}
+            {tags.length > 0 && (
+              <Section>
+                <SectionTitle>Tags</SectionTitle>
+                <TagsContainer>
+                  {tags.map((tag, index) => (
+                    <Tag key={index}>
+                      {tag.key}: {String(tag.value)}
+                    </Tag>
+                  ))}
+                </TagsContainer>
+              </Section>
+            )}
 
-          {/* Tags */}
-          {tags.length > 0 && (
-            <Section>
-              <SectionTitle>Tags</SectionTitle>
-              <TagsContainer>
-                {tags.map((tag, index) => (
-                  <Tag key={index}>
-                    {tag.key}: {String(tag.value)}
-                  </Tag>
-                ))}
-              </TagsContainer>
-            </Section>
-          )}
+            {/* Action Buttons */}
+            <ActionButtons>
+              <ActionButton onClick={handleOpenStreetMap}>
+                <ExternalLink />
+                View on OpenStreetMap
+              </ActionButton>
+              <ActionButton onClick={handleGoogleMaps}>
+                <ExternalLink />
+                View on Google Maps
+              </ActionButton>
+              <ReportActionButton onClick={() => setIsReportModalOpen(true)}>
+                <Flag />
+                Report Issue
+              </ReportActionButton>
+            </ActionButtons>
+          </DetailCard>
+        </ContentContainer>
 
-          {/* Action Buttons */}
-          <ActionButtons>
-            <ActionButton onClick={handleOpenStreetMap}>
-              <ExternalLink />
-              View on OpenStreetMap
-            </ActionButton>
-            <ActionButton onClick={handleGoogleMaps}>
-              <ExternalLink />
-              View on Google Maps
-            </ActionButton>
-            <ReportActionButton onClick={() => setIsReportModalOpen(true)}>
-              <Flag />
-              Report Issue
-            </ReportActionButton>
-          </ActionButtons>
-        </DetailCard>
-      </ContentContainer>
+        {/* Image Modal with Segmentation */}
+        {modalOpen && bench && selectedImageUrl && (
+          <Modal
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            bench={bench}
+            imageUrl={selectedImageUrl}
+            imageId={selectedImageId}
+            currentIndex={currentModalIndex}
+            // Pass array of benches with individual images to enable navigation
+            allBenches={imageDataForNavigation}
+            onNavigate={
+              bench.image_filenames && bench.image_filenames.length > 1
+                ? handleNavigateImage
+                : undefined
+            }
+            onReport={() => setIsReportModalOpen(true)}
+            onImageSelect={handleImageSelect}
+          />
+        )}
 
-      {/* Image Modal with Segmentation */}
-      {modalOpen && bench && selectedImageUrl && (
-        <Modal
-          isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
+        {/* Report Modal */}
+        <ReportModal
           bench={bench}
-          imageUrl={selectedImageUrl}
-          imageId={selectedImageId}
-          currentIndex={currentModalIndex}
-          // Pass array of benches with individual images to enable navigation
-          allBenches={imageDataForNavigation}
-          onNavigate={
-            bench.image_filenames && bench.image_filenames.length > 1
-              ? handleNavigateImage
-              : undefined
-          }
+          imageUrl={imageUrl || undefined}
+          imageId={imageId || undefined}
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
         />
-      )}
-
-      {/* Report Modal */}
-      <ReportModal
-        bench={bench}
-        imageUrl={imageUrl || undefined}
-        imageId={imageId || undefined}
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-      />
       </PageContainer>
     </GlobalMapStyles>
   )

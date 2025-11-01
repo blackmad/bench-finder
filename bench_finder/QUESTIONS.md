@@ -1,25 +1,20 @@
-- what to do about duplicated images in DB?
+where are these benches in our DB? https://overpass-turbo.eu/s/2eHq
 
-- why is this bench being returned for no_bench mode?
-
-➜  bench_finder git:(main) ✗ cd ~/bench_finder; uv run python tools/fastapi_cli.py random --show-images --show-annotations  --mode no_bench
-('iterm2', '3.6.5') to WHOLE
-🎲 Getting random bench (min_confidence=0.8, mode=no_bench)...
-
-============================================================
-🪑 Bench ID: 245
-📍 Location: 52.377811, 4.929819
-📊 Source: OSM
-🎯 Detection Type: ROBOFLOW
-✅ Bench Found: True
-🎯 Best Confidence: 0.950
-   Roboflow: 0.950
-📏 Distance: 0m (0.00km)
-🖼️  Images: 8
-   Image files:
-     • bench_4600552064_node_heading_0.jpg
-     • bench_4600552064_node_heading_90.jpg
-     • bench_4600552064_node_heading_180.jpg
-     • bench_4600552064_node_heading_270.jpg
-     • bench_4600552064_node_heading_0.jpg
-     ... and 3 more
+okay they seem to be missing from candidates
+(bench-finder) ➜  bench_finder git:(main) ✗ find . | grep 11176424310
+./images/bench_11176424310_node_heading_180.jpg
+./images/bench_11176424310_node_heading_0.jpg
+./images/bench_node_11176424310_heading_180.jpg
+./images/bench_node_11176424310_heading_0.jpg
+./images/bench_node_11176424310_heading_90.jpg
+./images/bench_11176424310_node_heading_270.jpg
+./images/bench_11176424310_node_heading_90.jpg
+./images/bench_node_11176424310_heading_270.jpg
+./bench_images/ultralytics/11176424310_node_heading_270_bench_11176424310_node_heading_270.jpg
+(bench-finder) ➜  bench_finder git:(main) ✗ litecli data/benches.db
+LiteCli: 1.15.0 (SQLite: 3.50.4)
+GitHub: https://github.com/dbcli/litecli
+data/benches.db> select * FROM bench_candidates WHERE provider_id='11176424310_node';
+0 rows in set
+Time: 0.001s
+data/benches.db>

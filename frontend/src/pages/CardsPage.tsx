@@ -7,6 +7,7 @@ import BenchCard from "../components/BenchCard/BenchCard"
 import Header from "../components/Header/Header"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
+import ReportModal from "../components/ReportModal/ReportModal"
 import { type AppFilters, useApp } from "../contexts/AppContext"
 import { filtersToSearchParams, searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
@@ -123,6 +124,7 @@ const CardsPage: React.FC = () => {
   )
   const [modalOpen, setModalOpen] = React.useState(false)
   const [currentModalIndex, setCurrentModalIndex] = React.useState(0)
+  const [isReportModalOpen, setIsReportModalOpen] = React.useState(false)
   // Track pending navigation after loading more benches
   const pendingNavigationRef = useRef<number | null>(null)
 
@@ -316,6 +318,18 @@ const CardsPage: React.FC = () => {
     [currentModalIndex, state.benches, state.hasMore, state.loading, loadMoreBenches]
   )
 
+  const handleImageSelect = useCallback(
+    (imageUrl: string, imageId: number) => {
+      if (!selectedBench) return
+      setSelectedImageUrl(imageUrl)
+      setSelectedImageId(imageId)
+      // Find the index of the selected image within the bench
+      const index = selectedBench.image_ids?.findIndex((id) => id === imageId) ?? 0
+      // Note: currentModalIndex stays the same (it's for bench navigation, not image navigation)
+    },
+    [selectedBench]
+  )
+
   // Determine which benches to display
   const benchesToDisplay = state.benches
 
@@ -384,7 +398,20 @@ const CardsPage: React.FC = () => {
         currentIndex={currentModalIndex}
         onNavigate={handleModalNavigate}
         hasMore={state.hasMore}
+        onReport={() => setIsReportModalOpen(true)}
+        onImageSelect={handleImageSelect}
       />
+
+      {/* Report Modal */}
+      {selectedBench && (
+        <ReportModal
+          bench={selectedBench}
+          imageUrl={selectedImageUrl || undefined}
+          imageId={selectedImageId || undefined}
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+        />
+      )}
     </PageContainer>
   )
 }

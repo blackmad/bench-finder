@@ -8,18 +8,19 @@ import { useApp } from "../contexts/AppContext"
 import { searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
 
 const PageContainer = styled.div`
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden; /* Prevent page scrolling */
 `
 
 const ViewContainer = styled.div`
-  display: flex;
-  flex-direction: column;
   flex: 1;
   width: 100%;
-  height: calc(100vh - 100px);
-  min-height: calc(100vh - 100px);
+  min-height: 0; /* Important for flex children to respect parent height */
+  overflow: hidden; /* Prevent scrolling at this level */
+  display: flex;
+  flex-direction: column;
 `
 
 const MapPage: React.FC = () => {
@@ -46,8 +47,8 @@ const MapPage: React.FC = () => {
   // Update URL when filters change (but not map view params - those are handled by MapView)
   useEffect(() => {
     if (state.config) {
-      // Only update filter-related params, preserve map view params like zoom
-      updateUrlWithFilters(state.filters, setSearchParams, ["zoom"])
+      // Preserve map view params (lat, lng, zoom) - MapView manages these exclusively
+      updateUrlWithFilters(state.filters, setSearchParams, ["lat", "lng", "zoom"])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -55,6 +56,8 @@ const MapPage: React.FC = () => {
     state.filters.minConfidence,
     state.filters.sourceFilter,
     state.filters.sortBy,
+    state.filters.mode,
+    state.filters.includeDetectionData,
     setSearchParams,
     // Don't include startLat/startLng as those are managed by MapView
   ])
