@@ -42,10 +42,10 @@ ITerm2Image.set_render_method("WHOLE")
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from bench_finder.config import IMAGES_DIR
-from bench_finder.models.enums import BenchCandidateStatus
-from bench_finder.models.unified_models import Image
-from bench_finder.services.database import BenchDatabase
+from bench_finder.config import IMAGES_DIR  # noqa: E402
+from bench_finder.models.enums import BenchCandidateStatus  # noqa: E402
+from bench_finder.models.unified_models import Image  # noqa: E402
+from bench_finder.services.database import BenchDatabase  # noqa: E402
 
 
 logging.basicConfig(
@@ -378,8 +378,8 @@ def classify_indoor_outdoor_places365(
 
             return is_indoor, category_name, top_prob_val
 
-    except Exception as e:
-        logger.error(f"Error classifying image with Places365: {e}")
+    except Exception:
+        logger.exception("Error classifying image with Places365")
         raise
 
 
@@ -533,8 +533,8 @@ def process_indoor_images(
         logger.info(
             f"Extracted reference slice: {reference_slice.size[0]}x{reference_slice.size[1]} pixels"
         )
-    except Exception as e:
-        logger.error(f"Failed to extract reference slice: {e}")
+    except Exception:
+        logger.exception("Failed to extract reference slice")
         sys.exit(1)
 
     # Load Places365 model for second validation (required)
@@ -544,9 +544,9 @@ def process_indoor_images(
             load_places365_model()
         )
         logger.info("Places365 model loaded successfully")
-    except (ImportError, RuntimeError) as e:
-        logger.error(f"Failed to load Places365 model: {e}")
-        logger.error(
+    except (ImportError, RuntimeError):
+        logger.exception("Failed to load Places365 model")
+        logger.warning(
             "Places365 is required for this script. Please install torchvision."
         )
         sys.exit(1)
@@ -595,7 +595,7 @@ def process_indoor_images(
 
             try:
                 # Step 1: Detect if different from reference using pixel comparison
-                is_indoor_candidate, similarity_score, corner_slice = (
+                is_indoor_candidate, similarity_score, _corner_slice = (
                     detect_indoor_by_pixel_comparison(
                         str(file_path),
                         reference_slice,
@@ -665,8 +665,8 @@ def process_indoor_images(
                 if processed_count % batch_size == 0:
                     logger.info(f"Processed {processed_count} images...")
 
-            except Exception as e:
-                logger.error(f"Error processing image {image.id}: {e}")
+            except Exception:
+                logger.exception(f"Error processing image {image.id}")
                 error_count += 1
                 continue
 
@@ -680,7 +680,7 @@ def process_indoor_images(
             return
 
         # Display summary
-        logger.info("\n" + "=" * 60)
+        logger.info(f"\n{'=' * 60}")
         logger.info("Summary of indoor images:")
         logger.info("=" * 60)
         for (
@@ -715,13 +715,13 @@ def process_indoor_images(
             logger.info(f"  - Delete {len(indoor_images)} image records from database")
             logger.info(f"  - Update {processed_bench_count} ProcessedBench records")
             logger.info(
-                f"  - Reset {len(set(img[0].bench_candidate_id for img in indoor_images))} "
+                f"  - Reset {len({img[0].bench_candidate_id for img in indoor_images})} "
                 f"bench candidates to pending status"
             )
             return
 
         # Process indoor images
-        logger.info("\n" + "=" * 60)
+        logger.info(f"\n{'=' * 60}")
         logger.info("Processing indoor images...")
         logger.info("=" * 60)
 
@@ -732,8 +732,8 @@ def process_indoor_images(
         for (
             image,
             file_path,
-            similarity_score,
-            classification_confidence,
+            _similarity_score,
+            _classification_confidence,
         ) in indoor_images:
             try:
                 # Move image file
@@ -763,9 +763,9 @@ def process_indoor_images(
                 # Track bench candidates that need status reset
                 reset_bench_candidates.add(bench_candidate_id)
 
-            except Exception as e:
-                logger.error(
-                    f"Error processing indoor image {image.id} ({file_path}): {e}"
+            except Exception:
+                logger.exception(
+                    f"Error processing indoor image {image.id} ({file_path})"
                 )
                 continue
 
@@ -807,15 +807,15 @@ def process_indoor_images(
                     logger.debug(
                         f"Reset bench candidate {bench_candidate_id} to pending status"
                     )
-            except Exception as e:
-                logger.error(
-                    f"Error resetting bench candidate {bench_candidate_id}: {e}"
+            except Exception:
+                logger.exception(
+                    f"Error resetting bench candidate {bench_candidate_id}"
                 )
 
         # Commit all changes
         session.commit()
 
-        logger.info("\n" + "=" * 60)
+        logger.info(f"\n{'=' * 60}")
         logger.info("Processing complete!")
         logger.info("=" * 60)
         logger.info(f"  - Images moved: {moved_count}")
