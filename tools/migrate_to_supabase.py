@@ -11,7 +11,7 @@ Usage:
         [--supabase-url postgresql://user:pass@host/db] \\
         [--dry-run]
 
-If --supabase-url is not provided, DATABASE_URL from .env will be used.
+If --supabase-url is not provided, DATABASE_POSTGRES_URL from .env will be used.
 """
 
 import argparse
@@ -239,7 +239,7 @@ def main():
         default=None,
         help=(
             "Supabase PostgreSQL connection URL (postgresql://user:pass@host/db). "
-            "If not provided, DATABASE_URL from .env will be used."
+            "If not provided, DATABASE_POSTGRES_URL from .env will be used."
         ),
     )
     parser.add_argument(
@@ -251,11 +251,11 @@ def main():
     args = parser.parse_args()
 
     # Get Supabase URL from argument or environment variable
-    supabase_url = args.supabase_url or os.getenv("DATABASE_URL")
+    supabase_url = args.supabase_url or os.getenv("DATABASE_POSTGRES_URL")
     if not supabase_url:
         logger.error(
             "Supabase URL not provided. Either use --supabase-url argument "
-            "or set DATABASE_URL in .env file"
+            "or set DATABASE_POSTGRES_URL in .env file"
         )
         sys.exit(1)
 
