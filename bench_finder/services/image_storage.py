@@ -177,11 +177,24 @@ class FirebaseImageStorage(ImageStorageService):
             storage_path_prefix: Prefix path in the storage bucket
         """
         try:
-            from firebase_admin import storage
+            import firebase_admin
+            from firebase_admin import credentials, storage
         except ImportError as err:
             raise ImportError(
                 "firebase-admin is not installed. Please install it with 'pip install firebase-admin'"
             ) from err
+
+        # Initialize Firebase Admin if not already initialized
+        try:
+            firebase_admin.get_app()
+        except ValueError:
+            # Firebase Admin not initialized, initialize it now
+            if credentials_path:
+                cred = credentials.Certificate(credentials_path)
+                _ = firebase_admin.initialize_app(cred)
+            else:
+                # Try to use default credentials (e.g., from environment)
+                _ = firebase_admin.initialize_app()
 
         self.bucket_name = bucket_name
         self.bucket = storage.bucket(bucket_name)
