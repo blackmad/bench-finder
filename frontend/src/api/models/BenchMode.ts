@@ -6,7 +6,7 @@
  * Enum for bench search modes.
  */
 export enum BenchMode {
-    BENCHES = 'benches',
-    NO_BENCH = 'no_bench',
-    BOTH = 'both',
+  BENCHES = "benches",
+  NO_BENCH = "no_bench",
+  BOTH = "both",
 }

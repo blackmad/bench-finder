@@ -10,7 +10,12 @@ export const filtersToSearchParams = (filters: AppFilters): URLSearchParams => {
   }
 
   // Always include source in URL (defaults to OSM)
-  const sourceValue = filters.sourceFilter === "OSM" ? "osm" : filters.sourceFilter === "MAPILLARY" ? "mapillary" : filters.sourceFilter
+  const sourceValue =
+    filters.sourceFilter === "OSM"
+      ? "osm"
+      : filters.sourceFilter === "MAPILLARY"
+        ? "mapillary"
+        : filters.sourceFilter
   if (filters.sourceFilter !== "all") {
     params.set("source", sourceValue.toLowerCase())
   }
@@ -140,22 +145,28 @@ export const buildUrlWithFilters = (
 // Update URL without triggering navigation (using React Router's setSearchParams)
 export const updateUrlWithFilters = (
   filters: AppFilters,
-  setSearchParams: (params: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams), opts?: { replace?: boolean }) => void,
+  setSearchParams: (
+    params: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams),
+    opts?: { replace?: boolean }
+  ) => void,
   preserveParams: string[] = ["zoom"] // Preserve zoom by default
 ) => {
-  setSearchParams((prev) => {
-    const params = filtersToSearchParams(filters)
+  setSearchParams(
+    (prev) => {
+      const params = filtersToSearchParams(filters)
 
-    // Preserve specified params from existing URL
-    for (const key of preserveParams) {
-      const existingValue = prev.get(key)
-      if (existingValue !== null) {
-        params.set(key, existingValue)
+      // Preserve specified params from existing URL
+      for (const key of preserveParams) {
+        const existingValue = prev.get(key)
+        if (existingValue !== null) {
+          params.set(key, existingValue)
+        }
       }
-    }
 
-    return params
-  }, { replace: true })
+      return params
+    },
+    { replace: true }
+  )
 }
 
 // Legacy function for backwards compatibility (using window.history)

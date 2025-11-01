@@ -35,8 +35,8 @@ def migrate_database(db_path: str):
 
         shutil.copy2(db_path, backup_path)
         logger.info("✅ Database backup created")
-    except Exception as e:
-        logger.exception(f"Failed to create backup: {e}")
+    except Exception:
+        logger.exception("Failed to create backup")
         return False
 
     try:
@@ -78,11 +78,11 @@ def migrate_database(db_path: str):
             logger.info("✅ All structured address columns already exist")
         return True
 
-    except sqlite3.OperationalError as e:
-        logger.exception(f"Failed to add columns: {e}")
+    except sqlite3.OperationalError:
+        logger.exception("Failed to add columns")
         return False
-    except Exception as e:
-        logger.exception(f"Unexpected error: {e}")
+    except Exception:
+        logger.exception("Unexpected error")
         return False
 
 

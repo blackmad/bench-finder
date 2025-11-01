@@ -53,9 +53,9 @@ def backfill_reverse_geocodes(
 
     try:
         geocoder = Geocoder()
-    except ValueError as e:
-        logger.error(f"Failed to initialize geocoder: {e}")
-        logger.error("Make sure GOOGLE_MAPS_API_KEY is set in your environment")
+    except ValueError:
+        logger.exception("Failed to initialize geocoder")
+        logger.exception("Make sure GOOGLE_MAPS_API_KEY is set in your environment")
         return {"processed": 0, "successful": 0, "failed": 0, "skipped": 0}
 
     # Get candidates without reverse geocodes
@@ -126,8 +126,8 @@ def backfill_reverse_geocodes(
                 if delay > 0:
                     time.sleep(delay)
 
-            except Exception as e:
-                logger.exception(f"Error processing candidate {candidate.id}: {e}")
+            except Exception:
+                logger.exception(f"Error processing candidate {candidate.id}")
                 stats["failed"] += 1
 
                 # Delay even on error to respect rate limits

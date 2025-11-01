@@ -72,11 +72,14 @@ const ApiExample: React.FC = () => {
         <SectionTitle>📊 API Health Status</SectionTitle>
         {healthStatus ? (
           <HealthStatus healthy={healthStatus.status === true}>
-            <strong>Status:</strong> {healthStatus.status ? "healthy" : "unhealthy"}
+            <strong>Status:</strong>{" "}
+            {healthStatus.status ? "healthy" : "unhealthy"}
             <br />
-            <strong>Database:</strong> {healthStatus.database ? "connected" : "disconnected"}
+            <strong>Database:</strong>{" "}
+            {healthStatus.database ? "connected" : "disconnected"}
             <br />
-            <strong>Mapillary:</strong> {healthStatus.mapillary ? "connected" : "disconnected"}
+            <strong>Mapillary:</strong>{" "}
+            {healthStatus.mapillary ? "connected" : "disconnected"}
           </HealthStatus>
         ) : (
           <Loading>Checking API health...</Loading>
@@ -93,65 +96,65 @@ const ApiExample: React.FC = () => {
             <RefreshButton onClick={() => refetch()}>Retry</RefreshButton>
           </ErrorBox>
         )}
-        {benchesData && (
+        {benchesData && "benches" in benchesData && (
           <>
-            {"benches" in benchesData && (
-              <>
-                <Stats>
-                  Found <strong>{benchesData.pagination.total_count}</strong>{" "}
-                  benches (showing {benchesData.benches.length})
-                </Stats>
-                <BenchList>
-                  {benchesData.benches.map((bench: WebBenchData) => (
-                    <BenchCard key={bench.id}>
-                      <BenchHeader>
-                        <BenchId>Bench #{bench.id}</BenchId>
-                        <ConfidenceBadge confidence={bench.best_confidence}>
-                          {(bench.best_confidence * 100).toFixed(1)}%
-                        </ConfidenceBadge>
-                      </BenchHeader>
-                      <BenchDetails>
-                        <DetailItem>
-                          <strong>Location:</strong> {bench.lat.toFixed(4)},{" "}
-                          {bench.lng.toFixed(4)}
-                        </DetailItem>
-                        <DetailItem>
-                          <strong>Source:</strong> {bench.source}
-                        </DetailItem>
-                        <DetailItem>
-                          <strong>Detection:</strong> {bench.detection_type}
-                        </DetailItem>
-                        <DetailItem>
-                          <strong>Images:</strong> {bench.image_count}
-                          {bench.has_segmentation && " 🎯"}
-                        </DetailItem>
-                        <DetailItem>
-                          <strong>Distance:</strong> {bench.distance_km.toFixed(2)}{" "}
-                          km
-                        </DetailItem>
-                      </BenchDetails>
-                      <ConfidenceDetails>
-                        {(bench.roboflow_confidence || 0) > 0 && (
-                          <span>
-                            RF: {((bench.roboflow_confidence || 0) * 100).toFixed(1)}%
-                          </span>
-                        )}
-                        {(bench.ultralytics_confidence || 0) > 0 && (
-                          <span>
-                            UL: {((bench.ultralytics_confidence || 0) * 100).toFixed(1)}%
-                          </span>
-                        )}
-                        {(bench.mapillary_confidence || 0) > 0 && (
-                          <span>
-                            MP: {((bench.mapillary_confidence || 0) * 100).toFixed(1)}%
-                          </span>
-                        )}
-                      </ConfidenceDetails>
-                    </BenchCard>
-                  ))}
-                </BenchList>
-              </>
-            )}
+            <Stats>
+              Found <strong>{benchesData.pagination.total_count}</strong>{" "}
+              benches (showing {benchesData.benches.length})
+            </Stats>
+            <BenchList>
+              {benchesData.benches.map((bench: WebBenchData) => (
+                <BenchCard key={bench.id}>
+                  <BenchHeader>
+                    <BenchId>Bench #{bench.id}</BenchId>
+                    <ConfidenceBadge confidence={bench.best_confidence}>
+                      {(bench.best_confidence * 100).toFixed(1)}%
+                    </ConfidenceBadge>
+                  </BenchHeader>
+                  <BenchDetails>
+                    <DetailItem>
+                      <strong>Location:</strong> {bench.lat.toFixed(4)},{" "}
+                      {bench.lng.toFixed(4)}
+                    </DetailItem>
+                    <DetailItem>
+                      <strong>Source:</strong> {bench.source}
+                    </DetailItem>
+                    <DetailItem>
+                      <strong>Detection:</strong> {bench.detection_type}
+                    </DetailItem>
+                    <DetailItem>
+                      <strong>Images:</strong> {bench.image_count}
+                      {bench.has_segmentation && " 🎯"}
+                    </DetailItem>
+                    <DetailItem>
+                      <strong>Distance:</strong> {bench.distance_km.toFixed(2)}{" "}
+                      km
+                    </DetailItem>
+                  </BenchDetails>
+                  <ConfidenceDetails>
+                    {(bench.roboflow_confidence || 0) > 0 && (
+                      <span>
+                        RF:{" "}
+                        {((bench.roboflow_confidence || 0) * 100).toFixed(1)}%
+                      </span>
+                    )}
+                    {(bench.ultralytics_confidence || 0) > 0 && (
+                      <span>
+                        UL:{" "}
+                        {((bench.ultralytics_confidence || 0) * 100).toFixed(1)}
+                        %
+                      </span>
+                    )}
+                    {(bench.mapillary_confidence || 0) > 0 && (
+                      <span>
+                        MP:{" "}
+                        {((bench.mapillary_confidence || 0) * 100).toFixed(1)}%
+                      </span>
+                    )}
+                  </ConfidenceDetails>
+                </BenchCard>
+              ))}
+            </BenchList>
           </>
         )}
       </Section>

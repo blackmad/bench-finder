@@ -6,12 +6,8 @@ import React, {
   useEffect,
   useReducer,
 } from "react"
-import type {
-  ConfigResponse,
-  SearchSummary,
-  WebBenchData,
-} from "../api"
-import { DataSource, BenchMode } from "../api"
+import type { ConfigResponse, SearchSummary, WebBenchData } from "../api"
+import { BenchMode, DataSource } from "../api"
 import { benchApi } from "../services/api"
 
 // App-specific types (not in API)
@@ -176,7 +172,10 @@ interface AppContextType {
   // Helper functions
   updateFilters: (filters: Partial<AppFilters>) => void
   resetAndReload: (overrideFilters?: Partial<AppFilters>) => Promise<void>
-  loadMoreBenches: (resetPage?: boolean, overrideFilters?: Partial<AppFilters>) => Promise<void>
+  loadMoreBenches: (
+    resetPage?: boolean,
+    overrideFilters?: Partial<AppFilters>
+  ) => Promise<void>
   setUserLocation: (lat: number, lng: number) => void
   feelingLucky: () => Promise<WebBenchData | null>
   clearError: () => void
@@ -251,64 +250,76 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: "RESET_BENCHES" })
   }, [])
 
-  const loadMoreBenches = useCallback(async (resetPage: boolean = false, overrideFilters?: Partial<AppFilters>): Promise<void> => {
-    // Use a functional approach to get the latest state
-    let currentPage = state.currentPage
-    if (resetPage) {
-      currentPage = 0
-    }
-
-    if (state.loading || !state.hasMore) return
-
-    try {
-      dispatch({ type: "SET_LOADING", payload: true })
-
-      // Use override filters if provided, otherwise use state filters
-      const filters = overrideFilters ? { ...state.filters, ...overrideFilters } : state.filters
-
-      const response = await benchApi.getBenches({
-        page: currentPage,
-        page_size: state.config?.page_size || 20,
-        min_confidence: filters.minConfidence,
-        start_lat: filters.startLat,
-        start_lng: filters.startLng,
-        sort_by: filters.sortBy,
-        mode: filters.mode,
-        source: filters.sourceFilter !== "all" ? filters.sourceFilter : null,
-        include_detection_data: filters.includeDetectionData,
-      })
-
-      const benches = Array.isArray(response.benches) ? response.benches : []
-      const hasNext = response.pagination.has_next
-
-      if (currentPage === 0) {
-        dispatch({ type: "SET_BENCHES", payload: benches })
-      } else {
-        dispatch({ type: "ADD_BENCHES", payload: benches })
+  const loadMoreBenches = useCallback(
+    async (
+      resetPage: boolean = false,
+      overrideFilters?: Partial<AppFilters>
+    ): Promise<void> => {
+      // Use a functional approach to get the latest state
+      let currentPage = state.currentPage
+      if (resetPage) {
+        currentPage = 0
       }
 
-      dispatch({ type: "SET_CURRENT_PAGE", payload: currentPage + 1 })
-      dispatch({ type: "SET_HAS_MORE", payload: hasNext })
-    } catch (error) {
-      console.error("Error loading benches:", error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to load benches"
-      dispatch({ type: "SET_ERROR", payload: errorMessage })
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: false })
-    }
-  }, [
-    state.loading,
-    state.hasMore,
-    state.currentPage,
-    state.filters,
-    state.config,
-  ])
+      if (state.loading || !state.hasMore) return
 
-  const resetAndReload = useCallback(async (overrideFilters?: Partial<AppFilters>) => {
-    dispatch({ type: "RESET_BENCHES" })
-    // Load benches starting from page 0, optionally with overridden filters
-    await loadMoreBenches(true, overrideFilters)
-  }, [loadMoreBenches])
+      try {
+        dispatch({ type: "SET_LOADING", payload: true })
+
+        // Use override filters if provided, otherwise use state filters
+        const filters = overrideFilters
+          ? { ...state.filters, ...overrideFilters }
+          : state.filters
+
+        const response = await benchApi.getBenches({
+          page: currentPage,
+          page_size: state.config?.page_size || 20,
+          min_confidence: filters.minConfidence,
+          start_lat: filters.startLat,
+          start_lng: filters.startLng,
+          sort_by: filters.sortBy,
+          mode: filters.mode,
+          source: filters.sourceFilter !== "all" ? filters.sourceFilter : null,
+          include_detection_data: filters.includeDetectionData,
+        })
+
+        const benches = Array.isArray(response.benches) ? response.benches : []
+        const hasNext = response.pagination.has_next
+
+        if (currentPage === 0) {
+          dispatch({ type: "SET_BENCHES", payload: benches })
+        } else {
+          dispatch({ type: "ADD_BENCHES", payload: benches })
+        }
+
+        dispatch({ type: "SET_CURRENT_PAGE", payload: currentPage + 1 })
+        dispatch({ type: "SET_HAS_MORE", payload: hasNext })
+      } catch (error) {
+        console.error("Error loading benches:", error)
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load benches"
+        dispatch({ type: "SET_ERROR", payload: errorMessage })
+      } finally {
+        dispatch({ type: "SET_LOADING", payload: false })
+      }
+    },
+    [
+      state.loading,
+      state.hasMore,
+      state.currentPage,
+      state.filters,
+      state.config,
+    ]
+  )
+
+  const resetAndReload = useCallback(
+    async (overrideFilters?: Partial<AppFilters>) => {
+      dispatch({ type: "RESET_BENCHES" })
+      // Load benches starting from page 0, optionally with overridden filters
+      await loadMoreBenches(true, overrideFilters)
+    },
+    [loadMoreBenches]
+  )
 
   const setUserLocation = useCallback((lat: number, lng: number) => {
     dispatch({ type: "UPDATE_LOCATION", payload: { lat, lng } })
@@ -328,7 +339,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       return response
     } catch (error) {
       console.error("Error getting random bench:", error)
-      const errorMessage = error instanceof Error ? error.message : "Failed to get random bench"
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to get random bench"
       dispatch({ type: "SET_ERROR", payload: errorMessage })
       return null
     }

@@ -42,13 +42,17 @@ const MapPage: React.FC = () => {
     }
     // Only run when config or searchParams change, not when filters change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.config, searchParams])
+  }, [state.config, searchParams, state.filters, updateFilters])
 
   // Update URL when filters change (but not map view params - those are handled by MapView)
   useEffect(() => {
     if (state.config) {
       // Preserve map view params (lat, lng, zoom) - MapView manages these exclusively
-      updateUrlWithFilters(state.filters, setSearchParams, ["lat", "lng", "zoom"])
+      updateUrlWithFilters(state.filters, setSearchParams, [
+        "lat",
+        "lng",
+        "zoom",
+      ])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -59,6 +63,7 @@ const MapPage: React.FC = () => {
     state.filters.mode,
     state.filters.includeDetectionData,
     setSearchParams,
+    state.filters,
     // Don't include startLat/startLng as those are managed by MapView
   ])
 

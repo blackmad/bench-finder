@@ -6,9 +6,9 @@
  * Schema for pagination metadata.
  */
 export type PaginationInfo = {
-    page: number;
-    page_size: number;
-    total_count: number;
-    total_pages: number;
-    has_next: boolean;
-};
+  page: number
+  page_size: number
+  total_count: number
+  total_pages: number
+  has_next: boolean
+}

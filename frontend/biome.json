@@ -67,6 +67,10 @@
       "attributePosition": "auto"
     }
   },
+  "files": {
+    "includes": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
+    "ignoreUnknown": true
+  },
   "overrides": [
     {
       "includes": ["**/*.ts", "**/*.tsx"],
@@ -77,9 +81,12 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/api/**"],
+      "linter": {
+        "enabled": false
+      }
     }
-  ],
-  "files": {
-    "includes": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"]
-  }
+  ]
 }

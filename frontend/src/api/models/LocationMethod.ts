@@ -3,6 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export enum LocationMethod {
-    GPS = 'gps',
-    MAP_CLICK = 'map_click',
+  GPS = "gps",
+  MAP_CLICK = "map_click",
 }

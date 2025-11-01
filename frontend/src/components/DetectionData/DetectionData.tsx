@@ -1,8 +1,8 @@
-import React from 'react'
-import styled from 'styled-components'
-import { Target, Eye, Layers, Zap } from 'lucide-react'
-import type { ApiDetectionItem } from '../../api'
-import { DetectionSource } from '../../api'
+import { Eye, Layers, Target, Zap } from "lucide-react"
+import type React from "react"
+import styled from "styled-components"
+import type { ApiDetectionItem } from "../../api"
+import { DetectionSource } from "../../api"
 
 const DetectionContainer = styled.div`
   background: linear-gradient(135deg, ${({ theme }) => theme.colors.gray50} 0%, ${({ theme }) => theme.colors.backgroundSecondary} 100%);
@@ -52,10 +52,10 @@ const DetectionItemHeader = styled.div`
 
 const ConfidenceBadge = styled.span<{ $confidence: number }>`
   background: ${({ $confidence, theme }) => {
-        if ($confidence >= 0.8) return theme.colors.success
-        if ($confidence >= 0.6) return theme.colors.warning
-        return theme.colors.error
-    }};
+    if ($confidence >= 0.8) return theme.colors.success
+    if ($confidence >= 0.6) return theme.colors.warning
+    return theme.colors.error
+  }};
   color: white;
   padding: ${({ theme }) => theme.spacing[1]} ${({ theme }) => theme.spacing[2]};
   border-radius: ${({ theme }) => theme.borderRadius.full};
@@ -100,116 +100,117 @@ const NoDataMessage = styled.div`
 `
 
 interface DetectionDataProps {
-    detectionItems: ApiDetectionItem[]
-    detectionSource: DetectionSource
+  detectionItems: ApiDetectionItem[]
+  detectionSource: DetectionSource
 }
 
 export const DetectionData: React.FC<DetectionDataProps> = ({
-    detectionItems,
-    detectionSource,
+  detectionItems,
+  detectionSource,
 }) => {
-    if (!detectionItems || detectionItems.length === 0) {
-        return (
-            <DetectionContainer>
-                <DetectionHeader>
-                    <Eye size={16} />
-                    Detection Data
-                </DetectionHeader>
-                <NoDataMessage>No detection data available</NoDataMessage>
-            </DetectionContainer>
-        )
-    }
-
-    const getSourceIcon = (source: DetectionSource) => {
-        switch (source) {
-            case DetectionSource.ROBOFLOW:
-                return <Target size={16} />
-            case DetectionSource.ULTRALYTICS:
-                return <Layers size={16} />
-            case DetectionSource.MAPILLARY:
-                return <Zap size={16} />
-            default:
-                return <Eye size={16} />
-        }
-    }
-
-    const getSourceName = (source: DetectionSource) => {
-        switch (source) {
-            case DetectionSource.ROBOFLOW:
-                return 'Roboflow'
-            case DetectionSource.ULTRALYTICS:
-                return 'Ultralytics'
-            case DetectionSource.MAPILLARY:
-                return 'Mapillary'
-            case DetectionSource.MULTI_MODEL:
-                return 'Multi-Model'
-            case DetectionSource.NONE:
-                return 'Unknown'
-            default:
-                return source
-        }
-    }
-
+  if (!detectionItems || detectionItems.length === 0) {
     return (
-        <DetectionContainer>
-            <DetectionHeader>
-                {getSourceIcon(detectionSource)}
-                Detection Data ({getSourceName(detectionSource)})
-            </DetectionHeader>
-
-            {detectionItems.map((item, index) => (
-                <DetectionItem key={index}>
-                    <DetectionItemHeader>
-                        <span>
-                            {item.class_name || 'Bench'} #{item.detection_id}
-                        </span>
-                        <ConfidenceBadge $confidence={item.confidence}>
-                            {(item.confidence * 100).toFixed(1)}%
-                        </ConfidenceBadge>
-                    </DetectionItemHeader>
-
-                    <DetectionDetails>
-                        <DetailRow>
-                            <span>Detection ID:</span>
-                            <span>{item.detection_id}</span>
-                        </DetailRow>
-                        <DetailRow>
-                            <span>Class:</span>
-                            <span>{item.class_name || 'bench'}</span>
-                        </DetailRow>
-                        <DetailRow>
-                            <span>Confidence:</span>
-                            <span>{(item.confidence * 100).toFixed(2)}%</span>
-                        </DetailRow>
-                    </DetectionDetails>
-
-                    {item.bbox && (
-                        <BoundingBoxInfo>
-                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                                📦 Bounding Box
-                            </div>
-                            <div style={{ fontSize: '11px', fontFamily: 'monospace' }}>
-                                x: {item.bbox.x1.toFixed(1)}, y: {item.bbox.y1.toFixed(1)}
-                                <br />
-                                w: {(item.bbox.x2 - item.bbox.x1).toFixed(1)}, h: {(item.bbox.y2 - item.bbox.y1).toFixed(1)}
-                            </div>
-                        </BoundingBoxInfo>
-                    )}
-
-                    {item.polygon && (
-                        <PolygonInfo>
-                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
-                                🎯 Segmentation Polygon
-                            </div>
-                            <div style={{ fontSize: '11px', fontFamily: 'monospace' }}>
-                                {item.polygon.coordinates.length} points
-                            </div>
-                        </PolygonInfo>
-                    )}
-                </DetectionItem>
-            ))}
-        </DetectionContainer>
+      <DetectionContainer>
+        <DetectionHeader>
+          <Eye size={16} />
+          Detection Data
+        </DetectionHeader>
+        <NoDataMessage>No detection data available</NoDataMessage>
+      </DetectionContainer>
     )
+  }
+
+  const getSourceIcon = (source: DetectionSource) => {
+    switch (source) {
+      case DetectionSource.ROBOFLOW:
+        return <Target size={16} />
+      case DetectionSource.ULTRALYTICS:
+        return <Layers size={16} />
+      case DetectionSource.MAPILLARY:
+        return <Zap size={16} />
+      default:
+        return <Eye size={16} />
+    }
+  }
+
+  const getSourceName = (source: DetectionSource) => {
+    switch (source) {
+      case DetectionSource.ROBOFLOW:
+        return "Roboflow"
+      case DetectionSource.ULTRALYTICS:
+        return "Ultralytics"
+      case DetectionSource.MAPILLARY:
+        return "Mapillary"
+      case DetectionSource.MULTI_MODEL:
+        return "Multi-Model"
+      case DetectionSource.NONE:
+        return "Unknown"
+      default:
+        return source
+    }
+  }
+
+  return (
+    <DetectionContainer>
+      <DetectionHeader>
+        {getSourceIcon(detectionSource)}
+        Detection Data ({getSourceName(detectionSource)})
+      </DetectionHeader>
+
+      {detectionItems.map((item) => (
+        <DetectionItem key={item.detection_id}>
+          <DetectionItemHeader>
+            <span>
+              {item.class_name || "Bench"} #{item.detection_id}
+            </span>
+            <ConfidenceBadge $confidence={item.confidence}>
+              {(item.confidence * 100).toFixed(1)}%
+            </ConfidenceBadge>
+          </DetectionItemHeader>
+
+          <DetectionDetails>
+            <DetailRow>
+              <span>Detection ID:</span>
+              <span>{item.detection_id}</span>
+            </DetailRow>
+            <DetailRow>
+              <span>Class:</span>
+              <span>{item.class_name || "bench"}</span>
+            </DetailRow>
+            <DetailRow>
+              <span>Confidence:</span>
+              <span>{(item.confidence * 100).toFixed(2)}%</span>
+            </DetailRow>
+          </DetectionDetails>
+
+          {item.bbox && (
+            <BoundingBoxInfo>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                📦 Bounding Box
+              </div>
+              <div style={{ fontSize: "11px", fontFamily: "monospace" }}>
+                x: {item.bbox.x1.toFixed(1)}, y: {item.bbox.y1.toFixed(1)}
+                <br />
+                w: {(item.bbox.x2 - item.bbox.x1).toFixed(1)}, h:{" "}
+                {(item.bbox.y2 - item.bbox.y1).toFixed(1)}
+              </div>
+            </BoundingBoxInfo>
+          )}
+
+          {item.polygon && (
+            <PolygonInfo>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                🎯 Segmentation Polygon
+              </div>
+              <div style={{ fontSize: "11px", fontFamily: "monospace" }}>
+                {item.polygon.coordinates.length} points
+              </div>
+            </PolygonInfo>
+          )}
+        </DetectionItem>
+      ))}
+    </DetectionContainer>
+  )
 }
 
 export default DetectionData

@@ -9,7 +9,11 @@ import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
 import ReportModal from "../components/ReportModal/ReportModal"
 import { type AppFilters, useApp } from "../contexts/AppContext"
-import { filtersToSearchParams, searchParamsToFilters, updateUrlWithFilters } from "../utils/urlParams"
+import {
+  filtersToSearchParams,
+  searchParamsToFilters,
+  updateUrlWithFilters,
+} from "../utils/urlParams"
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -149,14 +153,16 @@ const CardsPage: React.FC = () => {
 
         // Only update if filters actually differ from current state
         // Handle enum/string comparison properly
-        const hasChanges = Object.keys(urlFilters).length > 0 && Object.entries(urlFilters).some(([key, value]) => {
-          const currentValue = state.filters[key as keyof AppFilters]
-          // Handle enum/string comparison (mode, sourceFilter)
-          if (key === 'mode' || key === 'sourceFilter') {
-            return String(currentValue) !== String(value)
-          }
-          return currentValue !== value
-        })
+        const hasChanges =
+          Object.keys(urlFilters).length > 0 &&
+          Object.entries(urlFilters).some(([key, value]) => {
+            const currentValue = state.filters[key as keyof AppFilters]
+            // Handle enum/string comparison (mode, sourceFilter)
+            if (key === "mode" || key === "sourceFilter") {
+              return String(currentValue) !== String(value)
+            }
+            return currentValue !== value
+          })
 
         if (hasChanges) {
           updateFilters(urlFilters)
@@ -177,7 +183,7 @@ const CardsPage: React.FC = () => {
         updateUrlWithFilters(state.filters, setSearchParams)
       }
     }
-  }, [state.filters, state.config, setSearchParams])
+  }, [state.filters, state.config, setSearchParams, searchParams.toString])
 
   // Load initial data when filters change or when navigating to cards view
   useEffect(() => {
@@ -211,8 +217,14 @@ const CardsPage: React.FC = () => {
     ) {
       loadMoreBenches()
     }
-  }, [currentModalIndex, modalOpen, state.benches?.length, state.hasMore, state.loading, loadMoreBenches])
-
+  }, [
+    currentModalIndex,
+    modalOpen,
+    state.benches?.length,
+    state.hasMore,
+    state.loading,
+    loadMoreBenches,
+  ])
 
   // Complete pending navigation after benches are loaded
   useEffect(() => {
@@ -220,11 +232,7 @@ const CardsPage: React.FC = () => {
       const targetIndex = pendingNavigationRef.current
       if (targetIndex < state.benches.length) {
         const newBench = state.benches[targetIndex]
-        if (
-          newBench &&
-          newBench.image_filenames &&
-          newBench.image_filenames.length > 0
-        ) {
+        if (newBench?.image_filenames && newBench.image_filenames.length > 0) {
           const firstImageFilename = newBench.image_filenames[0]
           const imageUrl = `/images/${firstImageFilename}`
           setSelectedBench(newBench)
@@ -235,12 +243,13 @@ const CardsPage: React.FC = () => {
       }
       pendingNavigationRef.current = null
     }
-  }, [state.benches, state.loading])
+  }, [state.benches])
 
   const handleImageClick = useCallback(
     (bench: WebBenchData, imageUrl: string, imageId: number) => {
       const benchesForIndex = state.benches
-      const benchIndex = benchesForIndex?.findIndex((b) => b.id === bench.id) || 0
+      const benchIndex =
+        benchesForIndex?.findIndex((b) => b.id === bench.id) || 0
       setSelectedBench(bench)
       setSelectedImageUrl(imageUrl)
       setSelectedImageId(imageId)
@@ -288,7 +297,10 @@ const CardsPage: React.FC = () => {
       }
 
       // Clamp to valid range
-      newIndex = Math.max(0, Math.min(benchesForNavigation.length - 1, newIndex))
+      newIndex = Math.max(
+        0,
+        Math.min(benchesForNavigation.length - 1, newIndex)
+      )
 
       console.log("Modal navigation:", {
         direction,
@@ -298,11 +310,7 @@ const CardsPage: React.FC = () => {
       })
 
       const newBench = benchesForNavigation[newIndex]
-      if (
-        newBench &&
-        newBench.image_filenames &&
-        newBench.image_filenames.length > 0
-      ) {
+      if (newBench?.image_filenames && newBench.image_filenames.length > 0) {
         const firstImageFilename = newBench.image_filenames[0]
         const imageUrl = `/images/${firstImageFilename}`
         console.log("Navigating to bench:", {
@@ -315,7 +323,13 @@ const CardsPage: React.FC = () => {
         setCurrentModalIndex(newIndex)
       }
     },
-    [currentModalIndex, state.benches, state.hasMore, state.loading, loadMoreBenches]
+    [
+      currentModalIndex,
+      state.benches,
+      state.hasMore,
+      state.loading,
+      loadMoreBenches,
+    ]
   )
 
   const handleImageSelect = useCallback(
@@ -323,8 +337,6 @@ const CardsPage: React.FC = () => {
       if (!selectedBench) return
       setSelectedImageUrl(imageUrl)
       setSelectedImageId(imageId)
-      // Find the index of the selected image within the bench
-      const index = selectedBench.image_ids?.findIndex((id) => id === imageId) ?? 0
       // Note: currentModalIndex stays the same (it's for bench navigation, not image navigation)
     },
     [selectedBench]

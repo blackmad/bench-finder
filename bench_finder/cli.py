@@ -235,8 +235,6 @@ def generate_candidates(
             # Reverse geocode the candidate (structured)
             if bench_candidate_id:
                 try:
-                    from bench_finder.core.geocoder import Geocoder
-
                     geocoder = Geocoder()
                     structured_address = geocoder.reverse_geocode_structured(
                         candidate.lat, candidate.lng
@@ -660,11 +658,11 @@ def fetch_images(
             # Parse status string to enum
             try:
                 status_enum = BenchCandidateStatus(status)
-            except ValueError:
+            except ValueError as err:
                 console.print(
                     f"[red]Invalid status: {status}. Valid values: pending, image_download_done, detection_done[/red]"
                 )
-                raise typer.Exit(1)
+                raise typer.Exit(1) from err
 
             # Query all candidates with the specified status (ignoring search_id)
             query = session.query(DBBenchCandidate).filter(

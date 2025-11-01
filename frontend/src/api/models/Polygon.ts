@@ -6,8 +6,8 @@
  * Represents a polygon as a list of coordinate pairs.
  */
 export type Polygon = {
-    /**
-     * List of [x, y] coordinate pairs forming the polygon
-     */
-    coordinates: Array<Array<number>>;
-};
+  /**
+   * List of [x, y] coordinate pairs forming the polygon
+   */
+  coordinates: Array<Array<number>>
+}

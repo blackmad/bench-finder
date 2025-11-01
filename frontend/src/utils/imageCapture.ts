@@ -3,11 +3,11 @@
  */
 
 export interface ImageCaptureResult {
-  dataUrl: string;
-  blob: Blob;
-  size: number;
-  width: number;
-  height: number;
+  dataUrl: string
+  blob: Blob
+  size: number
+  width: number
+  height: number
 }
 
 /**
@@ -15,11 +15,11 @@ export interface ImageCaptureResult {
  */
 export function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsDataURL(file);
-  });
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.readAsDataURL(file)
+  })
 }
 
 /**
@@ -32,65 +32,65 @@ export async function compressImage(
   quality: number = 0.8
 ): Promise<ImageCaptureResult> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
+    const img = new Image()
     img.onload = () => {
       try {
         // Calculate new dimensions
-        let { width, height } = img;
+        let { width, height } = img
 
         if (width > height) {
           if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
+            height = (height * maxWidth) / width
+            width = maxWidth
           }
         } else {
           if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
+            width = (width * maxHeight) / height
+            height = maxHeight
           }
         }
 
         // Create canvas and draw resized image
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
 
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d")
         if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
+          reject(new Error("Failed to get canvas context"))
+          return
         }
 
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height)
 
         // Convert to blob
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error('Failed to create blob'));
-              return;
+              reject(new Error("Failed to create blob"))
+              return
             }
 
-            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            const dataUrl = canvas.toDataURL("image/jpeg", quality)
             resolve({
               dataUrl,
               blob,
               size: blob.size,
               width,
               height,
-            });
+            })
           },
-          'image/jpeg',
+          "image/jpeg",
           quality
-        );
+        )
       } catch (error) {
-        reject(error);
+        reject(error)
       }
-    };
+    }
 
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = URL.createObjectURL(file);
-  });
+    img.onerror = () => reject(new Error("Failed to load image"))
+    img.src = URL.createObjectURL(file)
+  })
 }
 
 /**
@@ -98,26 +98,26 @@ export async function compressImage(
  */
 export function captureImage(
   options: {
-    preferCamera?: boolean;
-    maxWidth?: number;
-    maxHeight?: number;
-    quality?: number;
+    preferCamera?: boolean
+    maxWidth?: number
+    maxHeight?: number
+    quality?: number
   } = {}
 ): Promise<ImageCaptureResult> {
   return new Promise((resolve, reject) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/*"
 
     if (options.preferCamera) {
-      input.capture = 'environment'; // Use rear camera on mobile
+      input.capture = "environment" // Use rear camera on mobile
     }
 
     input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
+      const file = (event.target as HTMLInputElement).files?.[0]
       if (!file) {
-        reject(new Error('No file selected'));
-        return;
+        reject(new Error("No file selected"))
+        return
       }
 
       try {
@@ -126,29 +126,29 @@ export function captureImage(
           options.maxWidth,
           options.maxHeight,
           options.quality
-        );
-        resolve(result);
+        )
+        resolve(result)
       } catch (error) {
-        reject(error);
+        reject(error)
       }
-    };
+    }
 
-    input.click();
-  });
+    input.click()
+  })
 }
 
 /**
  * Get user's current GPS location
  */
 export function getCurrentLocation(): Promise<{
-  lat: number;
-  lng: number;
-  accuracy: number;
+  lat: number
+  lng: number
+  accuracy: number
 }> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported by this browser'));
-      return;
+      reject(new Error("Geolocation is not supported by this browser"))
+      return
     }
 
     navigator.geolocation.getCurrentPosition(
@@ -157,40 +157,44 @@ export function getCurrentLocation(): Promise<{
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracy: position.coords.accuracy,
-        });
+        })
       },
       (error) => {
-        let message = 'Failed to get location';
+        let message = "Failed to get location"
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            message = 'Location access denied by user';
-            break;
+            message = "Location access denied by user"
+            break
           case error.POSITION_UNAVAILABLE:
-            message = 'Location information unavailable';
-            break;
+            message = "Location information unavailable"
+            break
           case error.TIMEOUT:
-            message = 'Location request timed out';
-            break;
+            message = "Location request timed out"
+            break
         }
-        reject(new Error(message));
+        reject(new Error(message))
       },
       {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 300000, // 5 minutes
       }
-    );
-  });
+    )
+  })
 }
 
 /**
  * Check if the device supports camera capture
  */
 export function supportsCameraCapture(): boolean {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/*';
+  const input = document.createElement("input")
+  input.type = "file"
+  input.accept = "image/*"
 
   // Check if capture attribute is supported
-  return 'capture' in input && !!navigator.mediaDevices && !!navigator.mediaDevices.getUserMedia;
+  return (
+    "capture" in input &&
+    !!navigator.mediaDevices &&
+    !!navigator.mediaDevices.getUserMedia
+  )
 }

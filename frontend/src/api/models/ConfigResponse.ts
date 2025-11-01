@@ -6,8 +6,8 @@
  * Schema for configuration response.
  */
 export type ConfigResponse = {
-    default_start_lat: number;
-    default_start_lng: number;
-    default_min_confidence: number;
-    page_size: number;
-};
+  default_start_lat: number
+  default_start_lng: number
+  default_min_confidence: number
+  page_size: number
+}

@@ -1,7 +1,7 @@
-import React from 'react'
-import styled from 'styled-components'
-import { X, AlertTriangle } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from "framer-motion"
+import { AlertTriangle, X } from "lucide-react"
+import type React from "react"
+import styled from "styled-components"
 
 const ToastContainer = styled(motion.div)`
   position: fixed;
@@ -54,32 +54,32 @@ const CloseButton = styled.button`
 `
 
 interface ErrorToastProps {
-    error: string
-    onClose: () => void
+  error: string
+  onClose: () => void
 }
 
 export const ErrorToast: React.FC<ErrorToastProps> = ({ error, onClose }) => {
-    return (
-        <AnimatePresence>
-            <ToastContainer
-                initial={{ opacity: 0, y: -50, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -50, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-            >
-                <IconContainer>
-                    <AlertTriangle size={20} />
-                </IconContainer>
-                <Content>
-                    <Title>Error</Title>
-                    <Message>{error}</Message>
-                </Content>
-                <CloseButton onClick={onClose}>
-                    <X size={16} />
-                </CloseButton>
-            </ToastContainer>
-        </AnimatePresence>
-    )
+  return (
+    <AnimatePresence>
+      <ToastContainer
+        initial={{ opacity: 0, y: -50, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -50, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+      >
+        <IconContainer>
+          <AlertTriangle size={20} />
+        </IconContainer>
+        <Content>
+          <Title>Error</Title>
+          <Message>{error}</Message>
+        </Content>
+        <CloseButton onClick={onClose}>
+          <X size={16} />
+        </CloseButton>
+      </ToastContainer>
+    </AnimatePresence>
+  )
 }
 
 export default ErrorToast

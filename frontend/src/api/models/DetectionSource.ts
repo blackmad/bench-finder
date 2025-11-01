@@ -3,9 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export enum DetectionSource {
-    ROBOFLOW = 'ROBOFLOW',
-    ULTRALYTICS = 'ULTRALYTICS',
-    MAPILLARY = 'MAPILLARY',
-    MULTI_MODEL = 'MULTI_MODEL',
-    NONE = 'NONE',
+  ROBOFLOW = "ROBOFLOW",
+  ULTRALYTICS = "ULTRALYTICS",
+  MAPILLARY = "MAPILLARY",
+  MULTI_MODEL = "MULTI_MODEL",
+  NONE = "NONE",
 }

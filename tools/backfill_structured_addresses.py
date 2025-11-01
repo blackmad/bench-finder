@@ -103,11 +103,10 @@ def parse_formatted_address(formatted_address: str) -> dict[str, str | None]:
     # If we have a state with a space, try to extract postal code from it
     if structured["state"] and " " in structured["state"]:
         state_parts = structured["state"].split()
-        if len(state_parts) == 2:
+        if len(state_parts) == 2 and re.match(r"^\d{5}(?:-\d{4})?$", state_parts[1]):
             # Last part might be postal code
-            if re.match(r"^\d{5}(?:-\d{4})?$", state_parts[1]):
-                structured["state"] = state_parts[0]
-                structured["postal_code"] = state_parts[1]
+            structured["state"] = state_parts[0]
+            structured["postal_code"] = state_parts[1]
 
     return structured
 
@@ -201,8 +200,8 @@ def backfill_structured_addresses(db_path: str) -> dict[str, int]:
                         f"Could not parse structured components for ID {row_id}: {formatted_address}"
                     )
 
-            except Exception as e:
-                logger.exception(f"Error processing reverse geocode ID {row_id}: {e}")
+            except Exception:
+                logger.exception(f"Error processing reverse geocode ID {row_id}")
                 stats["failed"] += 1
 
         conn.commit()
@@ -217,8 +216,8 @@ def backfill_structured_addresses(db_path: str) -> dict[str, int]:
 
         return stats
 
-    except Exception as e:
-        logger.exception(f"Error during backfill: {e}")
+    except Exception:
+        logger.exception("Error during backfill")
         return stats
 
 

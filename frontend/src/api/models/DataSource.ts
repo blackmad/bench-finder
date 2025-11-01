@@ -3,6 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export enum DataSource {
-    OSM = 'OSM',
-    MAPILLARY = 'MAPILLARY',
+  OSM = "OSM",
+  MAPILLARY = "MAPILLARY",
 }

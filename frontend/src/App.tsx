@@ -38,13 +38,14 @@ const AppWithErrorHandling = () => {
           <Route path="/cards" element={<CardsPage />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/bench/:id" element={<BenchDetailPage />} />
-          <Route path="/report-missing-bench" element={<ReportMissingBenchPage />} />
+          <Route
+            path="/report-missing-bench"
+            element={<ReportMissingBenchPage />}
+          />
           <Route path="/api-demo" element={<ApiExample />} />
         </Routes>
       </Router>
-      {state.error && (
-        <ErrorToast error={state.error} onClose={clearError} />
-      )}
+      {state.error && <ErrorToast error={state.error} onClose={clearError} />}
     </>
   )
 }

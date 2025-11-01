@@ -180,7 +180,8 @@ export const theme = {
     background: "rgba(255, 255, 255, 0.85)",
     backdrop: "blur(20px) saturate(180%)",
     border: "1px solid rgba(0, 0, 0, 0.06)",
-    shadow: "0 1px 0 0 rgba(255, 255, 255, 0.5) inset, 0 4px 24px rgba(0, 0, 0, 0.04)",
+    shadow:
+      "0 1px 0 0 rgba(255, 255, 255, 0.5) inset, 0 4px 24px rgba(0, 0, 0, 0.04)",
   },
 }
 

@@ -2,10 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { SearchSummary } from './SearchSummary';
+import type { SearchSummary } from "./SearchSummary"
 /**
  * Schema for search list response.
  */
 export type SearchListResponse = {
-    searches: Array<SearchSummary>;
-};
+  searches: Array<SearchSummary>
+}

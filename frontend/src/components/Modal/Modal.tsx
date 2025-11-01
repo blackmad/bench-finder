@@ -1,15 +1,21 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, ExternalLink, X, Flag } from "lucide-react"
+import { ChevronLeft, ChevronRight, ExternalLink, Flag, X } from "lucide-react"
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import styled from "styled-components"
-import type { StructuredAddress, SegmentationData, WebBenchData } from "../../api"
+import type {
+  SegmentationData,
+  StructuredAddress,
+  WebBenchData,
+} from "../../api"
 import { benchApi } from "../../services/api"
 import DetectionData from "../DetectionData/DetectionData"
 
 // Helper function to format structured address for display
-function formatStructuredAddress(addr: StructuredAddress | null | undefined): string {
+function formatStructuredAddress(
+  addr: StructuredAddress | null | undefined
+): string {
   if (!addr) return ""
 
   // Build address from components, fallback to formatted_address
@@ -265,7 +271,6 @@ const DetectionHeader = styled.div`
   }
 `
 
-
 const PlaceholderContent = styled.div`
   text-align: center;
   padding: ${({ theme }) => theme.spacing[10]};
@@ -346,10 +351,10 @@ const Thumbnail = styled.div<{ $selected?: boolean; $hasDetection?: boolean }>`
   transition: all ${({ theme }) => theme.transitions.fast};
   border: 3px solid
     ${({ $selected, $hasDetection, theme }) => {
-    if ($selected) return theme.colors.primary
-    if ($hasDetection) return theme.colors.success
-    return "transparent"
-  }};
+      if ($selected) return theme.colors.primary
+      if ($hasDetection) return theme.colors.success
+      return "transparent"
+    }};
   box-shadow: ${({ $selected, $hasDetection, theme }) => {
     if ($selected) return `0 0 0 2px ${theme.colors.primary}40`
     if ($hasDetection) return `0 0 0 2px ${theme.colors.success}40`
@@ -461,7 +466,7 @@ const Modal: React.FC<ModalProps> = ({
         // Cache the data
         segmentationCacheRef.current.set(imageId, data)
         setSegmentationData(data)
-      } catch (err) {
+      } catch (_err) {
         console.warn("No segmentation data available for image:", imageId)
         setError("No segmentation data available for this image")
         setSegmentationData(null)
@@ -476,7 +481,7 @@ const Modal: React.FC<ModalProps> = ({
     }
 
     loadSegmentationData()
-  }, [imageId, imageUrl, isOpen])
+  }, [imageId, isOpen])
 
   // Check which images have detections for thumbnail highlighting
   useEffect(() => {
@@ -494,11 +499,7 @@ const Modal: React.FC<ModalProps> = ({
           // Check cache first
           if (segmentationCacheRef.current.has(imgId)) {
             const cached = segmentationCacheRef.current.get(imgId)
-            if (
-              cached &&
-              cached.detection_items &&
-              cached.detection_items.length > 0
-            ) {
+            if (cached?.detection_items && cached.detection_items.length > 0) {
               detectionSet.add(imgId)
             }
             return
@@ -508,14 +509,10 @@ const Modal: React.FC<ModalProps> = ({
           try {
             const data = await benchApi.getImageSegmentation(imgId)
             segmentationCacheRef.current.set(imgId, data)
-            if (
-              data &&
-              data.detection_items &&
-              data.detection_items.length > 0
-            ) {
+            if (data?.detection_items && data.detection_items.length > 0) {
               detectionSet.add(imgId)
             }
-          } catch (err) {
+          } catch (_err) {
             // Image doesn't have segmentation data - that's fine
             console.debug("No detection data for image:", imgId)
           }
@@ -528,7 +525,7 @@ const Modal: React.FC<ModalProps> = ({
     }
 
     checkImageDetections()
-  }, [bench?.id, bench?.image_ids, isOpen])
+  }, [bench?.id, bench?.image_ids, isOpen, bench])
 
   // Pre-load segmentation data for adjacent images
   useEffect(() => {
@@ -541,7 +538,7 @@ const Modal: React.FC<ModalProps> = ({
       try {
         const data = await benchApi.getImageSegmentation(imageId)
         segmentationCacheRef.current.set(imageId, data)
-      } catch (err) {
+      } catch (_err) {
         // Silently fail for pre-loading - we'll handle errors when actually loading
         console.debug("Pre-load segmentation failed for image:", imageId)
       }
@@ -619,10 +616,10 @@ const Modal: React.FC<ModalProps> = ({
     }
 
     // Set overlay dimensions and position
-    overlay.style.width = displayWidth + "px"
-    overlay.style.height = displayHeight + "px"
-    overlay.style.left = offsetX + "px"
-    overlay.style.top = offsetY + "px"
+    overlay.style.width = `${displayWidth}px`
+    overlay.style.height = `${displayHeight}px`
+    overlay.style.left = `${offsetX}px`
+    overlay.style.top = `${offsetY}px`
     overlay.setAttribute("viewBox", `0 0 ${displayWidth} ${displayHeight}`)
 
     // Get image shape from segmentation data or use natural dimensions
@@ -639,14 +636,13 @@ const Modal: React.FC<ModalProps> = ({
 
     // Render detection items
     const detectionItems = segmentationData.detection_items
-    const hasItems =
-      detectionItems && detectionItems.length > 0
+    const hasItems = detectionItems && detectionItems.length > 0
     let hasRenderedItems = false
 
     if (hasItems && detectionItems) {
       detectionItems.forEach((item, index) => {
         // Prefer polygon (segmentation) over bounding box
-        if (item.polygon && item.polygon.coordinates && item.polygon.coordinates.length > 0) {
+        if (item.polygon?.coordinates && item.polygon.coordinates.length > 0) {
           // Render segmentation polygon
           const points = item.polygon.coordinates
             .map(([x, y]) => `${x * scaleX},${y * scaleY}`)
@@ -783,10 +779,7 @@ const Modal: React.FC<ModalProps> = ({
             "Right arrow - can navigate next:",
             currentIndex < allBenches.length - 1 || hasMore
           )
-          if (
-            onNavigate &&
-            (currentIndex < allBenches.length - 1 || hasMore)
-          ) {
+          if (onNavigate && (currentIndex < allBenches.length - 1 || hasMore)) {
             console.log("Navigating to next bench")
             onNavigate("next")
           }
@@ -932,9 +925,8 @@ const Modal: React.FC<ModalProps> = ({
                       ref={overlayRef}
                       style={{
                         display:
-                          segmentationData &&
-                            segmentationData.detection_items &&
-                            segmentationData.detection_items.length > 0
+                          segmentationData?.detection_items &&
+                          segmentationData.detection_items.length > 0
                             ? "block"
                             : "none",
                       }}
@@ -1000,7 +992,9 @@ const Modal: React.FC<ModalProps> = ({
                 {bench.reverse_geocode && (
                   <InfoRow>
                     <InfoLabel>Address:</InfoLabel>
-                    <InfoValue>{formatStructuredAddress(bench.reverse_geocode)}</InfoValue>
+                    <InfoValue>
+                      {formatStructuredAddress(bench.reverse_geocode)}
+                    </InfoValue>
                   </InfoRow>
                 )}
                 <InfoRow>
@@ -1079,7 +1073,10 @@ const Modal: React.FC<ModalProps> = ({
                     <InfoRow>
                       <InfoLabel>Max Confidence:</InfoLabel>
                       <InfoValue style={{ fontWeight: 600 }}>
-                        {((segmentationData.confidence_score || 0) * 100).toFixed(1)}%
+                        {(
+                          (segmentationData.confidence_score || 0) * 100
+                        ).toFixed(1)}
+                        %
                       </InfoValue>
                     </InfoRow>
                   </DetectionHeader>

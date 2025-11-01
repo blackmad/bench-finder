@@ -1,6 +1,6 @@
 import { motion } from "framer-motion"
 import L from "leaflet"
-import { Camera, Hash, MapPin, Target, Flag } from "lucide-react"
+import { Flag, Hash, MapPin, Target } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
@@ -13,7 +13,9 @@ import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
 
 // Helper function to format structured address for display
-function formatStructuredAddress(addr: StructuredAddress | null | undefined): string {
+function formatStructuredAddress(
+  addr: StructuredAddress | null | undefined
+): string {
   if (!addr) return ""
 
   // Build address from components, fallback to formatted_address
@@ -188,7 +190,7 @@ const Badge = styled.div<{
   }}
 `
 
-const DebugBadge = styled(Badge) <{ $show: boolean }>`
+const DebugBadge = styled(Badge)<{ $show: boolean }>`
   display: ${({ $show }) => ($show ? "block" : "none")};
 `
 
@@ -288,17 +290,17 @@ const ConfidenceBar = styled.div<{ $confidence: number; $type: string }>`
     height: 100%;
     width: ${({ $confidence }) => $confidence * 100}%;
     background: ${({ $type, theme }) => {
-    switch ($type) {
-      case "ultralytics":
-        return theme.colors.ultralytics
-      case "roboflow":
-        return theme.colors.roboflow
-      case "mapillary":
-        return theme.colors.mapillary
-      default:
-        return theme.colors.primary
-    }
-  }};
+      switch ($type) {
+        case "ultralytics":
+          return theme.colors.ultralytics
+        case "roboflow":
+          return theme.colors.roboflow
+        case "mapillary":
+          return theme.colors.mapillary
+        default:
+          return theme.colors.primary
+      }
+    }};
     transition: width ${({ theme }) => theme.transitions.normal};
   }
 `
@@ -436,7 +438,6 @@ interface BenchCardProps {
 export const BenchCard: React.FC<BenchCardProps> = ({
   bench,
   onImageClick,
-  onStreetViewClick,
   animationDelay = 0,
 }) => {
   const { state } = useApp()
@@ -454,7 +455,9 @@ export const BenchCard: React.FC<BenchCardProps> = ({
 
   // Format tags (exclude amenity tag and null values)
   const tags = Object.entries(bench.tags || {})
-    .filter(([key, value]) => key !== "amenity" && value != null && value !== "null")
+    .filter(
+      ([key, value]) => key !== "amenity" && value != null && value !== "null"
+    )
     .map(([key, value]) => `${key}: ${value}`)
 
   // Determine detection type color
@@ -493,12 +496,6 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     }
   }
 
-  const handleTitleClick = () => {
-    if (onStreetViewClick) {
-      onStreetViewClick(bench.lat, bench.lng)
-    }
-  }
-
   // Initialize minimap once
   useEffect(() => {
     if (!mapRef.current || miniMap) return
@@ -522,9 +519,12 @@ export const BenchCard: React.FC<BenchCardProps> = ({
         })
 
         // Use CartoDB Positron No Labels for a clean look without labels
-        L.tileLayer("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png", {
-          attribution: "",
-        }).addTo(map)
+        L.tileLayer(
+          "https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png",
+          {
+            attribution: "",
+          }
+        ).addTo(map)
 
         // Add a pin marker for the bench
         const pinIcon = L.divIcon({
@@ -534,7 +534,9 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           iconAnchor: [10, 10],
         })
 
-        const marker = L.marker([bench.lat, bench.lng], { icon: pinIcon }).addTo(map)
+        const marker = L.marker([bench.lat, bench.lng], {
+          icon: pinIcon,
+        }).addTo(map)
 
         // Invalidate size after a brief delay to ensure proper rendering
         setTimeout(() => {
@@ -555,7 +557,7 @@ export const BenchCard: React.FC<BenchCardProps> = ({
     return () => {
       clearTimeout(timeoutId)
     }
-  }, [bench.lat, bench.lng])
+  }, [bench.lat, bench.lng, miniMap])
 
   // Update map position when coordinates change
   useEffect(() => {
@@ -658,7 +660,15 @@ export const BenchCard: React.FC<BenchCardProps> = ({
           <HoverMap>
             <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
             {!hoverMapLoaded && (
-              <MiniMapPlaceholder style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}>
+              <MiniMapPlaceholder
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                }}
+              >
                 📍 Map Preview
               </MiniMapPlaceholder>
             )}

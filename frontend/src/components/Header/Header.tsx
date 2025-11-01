@@ -1,11 +1,18 @@
-import { Grid, MapIcon, Navigation2, Settings, Shuffle, Plus } from "lucide-react"
+import {
+  Grid,
+  MapIcon,
+  Navigation2,
+  Plus,
+  Settings,
+  Shuffle,
+} from "lucide-react"
 import type React from "react"
 import { useCallback, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import styled from "styled-components"
+import { BenchMode, DataSource } from "../../api"
 import { useApp } from "../../contexts/AppContext"
 import { buildUrlWithFilters } from "../../utils/urlParams"
-import { DataSource, BenchMode } from "../../api"
 
 const HeaderContainer = styled.header`
   background: ${({ theme }) => theme.glass.background};
@@ -89,7 +96,7 @@ const ViewButton = styled.button<ViewButtonProps>`
   &:hover {
     color: ${({ theme }) => theme.colors.textPrimary};
     background: ${({ $active, theme }) =>
-    $active ? theme.colors.background : theme.colors.gray200};
+      $active ? theme.colors.background : theme.colors.gray200};
     transform: translateY(-1px);
   }
 
@@ -237,23 +244,21 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
     width: 100%;
     height: 100%;
     background: ${({ $variant }) =>
-    $variant === "primary"
-      ? "rgba(255, 255, 255, 0.15)"
-      : "rgba(0, 0, 0, 0.03)"};
+      $variant === "primary"
+        ? "rgba(255, 255, 255, 0.15)"
+        : "rgba(0, 0, 0, 0.03)"};
     transition: left ${({ theme }) => theme.transitions.normal};
   }
 
   &:hover {
     background: ${({ $variant, theme }) =>
-    $variant === "primary"
-      ? `linear-gradient(135deg, ${theme.colors.primaryDark} 0%, ${theme.colors.primaryDark} 100%)`
-      : theme.colors.gray50};
+      $variant === "primary"
+        ? `linear-gradient(135deg, ${theme.colors.primaryDark} 0%, ${theme.colors.primaryDark} 100%)`
+        : theme.colors.gray50};
     border-color: ${({ $variant, theme }) =>
-    $variant === "primary" ? "transparent" : theme.colors.gray300};
+      $variant === "primary" ? "transparent" : theme.colors.gray300};
     box-shadow: ${({ $variant, theme }) =>
-    $variant === "primary"
-      ? theme.shadows.primaryHover
-      : theme.shadows.base};
+      $variant === "primary" ? theme.shadows.primaryHover : theme.shadows.base};
     transform: translateY(-1px);
 
     &::before {
@@ -299,7 +304,7 @@ interface DebugButtonProps {
   $active: boolean
 }
 
-const DebugButton = styled(ActionButton) <DebugButtonProps>`
+const DebugButton = styled(ActionButton)<DebugButtonProps>`
   background: ${({ $active, theme }) =>
     $active ? theme.colors.warning : theme.colors.background};
   color: ${({ $active, theme }) =>
@@ -311,11 +316,11 @@ const DebugButton = styled(ActionButton) <DebugButtonProps>`
 
   &:hover {
     background: ${({ $active, theme }) =>
-    $active ? theme.colors.warningLight : theme.colors.gray50};
+      $active ? theme.colors.warningLight : theme.colors.gray50};
     border-color: ${({ $active, theme }) =>
-    $active ? theme.colors.warningLight : theme.colors.gray300};
+      $active ? theme.colors.warningLight : theme.colors.gray300};
     box-shadow: ${({ $active, theme }) =>
-    $active ? theme.shadows.lg : theme.shadows.base};
+      $active ? theme.shadows.lg : theme.shadows.base};
   }
 `
 
@@ -363,7 +368,7 @@ export const Header: React.FC = () => {
 
   const handleFilterChange = async (
     field: keyof typeof state.filters,
-    value: any
+    value: string | number | boolean | DataSource | BenchMode
   ) => {
     // Update filters and immediately reload with the new value
     updateFilters({ [field]: value })
@@ -403,7 +408,9 @@ export const Header: React.FC = () => {
           startLng: lng,
         }
         // Include zoom in URL (default to 16 for a closer view of the area)
-        const filterParams = buildUrlWithFilters(updatedFilters, "/map", ["zoom"]).split("?")[1] || ""
+        const filterParams =
+          buildUrlWithFilters(updatedFilters, "/map", ["zoom"]).split("?")[1] ||
+          ""
         const existingParams = new URLSearchParams(filterParams)
         // Set to 16 for new location (higher zoom level)
         existingParams.set("zoom", "16")
@@ -413,18 +420,25 @@ export const Header: React.FC = () => {
         // In cards view, just reload the benches
         await resetAndReload()
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       let message = "Unable to get location"
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          message = "Location access denied"
-          break
-        case error.POSITION_UNAVAILABLE:
-          message = "Location unavailable"
-          break
-        case error.TIMEOUT:
-          message = "Location request timeout"
-          break
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        typeof error.code === "number"
+      ) {
+        switch (error.code) {
+          case 1: // PERMISSION_DENIED
+            message = "Location access denied"
+            break
+          case 2: // POSITION_UNAVAILABLE
+            message = "Location unavailable"
+            break
+          case 3: // TIMEOUT
+            message = "Location request timeout"
+            break
+        }
       }
       alert(
         `${message}. Please enter coordinates manually or allow location access.`
@@ -432,7 +446,13 @@ export const Header: React.FC = () => {
     } finally {
       setLocationLoading(false)
     }
-  }, [setUserLocation, resetAndReload, currentViewMode, state.filters, navigate])
+  }, [
+    setUserLocation,
+    resetAndReload,
+    currentViewMode,
+    state.filters,
+    navigate,
+  ])
 
   const handleFeelingLucky = useCallback(async () => {
     setLuckyLoading(true)
@@ -538,7 +558,12 @@ export const Header: React.FC = () => {
                 <Select
                   value={state.filters.sourceFilter}
                   onChange={(e) =>
-                    handleFilterChange("sourceFilter", e.target.value === "all" ? "all" : e.target.value as DataSource)
+                    handleFilterChange(
+                      "sourceFilter",
+                      e.target.value === "all"
+                        ? "all"
+                        : (e.target.value as DataSource)
+                    )
                   }
                 >
                   <option value={DataSource.OSM}>OSM + StreetView</option>
@@ -565,7 +590,10 @@ export const Header: React.FC = () => {
                 <Select
                   value={state.filters.includeDetectionData ? "yes" : "no"}
                   onChange={(e) =>
-                    handleFilterChange("includeDetectionData", e.target.value === "yes")
+                    handleFilterChange(
+                      "includeDetectionData",
+                      e.target.value === "yes"
+                    )
                   }
                 >
                   <option value="no">Basic Info Only</option>

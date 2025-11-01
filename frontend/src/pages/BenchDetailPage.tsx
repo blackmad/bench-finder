@@ -4,15 +4,15 @@ import {
   ArrowLeft,
   Camera,
   ExternalLink,
+  Flag,
   Hash,
   MapPin,
   Target,
-  Flag,
 } from "lucide-react"
 import type React from "react"
 import { useEffect, useState } from "react"
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet"
-import { useParams, useNavigate, Link } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import styled from "styled-components"
 import "leaflet/dist/leaflet.css"
 import "../utils/leafletFix"
@@ -21,7 +21,9 @@ import { DataSource } from "../api"
 import Header from "../components/Header/Header"
 
 // Helper function to format structured address for display
-function formatStructuredAddress(addr: StructuredAddress | null | undefined): string {
+function formatStructuredAddress(
+  addr: StructuredAddress | null | undefined
+): string {
   if (!addr) return ""
 
   // Build address from components, fallback to formatted_address
@@ -58,11 +60,12 @@ function formatStructuredAddress(addr: StructuredAddress | null | undefined): st
 
   return addr.formatted_address || ""
 }
+
+import DetectionData from "../components/DetectionData/DetectionData"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
 import ReportModal from "../components/ReportModal/ReportModal"
 import { benchApi } from "../services/api"
-import DetectionData from "../components/DetectionData/DetectionData"
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -152,7 +155,9 @@ const ImageContainer = styled.div<{ $isBestImage?: boolean }>`
   border: ${({ $isBestImage, theme }) =>
     $isBestImage ? `3px solid ${theme.colors.success}` : "none"};
   box-shadow: ${({ $isBestImage, theme }) =>
-    $isBestImage ? `0 0 0 2px ${theme.colors.success}40, ${theme.shadows.md}` : "none"};
+    $isBestImage
+      ? `0 0 0 2px ${theme.colors.success}40, ${theme.shadows.md}`
+      : "none"};
 
   &:hover {
     transform: scale(1.02);
@@ -192,17 +197,6 @@ const GlobalMapStyles = styled.div`
     font-size: 24px;
     line-height: 1;
   }
-`
-
-const ImagePlaceholder = styled.div`
-  width: 100%;
-  height: 200px;
-  background: ${({ theme }) => theme.colors.gray100};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: ${({ theme }) => theme.typography.sizes["3xl"]};
-  color: ${({ theme }) => theme.colors.gray400};
 `
 
 const Section = styled.section`
@@ -394,17 +388,17 @@ const ConfidenceBar = styled.div<{ $confidence: number; $type: string }>`
     height: 100%;
     width: ${({ $confidence }) => $confidence * 100}%;
     background: ${({ $type, theme }) => {
-    switch ($type) {
-      case "ultralytics":
-        return theme.colors.ultralytics
-      case "roboflow":
-        return theme.colors.roboflow
-      case "mapillary":
-        return theme.colors.mapillary
-      default:
-        return theme.colors.primary
-    }
-  }};
+      switch ($type) {
+        case "ultralytics":
+          return theme.colors.ultralytics
+        case "roboflow":
+          return theme.colors.roboflow
+        case "mapillary":
+          return theme.colors.mapillary
+        default:
+          return theme.colors.primary
+      }
+    }};
     transition: width ${({ theme }) => theme.transitions.normal};
   }
 `
@@ -430,10 +424,10 @@ const MapContainerStyled = styled.div`
 `
 
 // Component to update map center when bench location changes
-const MapCenterUpdater: React.FC<{ center: [number, number]; zoom: number }> = ({
-  center,
-  zoom,
-}) => {
+const MapCenterUpdater: React.FC<{
+  center: [number, number]
+  zoom: number
+}> = ({ center, zoom }) => {
   const map = useMap()
 
   useEffect(() => {
@@ -533,7 +527,9 @@ const BenchDetailPage: React.FC = () => {
 
   // Format tags (exclude amenity tag and null values)
   const tags = Object.entries(bench.tags || {})
-    .filter(([key, value]) => key !== "amenity" && value != null && value !== "null")
+    .filter(
+      ([key, value]) => key !== "amenity" && value != null && value !== "null"
+    )
     .map(([key, value]) => ({ key, value }))
 
   const handleImageClick = (
@@ -582,17 +578,17 @@ const BenchDetailPage: React.FC = () => {
     setSelectedImageUrl(imageUrl)
     setSelectedImageId(imageId)
     // Find the index of the selected image
-    const index = bench.image_ids?.findIndex((id) => id === imageId) ?? 0
+    const index = bench.image_ids?.indexOf(imageId) ?? 0
     setCurrentModalIndex(index)
   }
 
   // Create array of image data for navigation (needed for Modal's navigation logic)
   const imageDataForNavigation = bench
     ? bench.image_filenames.map((filename, index) => ({
-      ...bench,
-      image_filenames: [filename],
-      image_ids: [bench.image_ids?.[index] || 0],
-    }))
+        ...bench,
+        image_filenames: [filename],
+        image_ids: [bench.image_ids?.[index] || 0],
+      }))
     : []
 
   const handleOpenStreetMap = () => {
@@ -627,9 +623,7 @@ const BenchDetailPage: React.FC = () => {
                 {bench.bench_found ? "✅ Bench Detected" : "❌ No Bench"}
               </Badge>
               <Badge
-                $variant={
-                  bench.source === DataSource.OSM ? "osm" : "mapillary"
-                }
+                $variant={bench.source === DataSource.OSM ? "osm" : "mapillary"}
               >
                 {getSourceDisplayName(bench.source)}
               </Badge>
@@ -645,19 +639,20 @@ const BenchDetailPage: React.FC = () => {
                 <ImageGallery>
                   {bench.image_filenames.map((filename, index) => {
                     const imgId = bench.image_ids?.[index] || null
-                    const isBestImage = bench.best_image_id === imgId
                     return (
                       <ImageContainer
                         key={index}
-                        $isBestImage={isBestImage}
                         onClick={() =>
-                          handleImageClick(`/images/${filename}`, imgId || 0, index)
+                          handleImageClick(
+                            `/images/${filename}`,
+                            imgId || 0,
+                            index
+                          )
                         }
                       >
                         <GalleryImage
                           src={`/images/${filename}`}
-                          alt={`Bench ${bench.id} - Image ${index + 1}${isBestImage ? " (Best Image)" : ""
-                            }`}
+                          alt={`Bench ${bench.id} - Image ${index + 1}`}
                           loading="lazy"
                         />
                       </ImageContainer>
@@ -722,7 +717,9 @@ const BenchDetailPage: React.FC = () => {
                       <MapPin />
                       Address
                     </InfoLabel>
-                    <InfoValue>{formatStructuredAddress(bench.reverse_geocode)}</InfoValue>
+                    <InfoValue>
+                      {formatStructuredAddress(bench.reverse_geocode)}
+                    </InfoValue>
                   </InfoItem>
                 )}
                 <InfoItem>
@@ -742,9 +739,7 @@ const BenchDetailPage: React.FC = () => {
                 <InfoItem>
                   <InfoLabel>Detection Status</InfoLabel>
                   <InfoValue>
-                    {bench.bench_found
-                      ? "Bench detected"
-                      : "No bench detected"}
+                    {bench.bench_found ? "Bench detected" : "No bench detected"}
                   </InfoValue>
                 </InfoItem>
               </InfoGrid>
@@ -755,7 +750,9 @@ const BenchDetailPage: React.FC = () => {
               <SectionTitle>Detection Confidence</SectionTitle>
               <InfoGrid>
                 <InfoItem>
-                  <InfoLabel>Best Confidence ({bench.detection_type})</InfoLabel>
+                  <InfoLabel>
+                    Best Confidence ({bench.detection_type})
+                  </InfoLabel>
                   <InfoValue>
                     {(bench.best_confidence * 100).toFixed(1)}%
                   </InfoValue>
@@ -814,7 +811,10 @@ const BenchDetailPage: React.FC = () => {
             {bench.detection_items && bench.detection_items.length > 0 && (
               <Section>
                 <SectionTitle>Detection Details</SectionTitle>
-                <DetectionData detectionItems={bench.detection_items} />
+                <DetectionData
+                  detectionItems={bench.detection_items}
+                  detectionSource={bench.detection_type}
+                />
               </Section>
             )}
 

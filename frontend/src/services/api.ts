@@ -2,20 +2,26 @@
 
 import axios from "axios"
 import type {
+  ApiInfoResponse,
   BboxBenchResponse,
+  BenchDetectionData,
   BenchListResponse,
+  ClusteredBenchListResponse,
   ConfigResponse,
+  ImageListResponse,
+  MissingBenchReportResponse,
+  ReportResponse,
   SearchListResponse,
   SegmentationData,
   WebBenchData,
-  BenchDetectionData,
-  ImageListResponse,
-  ReportResponse,
-  MissingBenchReportResponse,
-  ApiInfoResponse,
 } from "../api"
-import { DataSource, BenchMode, BenchReportType } from "../api"
-import { BenchFinderApi, OpenAPI } from "../api"
+import {
+  BenchFinderApi,
+  BenchMode,
+  type BenchReportType,
+  type DataSource,
+  OpenAPI,
+} from "../api"
 import type { AppFilters } from "../contexts/AppContext"
 
 // Configure the OpenAPI client
@@ -99,7 +105,10 @@ export const benchApi = {
   }): Promise<BenchListResponse> => {
     // Ensure mode is always explicitly set (don't rely on default parameter)
     // If mode is undefined or null, default to BENCHES, otherwise use the provided value
-    const mode = (params.mode !== undefined && params.mode !== null) ? params.mode : BenchMode.BENCHES
+    const mode =
+      params.mode !== undefined && params.mode !== null
+        ? params.mode
+        : BenchMode.BENCHES
 
     return benchFinderApi.benches.getBenchesApiBenchesGet({
       page: params.page,
@@ -137,7 +146,7 @@ export const benchApi = {
     sort_by?: string
     limit?: number
     include_detection_data?: boolean
-  }): Promise<BboxBenchResponse> => {
+  }): Promise<BboxBenchResponse | ClusteredBenchListResponse> => {
     return benchFinderApi.benches.getBenchesInBboxApiBenchesBboxGet({
       north: params.north,
       south: params.south,
@@ -198,31 +207,33 @@ export const benchApi = {
 
   // Get bench detection data - new method
   getBenchDetections: async (benchId: number): Promise<BenchDetectionData> => {
-    return benchFinderApi.images.getBenchDetectionsApiBenchBenchIdDetectionsGet({
-      benchId,
-    })
+    return benchFinderApi.images.getBenchDetectionsApiBenchBenchIdDetectionsGet(
+      {
+        benchId,
+      }
+    )
   },
 
   // Report bad bench detection - new method
-      reportBadBench: async (params: {
-        benchId: number
-        reportType: BenchReportType
-        description?: string
-        imageId?: number
-        userLocationLat?: number
-        userLocationLng?: number
-      }): Promise<ReportResponse> => {
-        return benchFinderApi.reporting.reportBadBenchApiBenchesBenchIdReportPost({
-          benchId: params.benchId,
-          requestBody: {
-            report_type: params.reportType,
-            description: params.description,
-            image_id: params.imageId,
-            user_location_lat: params.userLocationLat,
-            user_location_lng: params.userLocationLng,
-          },
-        })
+  reportBadBench: async (params: {
+    benchId: number
+    reportType: BenchReportType
+    description?: string
+    imageId?: number
+    userLocationLat?: number
+    userLocationLng?: number
+  }): Promise<ReportResponse> => {
+    return benchFinderApi.reporting.reportBadBenchApiBenchesBenchIdReportPost({
+      benchId: params.benchId,
+      requestBody: {
+        report_type: params.reportType,
+        description: params.description,
+        image_id: params.imageId,
+        user_location_lat: params.userLocationLat,
+        user_location_lng: params.userLocationLng,
       },
+    })
+  },
 
   // Report missing bench - new method
   reportMissingBench: async (params: {

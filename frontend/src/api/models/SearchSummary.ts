@@ -6,11 +6,11 @@
  * Schema for search summary with statistics.
  */
 export type SearchSummary = {
-    id: number;
-    query: string;
-    start_lat: number;
-    start_lng: number;
-    search_radius: number;
-    bench_count: number;
-    created_at: string;
-};
+  id: number
+  query: string
+  start_lat: number
+  start_lng: number
+  search_radius: number
+  bench_count: number
+  created_at: string
+}

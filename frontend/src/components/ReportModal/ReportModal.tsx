@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
-import { X, AlertTriangle, MapPin, Send, Check } from 'lucide-react'
-import styled from 'styled-components'
-import { motion, AnimatePresence } from 'framer-motion'
-import type { WebBenchData } from '../../api'
-import { BenchReportType } from '../../api'
-import { getCurrentLocation } from '../../utils/imageCapture'
-import { benchApi } from '../../services/api'
+import { AnimatePresence, motion } from "framer-motion"
+import { AlertTriangle, Check, MapPin, Send, X } from "lucide-react"
+import { useEffect, useId, useState } from "react"
+import styled from "styled-components"
+import type { WebBenchData } from "../../api"
+import { BenchReportType } from "../../api"
+import { benchApi } from "../../services/api"
+import { getCurrentLocation } from "../../utils/imageCapture"
 
 const Overlay = styled(motion.div)`
   position: fixed;
@@ -169,7 +169,6 @@ const ImagePreview = styled.div`
   }
 `
 
-
 const Footer = styled.div`
   display: flex;
   gap: ${({ theme }) => theme.spacing[3]};
@@ -177,7 +176,7 @@ const Footer = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.borderLight};
 `
 
-const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+const Button = styled.button<{ $variant?: "primary" | "secondary" }>`
   flex: 1;
   padding: ${({ theme }) => theme.spacing[3]} ${({ theme }) => theme.spacing[4]};
   border-radius: ${({ theme }) => theme.borderRadius.md};
@@ -190,8 +189,8 @@ const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   justify-content: center;
   gap: ${({ theme }) => theme.spacing[2]};
 
-  ${({ $variant = 'secondary', theme }) =>
-    $variant === 'primary'
+  ${({ $variant = "secondary", theme }) =>
+    $variant === "primary"
       ? `
         background: ${theme.colors.primary};
         color: white;
@@ -254,12 +253,13 @@ interface ReportModalProps {
 const getReportTypes = (benchFound: boolean | undefined) => [
   {
     value: BenchReportType.BAD_DETECTION,
-    label: benchFound === false
-      ? 'Bench visible in photo but not detected'
-      : 'Bad Detection - No bench here'
+    label:
+      benchFound === false
+        ? "Bench visible in photo but not detected"
+        : "Bad Detection - No bench here",
   },
-  { value: BenchReportType.INCORRECT_LOCATION, label: 'Incorrect Location' },
-  { value: BenchReportType.POOR_IMAGE_QUALITY, label: 'Poor Image Quality' },
+  { value: BenchReportType.INCORRECT_LOCATION, label: "Incorrect Location" },
+  { value: BenchReportType.POOR_IMAGE_QUALITY, label: "Poor Image Quality" },
 ]
 
 export const ReportModal: React.FC<ReportModalProps> = ({
@@ -270,10 +270,16 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   onClose,
 }) => {
   const [reportType, setReportType] = useState(BenchReportType.BAD_DETECTION)
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+  const [userLocation, setUserLocation] = useState<{
+    lat: number
+    lng: number
+  } | null>(null)
+
+  const reportTypeId = useId()
+  const descriptionId = useId()
 
   // Update report types based on whether bench was detected
   const reportTypes = getReportTypes(bench.bench_found)
@@ -282,11 +288,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setReportType(BenchReportType.BAD_DETECTION)
-      setDescription('')
+      setDescription("")
       setIsSuccess(false)
       setUserLocation(null)
     }
-  }, [isOpen, bench.id])
+  }, [isOpen])
 
   const handleSubmit = async () => {
     if (isSubmitting) return
@@ -322,13 +328,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         onClose()
         setIsSuccess(false)
         setReportType(BenchReportType.BAD_DETECTION)
-        setDescription('')
+        setDescription("")
         setUserLocation(null)
       }, 3000)
-
     } catch (error) {
-      console.error('Failed to submit report:', error)
-      alert('Failed to submit report. Please try again.')
+      console.error("Failed to submit report:", error)
+      alert("Failed to submit report. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -350,7 +355,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 500 }}
+          transition={{ type: "spring", damping: 25, stiffness: 500 }}
         >
           {isSuccess ? (
             <SuccessMessage
@@ -377,19 +382,23 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 <BenchInfo>
                   <BenchInfoItem>
                     <MapPin size={16} />
-                    Bench #{bench.id} at {bench.lat.toFixed(6)}, {bench.lng.toFixed(6)}
+                    Bench #{bench.id} at {bench.lat.toFixed(6)},{" "}
+                    {bench.lng.toFixed(6)}
                   </BenchInfoItem>
                   <BenchInfoItem>
-                    Source: {bench.source} • Confidence: {(bench.best_confidence * 100).toFixed(0)}%
+                    Source: {bench.source} • Confidence:{" "}
+                    {(bench.best_confidence * 100).toFixed(0)}%
                   </BenchInfoItem>
                 </BenchInfo>
 
                 <FormGroup>
-                  <Label htmlFor="report-type">What's the issue?</Label>
+                  <Label htmlFor={reportTypeId}>What's the issue?</Label>
                   <Select
-                    id="report-type"
+                    id={reportTypeId}
                     value={reportType}
-                    onChange={(e) => setReportType(e.target.value as BenchReportType)}
+                    onChange={(e) =>
+                      setReportType(e.target.value as BenchReportType)
+                    }
                   >
                     {reportTypes.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -400,11 +409,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 </FormGroup>
 
                 <FormGroup>
-                  <Label htmlFor="description">
-                    Additional Details
-                  </Label>
+                  <Label htmlFor={descriptionId}>Additional Details</Label>
                   <Textarea
-                    id="description"
+                    id={descriptionId}
                     placeholder="Please describe the issue in more detail..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -431,7 +438,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Submitting...' : (
+                  {isSubmitting ? (
+                    "Submitting..."
+                  ) : (
                     <>
                       <Send size={16} />
                       Submit Report

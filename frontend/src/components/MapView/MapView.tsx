@@ -6,11 +6,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import styled from "styled-components"
 import "leaflet/dist/leaflet.css"
 import "../../utils/leafletFix"
-import type {
-  BboxBenchResponse,
-  WebBenchData,
-} from "../../api"
-import { BenchMode } from "../../api"
+import type { BboxBenchResponse, BenchMode, WebBenchData } from "../../api"
 import { useApp } from "../../contexts/AppContext"
 import { benchApi } from "../../services/api"
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner"
@@ -300,7 +296,12 @@ const MapEventHandler: React.FC<{
   onViewChange: (center: [number, number], zoom: number) => void
   isUpdatingFromUrl: React.MutableRefObject<boolean>
   onUserInteraction: () => void
-}> = ({ onBoundsChange, onViewChange, isUpdatingFromUrl, onUserInteraction }) => {
+}> = ({
+  onBoundsChange,
+  onViewChange,
+  isUpdatingFromUrl,
+  onUserInteraction,
+}) => {
   const map = useMap()
 
   // Use refs to keep callbacks stable
@@ -373,7 +374,7 @@ const MapEventHandler: React.FC<{
       map.off("zoomend", handleZoomEnd)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, onUserInteraction]) // Only depend on map instance, callbacks accessed via refs
+  }, [map, onUserInteraction, isUpdatingFromUrl.current]) // Only depend on map instance, callbacks accessed via refs
 
   return null
 }
@@ -425,7 +426,12 @@ const MapViewUpdater: React.FC<{
       lastCenterRef.current = center
       lastZoomRef.current = zoom
     }
-  }, [map, center, zoom])
+  }, [
+    map,
+    center,
+    zoom, // Set flag before updating to prevent URL updates
+    isUpdatingFromUrl,
+  ])
 
   return null
 }
@@ -529,8 +535,11 @@ const MapView: React.FC = () => {
           mode: state.filters.mode,
         }
 
-          // Include source filter (defaults to OSM, None for all sources)
-          ; (params as any).source = state.filters.sourceFilter !== "all" ? state.filters.sourceFilter : null
+        // Include source filter (defaults to OSM, None for all sources)
+        ;(params as any).source =
+          state.filters.sourceFilter !== "all"
+            ? state.filters.sourceFilter
+            : null
 
         const response = await benchApi.getBenchesInBbox(params)
 
@@ -539,8 +548,7 @@ const MapView: React.FC = () => {
         setMapData({
           benches: individualResponse.benches as WebBenchData[],
           totalCount:
-            individualResponse.total_count ||
-            individualResponse.benches.length,
+            individualResponse.total_count || individualResponse.benches.length,
         })
       } catch (error) {
         console.error("Map search failed:", error)
@@ -575,31 +583,34 @@ const MapView: React.FC = () => {
   const handleSearchHere = useCallback(() => {
     if (!mapRef.current) return
     const bounds = mapRef.current.getBounds()
-    if (bounds && bounds.isValid()) {
+    if (bounds?.isValid()) {
       searchMapArea(bounds)
       setShowSearchButton(false)
     }
   }, [searchMapArea])
 
-  const handleBenchClick = useCallback((benchId: number) => {
-    setSelectedBenchId(benchId)
+  const handleBenchClick = useCallback(
+    (benchId: number) => {
+      setSelectedBenchId(benchId)
 
-    // Find the bench in the list and open modal
-    const bench = mapData.benches.find((b) => b.id === benchId)
-    if (bench) {
-      const benchIndex = mapData.benches.findIndex((b) => b.id === benchId)
-      const imageUrl = bench.image_filenames?.[0]
-        ? `/images/${bench.image_filenames[0]}`
-        : null
-      const imageId = bench.image_ids?.[0] || null
+      // Find the bench in the list and open modal
+      const bench = mapData.benches.find((b) => b.id === benchId)
+      if (bench) {
+        const benchIndex = mapData.benches.findIndex((b) => b.id === benchId)
+        const imageUrl = bench.image_filenames?.[0]
+          ? `/images/${bench.image_filenames[0]}`
+          : null
+        const imageId = bench.image_ids?.[0] || null
 
-      setSelectedBench(bench)
-      setSelectedImageUrl(imageUrl)
-      setSelectedImageId(imageId)
-      setCurrentModalIndex(benchIndex >= 0 ? benchIndex : 0)
-      setModalOpen(true)
-    }
-  }, [mapData.benches])
+        setSelectedBench(bench)
+        setSelectedImageUrl(imageUrl)
+        setSelectedImageId(imageId)
+        setCurrentModalIndex(benchIndex >= 0 ? benchIndex : 0)
+        setModalOpen(true)
+      }
+    },
+    [mapData.benches]
+  )
 
   const handleModalClose = useCallback(() => {
     setModalOpen(false)
@@ -619,7 +630,10 @@ const MapView: React.FC = () => {
         direction === "prev" ? currentModalIndex - 1 : currentModalIndex + 1
 
       // Clamp to valid range
-      newIndex = Math.max(0, Math.min(benchesForNavigation.length - 1, newIndex))
+      newIndex = Math.max(
+        0,
+        Math.min(benchesForNavigation.length - 1, newIndex)
+      )
 
       const newBench = benchesForNavigation[newIndex]
       if (newBench) {
@@ -674,7 +688,9 @@ const MapView: React.FC = () => {
     return 13
   }
 
-  const [mapCenter, setMapCenter] = useState<[number, number]>(() => getInitialCenter())
+  const [mapCenter, setMapCenter] = useState<[number, number]>(() =>
+    getInitialCenter()
+  )
   const [mapZoom, setMapZoom] = useState<number>(() => getInitialZoom())
   const isInitialMountRef = useRef(true)
 
@@ -702,7 +718,11 @@ const MapView: React.FC = () => {
   // Track last URL we set to avoid redundant updates
   const lastSetUrlRef = useRef<string>("")
   // Track last values we set to URL for more robust comparison
-  const lastSetValuesRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null)
+  const lastSetValuesRef = useRef<{
+    lat: number
+    lng: number
+    zoom: number
+  } | null>(null)
 
   // Update URL with map view parameters (debounced)
   const updateUrlWithMapView = useCallback(
@@ -796,7 +816,10 @@ const MapView: React.FC = () => {
     const currentUrlParams = searchParams.toString()
 
     // Skip if this is the same URL we just processed or set
-    if (currentUrlParams === lastProcessedUrlRef.current || currentUrlParams === lastSetUrlRef.current) {
+    if (
+      currentUrlParams === lastProcessedUrlRef.current ||
+      currentUrlParams === lastSetUrlRef.current
+    ) {
       return
     }
 
@@ -952,11 +975,18 @@ const MapView: React.FC = () => {
           {mapData.benches?.map((bench) => {
             const isSelected = bench.id === selectedBenchId
             const isHovered = bench.id === hoveredBenchId
-            const markerColor = isSelected ? "#ef4444" : isHovered ? "#f59e0b" : "#3b82f6"
+            const markerColor = isSelected
+              ? "#ef4444"
+              : isHovered
+                ? "#f59e0b"
+                : "#3b82f6"
             const markerSize = isSelected || isHovered ? 32 : 24
             const iconSizeValue = isSelected || isHovered ? 36 : 28
             const anchorValue = isSelected || isHovered ? 18 : 14
-            const markerIconSize: [number, number] = [iconSizeValue, iconSizeValue]
+            const markerIconSize: [number, number] = [
+              iconSizeValue,
+              iconSizeValue,
+            ]
             const markerAnchor: [number, number] = [anchorValue, anchorValue]
 
             return (
@@ -1058,60 +1088,58 @@ const MapView: React.FC = () => {
           )}
 
           {/* Render individual benches */}
-          {!loading &&
-            mapData.benches &&
-            mapData.benches.length > 0 && (
-              <div>
-                {mapData.benches.map((bench) => {
-                  const imageUrl = bench.image_filenames?.[0]
-                    ? `/images/${bench.image_filenames[0]}`
-                    : null
+          {!loading && mapData.benches && mapData.benches.length > 0 && (
+            <div>
+              {mapData.benches.map((bench) => {
+                const imageUrl = bench.image_filenames?.[0]
+                  ? `/images/${bench.image_filenames[0]}`
+                  : null
 
-                  return (
-                    <MapBenchCard
-                      key={bench.id}
-                      $selected={selectedBenchId === bench.id}
-                      $hovered={hoveredBenchId === bench.id}
-                      onClick={() => handleBenchClick(bench.id)}
-                      onMouseEnter={() => setHoveredBenchId(bench.id)}
-                      onMouseLeave={() => setHoveredBenchId(null)}
-                    >
-                      <MapCardImage>
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt={`Bench ${bench.id}`}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="placeholder">🪑</div>
-                        )}
-                      </MapCardImage>
-                      <MapCardContent>
-                        <MapCardHeader>
-                          <MapCardTitle>
-                            <MapCardTitleLink to={`/bench/${bench.id}`}>
-                              Bench #{bench.id}
-                            </MapCardTitleLink>
-                          </MapCardTitle>
-                          <MapCardConfidence $show={state.debugMode}>
-                            {(bench.best_confidence * 100).toFixed(0)}%
-                          </MapCardConfidence>
-                        </MapCardHeader>
-                        <MapCardMeta>
-                          <span>
-                            📍{" "}
-                            {bench.distance_km < 1
-                              ? `${bench.distance_meters}m`
-                              : `${bench.distance_km}km`}
-                          </span>
-                        </MapCardMeta>
-                      </MapCardContent>
-                    </MapBenchCard>
-                  )
-                })}
-              </div>
-            )}
+                return (
+                  <MapBenchCard
+                    key={bench.id}
+                    $selected={selectedBenchId === bench.id}
+                    $hovered={hoveredBenchId === bench.id}
+                    onClick={() => handleBenchClick(bench.id)}
+                    onMouseEnter={() => setHoveredBenchId(bench.id)}
+                    onMouseLeave={() => setHoveredBenchId(null)}
+                  >
+                    <MapCardImage>
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={`Bench ${bench.id}`}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="placeholder">🪑</div>
+                      )}
+                    </MapCardImage>
+                    <MapCardContent>
+                      <MapCardHeader>
+                        <MapCardTitle>
+                          <MapCardTitleLink to={`/bench/${bench.id}`}>
+                            Bench #{bench.id}
+                          </MapCardTitleLink>
+                        </MapCardTitle>
+                        <MapCardConfidence $show={state.debugMode}>
+                          {(bench.best_confidence * 100).toFixed(0)}%
+                        </MapCardConfidence>
+                      </MapCardHeader>
+                      <MapCardMeta>
+                        <span>
+                          📍{" "}
+                          {bench.distance_km < 1
+                            ? `${bench.distance_meters}m`
+                            : `${bench.distance_km}km`}
+                        </span>
+                      </MapCardMeta>
+                    </MapCardContent>
+                  </MapBenchCard>
+                )
+              })}
+            </div>
+          )}
         </SidebarContent>
       </MapSidebar>
 

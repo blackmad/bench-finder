@@ -6,20 +6,20 @@
  * Standardized bounding box format with computed properties.
  */
 export type BoundingBox = {
-    /**
-     * Left coordinate
-     */
-    x1: number;
-    /**
-     * Top coordinate
-     */
-    y1: number;
-    /**
-     * Right coordinate
-     */
-    x2: number;
-    /**
-     * Bottom coordinate
-     */
-    y2: number;
-};
+  /**
+   * Left coordinate
+   */
+  x1: number
+  /**
+   * Top coordinate
+   */
+  y1: number
+  /**
+   * Right coordinate
+   */
+  x2: number
+  /**
+   * Bottom coordinate
+   */
+  y2: number
+}

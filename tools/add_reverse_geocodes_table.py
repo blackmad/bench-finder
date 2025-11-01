@@ -38,8 +38,8 @@ def migrate_database(db_path: str):
 
         shutil.copy2(db_path, backup_path)
         logger.info("✅ Database backup created")
-    except Exception as e:
-        logger.exception(f"Failed to create backup: {e}")
+    except Exception:
+        logger.exception("Failed to create backup")
         return False
 
     try:
@@ -88,10 +88,10 @@ def migrate_database(db_path: str):
         if "already exists" in str(e):
             logger.info("✅ reverse_geocodes table already exists")
             return True
-        logger.exception(f"Failed to create table: {e}")
+        logger.exception("Failed to create table")
         return False
-    except Exception as e:
-        logger.exception(f"Unexpected error: {e}")
+    except Exception:
+        logger.exception("Unexpected error")
         return False
 
 

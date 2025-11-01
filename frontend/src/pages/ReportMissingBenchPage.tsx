@@ -1,17 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
-import { motion } from 'framer-motion'
+import { motion } from "framer-motion"
+import L from "leaflet"
 import {
-  ArrowLeft, MapPin, Camera, Send, Check, AlertCircle,
-  Crosshair, Map as MapIcon, Image as ImageIcon
-} from 'lucide-react'
-import styled from 'styled-components'
-import L from 'leaflet'
-import { useNavigate } from 'react-router-dom'
-import { getCurrentLocation, captureImage, type ImageCaptureResult } from '../utils/imageCapture'
-import { benchApi } from '../services/api'
-import { LocationMethod } from '../api'
-import '../utils/leafletFix'
+  AlertCircle,
+  ArrowLeft,
+  Camera,
+  Check,
+  Crosshair,
+  Image as ImageIcon,
+  Map as MapIcon,
+  MapPin,
+  Send,
+} from "lucide-react"
+import { useEffect, useId, useRef, useState } from "react"
+import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet"
+import { useNavigate } from "react-router-dom"
+import styled from "styled-components"
+import { LocationMethod } from "../api"
+import { benchApi } from "../services/api"
+import {
+  captureImage,
+  getCurrentLocation,
+  type ImageCaptureResult,
+} from "../utils/imageCapture"
+import "../utils/leafletFix"
 
 const PageContainer = styled.div`
   min-height: 100vh;
@@ -84,10 +95,10 @@ const ModeButtons = styled.div`
 
 const ModeButton = styled.button<{ $active: boolean }>`
   padding: ${({ theme }) => theme.spacing[4]};
-  border: 2px solid ${({ $active, theme }) => $active ? theme.colors.primary : theme.colors.borderLight};
+  border: 2px solid ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.borderLight)};
   border-radius: ${({ theme }) => theme.borderRadius.lg};
-  background: ${({ $active, theme }) => $active ? theme.colors.primary : theme.colors.background};
-  color: ${({ $active, theme }) => $active ? 'white' : theme.colors.textPrimary};
+  background: ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.background)};
+  color: ${({ $active, theme }) => ($active ? "white" : theme.colors.textPrimary)};
   cursor: pointer;
   transition: all ${({ theme }) => theme.transitions.fast};
   display: flex;
@@ -98,7 +109,7 @@ const ModeButton = styled.button<{ $active: boolean }>`
 
   &:hover:not(:disabled) {
     border-color: ${({ theme }) => theme.colors.primary};
-    background: ${({ $active, theme }) => $active ? theme.colors.primaryHover : theme.colors.gray50};
+    background: ${({ $active, theme }) => ($active ? theme.colors.primaryHover : theme.colors.gray50)};
   }
 
   &:disabled {
@@ -124,7 +135,7 @@ const ModeButton = styled.button<{ $active: boolean }>`
   }
 `
 
-const StatusMessage = styled.div<{ $type: 'info' | 'success' | 'error' }>`
+const StatusMessage = styled.div<{ $type: "info" | "success" | "error" }>`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing[2]};
@@ -134,21 +145,21 @@ const StatusMessage = styled.div<{ $type: 'info' | 'success' | 'error' }>`
 
   ${({ $type, theme }) => {
     switch ($type) {
-      case 'success':
+      case "success":
         return `
-          background: ${theme.colors.successLight || '#d1fae5'};
+          background: ${theme.colors.successLight || "#d1fae5"};
           color: ${theme.colors.success};
           border: 1px solid ${theme.colors.success};
         `
-      case 'error':
+      case "error":
         return `
-          background: ${theme.colors.errorLight || '#fef2f2'};
+          background: ${theme.colors.errorLight || "#fef2f2"};
           color: ${theme.colors.error};
           border: 1px solid ${theme.colors.error};
         `
       default:
         return `
-          background: ${theme.colors.infoLight || '#eff6ff'};
+          background: ${theme.colors.infoLight || "#eff6ff"};
           color: ${theme.colors.info || theme.colors.primary};
           border: 1px solid ${theme.colors.primary};
         `
@@ -271,7 +282,7 @@ const PhotoButton = styled.button`
   }
 `
 
-const SubmitButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+const SubmitButton = styled.button<{ $variant?: "primary" | "secondary" }>`
   width: 100%;
   padding: ${({ theme }) => theme.spacing[4]};
   border-radius: ${({ theme }) => theme.borderRadius.lg};
@@ -284,8 +295,8 @@ const SubmitButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
   justify-content: center;
   gap: ${({ theme }) => theme.spacing[2]};
 
-  ${({ $variant = 'primary', theme }) =>
-    $variant === 'primary'
+  ${({ $variant = "primary", theme }) =>
+    $variant === "primary"
       ? `
         background: ${theme.colors.primary};
         color: white;
@@ -325,7 +336,7 @@ const SuccessScreen = styled(motion.div)`
   }
 
   h2 {
-    font-size: ${({ theme }) => theme.typography.sizes['2xl']};
+    font-size: ${({ theme }) => theme.typography.sizes["2xl"]};
     font-weight: ${({ theme }) => theme.typography.weights.semibold};
     margin: 0 0 ${({ theme }) => theme.spacing[2]} 0;
   }
@@ -337,7 +348,7 @@ const SuccessScreen = styled(motion.div)`
   }
 `
 
-type Mode = 'gps' | 'map'
+type Mode = "gps" | "map"
 
 interface Location {
   lat: number
@@ -346,7 +357,11 @@ interface Location {
 }
 
 // Map click handler component
-function MapClickHandler({ onLocationSelect }: { onLocationSelect: (location: Location) => void }) {
+function MapClickHandler({
+  onLocationSelect,
+}: {
+  onLocationSelect: (location: Location) => void
+}) {
   useMapEvents({
     click: (e) => {
       onLocationSelect({
@@ -360,16 +375,22 @@ function MapClickHandler({ onLocationSelect }: { onLocationSelect: (location: Lo
 
 const ReportMissingBenchPage: React.FC = () => {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<Mode>('gps')
+  const [mode, setMode] = useState<Mode>("gps")
   const [location, setLocation] = useState<Location | null>(null)
   const [userLocation, setUserLocation] = useState<Location | null>(null)
-  const [description, setDescription] = useState('')
-  const [capturedImage, setCapturedImage] = useState<ImageCaptureResult | null>(null)
+  const [description, setDescription] = useState("")
+  const [capturedImage, setCapturedImage] = useState<ImageCaptureResult | null>(
+    null
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<{ type: 'info' | 'success' | 'error'; text: string } | null>(null)
+  const [statusMessage, setStatusMessage] = useState<{
+    type: "info" | "success" | "error"
+    text: string
+  } | null>(null)
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const mapRef = useRef<L.Map | null>(null)
+  const descriptionId = useId()
 
   // Get user's current location on mount
   useEffect(() => {
@@ -377,22 +398,22 @@ const ReportMissingBenchPage: React.FC = () => {
       try {
         const pos = await getCurrentLocation()
         setUserLocation(pos)
-        if (mode === 'gps' && !location) {
+        if (mode === "gps" && !location) {
           setLocation(pos)
         }
       } catch (error) {
-        console.warn('Failed to get user location:', error)
+        console.warn("Failed to get user location:", error)
       }
     }
 
     getUserLocation()
-  }, [])
+  }, [location, mode])
 
   const handleModeChange = async (newMode: Mode) => {
     setMode(newMode)
     setStatusMessage(null)
 
-    if (newMode === 'gps') {
+    if (newMode === "gps") {
       if (userLocation) {
         setLocation(userLocation)
       } else {
@@ -401,9 +422,15 @@ const ReportMissingBenchPage: React.FC = () => {
           const pos = await getCurrentLocation()
           setUserLocation(pos)
           setLocation(pos)
-          setStatusMessage({ type: 'success', text: `Location found with ${pos.accuracy}m accuracy` })
-        } catch (error) {
-          setStatusMessage({ type: 'error', text: 'Failed to get your location. Please enable GPS and try again.' })
+          setStatusMessage({
+            type: "success",
+            text: `Location found with ${pos.accuracy}m accuracy`,
+          })
+        } catch (_error) {
+          setStatusMessage({
+            type: "error",
+            text: "Failed to get your location. Please enable GPS and try again.",
+          })
         } finally {
           setIsGettingLocation(false)
         }
@@ -419,12 +446,18 @@ const ReportMissingBenchPage: React.FC = () => {
         preferCamera: true,
         maxWidth: 1920,
         maxHeight: 1920,
-        quality: 0.8
+        quality: 0.8,
       })
       setCapturedImage(result)
-      setStatusMessage({ type: 'success', text: 'Photo captured successfully!' })
-    } catch (error) {
-      setStatusMessage({ type: 'error', text: 'Failed to capture photo. Please try again.' })
+      setStatusMessage({
+        type: "success",
+        text: "Photo captured successfully!",
+      })
+    } catch (_error) {
+      setStatusMessage({
+        type: "error",
+        text: "Failed to capture photo. Please try again.",
+      })
     }
   }
 
@@ -439,7 +472,8 @@ const ReportMissingBenchPage: React.FC = () => {
         lat: location.lat,
         lng: location.lng,
         description: description || undefined,
-        locationMethod: mode === 'gps' ? LocationMethod.GPS : LocationMethod.MAP_CLICK,
+        locationMethod:
+          mode === "gps" ? LocationMethod.GPS : LocationMethod.MAP_CLICK,
         userLocationLat: userLocation?.lat,
         userLocationLng: userLocation?.lng,
         accuracyMeters: location.accuracy,
@@ -448,8 +482,11 @@ const ReportMissingBenchPage: React.FC = () => {
 
       setIsSuccess(true)
     } catch (error) {
-      console.error('Failed to submit report:', error)
-      setStatusMessage({ type: 'error', text: 'Failed to submit report. Please try again.' })
+      console.error("Failed to submit report:", error)
+      setStatusMessage({
+        type: "error",
+        text: "Failed to submit report. Please try again.",
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -461,11 +498,14 @@ const ReportMissingBenchPage: React.FC = () => {
         <SuccessScreen
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 500 }}
+          transition={{ type: "spring", damping: 25, stiffness: 500 }}
         >
           <Check />
           <h2>Report Submitted!</h2>
-          <p>Thank you for reporting this missing bench. Our team will review your submission and add it to our database if verified.</p>
+          <p>
+            Thank you for reporting this missing bench. Our team will review
+            your submission and add it to our database if verified.
+          </p>
           <SubmitButton onClick={() => navigate(-1)}>
             <ArrowLeft size={20} />
             Go Back
@@ -488,8 +528,8 @@ const ReportMissingBenchPage: React.FC = () => {
         <ModeSelector>
           <ModeButtons>
             <ModeButton
-              $active={mode === 'gps'}
-              onClick={() => handleModeChange('gps')}
+              $active={mode === "gps"}
+              onClick={() => handleModeChange("gps")}
               disabled={isGettingLocation}
             >
               <Crosshair />
@@ -497,8 +537,8 @@ const ReportMissingBenchPage: React.FC = () => {
               <p>Use your current GPS location</p>
             </ModeButton>
             <ModeButton
-              $active={mode === 'map'}
-              onClick={() => handleModeChange('map')}
+              $active={mode === "map"}
+              onClick={() => handleModeChange("map")}
               disabled={isGettingLocation}
             >
               <MapIcon />
@@ -509,23 +549,31 @@ const ReportMissingBenchPage: React.FC = () => {
 
           {statusMessage && (
             <StatusMessage $type={statusMessage.type}>
-              {statusMessage.type === 'error' ? <AlertCircle size={16} /> :
-                statusMessage.type === 'success' ? <Check size={16} /> :
-                  <MapPin size={16} />}
+              {statusMessage.type === "error" ? (
+                <AlertCircle size={16} />
+              ) : statusMessage.type === "success" ? (
+                <Check size={16} />
+              ) : (
+                <MapPin size={16} />
+              )}
               {statusMessage.text}
             </StatusMessage>
           )}
         </ModeSelector>
 
-        {mode === 'map' && (
+        {mode === "map" && (
           <MapSection>
             <MapInstructions>
               <p>Tap anywhere on the map to select where you saw a bench</p>
             </MapInstructions>
             <MapContainer
-              center={userLocation ? [userLocation.lat, userLocation.lng] : [52.3613577, 4.8666322]}
+              center={
+                userLocation
+                  ? [userLocation.lat, userLocation.lng]
+                  : [52.3613577, 4.8666322]
+              }
               zoom={15}
-              style={{ height: '100%', width: '100%' }}
+              style={{ height: "100%", width: "100%" }}
               ref={mapRef}
             >
               <TileLayer
@@ -533,15 +581,13 @@ const ReportMissingBenchPage: React.FC = () => {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               <MapClickHandler onLocationSelect={setLocation} />
-              {location && (
-                <Marker position={[location.lat, location.lng]} />
-              )}
+              {location && <Marker position={[location.lat, location.lng]} />}
               {userLocation && userLocation !== location && (
                 <Marker
                   position={[userLocation.lat, userLocation.lng]}
                   icon={L.divIcon({
-                    html: '📱',
-                    className: 'user-location-marker',
+                    html: "📱",
+                    className: "user-location-marker",
                     iconSize: [20, 20],
                     iconAnchor: [10, 10],
                   })}
@@ -553,11 +599,9 @@ const ReportMissingBenchPage: React.FC = () => {
 
         <FormSection>
           <FormGroup>
-            <Label htmlFor="description">
-              Describe the bench (optional)
-            </Label>
+            <Label htmlFor={descriptionId}>Describe the bench (optional)</Label>
             <Textarea
-              id="description"
+              id={descriptionId}
               placeholder="e.g., wooden bench facing the pond, metal bench near the playground..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -593,7 +637,9 @@ const ReportMissingBenchPage: React.FC = () => {
             onClick={handleSubmit}
             disabled={!location || isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : (
+            {isSubmitting ? (
+              "Submitting..."
+            ) : (
               <>
                 <Send size={20} />
                 Submit Missing Bench Report
