@@ -820,10 +820,16 @@ def get_high_confidence_benches_filtered(
                     return func.array_to_string(
                         func.array_agg(func.distinct(expr)), ","
                     )
+
+                # PostgreSQL uses boolean True, not integer 1
+                capture_success_value = True
             else:
                 # SQLite uses group_concat with DISTINCT
                 def concat_func(expr):
                     return func.group_concat(func.distinct(expr))
+
+                # SQLite stores booleans as integers
+                capture_success_value = 1
 
             # Create subquery for image aggregation - eliminates GROUP BY from main query
             image_subquery = (
@@ -833,7 +839,7 @@ def get_high_confidence_benches_filtered(
                     concat_func(Image.filename).label("image_filenames"),
                     concat_func(func.cast(Image.id, SAString)).label("image_ids"),
                 )
-                .filter(Image.capture_success == 1)
+                .filter(Image.capture_success == capture_success_value)
                 .group_by(Image.bench_candidate_id)
                 .subquery()
             )
@@ -1517,10 +1523,16 @@ async def get_benches_in_bbox(
                     return func.array_to_string(
                         func.array_agg(func.distinct(expr)), ","
                     )
+
+                # PostgreSQL uses boolean True, not integer 1
+                capture_success_value = True
             else:
                 # SQLite uses group_concat with DISTINCT
                 def concat_func(expr):
                     return func.group_concat(func.distinct(expr))
+
+                # SQLite stores booleans as integers
+                capture_success_value = 1
 
             # Create subquery for image aggregation - eliminates GROUP BY from main query
             image_subquery = (
@@ -1530,7 +1542,7 @@ async def get_benches_in_bbox(
                     concat_func(Image.filename).label("image_filenames"),
                     concat_func(func.cast(Image.id, SAString)).label("image_ids"),
                 )
-                .filter(Image.capture_success == 1)
+                .filter(Image.capture_success == capture_success_value)
                 .group_by(Image.bench_candidate_id)
                 .subquery()
             )
@@ -2224,12 +2236,18 @@ async def get_bench_images(
 
             bench_candidate_id = processed_bench.bench_candidate_id
 
+            # Determine database type for boolean comparison
+            is_postgresql = (
+                session.bind is not None and session.bind.dialect.name == "postgresql"
+            )
+            capture_success_value = True if is_postgresql else 1
+
             # Get all successful images for the bench candidate using ORM
             images_query = (
                 session.query(Image)
                 .filter(
                     Image.bench_candidate_id == bench_candidate_id,
-                    Image.capture_success == 1,
+                    Image.capture_success == capture_success_value,
                 )
                 .order_by(Image.heading)
                 .all()
