@@ -5,10 +5,14 @@ SQLAlchemy ORM operations for storing bench data, images, and detection results.
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 from bench_finder.config import DATABASE_PATH, DATABASE_URL
 from bench_finder.models.enums import DataSource
@@ -37,7 +41,12 @@ logger = logging.getLogger(__name__)
 class BenchDatabase:
     """SQLAlchemy ORM database manager for bench finder application."""
 
-    def __init__(self, db_path: str | None = None, db_url: str | None = None):
+    def __init__(
+        self,
+        db_path: str | None = None,
+        db_url: str | None = None,
+        engine: "Engine | None" = None,
+    ):
         """
         Initialize database connection and create tables if needed.
 
@@ -45,7 +54,15 @@ class BenchDatabase:
             db_path: Path to SQLite database file (defaults to config DATABASE_PATH)
             db_url: Full database connection URL (e.g., postgresql://... or sqlite:///...)
                     Takes precedence over db_path if provided
+            engine: Optional SQLAlchemy engine to reuse (avoids re-initialization)
         """
+        # If engine is provided, reuse it (no initialization needed)
+        if engine is not None:
+            self.engine = engine
+            self.db_url = None
+            self.db_path = None
+            return
+
         # Use provided db_url, or DATABASE_URL from config, or fall back to db_path/DATABASE_PATH
         if db_url:
             self.db_url = db_url

@@ -278,6 +278,11 @@ async def lifespan(_app: FastAPI) -> None:
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
     logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
+    # Initialize database once and store in app.state for reuse
+    print("🔌 Initializing database connection pool...")
+    _app.state.db = BenchDatabase()
+    print("✅ Database connection pool initialized")
+
     # Mapillary service initialization removed - using unified approach
 
     # Ensure required directories exist
@@ -539,11 +544,11 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     response_model=dict[str, str],
     tags=["config"],
 )
-async def health_check() -> HealthResponse:
+async def health_check(request: Request) -> HealthResponse:
     """Check if the server is running and database is accessible."""
     try:
         # Test database connection using SQLAlchemy ORM
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             # Simple query to test database connectivity
             session.query(ProcessedBench).limit(1).first()
@@ -655,6 +660,7 @@ def _safe_convert_source(source) -> DataSource:
 
 def get_bench_by_id(
     bench_id: int,
+    db: BenchDatabase,
     include_detection_data: bool = False,
 ) -> WebBenchData:
     """
@@ -664,6 +670,7 @@ def get_bench_by_id(
 
     Args:
         bench_id: The ID of the ProcessedBench to retrieve
+        db: BenchDatabase instance to use
         include_detection_data: Whether to include detection items in response
 
     Returns:
@@ -673,7 +680,6 @@ def get_bench_by_id(
         HTTPException: If bench not found or other error occurs
     """
     try:
-        db = BenchDatabase()
         with db.get_session() as session:
             from sqlalchemy.orm import joinedload
 
@@ -818,6 +824,7 @@ def get_bench_by_id(
 
 # Utility function for bench data processing using SQLAlchemy ORM
 async def get_high_confidence_benches_filtered(
+    request: Request,
     page: int = 0,
     page_size: int = PAGE_SIZE,
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
@@ -839,7 +846,7 @@ async def get_high_confidence_benches_filtered(
     - Optimized distance sorting expression
     """
     try:
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             from sqlalchemy import case, func
             from sqlalchemy.orm import aliased
@@ -1234,6 +1241,7 @@ async def get_high_confidence_benches_filtered(
     tags=["benches"],
 )
 async def get_benches(
+    request: Request,
     page: int = Query(0, ge=0, le=1000, description="Page number (0-based)"),
     page_size: int = Query(
         PAGE_SIZE, ge=1, le=50, description="Items per page (max 50)"
@@ -1297,6 +1305,7 @@ async def get_benches(
     """
     try:
         result = await get_high_confidence_benches_filtered(
+            request=request,
             page=page,
             page_size=page_size,
             min_confidence=min_confidence,
@@ -1333,6 +1342,7 @@ async def get_benches(
     tags=["benches"],
 )
 async def get_random_bench(
+    request: Request,
     min_confidence: float = Query(
         DEFAULT_MIN_CONFIDENCE,
         ge=0.0,
@@ -1365,7 +1375,7 @@ async def get_random_bench(
     - `null` (default): Include all sources
     """
     try:
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             from sqlalchemy import func
 
@@ -1408,6 +1418,7 @@ async def get_random_bench(
             # Use the unified helper to get bench data
             bench_data = get_bench_by_id(
                 bench_id=random_bench.id,
+                db=db,
                 include_detection_data=include_detection_data,
             )
 
@@ -1437,6 +1448,7 @@ async def get_random_bench(
     tags=["benches"],
 )
 async def get_bench_by_id_endpoint(
+    request: Request,
     bench_id: int = Path(..., description="Bench ID to retrieve"),
     include_detection_data: bool = Query(
         False,
@@ -1452,8 +1464,10 @@ async def get_bench_by_id_endpoint(
     - Detection confidence scores from all sources
     - Optional detection items with bounding boxes and polygons
     """
+    db = request.app.state.db
     bench_data = get_bench_by_id(
         bench_id=bench_id,
+        db=db,
         include_detection_data=include_detection_data,
     )
 
@@ -1548,6 +1562,7 @@ def _get_bbox_filtered_bench_candidate_ids(
     tags=["benches"],
 )
 async def get_benches_in_bbox(
+    request: Request,
     north: float = Query(
         ..., ge=-90.0, le=90.0, description="Northern latitude boundary"
     ),
@@ -1626,7 +1641,7 @@ async def get_benches_in_bbox(
             )
 
         # Get individual bench results using ORM - optimized with subqueries
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             from sqlalchemy import case, func
             from sqlalchemy.orm import aliased
@@ -1971,7 +1986,7 @@ async def get_benches_in_bbox(
     },
     tags=["search"],
 )
-async def get_searches() -> SearchListResponse:
+async def get_searches(request: Request) -> SearchListResponse:
     """
     Get a list of completed search operations with metadata.
 
@@ -1983,7 +1998,7 @@ async def get_searches() -> SearchListResponse:
     Only completed searches with associated bench data are returned.
     """
     try:
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             from sqlalchemy import func
 
@@ -2121,6 +2136,7 @@ async def get_api_info() -> ApiInfoResponse:
     tags=["images"],
 )
 async def serve_image(
+    request: Request,
     filename: str = Path(..., description="Image filename"),
 ) -> FileResponse:
     """
@@ -2141,7 +2157,7 @@ async def serve_image(
     """
     try:
         # First, check if the image exists in the database with a Firebase URL
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             image = session.query(Image).filter(Image.filename == filename).first()
 
@@ -2199,6 +2215,7 @@ async def serve_image(
     tags=["images"],
 )
 async def get_image_segmentation(
+    request: Request,
     image_id: int = Path(..., ge=1, description="Image ID"),
 ) -> SegmentationData:
     """
@@ -2221,7 +2238,7 @@ async def get_image_segmentation(
     is returned (empty detection_items list) rather than raising a 404 error.
     """
     try:
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             from sqlalchemy.orm import joinedload
 
@@ -2355,6 +2372,7 @@ async def get_image_segmentation(
     tags=["images"],
 )
 async def get_bench_images(
+    request: Request,
     bench_id: int = Path(..., ge=1, description="Bench ID"),
 ) -> ImageListResponse:
     """
@@ -2376,7 +2394,7 @@ async def get_bench_images(
     - Metadata analysis
     """
     try:
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             # Verify ProcessedBench exists using ORM
             processed_bench = (
@@ -2448,6 +2466,7 @@ async def get_bench_images(
     tags=["images"],
 )
 async def get_bench_detections(
+    request: Request,
     bench_id: int = Path(..., ge=1, description="Bench ID"),
 ) -> BenchDetectionData:
     """
@@ -2474,7 +2493,7 @@ async def get_bench_detections(
     - `detection_sources`: List of detection backends used
     """
     try:
-        db = BenchDatabase()
+        db = request.app.state.db
         with db.get_session() as session:
             from sqlalchemy.orm import joinedload
 
@@ -2658,9 +2677,7 @@ async def report_bad_bench(
         import shutil
         from datetime import datetime
 
-        from bench_finder.services.database import BenchDatabase
-
-        db = BenchDatabase()
+        db = request.app.state.db
 
         with db.get_session() as session:
             # Verify ProcessedBench exists using ORM
@@ -2835,9 +2852,7 @@ async def report_missing_bench(
 
         from PIL import Image
 
-        from bench_finder.services.database import BenchDatabase
-
-        db = BenchDatabase()
+        db = request.app.state.db
 
         # Process uploaded image if provided
         uploaded_image_filename = None
