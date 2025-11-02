@@ -73,6 +73,9 @@ const CardContainer = styled(motion.div)`
   transition: all ${({ theme }) => theme.transitions.normal};
   animation: ${fadeInUp} 0.4s ${({ theme }) => theme.easing.easeOut} forwards;
   opacity: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 
   &:hover {
     transform: translateY(-4px);

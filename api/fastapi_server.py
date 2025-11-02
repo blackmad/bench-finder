@@ -801,6 +801,12 @@ def get_high_confidence_benches_filtered(
     """
     Get benches with configurable detection modes from all sources using SQLAlchemy ORM.
     Optimized to minimize joins and GROUP BYs using subqueries.
+
+    Performance optimizations:
+    - Fast total count by counting ProcessedBench directly with filters
+    - Conditional ReverseGeocode join (batch loaded separately for better performance)
+    - Early filtering before expensive joins
+    - Optimized distance sorting expression
     """
     try:
         db = BenchDatabase()
@@ -830,6 +836,36 @@ def get_high_confidence_benches_filtered(
 
                 # SQLite stores booleans as integers
                 capture_success_value = 1
+
+            # OPTIMIZATION: Fast total count - count ProcessedBench directly with same filters
+            # This avoids expensive subquery with all joins
+            total_count_base = session.query(ProcessedBench.id)
+            total_count_base = total_count_base.join(
+                BenchCandidate,
+                ProcessedBench.bench_candidate_id == BenchCandidate.id,
+            )
+
+            # Apply filters early for count query
+            if source is not None:
+                total_count_base = total_count_base.filter(
+                    BenchCandidate.source == source
+                )
+
+            if mode == BenchMode.BENCHES:
+                # Need to join Detection for confidence filter
+                total_count_base = total_count_base.outerjoin(
+                    Detection, ProcessedBench.best_detection_id == Detection.id
+                ).filter(
+                    ProcessedBench.detection_status == "detected",
+                    func.coalesce(Detection.max_confidence, 0.0) >= min_confidence,
+                )
+            elif mode == BenchMode.NO_BENCH:
+                total_count_base = total_count_base.filter(
+                    ProcessedBench.detection_status == "no_bench"
+                )
+
+            # Fast count - just count ProcessedBench IDs with filters applied
+            total_count = total_count_base.count()
 
             # Create subquery for image aggregation - eliminates GROUP BY from main query
             image_subquery = (
@@ -861,7 +897,8 @@ def get_high_confidence_benches_filtered(
             )
             seg_subq = aliased(segmentation_subquery)
 
-            # Build main query with minimal joins - no GROUP BY needed!
+            # OPTIMIZATION: Build main query WITHOUT ReverseGeocode join initially
+            # We'll batch load it separately for better performance
             query = (
                 session.query(
                     ProcessedBench.id.label("processed_bench_id"),
@@ -889,14 +926,6 @@ def get_high_confidence_benches_filtered(
                     func.coalesce(seg_subq.c.has_segmentation, 0).label(
                         "has_segmentation"
                     ),
-                    # Structured address fields
-                    ReverseGeocode.formatted_address.label("rg_formatted_address"),
-                    ReverseGeocode.street_number.label("rg_street_number"),
-                    ReverseGeocode.street_name.label("rg_street_name"),
-                    ReverseGeocode.city.label("rg_city"),
-                    ReverseGeocode.state.label("rg_state"),
-                    ReverseGeocode.postal_code.label("rg_postal_code"),
-                    ReverseGeocode.country.label("rg_country"),
                 )
                 .join(
                     BenchCandidate,
@@ -905,10 +934,6 @@ def get_high_confidence_benches_filtered(
                 .outerjoin(Detection, ProcessedBench.best_detection_id == Detection.id)
                 .outerjoin(img_subq, BenchCandidate.id == img_subq.c.bench_candidate_id)
                 .outerjoin(seg_subq, Detection.id == seg_subq.c.detection_id)
-                .outerjoin(
-                    ReverseGeocode,
-                    BenchCandidate.id == ReverseGeocode.bench_candidate_id,
-                )
             )
 
             # Add source filtering (defaults to OSM, None means all sources)
@@ -923,15 +948,6 @@ def get_high_confidence_benches_filtered(
                 )
             elif mode == BenchMode.NO_BENCH:
                 query = query.filter(ProcessedBench.detection_status == "no_bench")
-
-            # Optimized total count - count distinct IDs instead of distinct().count()
-            total_count_query = query.with_entities(ProcessedBench.id).distinct()
-            total_count = (
-                session.query(func.count())
-                .select_from(total_count_query.subquery())
-                .scalar()
-                or 0
-            )
 
             # Apply sorting
             if sort_by == "confidence":
@@ -959,6 +975,22 @@ def get_high_confidence_benches_filtered(
             # Apply pagination
             offset = page * page_size
             results = query.offset(offset).limit(page_size).all()
+
+            # OPTIMIZATION: Batch load ReverseGeocode data separately to avoid join overhead
+            reverse_geocode_map = {}
+            if results:
+                bench_candidate_ids_for_rg = [r.bench_candidate_id for r in results]
+                reverse_geocodes = (
+                    session.query(ReverseGeocode)
+                    .filter(
+                        ReverseGeocode.bench_candidate_id.in_(
+                            bench_candidate_ids_for_rg
+                        )
+                    )
+                    .all()
+                )
+                for rg in reverse_geocodes:
+                    reverse_geocode_map[rg.bench_candidate_id] = rg
 
             # Batch load detection items if requested - eliminates N+1 query
             detection_items_map = {}
@@ -1050,6 +1082,22 @@ def get_high_confidence_benches_filtered(
                     else None
                 )
 
+                # OPTIMIZATION: Get reverse geocode from batch-loaded map
+                reverse_geocode = None
+                rg = reverse_geocode_map.get(bench_candidate_id)
+                if rg:
+                    from .api_models import StructuredAddress
+
+                    reverse_geocode = StructuredAddress(
+                        formatted_address=rg.formatted_address,
+                        street_number=rg.street_number,
+                        street_name=rg.street_name,
+                        city=rg.city,
+                        state=rg.state,
+                        postal_code=rg.postal_code,
+                        country=rg.country,
+                    )
+
                 # Set source-specific confidence
                 roboflow_confidence = 0.0
                 ultralytics_confidence = 0.0
@@ -1083,10 +1131,7 @@ def get_high_confidence_benches_filtered(
                     best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
-                    reverse_geocode=_build_structured_address(result)
-                    if hasattr(result, "rg_formatted_address")
-                    and result.rg_formatted_address
-                    else None,
+                    reverse_geocode=reverse_geocode,
                     detection_items=detection_items,
                 )
 

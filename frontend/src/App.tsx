@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { useMemo } from "react"
 import {
   Navigate,
   Route,
@@ -12,9 +13,11 @@ import { AppProvider, useApp } from "./contexts/AppContext"
 import BenchDetailPage from "./pages/BenchDetailPage"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
+import MobileMapPage from "./pages/MobileMapPage"
 import ReportMissingBenchPage from "./pages/ReportMissingBenchPage"
 import GlobalStyles from "./styles/GlobalStyles"
 import { theme } from "./styles/theme"
+import { isMobileDevice } from "./utils/deviceDetection"
 
 // Create a client
 const queryClient = new QueryClient({
@@ -29,12 +32,22 @@ const queryClient = new QueryClient({
 // Component to handle error display
 const AppWithErrorHandling = () => {
   const { state, clearError } = useApp()
+  const isMobile = useMemo(() => isMobileDevice(), [])
 
   return (
     <>
       <Router>
         <Routes>
-          <Route path="/" element={<Navigate to="/cards" replace />} />
+          <Route
+            path="/"
+            element={
+              <Navigate
+                to={isMobile ? "/mobile-map" : "/cards"}
+                replace
+              />
+            }
+          />
+          <Route path="/mobile-map" element={<MobileMapPage />} />
           <Route path="/cards" element={<CardsPage />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/bench/:id" element={<BenchDetailPage />} />

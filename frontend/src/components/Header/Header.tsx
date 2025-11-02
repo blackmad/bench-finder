@@ -23,6 +23,10 @@ const HeaderContainer = styled.header`
   top: 0;
   z-index: ${({ theme }) => theme.zIndex.sticky};
   padding: ${({ theme }) => theme.spacing[3]} 0;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    padding: ${({ theme }) => theme.spacing[2]} 0;
+  }
 `
 
 const HeaderContent = styled.div`
@@ -35,12 +39,23 @@ const HeaderContent = styled.div`
   align-items: center;
   flex-wrap: wrap;
   gap: ${({ theme }) => theme.spacing[4]};
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    padding: 0 ${({ theme }) => theme.spacing[3]};
+    gap: ${({ theme }) => theme.spacing[2]};
+    align-items: flex-start;
+  }
 `
 
 const HeaderLeft = styled.div`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing[4]};
+  flex-shrink: 0;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    gap: ${({ theme }) => theme.spacing[2]};
+  }
 `
 
 const Title = styled.h1`
@@ -53,6 +68,11 @@ const Title = styled.h1`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.spacing[2]};
+  white-space: nowrap;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    font-size: ${({ theme }) => theme.typography.sizes.lg};
+  }
 `
 
 const TitleIcon = styled.span`
@@ -123,6 +143,16 @@ const Controls = styled.div`
   gap: ${({ theme }) => theme.spacing[3]};
   flex-wrap: wrap;
   align-items: flex-end;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0;
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    gap: ${({ theme }) => theme.spacing[1]};
+    width: 100%;
+    margin-top: ${({ theme }) => theme.spacing[2]};
+    justify-content: flex-start;
+  }
 `
 
 const ControlGroup = styled.div`
@@ -130,12 +160,21 @@ const ControlGroup = styled.div`
   flex-direction: column;
   gap: ${({ theme }) => theme.spacing[1]};
   justify-content: flex-end;
+  flex-shrink: 0;
 
   label {
     line-height: 1.2;
     height: 16px;
     display: flex;
     align-items: center;
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    gap: ${({ theme }) => theme.spacing[0]};
+    
+    label {
+      font-size: ${({ theme }) => theme.typography.sizes.xs};
+    }
   }
 `
 
@@ -163,6 +202,7 @@ const Select = styled.select`
   min-width: 140px;
   height: 32px;
   box-shadow: ${({ theme }) => theme.shadows.sm};
+  max-width: 100%;
 
   &:hover {
     border-color: ${({ theme }) => theme.colors.gray300};
@@ -175,6 +215,12 @@ const Select = styled.select`
     border-color: ${({ theme }) => theme.colors.primary};
     box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary}1a, ${({ theme }) => theme.shadows.sm};
     background: ${({ theme }) => theme.colors.background};
+  }
+
+  @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+    min-width: 100px;
+    font-size: ${({ theme }) => theme.typography.sizes.xs};
+    padding: ${({ theme }) => theme.spacing[1]} ${({ theme }) => theme.spacing[2]};
   }
 `
 
@@ -235,6 +281,7 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
   overflow: hidden;
   height: 32px;
   margin-top: 16px; /* Match label height + gap to align with inputs */
+  flex-shrink: 0;
 
   &::before {
     content: "";
@@ -297,6 +344,8 @@ const ActionButton = styled.button<{ $variant?: "primary" | "secondary" }>`
     .label {
       display: none;
     }
+    margin-top: 0;
+    padding: ${({ theme }) => theme.spacing[1]} ${({ theme }) => theme.spacing[2]};
   }
 `
 

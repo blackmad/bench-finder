@@ -294,21 +294,15 @@ class FirebaseImageStorage(ImageStorageService):
             filename: Image filename
 
         Returns:
-            Public URL if image exists (Firebase Hosting URL if configured, otherwise Storage URL), None otherwise
+            Public URL (Firebase Hosting URL if configured, otherwise Storage URL)
         """
         storage_path = self._get_storage_path(filename)
         blob = self.bucket.blob(storage_path)
 
-        try:
-            if blob.exists():
-                # Return Firebase Hosting URL if configured, otherwise Storage URL
-                if self.hosting_url:
-                    return self._get_hosting_url(filename)
-                return blob.public_url
-        except Exception:
-            logger.exception(f"Error checking Firebase Storage blob {storage_path}")
-
-        return None
+        # Return Firebase Hosting URL if configured, otherwise Storage URL
+        if self.hosting_url:
+            return self._get_hosting_url(filename)
+        return blob.public_url
 
     async def delete_image(self, filename: str) -> bool:
         """

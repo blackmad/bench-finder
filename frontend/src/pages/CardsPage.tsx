@@ -32,14 +32,17 @@ const ViewContainer = styled.div`
 
 const CardsContainer = styled.div`
   width: 100%;
+  max-width: 100%;
   padding: ${({ theme }) => theme.spacing[8]} ${({ theme }) => theme.spacing[5]};
   background: ${({ theme }) => theme.colors.backgroundSecondary};
+  box-sizing: border-box;
+  overflow-x: hidden;
 
   /* Ensure minimum width for grid layout */
   min-width: 0; /* Allow flexbox shrinking */
 
   @media (max-width: 640px) {
-    padding: ${({ theme }) => theme.spacing[6]} ${({ theme }) => theme.spacing[4]};
+    padding: ${({ theme }) => theme.spacing[6]} ${({ theme }) => theme.spacing[3]};
   }
 `
 
