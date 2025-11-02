@@ -809,17 +809,29 @@ def get_high_confidence_benches_filtered(
             from sqlalchemy.orm import aliased
             from sqlalchemy.types import String as SAString
 
+            # Determine database type for aggregation function
+            is_postgresql = (
+                session.bind is not None and session.bind.dialect.name == "postgresql"
+            )
+            if is_postgresql:
+                # PostgreSQL: string_agg doesn't support DISTINCT directly
+                # Use array_to_string(array_agg(DISTINCT ...), ',') for compatibility
+                def concat_func(expr):
+                    return func.array_to_string(
+                        func.array_agg(func.distinct(expr)), ","
+                    )
+            else:
+                # SQLite uses group_concat with DISTINCT
+                def concat_func(expr):
+                    return func.group_concat(func.distinct(expr))
+
             # Create subquery for image aggregation - eliminates GROUP BY from main query
             image_subquery = (
                 session.query(
                     Image.bench_candidate_id,
                     func.count(func.distinct(Image.id)).label("image_count"),
-                    func.group_concat(func.distinct(Image.filename)).label(
-                        "image_filenames"
-                    ),
-                    func.group_concat(
-                        func.distinct(func.cast(Image.id, SAString))
-                    ).label("image_ids"),
+                    concat_func(Image.filename).label("image_filenames"),
+                    concat_func(func.cast(Image.id, SAString)).label("image_ids"),
                 )
                 .filter(Image.capture_success == 1)
                 .group_by(Image.bench_candidate_id)
@@ -1494,17 +1506,29 @@ async def get_benches_in_bbox(
                     bbox={"north": north, "south": south, "east": east, "west": west},
                 )
 
+            # Determine database type for aggregation function
+            is_postgresql = (
+                session.bind is not None and session.bind.dialect.name == "postgresql"
+            )
+            if is_postgresql:
+                # PostgreSQL: string_agg doesn't support DISTINCT directly
+                # Use array_to_string(array_agg(DISTINCT ...), ',') for compatibility
+                def concat_func(expr):
+                    return func.array_to_string(
+                        func.array_agg(func.distinct(expr)), ","
+                    )
+            else:
+                # SQLite uses group_concat with DISTINCT
+                def concat_func(expr):
+                    return func.group_concat(func.distinct(expr))
+
             # Create subquery for image aggregation - eliminates GROUP BY from main query
             image_subquery = (
                 session.query(
                     Image.bench_candidate_id,
                     func.count(func.distinct(Image.id)).label("image_count"),
-                    func.group_concat(func.distinct(Image.filename)).label(
-                        "image_filenames"
-                    ),
-                    func.group_concat(
-                        func.distinct(func.cast(Image.id, SAString))
-                    ).label("image_ids"),
+                    concat_func(Image.filename).label("image_filenames"),
+                    concat_func(func.cast(Image.id, SAString)).label("image_ids"),
                 )
                 .filter(Image.capture_success == 1)
                 .group_by(Image.bench_candidate_id)
