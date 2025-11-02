@@ -65,24 +65,29 @@ Examples:
   # Validate the encoding
   python tools/encode_firebase_creds.py --validate
 
-Vercel Setup:
-  1. Run this script to encode your firebase.json:
+Vercel Setup (using Vercel CLI):
+  1. Encode credentials and save to file:
      python tools/encode_firebase_creds.py > base64_creds.txt
 
-  2. Copy the base64 string from base64_creds.txt
+  2. Add environment variables using Vercel CLI:
+     # Read base64 string and add to Vercel
+     vercel env add FIREBASE_CREDENTIALS_BASE64 production < base64_creds.txt
 
-  3. In Vercel dashboard, go to your project Settings > Environment Variables
+     # Set storage backend (type 'firebase' when prompted)
+     echo firebase | vercel env add IMAGE_STORAGE_BACKEND production
 
-  4. Add a new environment variable:
-     Name:  FIREBASE_CREDENTIALS_BASE64
-     Value: [paste the base64 string from step 2]
-     Environment: Production, Preview, Development (as needed)
+     # Set bucket name (replace with your bucket)
+     echo your-bucket.appspot.com | vercel env add FIREBASE_STORAGE_BUCKET production
 
-  5. Also set these required variables:
-     - IMAGE_STORAGE_BACKEND=firebase
-     - FIREBASE_STORAGE_BUCKET=your-bucket-name.appspot.com
+  3. Repeat for preview/development if needed:
+     vercel env add FIREBASE_CREDENTIALS_BASE64 preview < base64_creds.txt
+     echo firebase | vercel env add IMAGE_STORAGE_BACKEND preview
+     echo your-bucket.appspot.com | vercel env add FIREBASE_STORAGE_BUCKET preview
 
-  6. Redeploy your application
+Alternative (using Vercel Dashboard):
+  - Copy base64 string from base64_creds.txt
+  - Go to: https://vercel.com/[project]/settings/environment-variables
+  - Add variables manually
 
 Note: The base64 string can be very long. Make sure to copy the entire string.
         """,
@@ -113,24 +118,25 @@ Note: The base64 string can be very long. Make sure to copy the entire string.
 Vercel Environment Variable Setup
 ==================================
 
+Using Vercel CLI:
+
 1. Encode your firebase.json file:
    python tools/encode_firebase_creds.py > base64_creds.txt
 
-2. Copy the entire base64 string from base64_creds.txt (it may be very long)
+2. Add environment variables using CLI commands:
+   vercel env add FIREBASE_CREDENTIALS_BASE64 production < base64_creds.txt
+   echo firebase | vercel env add IMAGE_STORAGE_BACKEND production
+   echo your-bucket.appspot.com | vercel env add FIREBASE_STORAGE_BUCKET production
 
-3. In Vercel dashboard:
-   - Go to your project
-   - Navigate to Settings > Environment Variables
-   - Add a new variable:
-     * Name: FIREBASE_CREDENTIALS_BASE64
-     * Value: [paste the base64 string]
-     * Environment: Select Production, Preview, Development as needed
+3. For preview/development environments:
+   vercel env add FIREBASE_CREDENTIALS_BASE64 preview < base64_creds.txt
+   echo firebase | vercel env add IMAGE_STORAGE_BACKEND preview
+   echo your-bucket.appspot.com | vercel env add FIREBASE_STORAGE_BUCKET preview
 
-4. Set these additional required environment variables:
-   * IMAGE_STORAGE_BACKEND=firebase
-   * FIREBASE_STORAGE_BUCKET=your-bucket-name.appspot.com
-
-5. Redeploy your application
+Using Vercel Dashboard (alternative):
+  - Copy base64 string from base64_creds.txt
+  - Go to: https://vercel.com/[project]/settings/environment-variables
+  - Add variables manually
 
 The application will automatically detect FIREBASE_CREDENTIALS_BASE64 and use it
 instead of FIREBASE_CREDENTIALS_PATH when available.
@@ -159,22 +165,47 @@ instead of FIREBASE_CREDENTIALS_PATH when available.
         # Output the base64 string
         print(base64_encoded)
 
-        # Print helpful instructions to stderr so they don't interfere with piping
+        # Print helpful CLI commands to stderr so they don't interfere with piping
         if not args.validate:
             print("\n" + "=" * 60, file=sys.stderr)
             print("✓ Firebase credentials encoded successfully!", file=sys.stderr)
-            print("\nTo set this in Vercel:", file=sys.stderr)
-            print("1. Copy the base64 string above (entire output)", file=sys.stderr)
-            print("2. In Vercel: Settings > Environment Variables", file=sys.stderr)
+            print("\nTo set this in Vercel, run these CLI commands:", file=sys.stderr)
+            print("\n# Save base64 output to file first:", file=sys.stderr)
             print(
-                "3. Add variable: FIREBASE_CREDENTIALS_BASE64 = [paste base64 string]",
+                "python tools/encode_firebase_creds.py > base64_creds.txt",
                 file=sys.stderr,
             )
-            print("4. Also set: IMAGE_STORAGE_BACKEND=firebase", file=sys.stderr)
+            print("\n# Add base64 credentials to production:", file=sys.stderr)
             print(
-                "5. Also set: FIREBASE_STORAGE_BUCKET=your-bucket-name", file=sys.stderr
+                "vercel env add FIREBASE_CREDENTIALS_BASE64 production < base64_creds.txt",
+                file=sys.stderr,
             )
-            print("6. Redeploy your application", file=sys.stderr)
+            print("\n# Set storage backend:", file=sys.stderr)
+            print(
+                "echo firebase | vercel env add IMAGE_STORAGE_BACKEND production",
+                file=sys.stderr,
+            )
+            print(
+                "\n# Set Firebase bucket (replace with your bucket name):",
+                file=sys.stderr,
+            )
+            print(
+                "echo your-bucket.appspot.com | vercel env add FIREBASE_STORAGE_BUCKET production",
+                file=sys.stderr,
+            )
+            print("\n# For preview/development environments:", file=sys.stderr)
+            print(
+                "vercel env add FIREBASE_CREDENTIALS_BASE64 preview < base64_creds.txt",
+                file=sys.stderr,
+            )
+            print(
+                "echo firebase | vercel env add IMAGE_STORAGE_BACKEND preview",
+                file=sys.stderr,
+            )
+            print(
+                "echo your-bucket.appspot.com | vercel env add FIREBASE_STORAGE_BUCKET preview",
+                file=sys.stderr,
+            )
             print("=" * 60, file=sys.stderr)
 
     except Exception as e:
