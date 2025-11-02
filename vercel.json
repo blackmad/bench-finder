@@ -1,7 +1,7 @@
 {
     "version": 2,
     "buildCommand": "cd frontend && npm run build",
-    "installCommand": "cd frontend && npm install && uv pip install --no-deps -r api/requirements.txt",
+    "installCommand": "cd frontend && npm install && uv sync --groups api --no-default-groups || uv pip install -r api/requirements.txt",
     "builds": [
         {
             "src": "package.json",
