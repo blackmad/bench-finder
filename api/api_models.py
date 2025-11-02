@@ -189,6 +189,10 @@ class WebBenchData(BaseModel):
     image_count: int
     image_filenames: list[str]
     image_ids: list[int]
+    image_urls: list[str] | None = Field(
+        default=None,
+        description="Full URLs to images (Firebase Hosting URLs when available, otherwise /images/{filename} format)",
+    )
     best_image_id: int | None = None  # ID of the best image used for detection
     best_detection_id: int | None = None  # ID of the best detection
     distance_meters: int

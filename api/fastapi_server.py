@@ -39,6 +39,7 @@ from bench_finder.models.unified_models import (
     Search,
 )
 from bench_finder.services.database import BenchDatabase
+from bench_finder.services.image_storage import get_image_storage_service_from_config
 
 from .api_models import (
     ApiDetectionItem,
@@ -110,6 +111,42 @@ def sort_images_by_best(
     ]
 
     return sorted_filenames, sorted_ids
+
+
+async def build_image_urls(images: list[Image], image_ids: list[int]) -> list[str]:
+    """
+    Build image URLs from Image objects using the image storage service.
+
+    Args:
+        images: List of Image objects
+        image_ids: List of image IDs (used to match images)
+
+    Returns:
+        List of image URLs (Firebase Hosting URLs when available, otherwise /images/{filename} format)
+    """
+    image_storage = get_image_storage_service_from_config()
+    image_map = {img.id: img for img in images}
+    urls = []
+
+    for img_id in image_ids:
+        if img_id in image_map:
+            img = image_map[img_id]
+            if img.filename:
+                # Get URL from storage service (returns hosting URL if configured, otherwise storage URL)
+                url = await image_storage.get_image_url(img.filename)
+                if url:
+                    urls.append(url)
+                else:
+                    # Fallback to /images/{filename} format if storage service returns None
+                    urls.append(f"/images/{img.filename}")
+            else:
+                # No filename, skip
+                continue
+        else:
+            # Image not found in map, skip
+            continue
+
+    return urls
 
 
 class EnhancedErrorResponse(BaseModel):
@@ -787,7 +824,7 @@ def get_bench_by_id(
 
 
 # Utility function for bench data processing using SQLAlchemy ORM
-def get_high_confidence_benches_filtered(
+async def get_high_confidence_benches_filtered(
     page: int = 0,
     page_size: int = PAGE_SIZE,
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
@@ -992,6 +1029,23 @@ def get_high_confidence_benches_filtered(
                 for rg in reverse_geocodes:
                     reverse_geocode_map[rg.bench_candidate_id] = rg
 
+            # OPTIMIZATION: Batch load Image objects to get firebase_urls
+            images_map = {}
+            if results:
+                # Collect all image_ids from all results
+                all_image_ids = set()
+                for result in results:
+                    image_ids_str = result.image_ids or ""
+                    if image_ids_str:
+                        all_image_ids.update(
+                            int(x) for x in image_ids_str.split(",") if x
+                        )
+                if all_image_ids:
+                    images = (
+                        session.query(Image).filter(Image.id.in_(all_image_ids)).all()
+                    )
+                    images_map = {img.id: img for img in images}
+
             # Batch load detection items if requested - eliminates N+1 query
             detection_items_map = {}
             if include_detection_data:
@@ -1067,6 +1121,12 @@ def get_high_confidence_benches_filtered(
                     image_filenames, image_ids, result.best_image_id
                 )
 
+                # Build image URLs using Firebase URLs when available
+                images_for_bench = [
+                    images_map[img_id] for img_id in image_ids if img_id in images_map
+                ]
+                image_urls = build_image_urls(images_for_bench, image_ids)
+
                 # Has segmentation is now from the query (no N+1!)
                 has_segmentation = bool(result.has_segmentation)
 
@@ -1127,6 +1187,7 @@ def get_high_confidence_benches_filtered(
                     image_count=result.image_count or 0,
                     image_filenames=image_filenames,
                     image_ids=image_ids,
+                    image_urls=image_urls,
                     best_image_id=result.best_image_id,
                     best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
@@ -1242,7 +1303,7 @@ async def get_benches(
     - `mapillary`: Street-level imagery from Mapillary with AI detections
     """
     try:
-        result = get_high_confidence_benches_filtered(
+        result = await get_high_confidence_benches_filtered(
             page=page,
             page_size=page_size,
             min_confidence=min_confidence,
@@ -1410,38 +1471,72 @@ def _get_bbox_filtered_bench_candidate_ids(
     session: Session, south: float, north: float, west: float, east: float
 ) -> list[int] | None:
     """
-    Get bench_candidate IDs within bounding box using R-tree if available.
+    Get bench_candidate IDs within bounding box using spatial index if available.
 
-    Returns None if R-tree is not available, indicating fallback to regular filtering.
-    Returns list of IDs if R-tree query succeeds.
+    For PostgreSQL: Uses PostGIS if available, otherwise falls back to regular filtering.
+    For SQLite: Uses R-tree if available, otherwise falls back to regular filtering.
+
+    Returns None if spatial index is not available, indicating fallback to regular filtering.
+    Returns list of IDs if spatial query succeeds.
     """
     try:
-        # Check if R-tree table exists
-        result = session.execute(
-            text(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='rtree_bench_candidates';"
-            )
-        ).fetchone()
+        # Determine database type
+        is_postgresql = (
+            session.bind is not None and session.bind.dialect.name == "postgresql"
+        )
 
-        if not result:
-            return None
+        if is_postgresql:
+            # Check if PostGIS is available
+            result = session.execute(
+                text("SELECT COUNT(*) FROM pg_extension WHERE extname = 'postgis';")
+            ).scalar()
 
-        # Use R-tree to get IDs within bounding box
-        # R-tree stores: minLng, maxLng, minLat, maxLat
-        # Bounding box query: WHERE minLng <= east AND maxLng >= west AND minLat <= north AND maxLat >= south
-        query = text("""
-            SELECT id FROM rtree_bench_candidates
-            WHERE minLng <= :east AND maxLng >= :west
-              AND minLat <= :north AND maxLat >= :south
-        """)
-        result = session.execute(
-            query, {"west": west, "east": east, "south": south, "north": north}
-        ).fetchall()
+            if result > 0:
+                # Use PostGIS for optimal spatial query
+                # ST_MakeEnvelope creates a bounding box: (minX, minY, maxX, maxY, SRID)
+                # We use SRID 4326 for WGS84 (lat/lng)
+                query = text("""
+                    SELECT id FROM bench_candidates
+                    WHERE ST_MakePoint(lng, lat)::geography && ST_MakeEnvelope(:west, :south, :east, :north, 4326)::geography
+                """)
+                result = session.execute(
+                    query, {"west": west, "east": east, "south": south, "north": north}
+                ).fetchall()
 
-        return [row[0] for row in result] if result else []
+                return [row[0] for row in result] if result else []
+            else:
+                # No PostGIS, fall back to regular filtering
+                return None
+
+        else:
+            # SQLite: Check if R-tree table exists
+            result = session.execute(
+                text(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='rtree_bench_candidates';"
+                )
+            ).fetchone()
+
+            if not result:
+                return None
+
+            # Use R-tree to get IDs within bounding box
+            # R-tree stores: minLng, maxLng, minLat, maxLat
+            # Bounding box query: WHERE minLng <= east AND maxLng >= west AND minLat <= north AND maxLat >= south
+            query = text("""
+                SELECT id FROM rtree_bench_candidates
+                WHERE minLng <= :east AND maxLng >= :west
+                  AND minLat <= :north AND maxLat >= :south
+            """)
+            result = session.execute(
+                query, {"west": west, "east": east, "south": south, "north": north}
+            ).fetchall()
+
+            return [row[0] for row in result] if result else []
 
     except Exception as e:
-        logger.debug(f"R-tree query failed, falling back to regular filtering: {e}")
+        logger.debug(
+            f"Spatial index query failed, falling back to regular filtering: {e}"
+        )
         return None
 
 
@@ -1701,6 +1796,23 @@ async def get_benches_in_bbox(
             # Apply limit
             results = query.limit(limit).all()
 
+            # OPTIMIZATION: Batch load Image objects to get firebase_urls
+            images_map = {}
+            if results:
+                # Collect all image_ids from all results
+                all_image_ids = set()
+                for result in results:
+                    image_ids_str = result.image_ids or ""
+                    if image_ids_str:
+                        all_image_ids.update(
+                            int(x) for x in image_ids_str.split(",") if x
+                        )
+                if all_image_ids:
+                    images = (
+                        session.query(Image).filter(Image.id.in_(all_image_ids)).all()
+                    )
+                    images_map = {img.id: img for img in images}
+
             # Batch load detection items if requested - eliminates N+1 query
             detection_items_map = {}
             if include_detection_data:
@@ -1776,6 +1888,12 @@ async def get_benches_in_bbox(
                     image_filenames, image_ids, result.best_image_id
                 )
 
+                # Build image URLs using Firebase URLs when available
+                images_for_bench = [
+                    images_map[img_id] for img_id in image_ids if img_id in images_map
+                ]
+                image_urls = build_image_urls(images_for_bench, image_ids)
+
                 # Has segmentation is now from the query (no N+1!)
                 has_segmentation = bool(result.has_segmentation)
 
@@ -1820,6 +1938,7 @@ async def get_benches_in_bbox(
                     image_count=result.image_count or 0,
                     image_filenames=image_filenames,
                     image_ids=image_ids,
+                    image_urls=image_urls,
                     best_image_id=result.best_image_id,
                     best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),

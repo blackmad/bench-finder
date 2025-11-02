@@ -171,7 +171,7 @@ const ControlGroup = styled.div`
 
   @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
     gap: ${({ theme }) => theme.spacing[0]};
-    
+
     label {
       font-size: ${({ theme }) => theme.typography.sizes.xs};
     }

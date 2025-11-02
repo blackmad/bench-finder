@@ -451,9 +451,9 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   const mapRef = useRef<HTMLDivElement>(null)
 
   // Get primary image
-  const imageUrl = bench.image_filenames?.[0]
-    ? `/images/${bench.image_filenames[0]}`
-    : null
+  const imageUrl =
+    bench.image_urls?.[0] ??
+    (bench.image_filenames?.[0] ? `/images/${bench.image_filenames[0]}` : null)
   const imageId = bench.image_ids?.[0] || null
 
   // Format tags (exclude amenity tag and null values)

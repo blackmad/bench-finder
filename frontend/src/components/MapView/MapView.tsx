@@ -597,9 +597,11 @@ const MapView: React.FC = () => {
       const bench = mapData.benches.find((b) => b.id === benchId)
       if (bench) {
         const benchIndex = mapData.benches.findIndex((b) => b.id === benchId)
-        const imageUrl = bench.image_filenames?.[0]
-          ? `/images/${bench.image_filenames[0]}`
-          : null
+        const imageUrl =
+          bench.image_urls?.[0] ??
+          (bench.image_filenames?.[0]
+            ? `/images/${bench.image_filenames[0]}`
+            : null)
         const imageId = bench.image_ids?.[0] || null
 
         setSelectedBench(bench)
@@ -637,9 +639,11 @@ const MapView: React.FC = () => {
 
       const newBench = benchesForNavigation[newIndex]
       if (newBench) {
-        const imageUrl = newBench.image_filenames?.[0]
-          ? `/images/${newBench.image_filenames[0]}`
-          : null
+        const imageUrl =
+          newBench.image_urls?.[0] ??
+          (newBench.image_filenames?.[0]
+            ? `/images/${newBench.image_filenames[0]}`
+            : null)
         const imageId = newBench.image_ids?.[0] || null
 
         setSelectedBench(newBench)
@@ -1091,9 +1095,11 @@ const MapView: React.FC = () => {
           {!loading && mapData.benches && mapData.benches.length > 0 && (
             <div>
               {mapData.benches.map((bench) => {
-                const imageUrl = bench.image_filenames?.[0]
-                  ? `/images/${bench.image_filenames[0]}`
-                  : null
+                const imageUrl =
+                  bench.image_urls?.[0] ??
+                  (bench.image_filenames?.[0]
+                    ? `/images/${bench.image_filenames[0]}`
+                    : null)
 
                 return (
                   <MapBenchCard

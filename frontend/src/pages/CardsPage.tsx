@@ -236,8 +236,8 @@ const CardsPage: React.FC = () => {
       if (targetIndex < state.benches.length) {
         const newBench = state.benches[targetIndex]
         if (newBench?.image_filenames && newBench.image_filenames.length > 0) {
-          const firstImageFilename = newBench.image_filenames[0]
-          const imageUrl = `/images/${firstImageFilename}`
+          const imageUrl =
+            newBench.image_urls?.[0] ?? `/images/${newBench.image_filenames[0]}`
           setSelectedBench(newBench)
           setSelectedImageUrl(imageUrl)
           setSelectedImageId(newBench.image_ids?.[0] || 0)
@@ -314,8 +314,8 @@ const CardsPage: React.FC = () => {
 
       const newBench = benchesForNavigation[newIndex]
       if (newBench?.image_filenames && newBench.image_filenames.length > 0) {
-        const firstImageFilename = newBench.image_filenames[0]
-        const imageUrl = `/images/${firstImageFilename}`
+        const imageUrl =
+          newBench.image_urls?.[0] ?? `/images/${newBench.image_filenames[0]}`
         console.log("Navigating to bench:", {
           id: newBench.id,
           imageUrl: imageUrl,

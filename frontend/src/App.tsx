@@ -41,10 +41,7 @@ const AppWithErrorHandling = () => {
           <Route
             path="/"
             element={
-              <Navigate
-                to={isMobile ? "/mobile-map" : "/cards"}
-                replace
-              />
+              <Navigate to={isMobile ? "/mobile-map" : "/cards"} replace />
             }
           />
           <Route path="/mobile-map" element={<MobileMapPage />} />

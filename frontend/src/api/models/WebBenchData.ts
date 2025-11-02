@@ -27,6 +27,7 @@ export type WebBenchData = {
   image_count: number
   image_filenames: Array<string>
   image_ids: Array<number>
+  image_urls?: Array<string> | null
   distance_meters: number
   distance_km: number
   reverse_geocode?: StructuredAddress | null

@@ -548,21 +548,33 @@ const BenchDetailPage: React.FC = () => {
     const newIndex =
       (currentModalIndex - 1 + bench.image_filenames.length) %
       bench.image_filenames.length
-    const newFilename = bench.image_filenames[newIndex]
     const newImageId = bench.image_ids?.[newIndex] || null
-    setSelectedImageUrl(`/images/${newFilename}`)
-    setSelectedImageId(newImageId)
-    setCurrentModalIndex(newIndex)
+    const newUrl =
+      bench.image_urls?.[newIndex] ??
+      (bench.image_filenames[newIndex]
+        ? `/images/${bench.image_filenames[newIndex]}`
+        : null)
+    if (newUrl) {
+      setSelectedImageUrl(newUrl)
+      setSelectedImageId(newImageId)
+      setCurrentModalIndex(newIndex)
+    }
   }
 
   const handleNextImage = () => {
     if (!bench.image_filenames || bench.image_filenames.length === 0) return
     const newIndex = (currentModalIndex + 1) % bench.image_filenames.length
-    const newFilename = bench.image_filenames[newIndex]
     const newImageId = bench.image_ids?.[newIndex] || null
-    setSelectedImageUrl(`/images/${newFilename}`)
-    setSelectedImageId(newImageId)
-    setCurrentModalIndex(newIndex)
+    const newUrl =
+      bench.image_urls?.[newIndex] ??
+      (bench.image_filenames[newIndex]
+        ? `/images/${bench.image_filenames[newIndex]}`
+        : null)
+    if (newUrl) {
+      setSelectedImageUrl(newUrl)
+      setSelectedImageId(newImageId)
+      setCurrentModalIndex(newIndex)
+    }
   }
 
   const handleNavigateImage = (direction: "prev" | "next") => {
@@ -601,9 +613,9 @@ const BenchDetailPage: React.FC = () => {
     window.open(url, "_blank")
   }
 
-  const imageUrl = bench.image_filenames?.[0]
-    ? `/images/${bench.image_filenames[0]}`
-    : null
+  const imageUrl =
+    bench.image_urls?.[0] ??
+    (bench.image_filenames?.[0] ? `/images/${bench.image_filenames[0]}` : null)
   const imageId = bench.image_ids?.[0] || null
 
   return (
@@ -639,19 +651,17 @@ const BenchDetailPage: React.FC = () => {
                 <ImageGallery>
                   {bench.image_filenames.map((filename, index) => {
                     const imgId = bench.image_ids?.[index] || null
+                    const imgUrl =
+                      bench.image_urls?.[index] ?? `/images/${filename}`
                     return (
                       <ImageContainer
                         key={index}
                         onClick={() =>
-                          handleImageClick(
-                            `/images/${filename}`,
-                            imgId || 0,
-                            index
-                          )
+                          handleImageClick(imgUrl, imgId || 0, index)
                         }
                       >
                         <GalleryImage
-                          src={`/images/${filename}`}
+                          src={imgUrl}
                           alt={`Bench ${bench.id} - Image ${index + 1}`}
                           loading="lazy"
                         />

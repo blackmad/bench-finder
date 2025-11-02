@@ -939,7 +939,8 @@ const Modal: React.FC<ModalProps> = ({
                       <ThumbnailGallery>
                         {bench.image_filenames.map((filename, index) => {
                           const imgId = bench.image_ids?.[index] || null
-                          const thumbnailUrl = `/images/${filename}`
+                          const thumbnailUrl =
+                            bench.image_urls?.[index] ?? `/images/${filename}`
                           const isSelected = imgId === imageId
                           const hasDetection =
                             imgId !== null && imagesWithDetections.has(imgId)
