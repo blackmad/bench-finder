@@ -125,6 +125,9 @@ FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET")
 FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")
 FIREBASE_CREDENTIALS_BASE64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
 FIREBASE_STORAGE_PREFIX = os.getenv("FIREBASE_STORAGE_PREFIX", "images")
+# Firebase Hosting URL for serving images (e.g., https://project-id.web.app)
+# If set, image URLs will point to Firebase Hosting instead of Firebase Storage
+FIREBASE_HOSTING_URL = os.getenv("FIREBASE_HOSTING_URL")
 
 # Mapillary settings
 MAPILLARY_IMAGE_SIZE = 2048  # Download high-resolution images

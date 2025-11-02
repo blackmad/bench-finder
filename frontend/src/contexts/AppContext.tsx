@@ -205,10 +205,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         const config = await benchApi.getConfig()
         dispatch({ type: "SET_CONFIG", payload: config })
 
-        // Load available searches
-        const searchesResponse = await benchApi.getSearches()
-        dispatch({ type: "SET_SEARCHES", payload: searchesResponse.searches })
-
         // Try to get user's current location
         if ("geolocation" in navigator) {
           navigator.geolocation.getCurrentPosition(

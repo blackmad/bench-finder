@@ -171,6 +171,7 @@ class FirebaseImageStorage(ImageStorageService):
         credentials_path: str | None = None,
         credentials_base64: str | None = None,
         storage_path_prefix: str = "images",
+        hosting_url: str | None = None,
     ):
         """
         Initialize Firebase Storage service.
@@ -180,6 +181,8 @@ class FirebaseImageStorage(ImageStorageService):
             credentials_path: Path to Firebase service account JSON file
             credentials_base64: Base64-encoded Firebase service account JSON (alternative to credentials_path)
             storage_path_prefix: Prefix path in the storage bucket
+            hosting_url: Firebase Hosting base URL (e.g., https://project-id.web.app)
+                        If provided, image URLs will use Hosting instead of Storage
         """
         try:
             import firebase_admin
@@ -213,12 +216,29 @@ class FirebaseImageStorage(ImageStorageService):
         self.bucket_name = bucket_name
         self.bucket = storage.bucket(bucket_name)
         self.storage_path_prefix = storage_path_prefix
+        # Normalize hosting URL (remove trailing slash)
+        self.hosting_url = hosting_url.rstrip("/") if hosting_url else None
 
     def _get_storage_path(self, filename: str) -> str:
         """Get full storage path for a filename."""
         if self.storage_path_prefix:
             return f"{self.storage_path_prefix}/{filename}"
         return filename
+
+    def _get_hosting_url(self, filename: str) -> str:
+        """
+        Get Firebase Hosting URL for an image.
+
+        Args:
+            filename: Image filename
+
+        Returns:
+            Firebase Hosting URL
+        """
+        if not self.hosting_url:
+            raise ValueError("Firebase Hosting URL not configured")
+        # Images are served at root level, e.g., https://project.web.app/filename.jpg
+        return f"{self.hosting_url}/{filename}"
 
     async def upload_image(self, file_path: str, filename: str) -> str:
         """
@@ -229,7 +249,7 @@ class FirebaseImageStorage(ImageStorageService):
             filename: Destination filename
 
         Returns:
-            Public URL to access the uploaded image
+            Public URL to access the uploaded image (Firebase Hosting URL if configured, otherwise Storage URL)
         """
         import asyncio
 
@@ -251,13 +271,20 @@ class FirebaseImageStorage(ImageStorageService):
 
         # Run synchronous Firebase operation in executor
         loop = asyncio.get_event_loop()
-        public_url = await loop.run_in_executor(None, _upload)
+        storage_url = await loop.run_in_executor(None, _upload)
 
-        logger.debug(
-            f"Uploaded image to Firebase Storage: {storage_path} -> {public_url}"
-        )
-
-        return public_url
+        # Return Firebase Hosting URL if configured, otherwise Storage URL
+        if self.hosting_url:
+            hosting_url = self._get_hosting_url(filename)
+            logger.debug(
+                f"Uploaded image to Firebase Storage: {storage_path} -> {hosting_url} (via Hosting)"
+            )
+            return hosting_url
+        else:
+            logger.debug(
+                f"Uploaded image to Firebase Storage: {storage_path} -> {storage_url}"
+            )
+            return storage_url
 
     async def get_image_url(self, filename: str) -> str | None:
         """
@@ -267,13 +294,16 @@ class FirebaseImageStorage(ImageStorageService):
             filename: Image filename
 
         Returns:
-            Public URL if image exists, None otherwise
+            Public URL if image exists (Firebase Hosting URL if configured, otherwise Storage URL), None otherwise
         """
         storage_path = self._get_storage_path(filename)
         blob = self.bucket.blob(storage_path)
 
         try:
             if blob.exists():
+                # Return Firebase Hosting URL if configured, otherwise Storage URL
+                if self.hosting_url:
+                    return self._get_hosting_url(filename)
                 return blob.public_url
         except Exception:
             logger.exception(f"Error checking Firebase Storage blob {storage_path}")
@@ -327,6 +357,7 @@ def get_image_storage_service(
     firebase_credentials: str | None = None,
     firebase_credentials_base64: str | None = None,
     firebase_storage_prefix: str = "images",
+    firebase_hosting_url: str | None = None,
 ) -> ImageStorageService:
     """
     Factory function to get the appropriate image storage service.
@@ -338,6 +369,7 @@ def get_image_storage_service(
         firebase_credentials: Path to Firebase credentials JSON file
         firebase_credentials_base64: Base64-encoded Firebase credentials JSON (alternative to firebase_credentials)
         firebase_storage_prefix: Prefix path in Firebase Storage bucket
+        firebase_hosting_url: Firebase Hosting base URL (e.g., https://project-id.web.app)
 
     Returns:
         ImageStorageService instance
@@ -350,6 +382,7 @@ def get_image_storage_service(
             credentials_path=firebase_credentials,
             credentials_base64=firebase_credentials_base64,
             storage_path_prefix=firebase_storage_prefix,
+            hosting_url=firebase_hosting_url,
         )
     else:
         return LocalImageStorage(images_dir=images_dir)
@@ -370,6 +403,7 @@ def get_image_storage_service_from_config() -> ImageStorageService:
     - FIREBASE_CREDENTIALS_PATH: Path to Firebase credentials JSON file
     - FIREBASE_CREDENTIALS_BASE64: Base64-encoded Firebase credentials (alternative to FIREBASE_CREDENTIALS_PATH)
     - FIREBASE_STORAGE_PREFIX: Prefix path in Firebase bucket (default: 'images')
+    - FIREBASE_HOSTING_URL: Firebase Hosting base URL (e.g., https://project-id.web.app)
     - IMAGES_DIR: Directory for local storage (default: 'images')
 
     Returns:
@@ -381,6 +415,7 @@ def get_image_storage_service_from_config() -> ImageStorageService:
     from bench_finder.config import (
         FIREBASE_CREDENTIALS_BASE64,
         FIREBASE_CREDENTIALS_PATH,
+        FIREBASE_HOSTING_URL,
         FIREBASE_STORAGE_BUCKET,
         FIREBASE_STORAGE_PREFIX,
         IMAGE_STORAGE_BACKEND,
@@ -394,4 +429,5 @@ def get_image_storage_service_from_config() -> ImageStorageService:
         firebase_credentials=FIREBASE_CREDENTIALS_PATH,
         firebase_credentials_base64=FIREBASE_CREDENTIALS_BASE64,
         firebase_storage_prefix=FIREBASE_STORAGE_PREFIX,
+        firebase_hosting_url=FIREBASE_HOSTING_URL,
     )

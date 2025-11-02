@@ -4,33 +4,25 @@ Migration script to copy data from SQLite to Supabase PostgreSQL database.
 
 This script exports all data from the local SQLite database and imports it
 into a Supabase PostgreSQL database, maintaining all relationships and data integrity.
-It also uploads images to Firebase Hosting and updates database records with hosting URLs.
+
+For uploading images to Firebase Hosting, use the separate script:
+    python tools/upload_images_to_firebase_hosting.py
 
 Usage:
     python tools/migrate_to_supabase.py \\
         [--sqlite-path data/benches.db] \\
         [--supabase-url postgresql://user:pass@host/db] \\
-        [--images-dir images] \\
-        [--firebase-project-id PROJECT_ID] \\
-        [--firebase-hosting-site SITE_ID] \\
-        [--progress-file .migration_progress.json] \\
         [--dry-run] \\
-        [--clear-tables] \\
-        [--skip-images]
+        [--clear-tables]
 
 If --supabase-url is not provided, DATABASE_POSTGRES_URL from .env will be used.
 """
 
 import argparse
-import json
 import logging
 import os
-import shutil
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
-from typing import Any
 
 from dotenv import load_dotenv
 
@@ -45,9 +37,7 @@ sys.path.insert(0, str(project_root))
 from sqlalchemy import inspect, text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
-from bench_finder.models.enums import DataSource  # noqa: E402
 from bench_finder.models.unified_models import (  # noqa: E402
-    BenchCandidate,
     BenchReport,
     Detection,
     DetectionItem,
@@ -598,27 +588,17 @@ def clear_tables(
 def migrate_database(
     sqlite_path: str,
     supabase_url: str,
-    images_dir: str | None = None,
-    firebase_project_id: str | None = None,
-    firebase_hosting_site: str | None = None,
-    progress_file: str | None = None,
     dry_run: bool = False,
     clear_tables_first: bool = False,
-    skip_images: bool = False,
 ):
     """
-    Migrate all data from SQLite to Supabase and upload images to Firebase Hosting.
+    Migrate all data from SQLite to Supabase.
 
     Args:
         sqlite_path: Path to SQLite database file
         supabase_url: Supabase PostgreSQL connection URL
-        images_dir: Local directory containing images
-        firebase_project_id: Firebase project ID for hosting
-        firebase_hosting_site: Firebase Hosting site ID (optional)
-        progress_file: Path to progress tracking file
         dry_run: If True, only validate without migrating
         clear_tables_first: If True, clear all tables in target before migrating
-        skip_images: If True, skip image upload step
     """
     logger.info("=" * 60)
     logger.info("Database Migration: SQLite -> Supabase")
@@ -626,16 +606,6 @@ def migrate_database(
 
     if dry_run:
         logger.info("DRY RUN MODE - No data will be written")
-
-    # Initialize progress tracking
-    if progress_file:
-        progress_path = Path(progress_file)
-    else:
-        progress_path = Path(".migration_progress.json")
-
-    progress = load_progress(progress_path)
-    logger.info(f"Loaded progress from: {progress_path}")
-    logger.info(f"Already uploaded: {len(progress.get('images_uploaded', {}))} images")
 
     # Create source database connection (SQLite)
     # Use init_database directly to bypass BenchDatabase which may use DATABASE_URL from env
@@ -703,21 +673,8 @@ def migrate_database(
             f"Found {sum(len(idxs) for idxs in source_indexes.values())} indexes across {len(source_indexes)} tables"
         )
 
-        # Migrate tables (but skip images initially if we're uploading to Firebase Hosting)
-        tables_to_migrate = migration_order.copy()
-        images_model_class = None
-        images_table_name = None
-
-        if not skip_images and firebase_project_id:
-            # Remove images from initial migration order
-            for idx, (model_class, table_name) in enumerate(tables_to_migrate):
-                if table_name == "images":
-                    images_model_class = model_class
-                    images_table_name = table_name
-                    tables_to_migrate.pop(idx)
-                    break
-
-        for model_class, table_name in tables_to_migrate:
+        # Migrate all tables
+        for model_class, table_name in migration_order:
             try:
                 count = migrate_table(
                     source_session,
@@ -732,93 +689,6 @@ def migrate_database(
                 if not dry_run:
                     raise
 
-        # Handle image upload and migration
-        image_urls = {}
-        if not skip_images and firebase_project_id and images_model_class:
-            # Get all images with their bench candidates
-            images_with_candidates = []
-            images_path = Path(images_dir) if images_dir else Path("images")
-
-            # Query images with bench candidates
-            source_images = source_session.query(Image).all()
-            logger.info(f"Found {len(source_images)} images in source database")
-
-            for image in source_images:
-                bench_candidate = (
-                    source_session.query(BenchCandidate)
-                    .filter(BenchCandidate.id == image.bench_candidate_id)
-                    .first()
-                )
-
-                # Skip Mapillary images
-                if is_mapillary_image(image, bench_candidate):
-                    continue
-
-                if image.filename:
-                    local_path = images_path / image.filename
-                    if local_path.exists():
-                        images_with_candidates.append(
-                            (image, local_path, bench_candidate)
-                        )
-
-            # Upload images to Firebase Hosting
-            image_urls = upload_images_to_firebase_hosting(
-                images_with_candidates,
-                images_path,
-                firebase_project_id,
-                firebase_hosting_site,
-                progress,
-                progress_path,
-                dry_run=dry_run,
-            )
-
-            # Now migrate images table with updated Firebase URLs
-            logger.info("Migrating images table with Firebase Hosting URLs...")
-            source_images = source_session.query(Image).all()
-
-            migrated_images = 0
-            for image in source_images:
-                try:
-                    # Update firebase_url if we have a hosting URL
-                    if str(image.id) in image_urls:
-                        image.firebase_url = image_urls[str(image.id)]
-                    elif str(image.id) in progress.get("images_uploaded", {}):
-                        image.firebase_url = progress["images_uploaded"][str(image.id)]
-
-                    # Convert to dict
-                    record_dict = {
-                        col.name: getattr(image, col.name)
-                        for col in inspect(Image).mapper.columns
-                    }
-                    # Remove None primary key
-                    if "id" in record_dict and record_dict["id"] is None:
-                        record_dict.pop("id")
-
-                    target_image = Image(**record_dict)
-                    target_session.add(target_image)
-                    migrated_images += 1
-
-                except Exception:
-                    logger.exception(f"Failed to migrate image {image.id}")
-                    target_session.rollback()
-                    raise
-
-            if not dry_run:
-                target_session.commit()
-                logger.info(f"Migrated {migrated_images} images to {images_table_name}")
-                total_migrated += migrated_images
-
-        elif images_model_class and images_table_name:
-            # Just migrate images without Firebase Hosting
-            count = migrate_table(
-                source_session,
-                target_session,
-                images_model_class,
-                images_table_name,
-                dry_run=dry_run,
-            )
-            total_migrated += count
-
         # Create indexes after data migration is complete
         logger.info("=" * 60)
         logger.info("Creating indexes in target database...")
@@ -827,9 +697,11 @@ def migrate_database(
 
         logger.info("=" * 60)
         logger.info(f"Migration complete! Total records migrated: {total_migrated}")
-        if image_urls:
-            logger.info(f"Images uploaded to Firebase Hosting: {len(image_urls)}")
         logger.info("=" * 60)
+        logger.info(
+            "Note: To upload images to Firebase Hosting, run: "
+            "python tools/upload_images_to_firebase_hosting.py"
+        )
 
     except Exception:
         logger.exception("Migration failed")
@@ -871,35 +743,6 @@ def main():
         action="store_true",
         help="Clear all tables in target database before migrating",
     )
-    parser.add_argument(
-        "--images-dir",
-        type=str,
-        default="images",
-        help="Local directory containing images to upload",
-    )
-    parser.add_argument(
-        "--firebase-project-id",
-        type=str,
-        default=None,
-        help="Firebase project ID for hosting (from .env: FIREBASE_PROJECT_ID)",
-    )
-    parser.add_argument(
-        "--firebase-hosting-site",
-        type=str,
-        default=None,
-        help="Firebase Hosting site ID (optional, defaults to project ID)",
-    )
-    parser.add_argument(
-        "--progress-file",
-        type=str,
-        default=".migration_progress.json",
-        help="Path to progress tracking file",
-    )
-    parser.add_argument(
-        "--skip-images",
-        action="store_true",
-        help="Skip image upload step (just migrate database)",
-    )
 
     args = parser.parse_args()
 
@@ -924,27 +767,12 @@ def main():
         logger.error(f"SQLite database not found: {args.sqlite_path}")
         sys.exit(1)
 
-    # Get Firebase project ID from argument or environment
-    firebase_project_id = args.firebase_project_id or os.getenv("FIREBASE_PROJECT_ID")
-
-    # If images are to be uploaded, validate Firebase project ID is provided
-    if not args.skip_images and not firebase_project_id:
-        logger.warning(
-            "Firebase project ID not provided. Images will not be uploaded to Firebase Hosting. "
-            "Set --firebase-project-id or FIREBASE_PROJECT_ID environment variable."
-        )
-
     try:
         migrate_database(
             sqlite_path=args.sqlite_path,
             supabase_url=supabase_url,
-            images_dir=args.images_dir,
-            firebase_project_id=firebase_project_id,
-            firebase_hosting_site=args.firebase_hosting_site,
-            progress_file=args.progress_file,
             dry_run=args.dry_run,
             clear_tables_first=args.clear_tables,
-            skip_images=args.skip_images,
         )
     except Exception:
         logger.exception("Migration failed")

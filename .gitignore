@@ -225,6 +225,7 @@ pyrightconfig.json
 *.heic
 *.db
 *.png
-firebase.json
+firebase_creds.json
 .vercel
 .env*.local
+.firebase
