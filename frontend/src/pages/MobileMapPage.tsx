@@ -109,11 +109,8 @@ const BenchCard = styled.div<{ $swiping?: boolean; $swipeOffset?: number }>`
   bottom: ${({ theme }) => theme.spacing[4]};
   left: ${({ theme }) => theme.spacing[4]};
   right: ${({ theme }) => theme.spacing[4]};
-  max-height: 25vh;
   background: ${({ theme }) => theme.colors.background};
   border-radius: ${({ theme }) => theme.borderRadius.xl};
-  overflow-y: auto;
-  overflow-x: hidden;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   z-index: 1002;
   transform: ${({ $swipeOffset = 0 }) => `translateX(${$swipeOffset}px)`};
@@ -121,7 +118,6 @@ const BenchCard = styled.div<{ $swiping?: boolean; $swipeOffset?: number }>`
   touch-action: pan-y;
   display: flex;
   flex-direction: column;
-  -webkit-overflow-scrolling: touch;
 `
 
 const BenchImage = styled.img`
