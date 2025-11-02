@@ -39,7 +39,6 @@ from bench_finder.models.unified_models import (
     Search,
 )
 from bench_finder.services.database import BenchDatabase
-from bench_finder.services.image_storage import get_image_storage_service_from_config
 
 from .api_models import (
     ApiDetectionItem,
@@ -113,39 +112,33 @@ def sort_images_by_best(
     return sorted_filenames, sorted_ids
 
 
-async def build_image_urls(images: list[Image], image_ids: list[int]) -> list[str]:
+def build_image_urls(images: list[Image], image_ids: list[int]) -> list[str]:
     """
-    Build image URLs from Image objects using the image storage service.
+    Build image URLs from Image objects, using firebase_url when available,
+    otherwise falling back to /images/{filename} format.
 
     Args:
-        images: List of Image objects
-        image_ids: List of image IDs (used to match images)
+        images: List of Image objects (must match image_ids in order)
+        image_ids: List of image IDs to match with images
 
     Returns:
-        List of image URLs (Firebase Hosting URLs when available, otherwise /images/{filename} format)
+        List of image URLs in the same order as image_ids
     """
-    image_storage = get_image_storage_service_from_config()
+    # Create a map of image_id -> Image for quick lookup
     image_map = {img.id: img for img in images}
+
     urls = []
-
     for img_id in image_ids:
-        if img_id in image_map:
-            img = image_map[img_id]
-            if img.filename:
-                # Get URL from storage service (returns hosting URL if configured, otherwise storage URL)
-                url = await image_storage.get_image_url(img.filename)
-                if url:
-                    urls.append(url)
-                else:
-                    # Fallback to /images/{filename} format if storage service returns None
-                    urls.append(f"/images/{img.filename}")
-            else:
-                # No filename, skip
-                continue
+        img = image_map.get(img_id)
+        if img and img.firebase_url:
+            # Use Firebase Hosting URL if available
+            urls.append(img.firebase_url)
+        elif img and img.filename:
+            # Fallback to /images/{filename} format
+            urls.append(f"/images/{img.filename}")
         else:
-            # Image not found in map, skip
-            continue
-
+            # Fallback if image not found (shouldn't happen, but be safe)
+            urls.append("/images/unknown")
     return urls
 
 
