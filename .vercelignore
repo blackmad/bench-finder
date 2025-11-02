@@ -66,3 +66,8 @@ Thumbs.db
 # Frontend build artifacts (keep dist for deployment)
 # frontend/dist/ is needed for deployment
 frontend/build/
+
+# Lock files - use api/requirements.txt instead for Vercel
+uv.lock
+poetry.lock
+Pipfile.lock
