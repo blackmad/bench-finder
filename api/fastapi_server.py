@@ -1817,6 +1817,23 @@ async def get_benches_in_bbox(
             # Apply limit
             results = query.limit(limit).all()
 
+            # OPTIMIZATION: Batch load ReverseGeocode data separately to avoid join overhead
+            reverse_geocode_map = {}
+            if results:
+                bench_candidate_ids_for_rg = [r.bench_candidate_id for r in results]
+                if bench_candidate_ids_for_rg:
+                    reverse_geocodes = (
+                        session.query(ReverseGeocode)
+                        .filter(
+                            ReverseGeocode.bench_candidate_id.in_(
+                                bench_candidate_ids_for_rg
+                            )
+                        )
+                        .all()
+                    )
+                    for rg in reverse_geocodes:
+                        reverse_geocode_map[rg.bench_candidate_id] = rg
+
             # OPTIMIZATION: Batch load Image objects to get firebase_urls
             images_map = {}
             if results:
@@ -1941,6 +1958,22 @@ async def get_benches_in_bbox(
                 elif detection_source == DetectionSource.MAPILLARY:
                     mapillary_confidence = best_confidence
 
+                # Get reverse geocode from batch-loaded map
+                reverse_geocode = None
+                rg = reverse_geocode_map.get(bench_candidate_id)
+                if rg:
+                    from .api_models import StructuredAddress
+
+                    reverse_geocode = StructuredAddress(
+                        formatted_address=rg.formatted_address,
+                        street_number=rg.street_number,
+                        street_name=rg.street_name,
+                        city=rg.city,
+                        state=rg.state,
+                        postal_code=rg.postal_code,
+                        country=rg.country,
+                    )
+
                 bench_data = WebBenchData(
                     id=result.processed_bench_id,
                     provider_id=result.provider_id,
@@ -1964,10 +1997,7 @@ async def get_benches_in_bbox(
                     best_detection_id=result.best_detection_id,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
-                    reverse_geocode=_build_structured_address(result)
-                    if hasattr(result, "rg_formatted_address")
-                    and result.rg_formatted_address
-                    else None,
+                    reverse_geocode=reverse_geocode,
                     detection_items=detection_items,
                 )
 
