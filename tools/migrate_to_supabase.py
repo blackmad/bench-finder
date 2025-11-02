@@ -297,9 +297,9 @@ def upload_images_to_firebase_hosting(
             except subprocess.CalledProcessError as e:
                 logger.exception("Failed to deploy to Firebase Hosting")
                 if e.stdout:
-                    logger.exception(f"stdout: {e.stdout}")
+                    logger.debug(f"stdout: {e.stdout}")
                 if e.stderr:
-                    logger.exception(f"stderr: {e.stderr}")
+                    logger.debug(f"stderr: {e.stderr}")
                 raise
             except FileNotFoundError:
                 logger.exception(
