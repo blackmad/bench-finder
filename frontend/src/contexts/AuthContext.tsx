@@ -12,8 +12,9 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
+  signInWithProvider: (
+    provider: "google" | "github" | "apple" | "facebook"
+  ) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   getAccessToken: () => string | null
 }
@@ -45,18 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error }
-  }
-
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+  const signInWithProvider = async (
+    provider: "google" | "github" | "apple" | "facebook"
+  ) => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}${window.location.pathname}`,
+      },
     })
     return { error }
   }
@@ -73,8 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     session,
     loading,
-    signIn,
-    signUp,
+    signInWithProvider,
     signOut,
     getAccessToken,
   }

@@ -76,10 +76,17 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
    - The `anon` key is designed to be public, but still keep it secure
    - Never expose the `service_role` key publicly
 
-3. **Enable Authentication**:
+3. **Enable Social Authentication Providers**:
    - Go to **Authentication** → **Providers** in your Supabase dashboard
-   - Make sure **Email** provider is enabled (it should be by default)
-   - Configure any other providers (Google, GitHub, etc.) if needed
+   - Enable the providers you want to support:
+     - **Google**: Click "Google" → Toggle "Enable Google provider" → Add your Google OAuth credentials
+     - **GitHub**: Click "GitHub" → Toggle "Enable GitHub provider" → Add your GitHub OAuth app credentials
+     - **Apple** or **Facebook**: Enable as needed
+   - For each provider, you'll need to:
+     1. Create an OAuth app in the provider's developer console
+     2. Get the Client ID and Client Secret
+     3. Add the redirect URL: `https://your-project-ref.supabase.co/auth/v1/callback`
+     4. Enter these in Supabase's provider settings
 
 ## Testing Your Setup
 
@@ -95,7 +102,8 @@ cd frontend && npm run dev
 
 You should now see:
 - Login button in the mobile map page (top right)
-- Ability to sign up and sign in users
+- Social login options (Google, GitHub) when clicking login
+- Ability to sign in with social providers
 - User authentication working in the app
 
 ## Troubleshooting
@@ -110,4 +118,3 @@ You should now see:
 - Check the browser console for errors
 - Make sure email authentication is enabled in Supabase dashboard
 - Check that your Supabase project is not paused (free tier projects pause after inactivity)
-

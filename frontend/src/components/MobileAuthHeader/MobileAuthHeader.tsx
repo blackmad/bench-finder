@@ -1,4 +1,4 @@
-import { LogIn, LogOut, User } from "lucide-react"
+import { Github, LogIn, LogOut, User } from "lucide-react"
 import { useState } from "react"
 import styled from "styled-components"
 import { useAuth } from "../../contexts/AuthContext"
@@ -126,114 +126,113 @@ const LoginTitle = styled.h2`
     color: ${({ theme }) => theme.colors.textPrimary};
 `
 
-const Input = styled.input`
-    width: 100%;
-    padding: ${({ theme }) => theme.spacing[3]};
-    border: 1px solid ${({ theme }) => theme.colors.borderLight};
-    border-radius: ${({ theme }) => theme.borderRadius.md};
-    font-size: ${({ theme }) => theme.typography.sizes.base};
-    margin-bottom: ${({ theme }) => theme.spacing[3]};
-    background: ${({ theme }) => theme.colors.backgroundSecondary};
-    color: ${({ theme }) => theme.colors.textPrimary};
-
-    &:focus {
-        outline: none;
-        border-color: ${({ theme }) => theme.colors.primary};
-    }
-`
-
-const ButtonGroup = styled.div`
+const SocialButtons = styled.div`
     display: flex;
-    gap: ${({ theme }) => theme.spacing[2]};
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing[3]};
     margin-top: ${({ theme }) => theme.spacing[4]};
 `
 
-const Button = styled.button`
-    flex: 1;
+const SocialButton = styled.button`
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: ${({ theme }) => theme.spacing[2]};
     padding: ${({ theme }) => theme.spacing[3]};
-    border: none;
+    border: 1px solid ${({ theme }) => theme.colors.borderLight};
     border-radius: ${({ theme }) => theme.borderRadius.md};
     font-size: ${({ theme }) => theme.typography.sizes.base};
     font-weight: ${({ theme }) => theme.typography.weights.medium};
     cursor: pointer;
     transition: all ${({ theme }) => theme.transitions.fast};
+    background: ${({ theme }) => theme.colors.background};
+
+    &:hover {
+        background: ${({ theme }) => theme.colors.gray100};
+        transform: translateY(-1px);
+        box-shadow: ${({ theme }) => theme.shadows.md};
+    }
+
+    &:active {
+        transform: translateY(0);
+    }
 
     &:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
-`
 
-const PrimaryButton = styled(Button)`
-    background: ${({ theme }) => theme.colors.primary};
-    color: white;
-
-    &:hover:not(:disabled) {
-        background: ${({ theme }) => theme.colors.primaryDark};
+    svg {
+        width: 20px;
+        height: 20px;
     }
 `
 
-const SecondaryButton = styled(Button)`
+const GoogleButton = styled(SocialButton)`
+    background: white;
+    color: #4285f4;
+    border-color: #dadce0;
+
+    &:hover {
+        background: #f8f9fa;
+        border-color: #4285f4;
+    }
+`
+
+const GitHubButton = styled(SocialButton)`
+    background: #24292e;
+    color: white;
+    border-color: #24292e;
+
+    &:hover {
+        background: #2f363d;
+        border-color: #2f363d;
+    }
+`
+
+const CancelButton = styled.button`
+    width: 100%;
+    padding: ${({ theme }) => theme.spacing[3]};
+    margin-top: ${({ theme }) => theme.spacing[3]};
+    border: 1px solid ${({ theme }) => theme.colors.borderLight};
+    border-radius: ${({ theme }) => theme.borderRadius.md};
+    font-size: ${({ theme }) => theme.typography.sizes.base};
+    font-weight: ${({ theme }) => theme.typography.weights.medium};
+    cursor: pointer;
+    transition: all ${({ theme }) => theme.transitions.fast};
     background: ${({ theme }) => theme.colors.gray200};
     color: ${({ theme }) => theme.colors.textPrimary};
 
-    &:hover:not(:disabled) {
+    &:hover {
         background: ${({ theme }) => theme.colors.gray300};
     }
 `
 
-const ErrorText = styled.div`
-    color: ${({ theme }) => theme.colors.error};
+const LoginSubtitle = styled.p`
+    margin: 0 0 ${({ theme }) => theme.spacing[4]} 0;
     font-size: ${({ theme }) => theme.typography.sizes.sm};
-    margin-top: ${({ theme }) => theme.spacing[2]};
+    color: ${({ theme }) => theme.colors.textSecondary};
+    text-align: center;
 `
 
 export default function MobileAuthHeader() {
-  const { user, signIn, signUp, signOut, loading } = useAuth()
+  const { user, signInWithProvider, signOut, loading } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
   const [showLogin, setShowLogin] = useState(false)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState<string | null>(null)
 
-  const handleSignIn = async () => {
-    setError(null)
-    setIsLoading(true)
-    const { error: signInError } = await signIn(email, password)
-    setIsLoading(false)
-    if (signInError) {
-      setError(signInError.message || "Failed to sign in")
-    } else {
-      setShowLogin(false)
-      setEmail("")
-      setPassword("")
-      setError(null)
+  const handleSocialLogin = async (
+    provider: "google" | "github" | "apple" | "facebook"
+  ) => {
+    setIsLoading(provider)
+    const { error } = await signInWithProvider(provider)
+    if (error) {
+      console.error(`Failed to sign in with ${provider}:`, error)
+      setIsLoading(null)
+      // OAuth will redirect, so we don't need to handle errors here
     }
-  }
-
-  const handleSignUp = async () => {
-    setError(null)
-    setIsLoading(true)
-    const { error: signUpError } = await signUp(email, password)
-    setIsLoading(false)
-    if (signUpError) {
-      setError(signUpError.message || "Failed to sign up")
-    } else {
-      setError(null)
-      // After signup, usually need to verify email, so show message
-      setError("Please check your email to verify your account")
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (isSignUp) {
-      await handleSignUp()
-    } else {
-      await handleSignIn()
-    }
+    // Note: OAuth redirects will handle the flow, so we don't close the modal here
   }
 
   const handleSignOut = async () => {
@@ -277,53 +276,61 @@ export default function MobileAuthHeader() {
       {showLogin && (
         <LoginModal onClick={() => setShowLogin(false)}>
           <LoginCard onClick={(e) => e.stopPropagation()}>
-            <LoginTitle>{isSignUp ? "Sign Up" : "Sign In"}</LoginTitle>
-            <form onSubmit={handleSubmit}>
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-              <Input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={isSignUp ? "new-password" : "current-password"}
-                minLength={6}
-              />
-              {error && <ErrorText>{error}</ErrorText>}
-              <ButtonGroup>
-                <SecondaryButton
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(!isSignUp)
-                    setError(null)
-                  }}
-                >
-                  {isSignUp ? "Sign In Instead" : "Sign Up Instead"}
-                </SecondaryButton>
-                <PrimaryButton type="submit" disabled={isLoading}>
-                  {isLoading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
-                </PrimaryButton>
-              </ButtonGroup>
-              <SecondaryButton
-                type="button"
-                onClick={() => {
-                  setShowLogin(false)
-                  setError(null)
-                  setEmail("")
-                  setPassword("")
-                }}
-                style={{ marginTop: "8px", width: "100%" }}
+            <LoginTitle>Sign In</LoginTitle>
+            <LoginSubtitle>Choose a provider to continue</LoginSubtitle>
+            <SocialButtons>
+              <GoogleButton
+                onClick={() => handleSocialLogin("google")}
+                disabled={!!isLoading}
               >
-                Cancel
-              </SecondaryButton>
-            </form>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-label="Google"
+                  role="img"
+                >
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  />
+                </svg>
+                {isLoading === "google"
+                  ? "Connecting..."
+                  : "Continue with Google"}
+              </GoogleButton>
+              <GitHubButton
+                onClick={() => handleSocialLogin("github")}
+                disabled={!!isLoading}
+              >
+                <Github size={20} />
+                {isLoading === "github"
+                  ? "Connecting..."
+                  : "Continue with GitHub"}
+              </GitHubButton>
+            </SocialButtons>
+            <CancelButton
+              onClick={() => {
+                setShowLogin(false)
+                setIsLoading(null)
+              }}
+            >
+              Cancel
+            </CancelButton>
           </LoginCard>
         </LoginModal>
       )}
