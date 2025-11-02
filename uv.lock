@@ -426,6 +426,20 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+api = [
+    { name = "aiofiles" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "psycopg2-binary" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "python-multipart" },
+    { name = "sqlalchemy" },
+    { name = "sqlmodel" },
+    { name = "uvicorn", extra = ["standard"] },
+]
 dev = [
     { name = "black" },
     { name = "isort" },
@@ -440,9 +454,26 @@ types = [
     { name = "types-requests" },
 ]
 
+[package.dev-dependencies]
+api = [
+    { name = "aiofiles" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "psycopg2-binary" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "python-multipart" },
+    { name = "sqlalchemy" },
+    { name = "sqlmodel" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiofiles", specifier = ">=24.1.0" },
+    { name = "aiofiles", marker = "extra == 'api'", specifier = ">=24.1.0" },
     { name = "aiohappyeyeballs", specifier = ">=2.6.1" },
     { name = "aiohttp", specifier = ">=3.10.11" },
     { name = "aiohttp-retry", specifier = ">=2.8.3" },
@@ -480,6 +511,7 @@ requires-dist = [
     { name = "dnspython", specifier = ">=2.8.0" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", specifier = ">=0.110.3" },
+    { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.110.3" },
     { name = "filelock", specifier = ">=3.17.0" },
     { name = "filetype", specifier = ">=1.2.0" },
     { name = "firebase-admin", specifier = ">=6.0.0" },
@@ -498,6 +530,7 @@ requires-dist = [
     { name = "httpcore", specifier = ">=1.0.9" },
     { name = "httptools", specifier = ">=0.6.4" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "httpx", marker = "extra == 'api'", specifier = ">=0.28.1" },
     { name = "huggingface-hub", specifier = ">=0.35.3" },
     { name = "humanfriendly", specifier = ">=10.0" },
     { name = "hyperframe", specifier = ">=6.1.0" },
@@ -550,12 +583,16 @@ requires-dist = [
     { name = "protobuf", specifier = ">=6.32.1" },
     { name = "psutil", specifier = ">=7.1.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
+    { name = "psycopg2-binary", marker = "extra == 'api'", specifier = ">=2.9.0" },
     { name = "py-cpuinfo", specifier = ">=9.0.0" },
     { name = "pybase64", specifier = ">=1.0.2" },
     { name = "pycparser", specifier = ">=2.23" },
     { name = "pydantic", specifier = ">=2.11.10" },
+    { name = "pydantic", marker = "extra == 'api'", specifier = ">=2.11.10" },
     { name = "pydantic-core", specifier = ">=2.33.2" },
+    { name = "pydantic-core", marker = "extra == 'api'", specifier = ">=2.33.2" },
     { name = "pydantic-settings", specifier = ">=2.7.1" },
+    { name = "pydantic-settings", marker = "extra == 'api'", specifier = ">=2.7.1" },
     { name = "pydot", specifier = ">=2.0.0" },
     { name = "pyee", specifier = ">=13.0.0" },
     { name = "pygments", specifier = ">=2.19.2" },
@@ -571,7 +608,9 @@ requires-dist = [
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "python-dotenv", marker = "extra == 'api'", specifier = ">=1.0.1" },
     { name = "python-multipart", specifier = ">=0.0.6" },
+    { name = "python-multipart", marker = "extra == 'api'", specifier = ">=0.0.6" },
     { name = "pytz", specifier = ">=2025.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "qrcode", specifier = ">=8.0" },
@@ -595,7 +634,9 @@ requires-dist = [
     { name = "sniffio", specifier = ">=1.3.1" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
     { name = "sqlalchemy", specifier = ">=2.0.43" },
+    { name = "sqlalchemy", marker = "extra == 'api'", specifier = ">=2.0.43" },
     { name = "sqlmodel", specifier = ">=0.0.27" },
+    { name = "sqlmodel", marker = "extra == 'api'", specifier = ">=0.0.27" },
     { name = "starlette", specifier = ">=0.37.2" },
     { name = "storage3", specifier = ">=2.21.1" },
     { name = "strenum", specifier = ">=0.4.15" },
@@ -625,6 +666,7 @@ requires-dist = [
     { name = "ultralytics-thop", specifier = ">=2.0.17" },
     { name = "urllib3", specifier = ">=2.5.0" },
     { name = "uvicorn", specifier = ">=0.34.0" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'api'", specifier = ">=0.34.0" },
     { name = "uvloop", specifier = ">=0.21.0" },
     { name = "watchfiles", specifier = ">=1.1.0" },
     { name = "websockets", specifier = ">=13.1" },
@@ -634,7 +676,23 @@ requires-dist = [
     { name = "zeep", specifier = ">=4.3.2" },
     { name = "zxing-cpp", specifier = ">=2.2.0" },
 ]
-provides-extras = ["dev", "types"]
+provides-extras = ["dev", "types", "api"]
+
+[package.metadata.requires-dev]
+api = [
+    { name = "aiofiles", specifier = ">=24.1.0" },
+    { name = "fastapi", specifier = ">=0.110.3" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "psycopg2-binary", specifier = ">=2.9.0" },
+    { name = "pydantic", specifier = ">=2.11.10" },
+    { name = "pydantic-core", specifier = ">=2.33.2" },
+    { name = "pydantic-settings", specifier = ">=2.7.1" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "python-multipart", specifier = ">=0.0.6" },
+    { name = "sqlalchemy", specifier = ">=2.0.43" },
+    { name = "sqlmodel", specifier = ">=0.0.27" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
+]
 
 [[package]]
 name = "black"
@@ -3524,6 +3582,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/71/57/1616c8274c3442d802621abf5deb230771c7a0fec9414cb6763900eb3868/uvicorn-0.37.0.tar.gz", hash = "sha256:4115c8add6d3fd536c8ee77f0e14a7fd2ebba939fed9b02583a97f80648f9e13", size = 80367 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/85/cd/584a2ceb5532af99dd09e50919e3615ba99aa127e9850eafe5f31ddfdb9a/uvicorn-0.37.0-py3-none-any.whl", hash = "sha256:913b2b88672343739927ce381ff9e2ad62541f9f8289664fa1d1d3803fa2ce6c", size = 67976 },
+]
+
+[package.optional-dependencies]
+standard = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "httptools" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "uvloop", marker = "platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'" },
+    { name = "watchfiles" },
+    { name = "websockets" },
 ]
 
 [[package]]

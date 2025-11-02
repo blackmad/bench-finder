@@ -101,12 +101,34 @@ const BenchCard = styled.div<{ $swiping?: boolean; $swipeOffset?: number }>`
   right: ${({ theme }) => theme.spacing[4]};
   background: ${({ theme }) => theme.colors.background};
   border-radius: ${({ theme }) => theme.borderRadius.xl};
-  padding: ${({ theme }) => theme.spacing[4]};
+  overflow: hidden;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   z-index: 1002;
   transform: ${({ $swipeOffset = 0 }) => `translateX(${$swipeOffset}px)`};
   transition: ${({ $swiping }) => ($swiping ? "none" : "transform 0.3s ease-out")};
   touch-action: pan-y;
+`
+
+const BenchImage = styled.img`
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  background: ${({ theme }) => theme.colors.gray100};
+`
+
+const BenchImagePlaceholder = styled.div`
+  width: 100%;
+  height: 200px;
+  background: ${({ theme }) => theme.colors.gray100};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: ${({ theme }) => theme.typography.sizes["4xl"]};
+  color: ${({ theme }) => theme.colors.gray400};
+`
+
+const BenchCardContent = styled.div`
+  padding: ${({ theme }) => theme.spacing[4]};
 `
 
 const BenchCardHeader = styled.div`
@@ -360,8 +382,8 @@ const MobileMapPage: React.FC = () => {
           scrollWheelZoom={true}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             maxZoom={19}
           />
 
@@ -371,25 +393,58 @@ const MobileMapPage: React.FC = () => {
           <Marker
             position={[userLocation.lat, userLocation.lng]}
             icon={divIcon({
-              html: "📍",
+              html: `
+                <div style="
+                  width: 32px;
+                  height: 32px;
+                  background: #2563eb;
+                  border: 3px solid white;
+                  border-radius: 50%;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 18px;
+                ">📍</div>
+              `,
               className: "user-location-marker",
               iconSize: [32, 32],
-              iconAnchor: [16, 32],
+              iconAnchor: [16, 16],
             })}
           />
 
           {/* Bench markers */}
           {sortedBenches.map((bench, index) => {
             const isCurrent = index === currentBenchIndex
+            const size = isCurrent ? 56 : 40
+            const borderWidth = isCurrent ? 4 : 3
+            const shadowSize = isCurrent ? "0 4px 12px" : "0 2px 8px"
+            const bgColor = isCurrent ? "#059669" : "#10b981"
+
             return (
               <Marker
                 key={bench.id}
                 position={[bench.lat, bench.lng]}
                 icon={divIcon({
-                  html: isCurrent ? "🪑" : "🪑",
+                  html: `
+                    <div style="
+                      width: ${size}px;
+                      height: ${size}px;
+                      background: ${bgColor};
+                      border: ${borderWidth}px solid white;
+                      border-radius: 12px;
+                      box-shadow: ${shadowSize} rgba(0,0,0,0.4);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-size: ${isCurrent ? "28px" : "20px"};
+                      transform: rotate(-15deg);
+                      transition: all 0.3s ease;
+                    ">🪑</div>
+                  `,
                   className: `bench-marker ${isCurrent ? "current" : ""}`,
-                  iconSize: isCurrent ? [40, 40] : [30, 30],
-                  iconAnchor: isCurrent ? [20, 40] : [15, 30],
+                  iconSize: [size, size],
+                  iconAnchor: [size / 2, size / 2],
                 })}
                 zIndexOffset={isCurrent ? 1000 : 0}
               />
@@ -413,25 +468,41 @@ const MobileMapPage: React.FC = () => {
           onTouchMove={handleCardTouchMove}
           onTouchEnd={handleCardTouchEnd}
         >
-          <BenchCardHeader>
-            <BenchTitle>Bench #{currentBench.id}</BenchTitle>
-            <BenchDistance>
-              {currentBench.distance_km < 1
-                ? `${currentBench.distance_meters}m`
-                : `${currentBench.distance_km}km`}
-            </BenchDistance>
-          </BenchCardHeader>
-          {currentBench.reverse_geocode?.formatted_address && (
-            <BenchAddress>
-              {currentBench.reverse_geocode.formatted_address}
+          {/* Bench image */}
+          {(() => {
+            const imageUrl =
+              currentBench.image_urls?.[0] ??
+              (currentBench.image_filenames?.[0]
+                ? `/images/${currentBench.image_filenames[0]}`
+                : null)
+            return imageUrl ? (
+              <BenchImage src={imageUrl} alt={`Bench ${currentBench.id}`} />
+            ) : (
+              <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
+            )
+          })()}
+
+          <BenchCardContent>
+            <BenchCardHeader>
+              <BenchTitle>Bench #{currentBench.id}</BenchTitle>
+              <BenchDistance>
+                {currentBench.distance_km < 1
+                  ? `${currentBench.distance_meters}m`
+                  : `${currentBench.distance_km}km`}
+              </BenchDistance>
+            </BenchCardHeader>
+            {currentBench.reverse_geocode?.formatted_address && (
+              <BenchAddress>
+                {currentBench.reverse_geocode.formatted_address}
+              </BenchAddress>
+            )}
+            <BenchAddress
+              style={{ marginTop: "8px", fontSize: "0.75rem", opacity: 0.7 }}
+            >
+              {currentBenchIndex + 1} of {sortedBenches.length} • Swipe to
+              navigate
             </BenchAddress>
-          )}
-          <BenchAddress
-            style={{ marginTop: "8px", fontSize: "0.75rem", opacity: 0.7 }}
-          >
-            {currentBenchIndex + 1} of {sortedBenches.length} • Swipe to
-            navigate
-          </BenchAddress>
+          </BenchCardContent>
         </BenchCard>
       )}
     </PageContainer>

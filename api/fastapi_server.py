@@ -541,7 +541,7 @@ def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> fl
     "/health",
     summary="Health Check",
     description="Simple health check endpoint to verify server status",
-    response_model=dict[str, str],
+    response_model=HealthResponse,
     tags=["config"],
 )
 async def health_check(request: Request) -> HealthResponse:
