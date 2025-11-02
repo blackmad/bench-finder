@@ -49,3 +49,9 @@ class MissingBenchReportStatus(StrEnum):
 class LocationMethod(StrEnum):
     GPS = "gps"
     MAP_CLICK = "map_click"
+
+
+class BenchUserStatus(StrEnum):
+    BEEN = "been"
+    WANT_TO_GO = "want_to_go"
+    FAVORITE = "favorite"

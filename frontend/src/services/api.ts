@@ -23,11 +23,26 @@ import {
   OpenAPI,
 } from "../api"
 import type { AppFilters } from "../contexts/AppContext"
+import { supabase } from "./supabase"
 
 // Configure the OpenAPI client
 OpenAPI.BASE = "" // Use relative URLs for Vite proxy in development
 OpenAPI.WITH_CREDENTIALS = false
 OpenAPI.CREDENTIALS = "same-origin"
+
+// Add auth token interceptor
+const updateAuthToken = async () => {
+  const session = await supabase.auth.getSession()
+  if (session.data.session?.access_token) {
+    OpenAPI.TOKEN = session.data.session.access_token
+  }
+}
+
+// Update token on init and set up refresh
+updateAuthToken()
+supabase.auth.onAuthStateChange(() => {
+  updateAuthToken()
+})
 
 // Create the main API client instance
 const benchFinderApi = new BenchFinderApi()
@@ -38,6 +53,15 @@ export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+})
+
+// Add auth interceptor to axios instance
+api.interceptors.request.use(async (config) => {
+  const session = await supabase.auth.getSession()
+  if (session.data.session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.data.session.access_token}`
+  }
+  return config
 })
 
 // Add request interceptor for debugging (keep for backward compatibility)
@@ -258,6 +282,37 @@ export const benchApi = {
         image_data: params.imageData,
       },
     })
+  },
+
+  // User interaction endpoints
+  rateBench: async (benchId: number, rating: number) => {
+    await updateAuthToken()
+    return api.post(`/api/benches/${benchId}/rating`, { rating })
+  },
+
+  deleteRating: async (benchId: number) => {
+    await updateAuthToken()
+    return api.delete(`/api/benches/${benchId}/rating`)
+  },
+
+  setBenchStatus: async (benchId: number, status: string) => {
+    await updateAuthToken()
+    return api.post(`/api/benches/${benchId}/status`, { status })
+  },
+
+  removeBenchStatus: async (benchId: number, status: string) => {
+    await updateAuthToken()
+    return api.delete(`/api/benches/${benchId}/status/${status}`)
+  },
+
+  addComment: async (benchId: number, comment: string) => {
+    await updateAuthToken()
+    return api.post(`/api/benches/${benchId}/comments`, { comment })
+  },
+
+  getBenchUserData: async (benchId: number) => {
+    await updateAuthToken()
+    return api.get(`/api/benches/${benchId}/user-data`)
   },
 }
 

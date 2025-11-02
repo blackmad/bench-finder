@@ -22,6 +22,7 @@ from .enums import (
     BenchCandidateStatus,
     BenchReportStatus,
     BenchReportType,
+    BenchUserStatus,
     DataSource,
     DetectionSource,
     LocationMethod,
@@ -585,6 +586,71 @@ class ProcessedBench(SQLModel, table=True):
 
     def __repr__(self) -> str:
         return f"<ProcessedBench(id={self.id}, bench_candidate_id={self.bench_candidate_id}, status='{self.detection_status}')>"
+
+
+class BenchRating(SQLModel, table=True):
+    """Model for storing user ratings of benches."""
+
+    __tablename__ = "bench_ratings"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    user_id: str = Field(
+        nullable=False, index=True, description="Supabase user ID (UUID)"
+    )
+    rating: int = Field(ge=1, le=5, nullable=False, description="Rating from 1 to 5")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships
+    bench_candidate: "BenchCandidate" = Relationship()
+
+    def __repr__(self) -> str:
+        return f"<BenchRating(id={self.id}, bench_candidate_id={self.bench_candidate_id}, user_id='{self.user_id}', rating={self.rating})>"
+
+
+class BenchUserStatusRecord(SQLModel, table=True):
+    """Model for storing user status markers for benches (been, want_to_go, favorite)."""
+
+    __tablename__ = "bench_user_status"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    user_id: str = Field(
+        nullable=False, index=True, description="Supabase user ID (UUID)"
+    )
+    status: BenchUserStatus = Field(
+        nullable=False, description="Status: been, want_to_go, or favorite"
+    )
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships
+    bench_candidate: "BenchCandidate" = Relationship()
+
+    def __repr__(self) -> str:
+        return f"<BenchUserStatusRecord(id={self.id}, bench_candidate_id={self.bench_candidate_id}, user_id='{self.user_id}', status='{self.status}')>"
+
+
+class BenchComment(SQLModel, table=True):
+    """Model for storing user comments on benches."""
+
+    __tablename__ = "bench_comments"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    user_id: str = Field(
+        nullable=False, index=True, description="Supabase user ID (UUID)"
+    )
+    comment: str = Field(nullable=False, description="Comment text")
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+    # Relationships
+    bench_candidate: "BenchCandidate" = Relationship()
+
+    def __repr__(self) -> str:
+        return f"<BenchComment(id={self.id}, bench_candidate_id={self.bench_candidate_id}, user_id='{self.user_id}')>"
 
 
 # Type aliases for the discriminated union (for type checking/documentation)

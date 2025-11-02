@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from bench_finder.config import DATABASE_PATH, DATABASE_URL, IMAGES_DIR
 from bench_finder.models.enums import (
     BenchReportType,
+    BenchUserStatus,
     DataSource,
     DetectionSource,
     LocationMethod,
@@ -31,6 +32,9 @@ from bench_finder.models.enums import (
 )
 from bench_finder.models.unified_models import (
     BenchCandidate,
+    BenchComment,
+    BenchRating,
+    BenchUserStatusRecord,
     Detection,
     DetectionItem,
     Image,
@@ -46,6 +50,11 @@ from .api_models import (
     BenchDetectionData,
     BenchListResponse,
     BenchMode,
+    BenchUserDataResponse,
+    BenchUserStatusRequest,
+    BenchUserStatusResponse,
+    CommentRequest,
+    CommentResponse,
     ConfigResponse,
     ErrorResponse,
     HealthResponse,
@@ -54,6 +63,8 @@ from .api_models import (
     ImageWithDetectionData,
     MissingBenchReportResponse,
     PaginationInfo,
+    RatingRequest,
+    RatingResponse,
     ReportResponse,
     SearchListResponse,
     SearchSummary,
@@ -61,6 +72,7 @@ from .api_models import (
     StructuredAddress,
     WebBenchData,
 )
+from .auth import get_current_user_optional
 
 
 logger = logging.getLogger(__name__)
@@ -1305,7 +1317,7 @@ async def get_high_confidence_benches_filtered(
 
 # BENCH ENDPOINTS
 @app.get(
-    "/api/benches",
+    "/apigs",
     summary="List Benches",
     description="Get paginated list of benches with high confidence detections, sorted by various criteria",
     response_model=BenchListResponse,
@@ -3103,6 +3115,501 @@ async def report_missing_bench(
 
 # STATISTICS ENDPOINTS
 # Source-specific statistics endpoint removed - use unified approach
+
+
+# USER INTERACTION ENDPOINTS
+@app.post(
+    "/api/benches/{bench_id}/rating",
+    summary="Rate a Bench",
+    description="Rate a bench from 1 to 5. Requires authentication. Updates existing rating if user has already rated.",
+    response_model=RatingResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": ErrorResponse, "description": "Authentication required"},
+        404: {"model": ErrorResponse, "description": "Bench not found"},
+    },
+    tags=["benches"],
+)
+async def rate_bench(
+    request: Request,
+    bench_id: int = Path(..., description="Bench candidate ID"),
+    rating_data: RatingRequest = Body(...),
+) -> RatingResponse:
+    """Rate a bench. Updates existing rating if user has already rated this bench."""
+    # Get current user (optional for now - can make required later)
+    user = await get_current_user_optional(request.headers.get("Authorization"))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to rate benches",
+        )
+
+    db = request.app.state.db
+    user_id = user["user_id"]
+
+    try:
+        with db.get_session() as session:
+            # Verify bench exists
+            bench = session.query(BenchCandidate).filter_by(id=bench_id).first()
+            if not bench:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found",
+                )
+
+            # Check if user already has a rating for this bench
+            existing_rating = (
+                session.query(BenchRating)
+                .filter_by(bench_candidate_id=bench_id, user_id=user_id)
+                .first()
+            )
+
+            if existing_rating:
+                # Update existing rating
+                existing_rating.rating = rating_data.rating
+                existing_rating.updated_at = datetime.now(UTC)
+                session.commit()
+                session.refresh(existing_rating)
+                return RatingResponse(
+                    id=existing_rating.id,
+                    bench_candidate_id=existing_rating.bench_candidate_id,
+                    user_id=existing_rating.user_id,
+                    rating=existing_rating.rating,
+                    created_at=existing_rating.created_at,
+                    updated_at=existing_rating.updated_at,
+                )
+            else:
+                # Create new rating
+                rating = BenchRating(
+                    bench_candidate_id=bench_id,
+                    user_id=user_id,
+                    rating=rating_data.rating,
+                )
+                session.add(rating)
+                session.commit()
+                session.refresh(rating)
+                return RatingResponse(
+                    id=rating.id,
+                    bench_candidate_id=rating.bench_candidate_id,
+                    user_id=rating.user_id,
+                    rating=rating.rating,
+                    created_at=rating.created_at,
+                    updated_at=rating.updated_at,
+                )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to rate bench: {e!s}",
+        ) from e
+
+
+@app.delete(
+    "/api/benches/{bench_id}/rating",
+    summary="Remove Rating",
+    description="Remove user's rating for a bench. Requires authentication.",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": ErrorResponse, "description": "Authentication required"},
+        404: {"model": ErrorResponse, "description": "Rating not found"},
+    },
+    tags=["benches"],
+)
+async def delete_rating(
+    request: Request,
+    bench_id: int = Path(..., description="Bench candidate ID"),
+) -> None:
+    """Remove user's rating for a bench."""
+    user = await get_current_user_optional(request.headers.get("Authorization"))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    db = request.app.state.db
+    user_id = user["user_id"]
+
+    try:
+        with db.get_session() as session:
+            rating = (
+                session.query(BenchRating)
+                .filter_by(bench_candidate_id=bench_id, user_id=user_id)
+                .first()
+            )
+            if not rating:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Rating not found",
+                )
+
+            session.delete(rating)
+            session.commit()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete rating: {e!s}",
+        ) from e
+
+
+@app.post(
+    "/api/benches/{bench_id}/status",
+    summary="Set Bench Status",
+    description="Mark a bench as 'been', 'want_to_go', or 'favorite'. Requires authentication. Can have multiple statuses.",
+    response_model=BenchUserStatusResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid status"},
+        401: {"model": ErrorResponse, "description": "Authentication required"},
+        404: {"model": ErrorResponse, "description": "Bench not found"},
+    },
+    tags=["benches"],
+)
+async def set_bench_status(
+    request: Request,
+    bench_id: int = Path(..., description="Bench candidate ID"),
+    status_data: BenchUserStatusRequest = Body(...),
+) -> BenchUserStatusResponse:
+    """Set a status marker for a bench (been, want_to_go, favorite)."""
+    user = await get_current_user_optional(request.headers.get("Authorization"))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    # Validate status
+    try:
+        bench_status = BenchUserStatus(status_data.status.lower())
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join([s.value for s in BenchUserStatus])}",
+        ) from e
+
+    db = request.app.state.db
+    user_id = user["user_id"]
+
+    try:
+        with db.get_session() as session:
+            # Verify bench exists
+            bench = session.query(BenchCandidate).filter_by(id=bench_id).first()
+            if not bench:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found",
+                )
+
+            # Check if user already has this status for this bench
+            existing_status = (
+                session.query(BenchUserStatusRecord)
+                .filter_by(
+                    bench_candidate_id=bench_id,
+                    user_id=user_id,
+                    status=bench_status,
+                )
+                .first()
+            )
+
+            if existing_status:
+                # Update timestamp
+                existing_status.updated_at = datetime.now(UTC)
+                session.commit()
+                session.refresh(existing_status)
+                return BenchUserStatusResponse(
+                    id=existing_status.id,
+                    bench_candidate_id=existing_status.bench_candidate_id,
+                    user_id=existing_status.user_id,
+                    status=existing_status.status.value,
+                    created_at=existing_status.created_at,
+                    updated_at=existing_status.updated_at,
+                )
+            else:
+                # Create new status
+                status_record = BenchUserStatusRecord(
+                    bench_candidate_id=bench_id,
+                    user_id=user_id,
+                    status=bench_status,
+                )
+                session.add(status_record)
+                session.commit()
+                session.refresh(status_record)
+                return BenchUserStatusResponse(
+                    id=status_record.id,
+                    bench_candidate_id=status_record.bench_candidate_id,
+                    user_id=status_record.user_id,
+                    status=status_record.status.value,
+                    created_at=status_record.created_at,
+                    updated_at=status_record.updated_at,
+                )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to set bench status: {e!s}",
+        ) from e
+
+
+@app.delete(
+    "/api/benches/{bench_id}/status/{status_value}",
+    summary="Remove Bench Status",
+    description="Remove a status marker for a bench. Requires authentication.",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid status"},
+        401: {"model": ErrorResponse, "description": "Authentication required"},
+        404: {"model": ErrorResponse, "description": "Status not found"},
+    },
+    tags=["benches"],
+)
+async def remove_bench_status(
+    request: Request,
+    bench_id: int = Path(..., description="Bench candidate ID"),
+    status_value: str = Path(..., description="Status to remove"),
+) -> None:
+    """Remove a status marker for a bench."""
+    user = await get_current_user_optional(request.headers.get("Authorization"))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    # Validate status
+    try:
+        bench_status = BenchUserStatus(status_value.lower())
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid status. Must be one of: {', '.join([s.value for s in BenchUserStatus])}",
+        ) from e
+
+    db = request.app.state.db
+    user_id = user["user_id"]
+
+    try:
+        with db.get_session() as session:
+            status_record = (
+                session.query(BenchUserStatusRecord)
+                .filter_by(
+                    bench_candidate_id=bench_id,
+                    user_id=user_id,
+                    status=bench_status,
+                )
+                .first()
+            )
+            if not status_record:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Status not found",
+                )
+
+            session.delete(status_record)
+            session.commit()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove bench status: {e!s}",
+        ) from e
+
+
+@app.post(
+    "/api/benches/{bench_id}/comments",
+    summary="Add Comment",
+    description="Add a comment to a bench. Requires authentication.",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": ErrorResponse, "description": "Authentication required"},
+        404: {"model": ErrorResponse, "description": "Bench not found"},
+    },
+    tags=["benches"],
+)
+async def add_comment(
+    request: Request,
+    bench_id: int = Path(..., description="Bench candidate ID"),
+    comment_data: CommentRequest = Body(...),
+) -> CommentResponse:
+    """Add a comment to a bench."""
+    user = await get_current_user_optional(request.headers.get("Authorization"))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    db = request.app.state.db
+    user_id = user["user_id"]
+
+    try:
+        with db.get_session() as session:
+            # Verify bench exists
+            bench = session.query(BenchCandidate).filter_by(id=bench_id).first()
+            if not bench:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found",
+                )
+
+            # Create new comment
+            comment = BenchComment(
+                bench_candidate_id=bench_id,
+                user_id=user_id,
+                comment=comment_data.comment,
+            )
+            session.add(comment)
+            session.commit()
+            session.refresh(comment)
+            return CommentResponse(
+                id=comment.id,
+                bench_candidate_id=comment.bench_candidate_id,
+                user_id=comment.user_id,
+                comment=comment.comment,
+                created_at=comment.created_at,
+                updated_at=comment.updated_at,
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add comment: {e!s}",
+        ) from e
+
+
+@app.get(
+    "/api/benches/{bench_id}/user-data",
+    summary="Get Bench User Data",
+    description="Get user-specific data for a bench (rating, statuses, comments) and aggregated data. Optional authentication.",
+    response_model=BenchUserDataResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Bench not found"},
+    },
+    tags=["benches"],
+)
+async def get_bench_user_data(
+    request: Request,
+    bench_id: int = Path(..., description="Bench candidate ID"),
+) -> BenchUserDataResponse:
+    """Get user-specific data for a bench including ratings, statuses, and comments."""
+    db = request.app.state.db
+
+    # Get current user (optional)
+    user = await get_current_user_optional(request.headers.get("Authorization"))
+    user_id = user["user_id"] if user else None
+
+    try:
+        with db.get_session() as session:
+            from sqlalchemy import func
+
+            # Verify bench exists
+            bench = session.query(BenchCandidate).filter_by(id=bench_id).first()
+            if not bench:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bench with ID {bench_id} not found",
+                )
+
+            # Get user's rating if authenticated
+            user_rating = None
+            if user_id:
+                rating = (
+                    session.query(BenchRating)
+                    .filter_by(bench_candidate_id=bench_id, user_id=user_id)
+                    .first()
+                )
+                if rating:
+                    user_rating = RatingResponse(
+                        id=rating.id,
+                        bench_candidate_id=rating.bench_candidate_id,
+                        user_id=rating.user_id,
+                        rating=rating.rating,
+                        created_at=rating.created_at,
+                        updated_at=rating.updated_at,
+                    )
+
+            # Get user's statuses if authenticated
+            user_statuses = []
+            if user_id:
+                statuses = (
+                    session.query(BenchUserStatusRecord)
+                    .filter_by(bench_candidate_id=bench_id, user_id=user_id)
+                    .all()
+                )
+                user_statuses = [
+                    BenchUserStatusResponse(
+                        id=s.id,
+                        bench_candidate_id=s.bench_candidate_id,
+                        user_id=s.user_id,
+                        status=s.status.value,
+                        created_at=s.created_at,
+                        updated_at=s.updated_at,
+                    )
+                    for s in statuses
+                ]
+
+            # Get all comments for this bench
+            comments = (
+                session.query(BenchComment)
+                .filter_by(bench_candidate_id=bench_id)
+                .order_by(BenchComment.created_at.desc())
+                .all()
+            )
+            user_comments = [
+                CommentResponse(
+                    id=c.id,
+                    bench_candidate_id=c.bench_candidate_id,
+                    user_id=c.user_id,
+                    comment=c.comment,
+                    created_at=c.created_at,
+                    updated_at=c.updated_at,
+                )
+                for c in comments
+            ]
+
+            # Get aggregated rating data
+            rating_stats = (
+                session.query(
+                    func.avg(BenchRating.rating).label("avg_rating"),
+                    func.count(BenchRating.id).label("total_ratings"),
+                )
+                .filter_by(bench_candidate_id=bench_id)
+                .first()
+            )
+
+            average_rating = (
+                float(rating_stats.avg_rating) if rating_stats.avg_rating else None
+            )
+            total_ratings = rating_stats.total_ratings or 0
+
+            return BenchUserDataResponse(
+                bench_candidate_id=bench_id,
+                user_rating=user_rating,
+                user_statuses=user_statuses,
+                user_comments=user_comments,
+                average_rating=average_rating,
+                total_ratings=total_ratings,
+                total_comments=len(user_comments),
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get bench user data: {e!s}",
+        ) from e
 
 
 # Test endpoints for stacktrace logging (remove in production)

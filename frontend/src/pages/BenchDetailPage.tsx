@@ -61,6 +61,7 @@ function formatStructuredAddress(
   return addr.formatted_address || ""
 }
 
+import BenchUserInteractions from "../components/BenchUserInteractions/BenchUserInteractions"
 import DetectionData from "../components/DetectionData/DetectionData"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
 import Modal from "../components/Modal/Modal"
@@ -704,6 +705,9 @@ const BenchDetailPage: React.FC = () => {
                 </MapContainer>
               </MapContainerStyled>
             </MapSection>
+
+            {/* User Interactions */}
+            <BenchUserInteractions benchId={bench.id} />
 
             {/* Basic Information */}
             <Section>

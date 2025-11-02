@@ -457,3 +457,71 @@ class BenchCandidateListResponse(BaseModel):
     total_count: int
     search_id: int
     search_query: str
+
+
+# ============================================================================
+# User Interaction Models
+# ============================================================================
+
+
+class RatingRequest(BaseModel):
+    """Schema for rating a bench."""
+
+    rating: int = Field(ge=1, le=5, description="Rating from 1 to 5")
+
+
+class RatingResponse(BaseModel):
+    """Schema for rating response."""
+
+    id: int
+    bench_candidate_id: int
+    user_id: str
+    rating: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class BenchUserStatusRequest(BaseModel):
+    """Schema for setting bench user status."""
+
+    status: str = Field(description="Status: 'been', 'want_to_go', or 'favorite'")
+
+
+class BenchUserStatusResponse(BaseModel):
+    """Schema for bench user status response."""
+
+    id: int
+    bench_candidate_id: int
+    user_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class CommentRequest(BaseModel):
+    """Schema for adding a comment."""
+
+    comment: str = Field(min_length=1, max_length=5000, description="Comment text")
+
+
+class CommentResponse(BaseModel):
+    """Schema for comment response."""
+
+    id: int
+    bench_candidate_id: int
+    user_id: str
+    comment: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class BenchUserDataResponse(BaseModel):
+    """Schema for bench user data (ratings, status, comments)."""
+
+    bench_candidate_id: int
+    user_rating: RatingResponse | None = None
+    user_statuses: list[BenchUserStatusResponse] = []
+    user_comments: list[CommentResponse] = []
+    average_rating: float | None = None
+    total_ratings: int = 0
+    total_comments: int = 0

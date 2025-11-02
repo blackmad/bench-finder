@@ -10,6 +10,7 @@ import { ThemeProvider } from "styled-components"
 import ApiExample from "./components/ApiExample"
 import ErrorToast from "./components/ErrorToast/ErrorToast"
 import { AppProvider, useApp } from "./contexts/AppContext"
+import { AuthProvider } from "./contexts/AuthContext"
 import BenchDetailPage from "./pages/BenchDetailPage"
 import CardsPage from "./pages/CardsPage"
 import MapPage from "./pages/MapPage"
@@ -65,9 +66,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <GlobalStyles />
-        <AppProvider>
-          <AppWithErrorHandling />
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <AppWithErrorHandling />
+          </AppProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )
