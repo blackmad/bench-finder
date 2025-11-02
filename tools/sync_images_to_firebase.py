@@ -10,8 +10,11 @@ Usage:
         --images-dir images \\
         --firebase-bucket bench-finder-images \\
         --firebase-credentials path/to/serviceAccount.json \\
+        [--firebase-credentials-base64 BASE64_ENCODED_JSON] \\
         [--resume] \\
         [--dry-run]
+
+    Either --firebase-credentials or --firebase-credentials-base64 must be provided.
 """
 
 import argparse
@@ -40,7 +43,8 @@ logger = logging.getLogger(__name__)
 def sync_images_to_firebase(
     images_dir: str,
     firebase_bucket: str,
-    firebase_credentials: str,
+    firebase_credentials: str | None = None,
+    firebase_credentials_base64: str | None = None,
     resume: bool = False,
     dry_run: bool = False,
 ):
@@ -51,6 +55,7 @@ def sync_images_to_firebase(
         images_dir: Local directory containing images
         firebase_bucket: Firebase Storage bucket name
         firebase_credentials: Path to Firebase service account JSON file
+        firebase_credentials_base64: Base64-encoded Firebase credentials (alternative to firebase_credentials)
         resume: Skip images that already have Firebase URLs
         dry_run: If True, only validate without uploading
     """
@@ -63,12 +68,20 @@ def sync_images_to_firebase(
     if dry_run:
         logger.info("DRY RUN MODE - No images will be uploaded")
 
+    # Validate credentials provided
+    if not firebase_credentials and not firebase_credentials_base64:
+        logger.error(
+            "Either --firebase-credentials or --firebase-credentials-base64 must be provided"
+        )
+        sys.exit(1)
+
     # Initialize Firebase Storage
     logger.info(f"Initializing Firebase Storage: {firebase_bucket}")
     try:
         firebase_storage = FirebaseImageStorage(
             bucket_name=firebase_bucket,
             credentials_path=firebase_credentials,
+            credentials_base64=firebase_credentials_base64,
         )
     except Exception:
         logger.exception("Failed to initialize Firebase Storage")
@@ -206,8 +219,14 @@ def main():
     parser.add_argument(
         "--firebase-credentials",
         type=str,
-        required=True,
+        default=None,
         help="Path to Firebase service account JSON file",
+    )
+    parser.add_argument(
+        "--firebase-credentials-base64",
+        type=str,
+        default=None,
+        help="Base64-encoded Firebase service account JSON (alternative to --firebase-credentials)",
     )
     parser.add_argument(
         "--resume",
@@ -227,10 +246,17 @@ def main():
         logger.error(f"Images directory not found: {args.images_dir}")
         sys.exit(1)
 
-    # Validate Firebase credentials file exists
-    if not Path(args.firebase_credentials).exists():
+    # Validate Firebase credentials file exists (if using file path)
+    if args.firebase_credentials and not Path(args.firebase_credentials).exists():
         logger.error(
             f"Firebase credentials file not found: {args.firebase_credentials}"
+        )
+        sys.exit(1)
+
+    # Validate that at least one credentials option is provided
+    if not args.firebase_credentials and not args.firebase_credentials_base64:
+        logger.error(
+            "Either --firebase-credentials or --firebase-credentials-base64 must be provided"
         )
         sys.exit(1)
 
@@ -239,6 +265,7 @@ def main():
             images_dir=args.images_dir,
             firebase_bucket=args.firebase_bucket,
             firebase_credentials=args.firebase_credentials,
+            firebase_credentials_base64=args.firebase_credentials_base64,
             resume=args.resume,
             dry_run=args.dry_run,
         )

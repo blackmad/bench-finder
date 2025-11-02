@@ -6,6 +6,9 @@ supporting both local filesystem storage (for development) and Firebase Storage
 (for production hosting).
 """
 
+import base64
+import binascii
+import json
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -166,6 +169,7 @@ class FirebaseImageStorage(ImageStorageService):
         self,
         bucket_name: str,
         credentials_path: str | None = None,
+        credentials_base64: str | None = None,
         storage_path_prefix: str = "images",
     ):
         """
@@ -174,6 +178,7 @@ class FirebaseImageStorage(ImageStorageService):
         Args:
             bucket_name: Firebase Storage bucket name
             credentials_path: Path to Firebase service account JSON file
+            credentials_base64: Base64-encoded Firebase service account JSON (alternative to credentials_path)
             storage_path_prefix: Prefix path in the storage bucket
         """
         try:
@@ -189,7 +194,16 @@ class FirebaseImageStorage(ImageStorageService):
             firebase_admin.get_app()
         except ValueError:
             # Firebase Admin not initialized, initialize it now
-            if credentials_path:
+            if credentials_base64:
+                # Decode base64 credentials and parse JSON
+                try:
+                    decoded_bytes = base64.b64decode(credentials_base64)
+                    credentials_dict = json.loads(decoded_bytes.decode("utf-8"))
+                    cred = credentials.Certificate(credentials_dict)
+                    _ = firebase_admin.initialize_app(cred)
+                except (binascii.Error, json.JSONDecodeError, UnicodeDecodeError) as e:
+                    raise ValueError(f"Failed to decode base64 credentials: {e}") from e
+            elif credentials_path:
                 cred = credentials.Certificate(credentials_path)
                 _ = firebase_admin.initialize_app(cred)
             else:
@@ -311,6 +325,7 @@ def get_image_storage_service(
     images_dir: str = "images",
     firebase_bucket: str | None = None,
     firebase_credentials: str | None = None,
+    firebase_credentials_base64: str | None = None,
     firebase_storage_prefix: str = "images",
 ) -> ImageStorageService:
     """
@@ -321,6 +336,7 @@ def get_image_storage_service(
         images_dir: Directory for local storage
         firebase_bucket: Firebase Storage bucket name (required for Firebase backend)
         firebase_credentials: Path to Firebase credentials JSON file
+        firebase_credentials_base64: Base64-encoded Firebase credentials JSON (alternative to firebase_credentials)
         firebase_storage_prefix: Prefix path in Firebase Storage bucket
 
     Returns:
@@ -332,7 +348,50 @@ def get_image_storage_service(
         return FirebaseImageStorage(
             bucket_name=firebase_bucket,
             credentials_path=firebase_credentials,
+            credentials_base64=firebase_credentials_base64,
             storage_path_prefix=firebase_storage_prefix,
         )
     else:
         return LocalImageStorage(images_dir=images_dir)
+
+
+def get_image_storage_service_from_config() -> ImageStorageService:
+    """
+    Get image storage service initialized from configuration values.
+
+    This function reads configuration from environment variables (via bench_finder.config)
+    and initializes the appropriate storage service. It supports:
+    - Local filesystem storage (default)
+    - Firebase Storage with credentials from file path or base64-encoded env variable
+
+    Environment variables used:
+    - IMAGE_STORAGE_BACKEND: 'local' or 'firebase' (default: 'local')
+    - FIREBASE_STORAGE_BUCKET: Firebase bucket name (required for Firebase backend)
+    - FIREBASE_CREDENTIALS_PATH: Path to Firebase credentials JSON file
+    - FIREBASE_CREDENTIALS_BASE64: Base64-encoded Firebase credentials (alternative to FIREBASE_CREDENTIALS_PATH)
+    - FIREBASE_STORAGE_PREFIX: Prefix path in Firebase bucket (default: 'images')
+    - IMAGES_DIR: Directory for local storage (default: 'images')
+
+    Returns:
+        ImageStorageService instance configured from environment variables
+
+    Raises:
+        ValueError: If Firebase backend is selected but required config is missing
+    """
+    from bench_finder.config import (
+        FIREBASE_CREDENTIALS_BASE64,
+        FIREBASE_CREDENTIALS_PATH,
+        FIREBASE_STORAGE_BUCKET,
+        FIREBASE_STORAGE_PREFIX,
+        IMAGE_STORAGE_BACKEND,
+        IMAGES_DIR,
+    )
+
+    return get_image_storage_service(
+        backend=IMAGE_STORAGE_BACKEND,
+        images_dir=IMAGES_DIR,
+        firebase_bucket=FIREBASE_STORAGE_BUCKET,
+        firebase_credentials=FIREBASE_CREDENTIALS_PATH,
+        firebase_credentials_base64=FIREBASE_CREDENTIALS_BASE64,
+        firebase_storage_prefix=FIREBASE_STORAGE_PREFIX,
+    )

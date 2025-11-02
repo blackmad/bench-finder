@@ -71,7 +71,8 @@ def test_firebase():
 
     backend = os.getenv("IMAGE_STORAGE_BACKEND", "local")
     bucket = os.getenv("FIREBASE_STORAGE_BUCKET")
-    credentials = os.getenv("FIREBASE_CREDENTIALS_PATH")
+    credentials_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
+    credentials_base64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
 
     if backend != "firebase":
         print(
@@ -88,11 +89,19 @@ def test_firebase():
 
         print("Initializing Firebase Storage...")
         print(f"  Bucket: {bucket}")
-        print(f"  Credentials: {credentials or 'Using default credentials'}")
+        if credentials_base64:
+            print(
+                "  Credentials: Using base64-encoded credentials from FIREBASE_CREDENTIALS_BASE64"
+            )
+        elif credentials_path:
+            print(f"  Credentials: {credentials_path}")
+        else:
+            print("  Credentials: Using default credentials")
 
         FirebaseImageStorage(
             bucket_name=bucket,
-            credentials_path=credentials if credentials else None,
+            credentials_path=credentials_path if credentials_path else None,
+            credentials_base64=credentials_base64 if credentials_base64 else None,
         )
 
         print("✓ Firebase Storage initialized successfully!")
@@ -105,7 +114,7 @@ def test_firebase():
     except Exception as e:
         print(f"❌ Initialization failed: {e}")
         print(
-            "   Make sure FIREBASE_CREDENTIALS_PATH points to valid service account JSON"
+            "   Make sure FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_BASE64 is set correctly"
         )
         return False
 
