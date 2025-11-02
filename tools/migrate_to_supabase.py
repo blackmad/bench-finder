@@ -58,7 +58,9 @@ from bench_finder.models.unified_models import (  # noqa: E402
     Search,
     init_database,
 )
-from bench_finder.services.database import BenchDatabase  # noqa: E402
+
+
+# BenchDatabase not needed - using init_database directly to avoid DATABASE_URL env var conflicts
 
 
 logging.basicConfig(
@@ -636,9 +638,16 @@ def migrate_database(
     logger.info(f"Already uploaded: {len(progress.get('images_uploaded', {}))} images")
 
     # Create source database connection (SQLite)
+    # Use init_database directly to bypass BenchDatabase which may use DATABASE_URL from env
     logger.info(f"Connecting to source database: {sqlite_path}")
-    source_db = BenchDatabase(db_path=sqlite_path)
-    source_engine = source_db.engine
+    source_engine = init_database(database_path=sqlite_path, database_url=None)
+
+    # Verify we're actually connected to SQLite
+    if source_engine.dialect.name != "sqlite":
+        raise ValueError(
+            f"Expected SQLite database but got {source_engine.dialect.name}. "
+            f"Please ensure the SQLite path is correct: {sqlite_path}"
+        )
 
     # Create target database connection (Supabase)
     logger.info("Connecting to target database (Supabase)...")
@@ -679,7 +688,8 @@ def migrate_database(
     target_session = None
 
     try:
-        source_session = source_db.get_session()
+        # Create session directly from engine to bypass BenchDatabase wrapper
+        source_session = Session(source_engine)
         target_session = Session(target_engine)
 
         # Clear tables if requested
