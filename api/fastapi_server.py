@@ -1317,7 +1317,7 @@ async def get_high_confidence_benches_filtered(
 
 # BENCH ENDPOINTS
 @app.get(
-    "/apigs",
+    "/api/benches",
     summary="List Benches",
     description="Get paginated list of benches with high confidence detections, sorted by various criteria",
     response_model=BenchListResponse,

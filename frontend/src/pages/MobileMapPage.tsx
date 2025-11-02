@@ -13,6 +13,7 @@ import "leaflet/dist/leaflet.css"
 import "../utils/leafletFix"
 import type { WebBenchData } from "../api"
 import LoadingSpinner from "../components/LoadingSpinner/LoadingSpinner"
+import MobileAuthHeader from "../components/MobileAuthHeader/MobileAuthHeader"
 import Modal from "../components/Modal/Modal"
 import { useApp } from "../contexts/AppContext"
 import { benchApi } from "../services/api"
@@ -946,6 +947,7 @@ const MobileMapPage: React.FC = () => {
 
   return (
     <PageContainer>
+      <MobileAuthHeader />
       {showLoading && (
         <LoadingOverlay>
           <LoadingSpinner />

@@ -389,14 +389,20 @@ export default function BenchUserInteractions({
             </CommentForm>
             {userData?.user_comments && userData.user_comments.length > 0 && (
               <CommentsList>
-                {userData.user_comments.map((comment: { id: number; comment: string; created_at: string }) => (
-                  <CommentItem key={comment.id}>
-                    <CommentText>{comment.comment}</CommentText>
-                    <CommentMeta>
-                      {new Date(comment.created_at).toLocaleDateString()}
-                    </CommentMeta>
-                  </CommentItem>
-                ))}
+                {userData.user_comments.map(
+                  (comment: {
+                    id: number
+                    comment: string
+                    created_at: string
+                  }) => (
+                    <CommentItem key={comment.id}>
+                      <CommentText>{comment.comment}</CommentText>
+                      <CommentMeta>
+                        {new Date(comment.created_at).toLocaleDateString()}
+                      </CommentMeta>
+                    </CommentItem>
+                  )
+                )}
               </CommentsList>
             )}
           </>
