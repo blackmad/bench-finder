@@ -92,14 +92,46 @@ const ImageContainer = styled.div`
   cursor: pointer;
 `
 
-const BenchImage = styled.img`
+const BenchImage = styled.img<{ $objectPosition?: string }>`
   width: 100%;
   height: 100%;
   object-fit: cover;
+  ${({ $objectPosition }) =>
+    $objectPosition ? `object-position: ${$objectPosition};` : ""}
   transition: transform ${({ theme }) => theme.transitions.slow};
 
   ${CardContainer}:hover & {
     transform: scale(1.05);
+  }
+`
+
+const BoundingBoxOverlay = styled.div<{
+  $x: number
+  $y: number
+  $width: number
+  $height: number
+  $imageWidth: number
+  $imageHeight: number
+}>`
+  position: absolute;
+  border: 2px solid ${({ theme }) => theme.colors.success};
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.3),
+    0 0 8px rgba(5, 150, 105, 0.5);
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity ${({ theme }) => theme.transitions.normal};
+  opacity: 0.8;
+
+  /* Calculate position and size based on bounding box coordinates relative to displayed image */
+  left: ${({ $x, $imageWidth }) => ($x / $imageWidth) * 100}%;
+  top: ${({ $y, $imageHeight }) => ($y / $imageHeight) * 100}%;
+  width: ${({ $width, $imageWidth }) => ($width / $imageWidth) * 100}%;
+  height: ${({ $height, $imageHeight }) => ($height / $imageHeight) * 100}%;
+
+  ${ImageContainer}:hover & {
+    opacity: 1;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.5),
+      0 0 12px rgba(5, 150, 105, 0.7);
   }
 `
 
@@ -448,7 +480,14 @@ export const BenchCard: React.FC<BenchCardProps> = ({
   const [miniMap, setMiniMap] = useState<L.Map | null>(null)
   const [mapMarker, setMapMarker] = useState<L.Marker | null>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [imageDimensions, setImageDimensions] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+  const [objectPosition, setObjectPosition] = useState<string>("center")
+  const [imageLoaded, setImageLoaded] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
 
   // Get primary image
   const imageUrl =
@@ -498,6 +537,55 @@ export const BenchCard: React.FC<BenchCardProps> = ({
       onImageClick(bench, imageUrl, imageId)
     }
   }
+
+  // Calculate object-position and bounding box overlay position from best_bbox
+  useEffect(() => {
+    // Reset image loaded state when image URL or best_bbox changes
+    setImageLoaded(false)
+
+    if (!imageRef.current || !bench.best_bbox) {
+      setImageDimensions(null)
+      setObjectPosition("center")
+      return
+    }
+
+    const img = imageRef.current
+
+    const handleImageLoad = () => {
+      const naturalWidth = img.naturalWidth
+      const naturalHeight = img.naturalHeight
+
+      if (naturalWidth === 0 || naturalHeight === 0) {
+        return
+      }
+
+      setImageDimensions({ width: naturalWidth, height: naturalHeight })
+      setImageLoaded(true)
+
+      // Calculate center of bounding box
+      const bbox = bench.best_bbox
+      if (bbox) {
+        const centerX = (bbox.x1 + bbox.x2) / 2
+        const centerY = (bbox.y1 + bbox.y2) / 2
+
+        // Calculate object-position percentages to center the bbox center
+        const objectPosX = (centerX / naturalWidth) * 100
+        const objectPosY = (centerY / naturalHeight) * 100
+
+        setObjectPosition(`${objectPosX}% ${objectPosY}%`)
+      }
+    }
+
+    // If image is already loaded, calculate immediately
+    if (img.complete && img.naturalWidth > 0) {
+      handleImageLoad()
+    } else {
+      img.addEventListener("load", handleImageLoad)
+      return () => {
+        img.removeEventListener("load", handleImageLoad)
+      }
+    }
+  }, [bench.best_bbox]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize minimap once
   useEffect(() => {
@@ -603,11 +691,29 @@ export const BenchCard: React.FC<BenchCardProps> = ({
       >
         <ImageContainer onClick={handleImageClick}>
           {imageUrl ? (
-            <BenchImage
-              src={imageUrl}
-              alt={`Bench ${bench.id}`}
-              loading="lazy"
-            />
+            <>
+              <BenchImage
+                ref={imageRef}
+                src={imageUrl}
+                alt={`Bench ${bench.id}`}
+                loading="lazy"
+                $objectPosition={objectPosition}
+              />
+              {bench.best_bbox &&
+                imageLoaded &&
+                imageDimensions &&
+                imageDimensions.width > 0 &&
+                imageDimensions.height > 0 && (
+                  <BoundingBoxOverlay
+                    $x={bench.best_bbox.x1}
+                    $y={bench.best_bbox.y1}
+                    $width={bench.best_bbox.x2 - bench.best_bbox.x1}
+                    $height={bench.best_bbox.y2 - bench.best_bbox.y1}
+                    $imageWidth={imageDimensions.width}
+                    $imageHeight={imageDimensions.height}
+                  />
+                )}
+            </>
           ) : (
             <PlaceholderImage>🪑</PlaceholderImage>
           )}

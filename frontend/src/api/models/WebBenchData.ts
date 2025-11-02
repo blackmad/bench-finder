@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { ApiDetectionItem } from "./ApiDetectionItem"
+import type { BoundingBox } from "./BoundingBox"
 import type { DataSource } from "./DataSource"
 import type { DetectionSource } from "./DetectionSource"
 import type { StructuredAddress } from "./StructuredAddress"
@@ -28,6 +29,9 @@ export type WebBenchData = {
   image_filenames: Array<string>
   image_ids: Array<number>
   image_urls?: Array<string> | null
+  best_image_id?: number | null
+  best_detection_id?: number | null
+  best_bbox?: BoundingBox | null
   distance_meters: number
   distance_km: number
   reverse_geocode?: StructuredAddress | null

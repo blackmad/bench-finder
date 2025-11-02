@@ -783,6 +783,25 @@ def get_bench_by_id(
                     session, bench_candidate.id
                 )
 
+            # Get best bounding box from best detection's highest confidence item
+            best_bbox = None
+            if best_detection and best_detection.detection_items:
+                # Sort detection items by confidence and get the highest one
+                sorted_items = sorted(
+                    best_detection.detection_items,
+                    key=lambda item: item.confidence,
+                    reverse=True,
+                )
+                if sorted_items:
+                    best_item = sorted_items[0]
+                    if best_item.bbox:
+                        if isinstance(best_item.bbox, dict):
+                            from bench_finder.models.unified_models import BoundingBox
+
+                            best_bbox = BoundingBox(**best_item.bbox)
+                        else:
+                            best_bbox = best_item.bbox
+
             # Get reverse geocode if available
             reverse_geocode = None
             if bench_candidate.reverse_geocode:
@@ -820,6 +839,7 @@ def get_bench_by_id(
                 image_ids=image_ids,
                 best_image_id=processed_bench.best_image_id,
                 best_detection_id=processed_bench.best_detection_id,
+                best_bbox=best_bbox,
                 distance_meters=0,  # Not applicable for single bench
                 distance_km=0.0,  # Not applicable for single bench
                 reverse_geocode=reverse_geocode,
@@ -1059,6 +1079,43 @@ async def get_high_confidence_benches_filtered(
                     )
                     images_map = {img.id: img for img in images}
 
+            # Batch load best bounding boxes from best detections - always load for list results
+            best_bbox_map = {}
+            if results:
+                # Collect all best_detection_ids
+                best_detection_ids = [
+                    r.best_detection_id
+                    for r in results
+                    if r.best_detection_id is not None
+                ]
+                if best_detection_ids:
+                    # Query detection items from best detections, ordered by confidence
+                    # We'll take the highest confidence item per detection_id
+                    best_bbox_query = (
+                        session.query(
+                            DetectionItem.detection_id,
+                            DetectionItem.bbox,
+                        )
+                        .filter(DetectionItem.detection_id.in_(best_detection_ids))
+                        .order_by(
+                            DetectionItem.detection_id, DetectionItem.confidence.desc()
+                        )
+                        .all()
+                    )
+                    # Map detection_id to bbox (taking first/highest confidence per detection_id)
+                    seen_detection_ids = set()
+                    for detection_id, bbox_data in best_bbox_query:
+                        if detection_id not in seen_detection_ids and bbox_data:
+                            seen_detection_ids.add(detection_id)
+                            if isinstance(bbox_data, dict):
+                                from bench_finder.models.unified_models import (
+                                    BoundingBox,
+                                )
+
+                                best_bbox_map[detection_id] = BoundingBox(**bbox_data)
+                            else:
+                                best_bbox_map[detection_id] = bbox_data
+
             # Batch load detection items if requested - eliminates N+1 query
             detection_items_map = {}
             if include_detection_data:
@@ -1155,6 +1212,13 @@ async def get_high_confidence_benches_filtered(
                     else None
                 )
 
+                # Get best bounding box from batch-loaded map
+                best_bbox = (
+                    best_bbox_map.get(result.best_detection_id)
+                    if result.best_detection_id
+                    else None
+                )
+
                 # OPTIMIZATION: Get reverse geocode from batch-loaded map
                 reverse_geocode = None
                 rg = reverse_geocode_map.get(bench_candidate_id)
@@ -1203,6 +1267,7 @@ async def get_high_confidence_benches_filtered(
                     image_urls=image_urls,
                     best_image_id=result.best_image_id,
                     best_detection_id=result.best_detection_id,
+                    best_bbox=best_bbox,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
                     reverse_geocode=reverse_geocode,
@@ -1851,6 +1916,43 @@ async def get_benches_in_bbox(
                     )
                     images_map = {img.id: img for img in images}
 
+            # Batch load best bounding boxes from best detections - always load for list results
+            best_bbox_map = {}
+            if results:
+                # Collect all best_detection_ids
+                best_detection_ids = [
+                    r.best_detection_id
+                    for r in results
+                    if r.best_detection_id is not None
+                ]
+                if best_detection_ids:
+                    # Query detection items from best detections, ordered by confidence
+                    # We'll take the highest confidence item per detection_id
+                    best_bbox_query = (
+                        session.query(
+                            DetectionItem.detection_id,
+                            DetectionItem.bbox,
+                        )
+                        .filter(DetectionItem.detection_id.in_(best_detection_ids))
+                        .order_by(
+                            DetectionItem.detection_id, DetectionItem.confidence.desc()
+                        )
+                        .all()
+                    )
+                    # Map detection_id to bbox (taking first/highest confidence per detection_id)
+                    seen_detection_ids = set()
+                    for detection_id, bbox_data in best_bbox_query:
+                        if detection_id not in seen_detection_ids and bbox_data:
+                            seen_detection_ids.add(detection_id)
+                            if isinstance(bbox_data, dict):
+                                from bench_finder.models.unified_models import (
+                                    BoundingBox,
+                                )
+
+                                best_bbox_map[detection_id] = BoundingBox(**bbox_data)
+                            else:
+                                best_bbox_map[detection_id] = bbox_data
+
             # Batch load detection items if requested - eliminates N+1 query
             detection_items_map = {}
             if include_detection_data:
@@ -1947,6 +2049,13 @@ async def get_benches_in_bbox(
                     else None
                 )
 
+                # Get best bounding box from batch-loaded map
+                best_bbox = (
+                    best_bbox_map.get(result.best_detection_id)
+                    if result.best_detection_id
+                    else None
+                )
+
                 # Set source-specific confidence
                 roboflow_confidence = 0.0
                 ultralytics_confidence = 0.0
@@ -1995,6 +2104,7 @@ async def get_benches_in_bbox(
                     image_urls=image_urls,
                     best_image_id=result.best_image_id,
                     best_detection_id=result.best_detection_id,
+                    best_bbox=best_bbox,
                     distance_meters=round(distance),
                     distance_km=round(distance / 1000, 2),
                     reverse_geocode=reverse_geocode,

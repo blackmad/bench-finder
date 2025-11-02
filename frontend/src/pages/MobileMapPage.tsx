@@ -120,12 +120,53 @@ const BenchCard = styled.div<{ $swiping?: boolean; $swipeOffset?: number }>`
   flex-direction: column;
 `
 
-const BenchImage = styled.img`
+const BenchImageContainer = styled.div`
+  position: relative;
   width: 100%;
   height: 200px;
-  object-fit: cover;
+  overflow: hidden;
   background: ${({ theme }) => theme.colors.gray100};
   flex-shrink: 0;
+`
+
+const BenchImage = styled.img<{ $objectPosition?: string }>`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  ${({ $objectPosition }) =>
+    $objectPosition ? `object-position: ${$objectPosition};` : ""}
+  background: ${({ theme }) => theme.colors.gray100};
+  transition: transform 0.3s ease;
+`
+
+const BoundingBoxOverlay = styled.div<{
+  $x: number
+  $y: number
+  $width: number
+  $height: number
+  $imageWidth: number
+  $imageHeight: number
+}>`
+  position: absolute;
+  border: 2px solid ${({ theme }) => theme.colors.success};
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.3),
+    0 0 8px rgba(5, 150, 105, 0.5);
+  pointer-events: none;
+  z-index: 1;
+  transition: opacity 0.2s ease;
+  opacity: 0.8;
+
+  /* Calculate position and size based on bounding box coordinates relative to displayed image */
+  left: ${({ $x, $imageWidth }) => ($x / $imageWidth) * 100}%;
+  top: ${({ $y, $imageHeight }) => ($y / $imageHeight) * 100}%;
+  width: ${({ $width, $imageWidth }) => ($width / $imageWidth) * 100}%;
+  height: ${({ $height, $imageHeight }) => ($height / $imageHeight) * 100}%;
+
+  ${BenchImageContainer}:hover & {
+    opacity: 1;
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.5),
+      0 0 12px rgba(5, 150, 105, 0.7);
+  }
 `
 
 const BenchImagePlaceholder = styled.div`
@@ -390,6 +431,7 @@ const MobileMapPage: React.FC = () => {
     useState(false)
   const [loadingLocation, setLoadingLocation] = useState(true)
   const [currentBenchIndex, setCurrentBenchIndex] = useState(0)
+  const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null) // Track selected bench by ID
   const [swipeStartX, setSwipeStartX] = useState<number | null>(null)
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
@@ -402,26 +444,115 @@ const MobileMapPage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false)
   const [wasDragging, setWasDragging] = useState(false) // Track if we just finished a drag
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null) // Only set when user explicitly navigates
+  const [imageDimensions, setImageDimensions] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+  const [objectPosition, setObjectPosition] = useState<string>("center")
+  const [imageLoaded, setImageLoaded] = useState(false)
   const loadedBoundsRef = useRef<Map<string, number>>(new Map()) // Track loaded bounds with timestamps
   const dragStartXRef = useRef<number | null>(null)
   const dragOffsetRef = useRef<number>(0)
+  const imageRef = useRef<HTMLImageElement>(null)
 
   // Sort benches by distance (they should already be sorted, but ensure it)
   const sortedBenches = [...(state.benches || [])].sort((a, b) => {
     return (a.distance_meters || 0) - (b.distance_meters || 0)
   })
 
+  // Create a stable string representation of bench IDs for dependency tracking
+  const benchIdsString = sortedBenches.map((b) => b.id).join(",")
+
+  // When benches change, maintain the selected bench by ID (don't auto-select a new one)
+  useEffect(() => {
+    if (selectedBenchId !== null) {
+      // Find the index of the previously selected bench
+      const benchIndex = sortedBenches.findIndex(
+        (b) => b.id === selectedBenchId
+      )
+      if (benchIndex !== -1) {
+        // Bench still exists in the list, update index to it
+        // This ensures the index is correct even if benches are re-sorted
+        setCurrentBenchIndex((prevIndex) => {
+          // Only update if the index actually changed
+          return benchIndex !== prevIndex ? benchIndex : prevIndex
+        })
+      }
+      // If bench no longer exists, do nothing - keep whatever was selected last time
+      // This prevents auto-selection when new results come in after panning
+    } else if (sortedBenches.length > 0) {
+      // Only auto-select on initial load when no bench is selected yet
+      setSelectedBenchId(sortedBenches[0].id)
+      setCurrentBenchIndex(0)
+    }
+  }, [benchIdsString, selectedBenchId, sortedBenches]) // Depend on benchIdsString to detect when benches are added/removed
+
   const currentBench = sortedBenches[currentBenchIndex] || null
 
-  // Handle bench marker click - center map on clicked bench
+  // Get primary image URL for current bench
+  const currentImageUrl =
+    currentBench?.image_urls?.[0] ??
+    (currentBench?.image_filenames?.[0]
+      ? `/images/${currentBench.image_filenames[0]}`
+      : null)
+
+  // Calculate object-position and bounding box overlay position from best_bbox
+  useEffect(() => {
+    // Reset image loaded state when image URL changes
+    setImageLoaded(false)
+
+    if (!imageRef.current || !currentBench?.best_bbox || !currentImageUrl) {
+      setImageDimensions(null)
+      setObjectPosition("center")
+      return
+    }
+
+    const img = imageRef.current
+
+    const handleImageLoad = () => {
+      const naturalWidth = img.naturalWidth
+      const naturalHeight = img.naturalHeight
+
+      if (naturalWidth === 0 || naturalHeight === 0) {
+        return
+      }
+
+      setImageDimensions({ width: naturalWidth, height: naturalHeight })
+      setImageLoaded(true)
+
+      // Calculate center of bounding box
+      const bbox = currentBench.best_bbox
+      if (bbox) {
+        const centerX = (bbox.x1 + bbox.x2) / 2
+        const centerY = (bbox.y1 + bbox.y2) / 2
+
+        // Calculate object-position percentages to center the bbox center
+        const objectPosX = (centerX / naturalWidth) * 100
+        const objectPosY = (centerY / naturalHeight) * 100
+
+        setObjectPosition(`${objectPosX}% ${objectPosY}%`)
+      }
+    }
+
+    // If image is already loaded, calculate immediately
+    if (img.complete && img.naturalWidth > 0) {
+      handleImageLoad()
+    } else {
+      img.addEventListener("load", handleImageLoad)
+      return () => {
+        img.removeEventListener("load", handleImageLoad)
+      }
+    }
+  }, [currentImageUrl, currentBench?.best_bbox, currentBench])
+
+  // Handle bench marker click - open bench card without moving map
   const handleBenchMarkerClick = useCallback(
     (benchId: number) => {
       const benchIndex = sortedBenches.findIndex((b) => b.id === benchId)
       if (benchIndex !== -1) {
-        const bench = sortedBenches[benchIndex]
         setCurrentBenchIndex(benchIndex)
-        // Center map on the clicked bench
-        setMapCenter([bench.lat, bench.lng])
+        setSelectedBenchId(benchId) // Track the selected bench ID
+        // Don't center map - just open the bench card
       }
     },
     [sortedBenches]
@@ -518,6 +649,7 @@ const MobileMapPage: React.FC = () => {
       const newIndex = Math.max(0, prev - 1)
       const bench = sortedBenches[newIndex]
       if (bench) {
+        setSelectedBenchId(bench.id) // Track the selected bench ID
         setMapCenter([bench.lat, bench.lng])
       }
       return newIndex
@@ -529,6 +661,7 @@ const MobileMapPage: React.FC = () => {
       const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
       const bench = sortedBenches[newIndex]
       if (bench) {
+        setSelectedBenchId(bench.id) // Track the selected bench ID
         setMapCenter([bench.lat, bench.lng])
       }
       return newIndex
@@ -751,6 +884,7 @@ const MobileMapPage: React.FC = () => {
           const newIndex = Math.max(0, prev - 1)
           const bench = sortedBenches[newIndex]
           if (bench) {
+            setSelectedBenchId(bench.id) // Track the selected bench ID
             setMapCenter([bench.lat, bench.lng])
           }
           return newIndex
@@ -761,6 +895,7 @@ const MobileMapPage: React.FC = () => {
           const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
           const bench = sortedBenches[newIndex]
           if (bench) {
+            setSelectedBenchId(bench.id) // Track the selected bench ID
             setMapCenter([bench.lat, bench.lng])
           }
           return newIndex
@@ -981,18 +1116,37 @@ const MobileMapPage: React.FC = () => {
           style={{ cursor: "pointer" }}
         >
           {/* Bench image */}
-          {(() => {
-            const imageUrl =
-              currentBench.image_urls?.[0] ??
-              (currentBench.image_filenames?.[0]
-                ? `/images/${currentBench.image_filenames[0]}`
-                : null)
-            return imageUrl ? (
-              <BenchImage src={imageUrl} alt={`Bench ${currentBench.id}`} />
-            ) : (
-              <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
-            )
-          })()}
+          {currentImageUrl ? (
+            <BenchImageContainer>
+              <BenchImage
+                ref={imageRef}
+                src={currentImageUrl}
+                alt={`Bench ${currentBench.id}`}
+                loading="lazy"
+                $objectPosition={objectPosition}
+              />
+              {currentBench.best_bbox &&
+                imageLoaded &&
+                imageDimensions &&
+                imageDimensions.width > 0 &&
+                imageDimensions.height > 0 && (
+                  <BoundingBoxOverlay
+                    $x={currentBench.best_bbox.x1}
+                    $y={currentBench.best_bbox.y1}
+                    $width={
+                      currentBench.best_bbox.x2 - currentBench.best_bbox.x1
+                    }
+                    $height={
+                      currentBench.best_bbox.y2 - currentBench.best_bbox.y1
+                    }
+                    $imageWidth={imageDimensions.width}
+                    $imageHeight={imageDimensions.height}
+                  />
+                )}
+            </BenchImageContainer>
+          ) : (
+            <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
+          )}
 
           <BenchCardContent>
             <BenchCardHeader>
@@ -1037,6 +1191,7 @@ const MobileMapPage: React.FC = () => {
             const newBench = sortedBenches[newIndex]
             if (newBench && newIndex !== currentBenchIndex) {
               setCurrentBenchIndex(newIndex)
+              setSelectedBenchId(newBench.id) // Track the selected bench ID
               // Center map on the new bench
               setMapCenter([newBench.lat, newBench.lng])
               // Update selected image for new bench

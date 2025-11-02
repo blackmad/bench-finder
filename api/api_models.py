@@ -195,10 +195,13 @@ class WebBenchData(BaseModel):
     )
     best_image_id: int | None = None  # ID of the best image used for detection
     best_detection_id: int | None = None  # ID of the best detection
+    best_bbox: BoundingBox | None = Field(
+        default=None, description="Bounding box of the best detection item"
+    )
     distance_meters: int
     distance_km: float
     reverse_geocode: StructuredAddress | None = (
-        None  # Structured address from reverse geocoding
+        None  # Structured address from reverse geocodingg
     )
     # Optional detection data (only included when requested)
     detection_items: list[ApiDetectionItem] | None = None
