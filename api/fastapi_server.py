@@ -90,11 +90,24 @@ def sort_images_by_best(
     if not best_image_id or not image_ids:
         return image_filenames, image_ids
 
+    # Safety check: ensure lists are the same length
+    if len(image_filenames) != len(image_ids):
+        # If lists are out of sync, return as-is to avoid index errors
+        return image_filenames, image_ids
+
     # Find the index of the best image
     try:
         best_index = image_ids.index(best_image_id)
     except ValueError:
         # best_image_id not in the list, return as-is
+        return image_filenames, image_ids
+
+    # Bounds check: ensure best_index is valid for both lists
+    if (
+        best_index < 0
+        or best_index >= len(image_filenames)
+        or best_index >= len(image_ids)
+    ):
         return image_filenames, image_ids
 
     # If it's already first, no need to sort
