@@ -71,3 +71,4 @@ frontend/build/
 uv.lock
 poetry.lock
 Pipfile.lock
+pyproject.toml

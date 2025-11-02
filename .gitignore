@@ -226,3 +226,4 @@ pyrightconfig.json
 *.db
 *.png
 firebase.json
+.vercel
