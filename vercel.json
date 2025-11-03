@@ -56,19 +56,6 @@
             "dest": "/index.html"
         }
     ],
-    "rewrites": [
-        {
-            "source": "/(.*)",
-            "destination": "/index.html",
-            "has": [
-                {
-                    "type": "header",
-                    "key": "accept",
-                    "value": "text/html"
-                }
-            ]
-        }
-    ],
     "env": {
         "PYTHONPATH": "."
     }
