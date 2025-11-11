@@ -901,23 +901,60 @@ const MobileMapPage: React.FC = () => {
   }, [swipeStartX, swipeOffset, sortedBenches])
 
   const handleRequestLocation = useCallback(async () => {
+    console.log("handleRequestLocation called")
     setLoadingLocation(true)
     setLocationPermissionDenied(false)
 
+    // Check permission state if available (not supported on all browsers)
+    if ("permissions" in navigator) {
+      try {
+        const permissionStatus = await navigator.permissions.query({
+          name: "geolocation",
+        })
+        console.log("Geolocation permission status:", permissionStatus.state)
+        if (permissionStatus.state === "denied") {
+          setLocationPermissionDenied(true)
+          setLoadingLocation(false)
+          alert(
+            "Location permission was previously denied. Please enable it in your browser settings."
+          )
+          return
+        }
+      } catch (e) {
+        console.warn("Could not check permission status:", e)
+      }
+    }
+
     try {
       // This must be called from a user gesture (button click) to work on iOS
+      // On iOS Safari, this will trigger the permission prompt on first use
+      console.log("Calling getCurrentLocation...")
       const location = await getCurrentLocation()
+      console.log("Location obtained:", location)
       setUserLocationState({ lat: location.lat, lng: location.lng })
       setUserLocation(location.lat, location.lng)
       setLoadingLocation(false)
     } catch (error) {
-      console.warn("Location permission denied:", error)
+      console.error("Location permission error:", error)
       setLocationPermissionDenied(true)
       setLoadingLocation(false)
 
-      // On iOS, if permission was denied, provide helpful message
-      if (error instanceof Error && error.message.includes("denied")) {
-        // The modal will show with instructions
+      // Log the error for debugging
+      if (error instanceof Error) {
+        console.error("Location error details:", {
+          message: error.message,
+          error: error,
+        })
+        // Show alert on iOS if permission was denied
+        if (
+          error.message.includes("denied") &&
+          (navigator.userAgent.includes("iPhone") ||
+            navigator.userAgent.includes("iPad"))
+        ) {
+          alert(
+            "Location permission was denied. Please enable it in Settings → Safari → Location Services."
+          )
+        }
       }
     }
   }, [setUserLocation])
@@ -961,12 +998,28 @@ const MobileMapPage: React.FC = () => {
           <LocationPrompt>
             <LocationPromptTitle>📍 Location Required</LocationPromptTitle>
             <LocationPromptText>
-              We need your location to show you the nearest benches. Click the
-              button below to allow location access. You'll see a permission
-              prompt from your browser.
+              We need your location to show you the nearest benches. Tap the
+              button below to allow location access.
+              {navigator.userAgent.includes("iPhone") ||
+              navigator.userAgent.includes("iPad") ? (
+                <>
+                  <br />
+                  <br />
+                  If you previously denied permission, go to Settings → Safari →
+                  Location Services to enable it.
+                </>
+              ) : null}
             </LocationPromptText>
-            <LocationPromptButton onClick={handleRequestLocation}>
-              Allow Location Access
+            <LocationPromptButton
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleRequestLocation()
+              }}
+            >
+              {loadingLocation
+                ? "Requesting Permission..."
+                : "Allow Location Access"}
             </LocationPromptButton>
           </LocationPrompt>
         </LoadingOverlay>
