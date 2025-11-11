@@ -212,6 +212,7 @@ dependencies = [
     "streetlevel>=0.12.4",
     "geopy>=2.4.1",
     "pillow-heif>=1.1.1",
+    "pyequilib>=0.5.8",
 ]
 
 [project.optional-dependencies]
