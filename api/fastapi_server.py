@@ -539,6 +539,20 @@ async def validation_exception_handler(
 
 
 # Utility functions
+def get_db(request: Request) -> BenchDatabase:
+    """
+    Get database instance from app state, initializing if necessary.
+
+    This is a fallback for serverless environments (like Vercel) where
+    the lifespan startup event might not run before the first request.
+    """
+    if not hasattr(request.app.state, "db") or request.app.state.db is None:
+        print("⚠️  Database not initialized in state, initializing now...")
+        request.app.state.db = BenchDatabase()
+        print("✅ Database initialized")
+    return request.app.state.db
+
+
 def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """
     Calculate the great circle distance between two points using Haversine formula.
@@ -573,7 +587,7 @@ async def health_check(request: Request) -> HealthResponse:
     """Check if the server is running and database is accessible."""
     try:
         # Test database connection using SQLAlchemy ORM
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             # Simple query to test database connectivity
             session.query(ProcessedBench).limit(1).first()
@@ -891,7 +905,7 @@ async def get_high_confidence_benches_filtered(
     - Optimized distance sorting expression
     """
     try:
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             from sqlalchemy import case, func
             from sqlalchemy.orm import aliased
@@ -1465,7 +1479,7 @@ async def get_random_bench(
     - `null` (default): Include all sources
     """
     try:
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             from sqlalchemy import func
 
@@ -1554,7 +1568,7 @@ async def get_bench_by_id_endpoint(
     - Detection confidence scores from all sources
     - Optional detection items with bounding boxes and polygons
     """
-    db = request.app.state.db
+    db = get_db(request)
     bench_data = get_bench_by_id(
         bench_id=bench_id,
         db=db,
@@ -1731,7 +1745,7 @@ async def get_benches_in_bbox(
             )
 
         # Get individual bench results using ORM - optimized with subqueries
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             from sqlalchemy import case, func
             from sqlalchemy.orm import aliased
@@ -2163,7 +2177,7 @@ async def get_searches(request: Request) -> SearchListResponse:
     Only completed searches with associated bench data are returned.
     """
     try:
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             from sqlalchemy import func
 
@@ -2322,7 +2336,7 @@ async def serve_image(
     """
     try:
         # First, check if the image exists in the database with a Firebase URL
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             image = session.query(Image).filter(Image.filename == filename).first()
 
@@ -2403,7 +2417,7 @@ async def get_image_segmentation(
     is returned (empty detection_items list) rather than raising a 404 error.
     """
     try:
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             from sqlalchemy.orm import joinedload
 
@@ -2559,7 +2573,7 @@ async def get_bench_images(
     - Metadata analysis
     """
     try:
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             # Verify ProcessedBench exists using ORM
             processed_bench = (
@@ -2658,7 +2672,7 @@ async def get_bench_detections(
     - `detection_sources`: List of detection backends used
     """
     try:
-        db = request.app.state.db
+        db = get_db(request)
         with db.get_session() as session:
             from sqlalchemy.orm import joinedload
 
@@ -2842,7 +2856,7 @@ async def report_bad_bench(
         import shutil
         from datetime import datetime
 
-        db = request.app.state.db
+        db = get_db(request)
 
         with db.get_session() as session:
             # Verify ProcessedBench exists using ORM
@@ -3017,7 +3031,7 @@ async def report_missing_bench(
 
         from PIL import Image
 
-        db = request.app.state.db
+        db = get_db(request)
 
         # Process uploaded image if provided
         uploaded_image_filename = None
@@ -3137,7 +3151,7 @@ async def rate_bench(
     user: dict = Depends(get_current_user),
 ) -> RatingResponse:
     """Rate a bench. Updates existing rating if user has already rated this bench."""
-    db = request.app.state.db
+    db = get_db(request)
     user_id = user["user_id"]
 
     try:
@@ -3216,7 +3230,7 @@ async def delete_rating(
     user: dict = Depends(get_current_user),
 ) -> None:
     """Remove user's rating for a bench."""
-    db = request.app.state.db
+    db = get_db(request)
     user_id = user["user_id"]
 
     try:
@@ -3274,7 +3288,7 @@ async def set_bench_status(
             detail=f"Invalid status. Must be one of: {', '.join([s.value for s in BenchUserStatus])}",
         ) from e
 
-    db = request.app.state.db
+    db = get_db(request)
     user_id = user["user_id"]
 
     try:
@@ -3368,7 +3382,7 @@ async def remove_bench_status(
             detail=f"Invalid status. Must be one of: {', '.join([s.value for s in BenchUserStatus])}",
         ) from e
 
-    db = request.app.state.db
+    db = get_db(request)
     user_id = user["user_id"]
 
     try:
@@ -3419,7 +3433,7 @@ async def add_comment(
     user: dict = Depends(get_current_user),
 ) -> CommentResponse:
     """Add a comment to a bench."""
-    db = request.app.state.db
+    db = get_db(request)
     user_id = user["user_id"]
 
     try:
@@ -3475,7 +3489,7 @@ async def get_bench_user_data(
     user: dict | None = Depends(get_current_user_optional),
 ) -> BenchUserDataResponse:
     """Get user-specific data for a bench including ratings, statuses, and comments."""
-    db = request.app.state.db
+    db = get_db(request)
     user_id = user["user_id"] if user else None
 
     try:
