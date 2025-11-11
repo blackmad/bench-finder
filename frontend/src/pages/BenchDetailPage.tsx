@@ -587,11 +587,11 @@ const BenchDetailPage: React.FC = () => {
     }
   }
 
-  const handleImageSelect = (imageUrl: string, imageId: number) => {
+  const handleImageSelect = (imageUrl: string, imageId: number | null) => {
     setSelectedImageUrl(imageUrl)
     setSelectedImageId(imageId)
     // Find the index of the selected image
-    const index = bench.image_ids?.indexOf(imageId) ?? 0
+    const index = imageId !== null ? (bench.image_ids?.indexOf(imageId) ?? 0) : 0
     setCurrentModalIndex(index)
   }
 

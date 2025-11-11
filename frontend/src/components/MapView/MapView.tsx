@@ -657,7 +657,7 @@ const MapView: React.FC = () => {
   )
 
   const handleImageSelect = useCallback(
-    (imageUrl: string, imageId: number) => {
+    (imageUrl: string, imageId: number | null) => {
       if (!selectedBench) return
       setSelectedImageUrl(imageUrl)
       setSelectedImageId(imageId)

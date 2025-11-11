@@ -403,7 +403,7 @@ interface ModalProps {
   // Report functionality
   onReport?: () => void
   // Image selection callback for thumbnail clicks
-  onImageSelect?: (imageUrl: string, imageId: number) => void
+  onImageSelect?: (imageUrl: string, imageId: number | null) => void
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -951,7 +951,7 @@ const Modal: React.FC<ModalProps> = ({
                               $selected={isSelected}
                               $hasDetection={hasDetection}
                               onClick={() => {
-                                if (onImageSelect && imgId !== null) {
+                                if (onImageSelect) {
                                   onImageSelect(thumbnailUrl, imgId)
                                 }
                               }}

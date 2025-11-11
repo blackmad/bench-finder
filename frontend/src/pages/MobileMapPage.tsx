@@ -2,11 +2,11 @@ import { divIcon, type LatLngBounds } from "leaflet"
 import type React from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
-    MapContainer,
-    Marker,
-    TileLayer,
-    useMap,
-    useMapEvents,
+  MapContainer,
+  Marker,
+  TileLayer,
+  useMap,
+  useMapEvents,
 } from "react-leaflet"
 import styled from "styled-components"
 import "leaflet/dist/leaflet.css"
@@ -88,7 +88,7 @@ const LocationPromptText = styled.p`
 const LocationPromptButton = styled.button<{ disabled?: boolean }>`
   padding: ${({ theme }) => theme.spacing[3]} ${({ theme }) => theme.spacing[6]};
   background: ${({ theme, disabled }) =>
-        disabled ? theme.colors.textSecondary : theme.colors.primary};
+    disabled ? theme.colors.textSecondary : theme.colors.primary};
   color: white;
   border: none;
   border-radius: ${({ theme }) => theme.borderRadius.lg};
@@ -118,13 +118,13 @@ const CardStackContainer = styled.div`
 `
 
 const BenchCard = styled.div<{
-    $swiping?: boolean
-    $swipeOffset?: number
-    $isNext?: boolean
-    $isPrevious?: boolean
-    $opacity?: number
+  $swiping?: boolean
+  $swipeOffset?: number
+  $isNext?: boolean
+  $isPrevious?: boolean
+  $opacity?: number
 }>`
-  position: ${({ $isNext, $isPrevious }) => ($isNext || $isPrevious) ? "absolute" : "relative"};
+  position: ${({ $isNext, $isPrevious }) => (($isNext || $isPrevious) ? "absolute" : "relative")};
   bottom: 0;
   left: 0;
   right: 0;
@@ -132,45 +132,48 @@ const BenchCard = styled.div<{
   border-radius: ${({ theme }) => theme.borderRadius.xl};
   box-shadow: ${({ theme }) => theme.shadows.xl};
   z-index: ${({ $isNext, $isPrevious }) => {
-        if ($isNext) return 1001;
-        if ($isPrevious) return 1003;
-        return 1002;
-    }};
+    if ($isNext) return 1001
+    if ($isPrevious) return 1003
+    return 1002
+  }};
   transform: ${({ $swipeOffset = 0, $isNext, $isPrevious }) => {
-        if ($isNext) {
-            // Next card starts slightly behind and to the right (8px offset)
-            // When swiping left (negative offset), it slides in from the right
-            // The card moves proportionally with the swipe but at a slower rate (parallax effect)
-            const baseOffset = 8;
-            // When swiping left, reduce the offset so the card slides in
-            // When not swiping or swiping right, keep the base offset
-            const adjustedOffset = $swipeOffset < 0
-                ? baseOffset + ($swipeOffset * 0.4) // Slide in when swiping left
-                : baseOffset;
-            return `translateX(${adjustedOffset}px) scale(0.96)`;
-        }
-        if ($isPrevious) {
-            // Previous card starts to the left (-8px offset)
-            // When swiping right (positive offset), it slides in from the left
-            const baseOffset = -8;
-            // When swiping right, reduce the negative offset so the card slides in
-            const adjustedOffset = $swipeOffset > 0
-                ? baseOffset + ($swipeOffset * 0.4) // Slide in when swiping right
-                : baseOffset;
-            return `translateX(${adjustedOffset}px) scale(0.96)`;
-        }
-        return `translateX(${$swipeOffset}px)`;
-    }};
+    if ($isNext) {
+      // Next card starts slightly behind and to the right (8px offset)
+      // When swiping left (negative offset), it slides in from the right
+      // The card moves proportionally with the swipe but at a slower rate (parallax effect)
+      const baseOffset = 8
+      // When swiping left, reduce the offset so the card slides in
+      // When not swiping or swiping right, keep the base offset
+      const adjustedOffset =
+        $swipeOffset < 0
+          ? baseOffset + $swipeOffset * 0.4 // Slide in when swiping left
+          : baseOffset
+      return `translateX(${adjustedOffset}px) scale(0.96)`
+    }
+    if ($isPrevious) {
+      // Previous card starts to the left (-8px offset)
+      // When swiping right (positive offset), it slides in from the left
+      const baseOffset = -8
+      // When swiping right, reduce the negative offset so the card slides in
+      const adjustedOffset =
+        $swipeOffset > 0
+          ? baseOffset + $swipeOffset * 0.4 // Slide in when swiping right
+          : baseOffset
+      return `translateX(${adjustedOffset}px) scale(0.96)`
+    }
+    return `translateX(${$swipeOffset}px)`
+  }};
   transition: ${({ $swiping, $isNext, $isPrevious }) => {
-        if ($swiping) return "none";
-        // Next/previous cards should transition smoothly when not swiping
-        if ($isNext || $isPrevious) return "transform 0.3s ease-out, opacity 0.3s ease-out";
-        return "transform 0.3s ease-out";
-    }};
+    if ($swiping) return "none"
+    // Next/previous cards should transition smoothly when not swiping
+    if ($isNext || $isPrevious)
+      return "transform 0.3s ease-out, opacity 0.3s ease-out"
+    return "transform 0.3s ease-out"
+  }};
   opacity: ${({ $opacity = 1 }) => $opacity};
   display: flex;
   flex-direction: column;
-  pointer-events: ${({ $isNext, $isPrevious }) => ($isNext || $isPrevious) ? "none" : "auto"};
+  pointer-events: ${({ $isNext, $isPrevious }) => (($isNext || $isPrevious) ? "none" : "auto")};
 `
 
 const BenchImageContainer = styled.div`
@@ -187,18 +190,18 @@ const BenchImage = styled.img<{ $objectPosition?: string }>`
   height: 100%;
   object-fit: cover;
   ${({ $objectPosition }) =>
-        $objectPosition ? `object-position: ${$objectPosition};` : ""}
+    $objectPosition ? `object-position: ${$objectPosition};` : ""}
   background: ${({ theme }) => theme.colors.gray100};
   transition: transform 0.3s ease;
 `
 
 const BoundingBoxOverlay = styled.div<{
-    $x: number
-    $y: number
-    $width: number
-    $height: number
-    $imageWidth: number
-    $imageHeight: number
+  $x: number
+  $y: number
+  $width: number
+  $height: number
+  $imageWidth: number
+  $imageHeight: number
 }>`
   position: absolute;
   border: 2px solid ${({ theme }) => theme.colors.success};
@@ -276,7 +279,7 @@ const SwipeIndicator = styled.div<{ $direction: "left" | "right" | null }>`
   top: 50%;
   ${({ $direction }) => ($direction === "left" ? "left" : "right")}: ${({
     theme,
-}) => theme.spacing[4]};
+  }) => theme.spacing[4]};
   transform: translateY(-50%);
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
@@ -320,9 +323,9 @@ const NavButton = styled.button<{ $disabled?: boolean }>`
   border: none;
   border-radius: ${({ theme }) => theme.borderRadius.md};
   background: ${({ theme, $disabled }) =>
-        $disabled ? theme.colors.gray200 : theme.colors.primary};
+    $disabled ? theme.colors.gray200 : theme.colors.primary};
   color: ${({ theme, $disabled }) =>
-        $disabled ? theme.colors.gray400 : "white"};
+    $disabled ? theme.colors.gray400 : "white"};
   font-size: ${({ theme }) => theme.typography.sizes.lg};
   font-weight: ${({ theme }) => theme.typography.weights.semibold};
   cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
@@ -376,854 +379,855 @@ const RecenterButton = styled.button`
 `
 
 const MapCenterUpdater: React.FC<{
-    center: [number, number] | null
-    zoom: number
+  center: [number, number] | null
+  zoom: number
 }> = ({ center, zoom }) => {
-    const map = useMap()
+  const map = useMap()
 
-    useEffect(() => {
-        // Only update center if explicitly provided (null means don't update)
-        if (center) {
-            map.setView(center, zoom, { animate: true, duration: 0.5 })
-        }
-    }, [map, center, zoom])
+  useEffect(() => {
+    // Only update center if explicitly provided (null means don't update)
+    if (center) {
+      map.setView(center, zoom, { animate: true, duration: 0.5 })
+    }
+  }, [map, center, zoom])
 
-    return null
+  return null
 }
 
 // Component to detect map panning and load benches in chunks
 const MapPanDetector: React.FC<{
-    onBoundsChange: (bounds: LatLngBounds) => void
-    userLocation: { lat: number; lng: number } | null
+  onBoundsChange: (bounds: LatLngBounds) => void
+  userLocation: { lat: number; lng: number } | null
 }> = ({ onBoundsChange }) => {
-    const map = useMap()
-    const lastBoundsRef = useRef<LatLngBounds | null>(null)
-    const panTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const hasInitialLoadRef = useRef(false)
-    const onBoundsChangeRef = useRef(onBoundsChange)
+  const map = useMap()
+  const lastBoundsRef = useRef<LatLngBounds | null>(null)
+  const panTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hasInitialLoadRef = useRef(false)
+  const onBoundsChangeRef = useRef(onBoundsChange)
 
-    // Update ref when callback changes
-    useEffect(() => {
-        onBoundsChangeRef.current = onBoundsChange
-    }, [onBoundsChange])
+  // Update ref when callback changes
+  useEffect(() => {
+    onBoundsChangeRef.current = onBoundsChange
+  }, [onBoundsChange])
 
-    useMapEvents({
-        moveend: () => {
-            // Debounce the bounds change
-            if (panTimeoutRef.current) {
-                clearTimeout(panTimeoutRef.current)
+  useMapEvents({
+    moveend: () => {
+      // Debounce the bounds change
+      if (panTimeoutRef.current) {
+        clearTimeout(panTimeoutRef.current)
+      }
+
+      panTimeoutRef.current = setTimeout(() => {
+        const bounds = map.getBounds()
+        if (bounds && bounds.isValid()) {
+          // On first load, always trigger
+          if (!hasInitialLoadRef.current) {
+            onBoundsChangeRef.current(bounds)
+            lastBoundsRef.current = bounds
+            hasInitialLoadRef.current = true
+            return
+          }
+
+          // Only trigger if bounds have changed significantly (more than ~5% in any direction)
+          if (lastBoundsRef.current) {
+            const lastBounds = lastBoundsRef.current
+            const latDiff =
+              Math.abs(bounds.getNorth() - lastBounds.getNorth()) +
+              Math.abs(bounds.getSouth() - lastBounds.getSouth())
+            const lngDiff =
+              Math.abs(bounds.getEast() - lastBounds.getEast()) +
+              Math.abs(bounds.getWest() - lastBounds.getWest())
+
+            const latRange = Math.abs(bounds.getNorth() - bounds.getSouth())
+            const lngRange = Math.abs(bounds.getEast() - bounds.getWest())
+
+            // Lowered threshold from 10% to 5% for more responsive updates
+            // Also trigger if the center moved significantly even if bounds are similar
+            const center = map.getCenter()
+            const lastCenter = lastBounds.getCenter()
+            const centerLatDiff = Math.abs(center.lat - lastCenter.lat)
+            const centerLngDiff = Math.abs(center.lng - lastCenter.lng)
+
+            if (
+              latDiff > latRange * 0.05 ||
+              lngDiff > lngRange * 0.05 ||
+              centerLatDiff > latRange * 0.15 ||
+              centerLngDiff > lngRange * 0.15
+            ) {
+              onBoundsChangeRef.current(bounds)
+              lastBoundsRef.current = bounds
             }
-
-            panTimeoutRef.current = setTimeout(() => {
-                const bounds = map.getBounds()
-                if (bounds && bounds.isValid()) {
-                    // On first load, always trigger
-                    if (!hasInitialLoadRef.current) {
-                        onBoundsChangeRef.current(bounds)
-                        lastBoundsRef.current = bounds
-                        hasInitialLoadRef.current = true
-                        return
-                    }
-
-                    // Only trigger if bounds have changed significantly (more than ~5% in any direction)
-                    if (lastBoundsRef.current) {
-                        const lastBounds = lastBoundsRef.current
-                        const latDiff =
-                            Math.abs(bounds.getNorth() - lastBounds.getNorth()) +
-                            Math.abs(bounds.getSouth() - lastBounds.getSouth())
-                        const lngDiff =
-                            Math.abs(bounds.getEast() - lastBounds.getEast()) +
-                            Math.abs(bounds.getWest() - lastBounds.getWest())
-
-                        const latRange = Math.abs(bounds.getNorth() - bounds.getSouth())
-                        const lngRange = Math.abs(bounds.getEast() - bounds.getWest())
-
-                        // Lowered threshold from 10% to 5% for more responsive updates
-                        // Also trigger if the center moved significantly even if bounds are similar
-                        const center = map.getCenter()
-                        const lastCenter = lastBounds.getCenter()
-                        const centerLatDiff = Math.abs(center.lat - lastCenter.lat)
-                        const centerLngDiff = Math.abs(center.lng - lastCenter.lng)
-
-                        if (
-                            latDiff > latRange * 0.05 ||
-                            lngDiff > lngRange * 0.05 ||
-                            centerLatDiff > latRange * 0.15 ||
-                            centerLngDiff > lngRange * 0.15
-                        ) {
-                            onBoundsChangeRef.current(bounds)
-                            lastBoundsRef.current = bounds
-                        }
-                    } else {
-                        // First time, trigger load and save bounds
-                        onBoundsChangeRef.current(bounds)
-                        lastBoundsRef.current = bounds
-                        hasInitialLoadRef.current = true
-                    }
-                }
-            }, 300) // Reduced debounce from 500ms to 300ms for faster response
-        },
-    })
-
-    // Initialize bounds on mount and trigger initial load
-    useEffect(() => {
-        const initBounds = () => {
-            const bounds = map.getBounds()
-            if (bounds && bounds.isValid()) {
-                if (!hasInitialLoadRef.current) {
-                    // Trigger initial load after a short delay to ensure map is fully rendered
-                    setTimeout(() => {
-                        onBoundsChangeRef.current(bounds)
-                        lastBoundsRef.current = bounds
-                        hasInitialLoadRef.current = true
-                    }, 100)
-                } else {
-                    lastBoundsRef.current = bounds
-                }
-            }
+          } else {
+            // First time, trigger load and save bounds
+            onBoundsChangeRef.current(bounds)
+            lastBoundsRef.current = bounds
+            hasInitialLoadRef.current = true
+          }
         }
+      }, 300) // Reduced debounce from 500ms to 300ms for faster response
+    },
+  })
 
-        // Wait for map to be ready
-        if (map.whenReady) {
-            map.whenReady(initBounds)
+  // Initialize bounds on mount and trigger initial load
+  useEffect(() => {
+    const initBounds = () => {
+      const bounds = map.getBounds()
+      if (bounds && bounds.isValid()) {
+        if (!hasInitialLoadRef.current) {
+          // Trigger initial load after a short delay to ensure map is fully rendered
+          setTimeout(() => {
+            onBoundsChangeRef.current(bounds)
+            lastBoundsRef.current = bounds
+            hasInitialLoadRef.current = true
+          }, 100)
         } else {
-            // Fallback if whenReady is not available
-            initBounds()
+          lastBoundsRef.current = bounds
         }
-    }, [map])
+      }
+    }
 
-    // Cleanup timeout on unmount
-    useEffect(() => {
-        return () => {
-            if (panTimeoutRef.current) {
-                clearTimeout(panTimeoutRef.current)
-            }
-        }
-    }, [])
+    // Wait for map to be ready
+    if (map.whenReady) {
+      map.whenReady(initBounds)
+    } else {
+      // Fallback if whenReady is not available
+      initBounds()
+    }
+  }, [map])
 
-    return null
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (panTimeoutRef.current) {
+        clearTimeout(panTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  return null
 }
 
 const MobileMapPage: React.FC = () => {
-    const { state, loadMoreBenches, setUserLocation, dispatch } = useApp()
-    const [userLocation, setUserLocationState] = useState<{
-        lat: number
-        lng: number
-    } | null>(null)
-    const [locationPermissionDenied, setLocationPermissionDenied] =
-        useState(false)
-    const [loadingLocation, setLoadingLocation] = useState(true)
-    const [currentBenchIndex, setCurrentBenchIndex] = useState(0)
-    const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null) // Track selected bench by ID
-    const [swipeStartX, setSwipeStartX] = useState<number | null>(null)
-    const [swipeOffset, setSwipeOffset] = useState(0)
-    const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
-        null
-    )
-    const [isLockedIn, setIsLockedIn] = useState(false)
-    const [modalOpen, setModalOpen] = useState(false)
-    const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null)
-    const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
-    const [loadingMoreBenches, setLoadingMoreBenches] = useState(false)
-    const [isDragging, setIsDragging] = useState(false)
-    const [wasDragging, setWasDragging] = useState(false) // Track if we just finished a drag
-    const [mapCenter, setMapCenter] = useState<[number, number] | null>(null) // Only set when user explicitly navigates
-    const [imageDimensions, setImageDimensions] = useState<{
-        width: number
-        height: number
-    } | null>(null)
-    const [objectPosition, setObjectPosition] = useState<string>("center")
-    const [imageLoaded, setImageLoaded] = useState(false)
-    const loadedBoundsRef = useRef<Map<string, number>>(new Map()) // Track loaded bounds with timestamps
-    const dragStartXRef = useRef<number | null>(null)
-    const dragOffsetRef = useRef<number>(0)
-    const imageRef = useRef<HTMLImageElement>(null)
+  const { state, loadMoreBenches, setUserLocation, dispatch } = useApp()
+  const [userLocation, setUserLocationState] = useState<{
+    lat: number
+    lng: number
+  } | null>(null)
+  const [locationPermissionDenied, setLocationPermissionDenied] =
+    useState(false)
+  const [loadingLocation, setLoadingLocation] = useState(true)
+  const [currentBenchIndex, setCurrentBenchIndex] = useState(0)
+  const [selectedBenchId, setSelectedBenchId] = useState<number | null>(null) // Track selected bench by ID
+  const [swipeStartX, setSwipeStartX] = useState<number | null>(null)
+  const [swipeOffset, setSwipeOffset] = useState(0)
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(
+    null
+  )
+  const [isLockedIn, setIsLockedIn] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null)
+  const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
+  const [loadingMoreBenches, setLoadingMoreBenches] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [wasDragging, setWasDragging] = useState(false) // Track if we just finished a drag
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null) // Only set when user explicitly navigates
+  const [imageDimensions, setImageDimensions] = useState<{
+    width: number
+    height: number
+  } | null>(null)
+  const [objectPosition, setObjectPosition] = useState<string>("center")
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const loadedBoundsRef = useRef<Map<string, number>>(new Map()) // Track loaded bounds with timestamps
+  const dragStartXRef = useRef<number | null>(null)
+  const dragOffsetRef = useRef<number>(0)
+  const imageRef = useRef<HTMLImageElement>(null)
 
-    // Sort benches by distance (they should already be sorted, but ensure it)
-    const sortedBenches = [...(state.benches || [])].sort((a, b) => {
-        return (a.distance_meters || 0) - (b.distance_meters || 0)
+  // Sort benches by distance (they should already be sorted, but ensure it)
+  const sortedBenches = [...(state.benches || [])].sort((a, b) => {
+    return (a.distance_meters || 0) - (b.distance_meters || 0)
+  })
+
+  // Create a stable string representation of bench IDs for dependency tracking
+  const benchIdsString = sortedBenches.map((b) => b.id).join(",")
+
+  // When benches change, maintain the selected bench by ID (don't auto-select a new one)
+  useEffect(() => {
+    if (selectedBenchId !== null) {
+      // Find the index of the previously selected bench
+      const benchIndex = sortedBenches.findIndex(
+        (b) => b.id === selectedBenchId
+      )
+      if (benchIndex !== -1) {
+        // Bench still exists in the list, update index to it
+        // This ensures the index is correct even if benches are re-sorted
+        setCurrentBenchIndex((prevIndex) => {
+          // Only update if the index actually changed
+          return benchIndex !== prevIndex ? benchIndex : prevIndex
+        })
+      }
+      // If bench no longer exists, do nothing - keep whatever was selected last time
+      // This prevents auto-selection when new results come in after panning
+    } else if (sortedBenches.length > 0) {
+      // Only auto-select on initial load when no bench is selected yet
+      setSelectedBenchId(sortedBenches[0].id)
+      setCurrentBenchIndex(0)
+    }
+  }, [benchIdsString, selectedBenchId, sortedBenches]) // Depend on benchIdsString to detect when benches are added/removed
+
+  const currentBench = sortedBenches[currentBenchIndex] || null
+  const nextBench = sortedBenches[currentBenchIndex + 1] || null
+  const previousBench = sortedBenches[currentBenchIndex - 1] || null
+
+  // Get primary image URL for current bench
+  const currentImageUrl =
+    currentBench?.image_urls?.[0] ??
+    (currentBench?.image_filenames?.[0]
+      ? `/images/${currentBench.image_filenames[0]}`
+      : null)
+
+  // Get primary image URL for next bench
+  const nextImageUrl =
+    nextBench?.image_urls?.[0] ??
+    (nextBench?.image_filenames?.[0]
+      ? `/images/${nextBench.image_filenames[0]}`
+      : null)
+
+  // Get primary image URL for previous bench
+  const previousImageUrl =
+    previousBench?.image_urls?.[0] ??
+    (previousBench?.image_filenames?.[0]
+      ? `/images/${previousBench.image_filenames[0]}`
+      : null)
+
+  // Calculate object-position and bounding box overlay position from best_bbox
+  useEffect(() => {
+    // Reset image loaded state when image URL changes
+    setImageLoaded(false)
+
+    if (!imageRef.current || !currentBench?.best_bbox || !currentImageUrl) {
+      setImageDimensions(null)
+      setObjectPosition("center")
+      return
+    }
+
+    const img = imageRef.current
+
+    const handleImageLoad = () => {
+      const naturalWidth = img.naturalWidth
+      const naturalHeight = img.naturalHeight
+
+      if (naturalWidth === 0 || naturalHeight === 0) {
+        return
+      }
+
+      setImageDimensions({ width: naturalWidth, height: naturalHeight })
+      setImageLoaded(true)
+
+      // Calculate center of bounding box
+      const bbox = currentBench.best_bbox
+      if (bbox) {
+        const centerX = (bbox.x1 + bbox.x2) / 2
+        const centerY = (bbox.y1 + bbox.y2) / 2
+
+        // Calculate object-position percentages to center the bbox center
+        const objectPosX = (centerX / naturalWidth) * 100
+        const objectPosY = (centerY / naturalHeight) * 100
+
+        setObjectPosition(`${objectPosX}% ${objectPosY}%`)
+      }
+    }
+
+    // If image is already loaded, calculate immediately
+    if (img.complete && img.naturalWidth > 0) {
+      handleImageLoad()
+    } else {
+      img.addEventListener("load", handleImageLoad)
+      return () => {
+        img.removeEventListener("load", handleImageLoad)
+      }
+    }
+  }, [currentImageUrl, currentBench?.best_bbox, currentBench])
+
+  // Handle bench marker click - open bench card without moving map
+  const handleBenchMarkerClick = useCallback(
+    (benchId: number) => {
+      const benchIndex = sortedBenches.findIndex((b) => b.id === benchId)
+      if (benchIndex !== -1) {
+        setCurrentBenchIndex(benchIndex)
+        setSelectedBenchId(benchId) // Track the selected bench ID
+        // Don't center map - just open the bench card
+      }
+    },
+    [sortedBenches]
+  )
+
+  // Handle card click to open details
+  const handleCardClick = useCallback(() => {
+    if (currentBench) {
+      const imageUrl =
+        currentBench.image_urls?.[0] ??
+        (currentBench.image_filenames?.[0]
+          ? `/images/${currentBench.image_filenames[0]}`
+          : null)
+      const imageId = currentBench.image_ids?.[0] || null
+      setSelectedImageUrl(imageUrl)
+      setSelectedImageId(imageId)
+      setModalOpen(true)
+    }
+  }, [currentBench])
+
+  // Handle image selection from thumbnail gallery
+  const handleImageSelect = useCallback(
+    (imageUrl: string, imageId: number | null) => {
+      setSelectedImageUrl(imageUrl)
+      setSelectedImageId(imageId)
+    },
+    []
+  )
+
+  // Load benches when map bounds change significantly
+  const handleBoundsChange = useCallback(
+    async (bounds: LatLngBounds) => {
+      // Allow loading even without userLocation for better UX
+      // Only prevent if actively loading to avoid race conditions
+      if (loadingMoreBenches) return
+
+      // Create a more granular key for this bounds region (rounded to 2 decimal places)
+      const boundsKey = `${Math.floor(bounds.getNorth() * 100) / 100}-${Math.floor(bounds.getSouth() * 100) / 100}-${Math.floor(bounds.getEast() * 100) / 100}-${Math.floor(bounds.getWest() * 100) / 100}`
+
+      // Check if we've recently loaded benches for this region (within last 10 seconds)
+      // This allows refreshing if user pans back after some time
+      const now = Date.now()
+      const lastLoadTime = loadedBoundsRef.current.get(boundsKey)
+      const REFRESH_INTERVAL = 10000 // 10 seconds
+
+      if (lastLoadTime && now - lastLoadTime < REFRESH_INTERVAL) {
+        return
+      }
+
+      setLoadingMoreBenches(true)
+      loadedBoundsRef.current.set(boundsKey, now)
+
+      // Clean up old entries (older than 60 seconds) to prevent memory growth
+      const maxAge = 60000
+      for (const [key, timestamp] of loadedBoundsRef.current.entries()) {
+        if (now - timestamp > maxAge) {
+          loadedBoundsRef.current.delete(key)
+        }
+      }
+
+      try {
+        const response = await benchApi.getBenchesInBbox({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+          min_confidence: state.filters?.minConfidence || 0,
+          sort_by: "distance",
+          limit: 100, // Increased from 50 to get more benches per load
+        })
+
+        const benches = Array.isArray(response.benches) ? response.benches : []
+
+        // Merge new benches, avoiding duplicates
+        const existingIds = new Set((state.benches || []).map((b) => b.id))
+        const newBenches = benches.filter(
+          (b: WebBenchData) => !existingIds.has(b.id)
+        )
+
+        if (newBenches.length > 0) {
+          // Add benches to the existing list
+          dispatch({ type: "ADD_BENCHES", payload: newBenches })
+        }
+      } catch (error) {
+        console.error("Error loading benches from map bounds:", error)
+        // Remove the key so we can retry
+        loadedBoundsRef.current.delete(boundsKey)
+      } finally {
+        setLoadingMoreBenches(false)
+      }
+    },
+    [loadingMoreBenches, state.filters, state.benches, dispatch]
+  )
+
+  // Navigate to previous/next bench - center map on new bench
+  const handlePreviousBench = useCallback(() => {
+    setCurrentBenchIndex((prev) => {
+      const newIndex = Math.max(0, prev - 1)
+      const bench = sortedBenches[newIndex]
+      if (bench) {
+        setSelectedBenchId(bench.id) // Track the selected bench ID
+        setMapCenter([bench.lat, bench.lng])
+      }
+      return newIndex
     })
+  }, [sortedBenches])
 
-    // Create a stable string representation of bench IDs for dependency tracking
-    const benchIdsString = sortedBenches.map((b) => b.id).join(",")
+  const handleNextBench = useCallback(() => {
+    setCurrentBenchIndex((prev) => {
+      const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
+      const bench = sortedBenches[newIndex]
+      if (bench) {
+        setSelectedBenchId(bench.id) // Track the selected bench ID
+        setMapCenter([bench.lat, bench.lng])
+      }
+      return newIndex
+    })
+  }, [sortedBenches])
 
-    // When benches change, maintain the selected bench by ID (don't auto-select a new one)
-    useEffect(() => {
-        if (selectedBenchId !== null) {
-            // Find the index of the previously selected bench
-            const benchIndex = sortedBenches.findIndex(
-                (b) => b.id === selectedBenchId
-            )
-            if (benchIndex !== -1) {
-                // Bench still exists in the list, update index to it
-                // This ensures the index is correct even if benches are re-sorted
-                setCurrentBenchIndex((prevIndex) => {
-                    // Only update if the index actually changed
-                    return benchIndex !== prevIndex ? benchIndex : prevIndex
-                })
-            }
-            // If bench no longer exists, do nothing - keep whatever was selected last time
-            // This prevents auto-selection when new results come in after panning
-        } else if (sortedBenches.length > 0) {
-            // Only auto-select on initial load when no bench is selected yet
-            setSelectedBenchId(sortedBenches[0].id)
-            setCurrentBenchIndex(0)
-        }
-    }, [benchIdsString, selectedBenchId, sortedBenches]) // Depend on benchIdsString to detect when benches are added/removed
+  // Keyboard navigation for desktop
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (modalOpen) return // Don't handle keyboard when modal is open
 
-    const currentBench = sortedBenches[currentBenchIndex] || null
-    const nextBench = sortedBenches[currentBenchIndex + 1] || null
-    const previousBench = sortedBenches[currentBenchIndex - 1] || null
+      if (e.key === "ArrowLeft") {
+        e.preventDefault()
+        handlePreviousBench()
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault()
+        handleNextBench()
+      } else if (e.key === "Escape" && modalOpen) {
+        setModalOpen(false)
+      }
+    }
 
-    // Get primary image URL for current bench
-    const currentImageUrl =
-        currentBench?.image_urls?.[0] ??
-        (currentBench?.image_filenames?.[0]
-            ? `/images/${currentBench.image_filenames[0]}`
-            : null)
+    window.addEventListener("keydown", handleKeyPress)
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress)
+    }
+  }, [handlePreviousBench, handleNextBench, modalOpen])
 
-    // Get primary image URL for next bench
-    const nextImageUrl =
-        nextBench?.image_urls?.[0] ??
-        (nextBench?.image_filenames?.[0]
-            ? `/images/${nextBench.image_filenames[0]}`
-            : null)
+  // Mouse drag handling for desktop
+  const handleCardMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return // Only handle left mouse button
+    setIsDragging(true)
+    dragStartXRef.current = e.clientX
+    dragOffsetRef.current = 0
+  }, [])
 
-    // Get primary image URL for previous bench
-    const previousImageUrl =
-        previousBench?.image_urls?.[0] ??
-        (previousBench?.image_filenames?.[0]
-            ? `/images/${previousBench.image_filenames[0]}`
-            : null)
+  const handleCardMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging || dragStartXRef.current === null || isLockedIn) return
 
-    // Calculate object-position and bounding box overlay position from best_bbox
-    useEffect(() => {
-        // Reset image loaded state when image URL changes
-        setImageLoaded(false)
+      const diff = e.clientX - dragStartXRef.current
+      dragOffsetRef.current = diff
+      setSwipeOffset(diff)
 
-        if (!imageRef.current || !currentBench?.best_bbox || !currentImageUrl) {
-            setImageDimensions(null)
-            setObjectPosition("center")
-            return
-        }
+      // Lock-in threshold: 40% of card width
+      const lockInThreshold = 120
+      const shouldLockIn = Math.abs(diff) > lockInThreshold
 
-        const img = imageRef.current
-
-        const handleImageLoad = () => {
-            const naturalWidth = img.naturalWidth
-            const naturalHeight = img.naturalHeight
-
-            if (naturalWidth === 0 || naturalHeight === 0) {
-                return
-            }
-
-            setImageDimensions({ width: naturalWidth, height: naturalHeight })
-            setImageLoaded(true)
-
-            // Calculate center of bounding box
-            const bbox = currentBench.best_bbox
-            if (bbox) {
-                const centerX = (bbox.x1 + bbox.x2) / 2
-                const centerY = (bbox.y1 + bbox.y2) / 2
-
-                // Calculate object-position percentages to center the bbox center
-                const objectPosX = (centerX / naturalWidth) * 100
-                const objectPosY = (centerY / naturalHeight) * 100
-
-                setObjectPosition(`${objectPosX}% ${objectPosY}%`)
-            }
-        }
-
-        // If image is already loaded, calculate immediately
-        if (img.complete && img.naturalWidth > 0) {
-            handleImageLoad()
+      if (shouldLockIn && !isLockedIn) {
+        setIsLockedIn(true)
+        // Auto-complete the swipe
+        if (diff > 0) {
+          handlePreviousBench()
         } else {
-            img.addEventListener("load", handleImageLoad)
-            return () => {
-                img.removeEventListener("load", handleImageLoad)
-            }
+          handleNextBench()
         }
-    }, [currentImageUrl, currentBench?.best_bbox, currentBench])
+        // Reset after animation
+        setTimeout(() => {
+          setSwipeOffset(0)
+          setSwipeDirection(null)
+          setIsLockedIn(false)
+        }, 300)
+        return
+      }
 
-    // Handle bench marker click - open bench card without moving map
-    const handleBenchMarkerClick = useCallback(
-        (benchId: number) => {
-            const benchIndex = sortedBenches.findIndex((b) => b.id === benchId)
-            if (benchIndex !== -1) {
-                setCurrentBenchIndex(benchIndex)
-                setSelectedBenchId(benchId) // Track the selected bench ID
-                // Don't center map - just open the bench card
-            }
-        },
-        [sortedBenches]
-    )
-
-    // Handle card click to open details
-    const handleCardClick = useCallback(() => {
-        if (currentBench) {
-            const imageUrl =
-                currentBench.image_urls?.[0] ??
-                (currentBench.image_filenames?.[0]
-                    ? `/images/${currentBench.image_filenames[0]}`
-                    : null)
-            const imageId = currentBench.image_ids?.[0] || null
-            setSelectedImageUrl(imageUrl)
-            setSelectedImageId(imageId)
-            setModalOpen(true)
+      // Show swipe indicator
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+          setSwipeDirection("left") // Dragging right shows left arrow
+        } else {
+          setSwipeDirection("right") // Dragging left shows right arrow
         }
-    }, [currentBench])
+      } else {
+        setSwipeDirection(null)
+      }
+    },
+    [isDragging, isLockedIn, handlePreviousBench, handleNextBench]
+  )
 
-    // Handle image selection from thumbnail gallery
-    const handleImageSelect = useCallback((imageUrl: string, imageId: number | null) => {
-        setSelectedImageUrl(imageUrl)
-        setSelectedImageId(imageId)
-    }, [])
+  const handleCardMouseUp = useCallback(() => {
+    if (!isDragging || isLockedIn) {
+      if (isLockedIn) {
+        setIsDragging(false)
+        dragStartXRef.current = null
+      }
+      return
+    }
 
-    // Load benches when map bounds change significantly
-    const handleBoundsChange = useCallback(
-        async (bounds: LatLngBounds) => {
-            // Allow loading even without userLocation for better UX
-            // Only prevent if actively loading to avoid race conditions
-            if (loadingMoreBenches) return
+    const threshold = 100
+    const didDrag = Math.abs(dragOffsetRef.current) > threshold
 
-            // Create a more granular key for this bounds region (rounded to 2 decimal places)
-            const boundsKey = `${Math.floor(bounds.getNorth() * 100) / 100}-${Math.floor(bounds.getSouth() * 100) / 100}-${Math.floor(bounds.getEast() * 100) / 100}-${Math.floor(bounds.getWest() * 100) / 100}`
+    if (didDrag) {
+      if (dragOffsetRef.current > 0) {
+        handlePreviousBench()
+      } else {
+        handleNextBench()
+      }
+      // Mark that we just dragged to prevent accidental click
+      setWasDragging(true)
+    }
 
-            // Check if we've recently loaded benches for this region (within last 10 seconds)
-            // This allows refreshing if user pans back after some time
-            const now = Date.now()
-            const lastLoadTime = loadedBoundsRef.current.get(boundsKey)
-            const REFRESH_INTERVAL = 10000 // 10 seconds
+    setIsDragging(false)
+    dragStartXRef.current = null
+    dragOffsetRef.current = 0
+    setSwipeOffset(0)
+    setSwipeDirection(null)
+  }, [isDragging, isLockedIn, handlePreviousBench, handleNextBench])
 
-            if (lastLoadTime && now - lastLoadTime < REFRESH_INTERVAL) {
-                return
-            }
+  // Global mouse move/up handlers for drag
+  useEffect(() => {
+    if (!isDragging) return
 
-            setLoadingMoreBenches(true)
-            loadedBoundsRef.current.set(boundsKey, now)
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (dragStartXRef.current === null || isLockedIn) return
+      const diff = e.clientX - dragStartXRef.current
+      dragOffsetRef.current = diff
+      setSwipeOffset(diff)
 
-            // Clean up old entries (older than 60 seconds) to prevent memory growth
-            const maxAge = 60000
-            for (const [key, timestamp] of loadedBoundsRef.current.entries()) {
-                if (now - timestamp > maxAge) {
-                    loadedBoundsRef.current.delete(key)
-                }
-            }
+      // Lock-in threshold: 40% of card width
+      const lockInThreshold = 120
+      const shouldLockIn = Math.abs(diff) > lockInThreshold
 
-            try {
-                const response = await benchApi.getBenchesInBbox({
-                    north: bounds.getNorth(),
-                    south: bounds.getSouth(),
-                    east: bounds.getEast(),
-                    west: bounds.getWest(),
-                    min_confidence: state.filters?.minConfidence || 0,
-                    sort_by: "distance",
-                    limit: 100, // Increased from 50 to get more benches per load
-                })
+      if (shouldLockIn && !isLockedIn) {
+        setIsLockedIn(true)
+        // Auto-complete the swipe
+        if (diff > 0) {
+          handlePreviousBench()
+        } else {
+          handleNextBench()
+        }
+        // Reset after animation
+        setTimeout(() => {
+          setSwipeOffset(0)
+          setSwipeDirection(null)
+          setIsLockedIn(false)
+        }, 300)
+        return
+      }
 
-                const benches = Array.isArray(response.benches) ? response.benches : []
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+          setSwipeDirection("left")
+        } else {
+          setSwipeDirection("right")
+        }
+      } else {
+        setSwipeDirection(null)
+      }
+    }
 
-                // Merge new benches, avoiding duplicates
-                const existingIds = new Set((state.benches || []).map((b) => b.id))
-                const newBenches = benches.filter(
-                    (b: WebBenchData) => !existingIds.has(b.id)
-                )
+    const handleGlobalMouseUp = () => {
+      if (!isDragging || isLockedIn) {
+        if (isLockedIn) {
+          setIsDragging(false)
+          dragStartXRef.current = null
+        }
+        return
+      }
 
-                if (newBenches.length > 0) {
-                    // Add benches to the existing list
-                    dispatch({ type: "ADD_BENCHES", payload: newBenches })
-                }
-            } catch (error) {
-                console.error("Error loading benches from map bounds:", error)
-                // Remove the key so we can retry
-                loadedBoundsRef.current.delete(boundsKey)
-            } finally {
-                setLoadingMoreBenches(false)
-            }
-        },
-        [loadingMoreBenches, state.filters, state.benches, dispatch]
-    )
+      const threshold = 100
+      const didDrag = Math.abs(dragOffsetRef.current) > threshold
 
-    // Navigate to previous/next bench - center map on new bench
-    const handlePreviousBench = useCallback(() => {
-        setCurrentBenchIndex((prev) => {
+      if (didDrag) {
+        if (dragOffsetRef.current > 0) {
+          handlePreviousBench()
+        } else {
+          handleNextBench()
+        }
+        // Mark that we just dragged to prevent accidental click
+        setWasDragging(true)
+      }
+
+      setIsDragging(false)
+      dragStartXRef.current = null
+      dragOffsetRef.current = 0
+      setSwipeOffset(0)
+      setSwipeDirection(null)
+    }
+
+    window.addEventListener("mousemove", handleGlobalMouseMove)
+    window.addEventListener("mouseup", handleGlobalMouseUp)
+
+    return () => {
+      window.removeEventListener("mousemove", handleGlobalMouseMove)
+      window.removeEventListener("mouseup", handleGlobalMouseUp)
+    }
+  }, [isDragging, isLockedIn, handlePreviousBench, handleNextBench])
+
+  // Check if location is already available, but don't request on mount
+  // (iOS Safari requires user gesture to trigger permission prompt)
+  useEffect(() => {
+    if (!("geolocation" in navigator)) {
+      setLocationPermissionDenied(true)
+      setLoadingLocation(false)
+      return
+    }
+
+    // Don't automatically request - wait for user to click the button
+    // This is required for iOS Safari which only shows permission prompt on user gesture
+    setLoadingLocation(false)
+    setLocationPermissionDenied(true)
+  }, [])
+
+  // Load benches when location is available
+  useEffect(() => {
+    if (
+      userLocation &&
+      state.config &&
+      sortedBenches.length === 0 &&
+      !state.loading
+    ) {
+      loadMoreBenches(false, {
+        startLat: userLocation.lat,
+        startLng: userLocation.lng,
+        sortBy: "distance",
+      })
+    }
+  }, [
+    userLocation,
+    state.config,
+    state.loading,
+    loadMoreBenches,
+    sortedBenches.length,
+  ])
+
+  // Swipe gesture handling for bench card
+  const handleCardTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setSwipeStartX(e.touches[0].clientX)
+      setSwipeOffset(0)
+    }
+  }, [])
+
+  const handleCardTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (swipeStartX === null || e.touches.length !== 1 || isLockedIn) return
+
+      const currentX = e.touches[0].clientX
+      const diff = currentX - swipeStartX
+      setSwipeOffset(diff)
+
+      // Lock-in threshold: 40% of card width (approximately 120px on mobile)
+      const lockInThreshold = 120
+      const shouldLockIn = Math.abs(diff) > lockInThreshold
+
+      if (shouldLockIn && !isLockedIn) {
+        setIsLockedIn(true)
+        // Auto-complete the swipe
+        if (diff > 0) {
+          // Swipe right - go to previous bench
+          setCurrentBenchIndex((prev) => {
             const newIndex = Math.max(0, prev - 1)
             const bench = sortedBenches[newIndex]
             if (bench) {
-                setSelectedBenchId(bench.id) // Track the selected bench ID
-                setMapCenter([bench.lat, bench.lng])
+              setSelectedBenchId(bench.id)
+              setMapCenter([bench.lat, bench.lng])
             }
             return newIndex
-        })
-    }, [sortedBenches])
-
-    const handleNextBench = useCallback(() => {
-        setCurrentBenchIndex((prev) => {
+          })
+        } else {
+          // Swipe left - go to next bench
+          setCurrentBenchIndex((prev) => {
             const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
             const bench = sortedBenches[newIndex]
             if (bench) {
-                setSelectedBenchId(bench.id) // Track the selected bench ID
-                setMapCenter([bench.lat, bench.lng])
+              setSelectedBenchId(bench.id)
+              setMapCenter([bench.lat, bench.lng])
             }
             return newIndex
-        })
-    }, [sortedBenches])
-
-    // Keyboard navigation for desktop
-    useEffect(() => {
-        const handleKeyPress = (e: KeyboardEvent) => {
-            if (modalOpen) return // Don't handle keyboard when modal is open
-
-            if (e.key === "ArrowLeft") {
-                e.preventDefault()
-                handlePreviousBench()
-            } else if (e.key === "ArrowRight") {
-                e.preventDefault()
-                handleNextBench()
-            } else if (e.key === "Escape" && modalOpen) {
-                setModalOpen(false)
-            }
+          })
         }
+        // Reset after animation
+        setTimeout(() => {
+          setSwipeOffset(0)
+          setSwipeDirection(null)
+          setIsLockedIn(false)
+        }, 300)
+        return
+      }
 
-        window.addEventListener("keydown", handleKeyPress)
-        return () => {
-            window.removeEventListener("keydown", handleKeyPress)
+      // Show swipe indicator
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+          setSwipeDirection("left") // Swiping right shows left arrow (go to previous)
+        } else {
+          setSwipeDirection("right") // Swiping left shows right arrow (go to next)
         }
-    }, [handlePreviousBench, handleNextBench, modalOpen])
-
-    // Mouse drag handling for desktop
-    const handleCardMouseDown = useCallback((e: React.MouseEvent) => {
-        if (e.button !== 0) return // Only handle left mouse button
-        setIsDragging(true)
-        dragStartXRef.current = e.clientX
-        dragOffsetRef.current = 0
-    }, [])
-
-    const handleCardMouseMove = useCallback(
-        (e: React.MouseEvent) => {
-            if (!isDragging || dragStartXRef.current === null || isLockedIn) return
-
-            const diff = e.clientX - dragStartXRef.current
-            dragOffsetRef.current = diff
-            setSwipeOffset(diff)
-
-            // Lock-in threshold: 40% of card width
-            const lockInThreshold = 120
-            const shouldLockIn = Math.abs(diff) > lockInThreshold
-
-            if (shouldLockIn && !isLockedIn) {
-                setIsLockedIn(true)
-                // Auto-complete the swipe
-                if (diff > 0) {
-                    handlePreviousBench()
-                } else {
-                    handleNextBench()
-                }
-                // Reset after animation
-                setTimeout(() => {
-                    setSwipeOffset(0)
-                    setSwipeDirection(null)
-                    setIsLockedIn(false)
-                }, 300)
-                return
-            }
-
-            // Show swipe indicator
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) {
-                    setSwipeDirection("left") // Dragging right shows left arrow
-                } else {
-                    setSwipeDirection("right") // Dragging left shows right arrow
-                }
-            } else {
-                setSwipeDirection(null)
-            }
-        },
-        [isDragging, isLockedIn, handlePreviousBench, handleNextBench]
-    )
-
-    const handleCardMouseUp = useCallback(() => {
-        if (!isDragging || isLockedIn) {
-            if (isLockedIn) {
-                setIsDragging(false)
-                dragStartXRef.current = null
-            }
-            return
-        }
-
-        const threshold = 100
-        const didDrag = Math.abs(dragOffsetRef.current) > threshold
-
-        if (didDrag) {
-            if (dragOffsetRef.current > 0) {
-                handlePreviousBench()
-            } else {
-                handleNextBench()
-            }
-            // Mark that we just dragged to prevent accidental click
-            setWasDragging(true)
-        }
-
-        setIsDragging(false)
-        dragStartXRef.current = null
-        dragOffsetRef.current = 0
-        setSwipeOffset(0)
+      } else {
         setSwipeDirection(null)
-    }, [isDragging, isLockedIn, handlePreviousBench, handleNextBench])
+      }
+    },
+    [swipeStartX, isLockedIn, sortedBenches]
+  )
 
-    // Global mouse move/up handlers for drag
-    useEffect(() => {
-        if (!isDragging) return
-
-        const handleGlobalMouseMove = (e: MouseEvent) => {
-            if (dragStartXRef.current === null || isLockedIn) return
-            const diff = e.clientX - dragStartXRef.current
-            dragOffsetRef.current = diff
-            setSwipeOffset(diff)
-
-            // Lock-in threshold: 40% of card width
-            const lockInThreshold = 120
-            const shouldLockIn = Math.abs(diff) > lockInThreshold
-
-            if (shouldLockIn && !isLockedIn) {
-                setIsLockedIn(true)
-                // Auto-complete the swipe
-                if (diff > 0) {
-                    handlePreviousBench()
-                } else {
-                    handleNextBench()
-                }
-                // Reset after animation
-                setTimeout(() => {
-                    setSwipeOffset(0)
-                    setSwipeDirection(null)
-                    setIsLockedIn(false)
-                }, 300)
-                return
-            }
-
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) {
-                    setSwipeDirection("left")
-                } else {
-                    setSwipeDirection("right")
-                }
-            } else {
-                setSwipeDirection(null)
-            }
-        }
-
-        const handleGlobalMouseUp = () => {
-            if (!isDragging || isLockedIn) {
-                if (isLockedIn) {
-                    setIsDragging(false)
-                    dragStartXRef.current = null
-                }
-                return
-            }
-
-            const threshold = 100
-            const didDrag = Math.abs(dragOffsetRef.current) > threshold
-
-            if (didDrag) {
-                if (dragOffsetRef.current > 0) {
-                    handlePreviousBench()
-                } else {
-                    handleNextBench()
-                }
-                // Mark that we just dragged to prevent accidental click
-                setWasDragging(true)
-            }
-
-            setIsDragging(false)
-            dragStartXRef.current = null
-            dragOffsetRef.current = 0
-            setSwipeOffset(0)
-            setSwipeDirection(null)
-        }
-
-        window.addEventListener("mousemove", handleGlobalMouseMove)
-        window.addEventListener("mouseup", handleGlobalMouseUp)
-
-        return () => {
-            window.removeEventListener("mousemove", handleGlobalMouseMove)
-            window.removeEventListener("mouseup", handleGlobalMouseUp)
-        }
-    }, [isDragging, isLockedIn, handlePreviousBench, handleNextBench])
-
-    // Check if location is already available, but don't request on mount
-    // (iOS Safari requires user gesture to trigger permission prompt)
-    useEffect(() => {
-        if (!("geolocation" in navigator)) {
-            setLocationPermissionDenied(true)
-            setLoadingLocation(false)
-            return
-        }
-
-        // Don't automatically request - wait for user to click the button
-        // This is required for iOS Safari which only shows permission prompt on user gesture
-        setLoadingLocation(false)
-        setLocationPermissionDenied(true)
-    }, [])
-
-    // Load benches when location is available
-    useEffect(() => {
-        if (
-            userLocation &&
-            state.config &&
-            sortedBenches.length === 0 &&
-            !state.loading
-        ) {
-            loadMoreBenches(false, {
-                startLat: userLocation.lat,
-                startLng: userLocation.lng,
-                sortBy: "distance",
-            })
-        }
-    }, [
-        userLocation,
-        state.config,
-        state.loading,
-        loadMoreBenches,
-        sortedBenches.length,
-    ])
-
-    // Swipe gesture handling for bench card
-    const handleCardTouchStart = useCallback((e: React.TouchEvent) => {
-        if (e.touches.length === 1) {
-            setSwipeStartX(e.touches[0].clientX)
-            setSwipeOffset(0)
-        }
-    }, [])
-
-    const handleCardTouchMove = useCallback(
-        (e: React.TouchEvent) => {
-            if (swipeStartX === null || e.touches.length !== 1 || isLockedIn) return
-
-            const currentX = e.touches[0].clientX
-            const diff = currentX - swipeStartX
-            setSwipeOffset(diff)
-
-            // Lock-in threshold: 40% of card width (approximately 120px on mobile)
-            const lockInThreshold = 120
-            const shouldLockIn = Math.abs(diff) > lockInThreshold
-
-            if (shouldLockIn && !isLockedIn) {
-                setIsLockedIn(true)
-                // Auto-complete the swipe
-                if (diff > 0) {
-                    // Swipe right - go to previous bench
-                    setCurrentBenchIndex((prev) => {
-                        const newIndex = Math.max(0, prev - 1)
-                        const bench = sortedBenches[newIndex]
-                        if (bench) {
-                            setSelectedBenchId(bench.id)
-                            setMapCenter([bench.lat, bench.lng])
-                        }
-                        return newIndex
-                    })
-                } else {
-                    // Swipe left - go to next bench
-                    setCurrentBenchIndex((prev) => {
-                        const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
-                        const bench = sortedBenches[newIndex]
-                        if (bench) {
-                            setSelectedBenchId(bench.id)
-                            setMapCenter([bench.lat, bench.lng])
-                        }
-                        return newIndex
-                    })
-                }
-                // Reset after animation
-                setTimeout(() => {
-                    setSwipeOffset(0)
-                    setSwipeDirection(null)
-                    setIsLockedIn(false)
-                }, 300)
-                return
-            }
-
-            // Show swipe indicator
-            if (Math.abs(diff) > 50) {
-                if (diff > 0) {
-                    setSwipeDirection("left") // Swiping right shows left arrow (go to previous)
-                } else {
-                    setSwipeDirection("right") // Swiping left shows right arrow (go to next)
-                }
-            } else {
-                setSwipeDirection(null)
-            }
-        },
-        [swipeStartX, isLockedIn, sortedBenches]
-    )
-
-    const handleCardTouchEnd = useCallback(() => {
-        if (swipeStartX === null || isLockedIn) {
-            // If locked in, the transition is already handled in touchMove
-            if (isLockedIn) {
-                setSwipeStartX(null)
-                return
-            }
-            return
-        }
-
-        const threshold = 100 // Minimum swipe distance to trigger navigation
-
-        if (Math.abs(swipeOffset) > threshold) {
-            if (swipeOffset > 0) {
-                // Swipe right - go to previous bench
-                setCurrentBenchIndex((prev) => {
-                    const newIndex = Math.max(0, prev - 1)
-                    const bench = sortedBenches[newIndex]
-                    if (bench) {
-                        setSelectedBenchId(bench.id) // Track the selected bench ID
-                        setMapCenter([bench.lat, bench.lng])
-                    }
-                    return newIndex
-                })
-            } else {
-                // Swipe left - go to next bench
-                setCurrentBenchIndex((prev) => {
-                    const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
-                    const bench = sortedBenches[newIndex]
-                    if (bench) {
-                        setSelectedBenchId(bench.id) // Track the selected bench ID
-                        setMapCenter([bench.lat, bench.lng])
-                    }
-                    return newIndex
-                })
-            }
-        }
-
+  const handleCardTouchEnd = useCallback(() => {
+    if (swipeStartX === null || isLockedIn) {
+      // If locked in, the transition is already handled in touchMove
+      if (isLockedIn) {
         setSwipeStartX(null)
-        setSwipeOffset(0)
-        setSwipeDirection(null)
-    }, [swipeStartX, swipeOffset, sortedBenches, isLockedIn])
+        return
+      }
+      return
+    }
 
-    const handleRequestLocation = useCallback(async () => {
-        setLoadingLocation(true)
-        setLocationPermissionDenied(false)
+    const threshold = 100 // Minimum swipe distance to trigger navigation
 
-        try {
-            // This must be called from a user gesture (button click) to work on iOS
-            console.log("Requesting location permission...")
-            const location = await getCurrentLocation()
-            console.log("Location obtained:", location)
-            setUserLocationState({ lat: location.lat, lng: location.lng })
-            setUserLocation(location.lat, location.lng)
-            setLoadingLocation(false)
-            setLocationPermissionDenied(false)
-        } catch (error) {
-            console.error("Location request failed:", error)
-            setLocationPermissionDenied(true)
-            setLoadingLocation(false)
+    if (Math.abs(swipeOffset) > threshold) {
+      if (swipeOffset > 0) {
+        // Swipe right - go to previous bench
+        setCurrentBenchIndex((prev) => {
+          const newIndex = Math.max(0, prev - 1)
+          const bench = sortedBenches[newIndex]
+          if (bench) {
+            setSelectedBenchId(bench.id) // Track the selected bench ID
+            setMapCenter([bench.lat, bench.lng])
+          }
+          return newIndex
+        })
+      } else {
+        // Swipe left - go to next bench
+        setCurrentBenchIndex((prev) => {
+          const newIndex = Math.min(sortedBenches.length - 1, prev + 1)
+          const bench = sortedBenches[newIndex]
+          if (bench) {
+            setSelectedBenchId(bench.id) // Track the selected bench ID
+            setMapCenter([bench.lat, bench.lng])
+          }
+          return newIndex
+        })
+      }
+    }
 
-            // Log the specific error for debugging
-            if (error instanceof Error) {
-                console.error("Error message:", error.message)
-                console.error("Error code:", (error as any).code)
-            }
-        }
-    }, [setUserLocation])
+    setSwipeStartX(null)
+    setSwipeOffset(0)
+    setSwipeDirection(null)
+  }, [swipeStartX, swipeOffset, sortedBenches, isLockedIn])
 
-    // Handle recenter button click
-    const handleRecenter = useCallback(() => {
-        if (userLocation) {
-            setMapCenter([userLocation.lat, userLocation.lng])
-        }
-    }, [userLocation])
+  const handleRequestLocation = useCallback(async () => {
+    setLoadingLocation(true)
+    setLocationPermissionDenied(false)
 
-    // Initial map center based on user location or default
-    const initialMapCenter: [number, number] = userLocation
-        ? [userLocation.lat, userLocation.lng]
-        : [52.3613577, 4.8666322] // Default to Amsterdam
+    try {
+      // This must be called from a user gesture (button click) to work on iOS
+      console.log("Requesting location permission...")
+      const location = await getCurrentLocation()
+      console.log("Location obtained:", location)
+      setUserLocationState({ lat: location.lat, lng: location.lng })
+      setUserLocation(location.lat, location.lng)
+      setLoadingLocation(false)
+      setLocationPermissionDenied(false)
+    } catch (error) {
+      console.error("Location request failed:", error)
+      setLocationPermissionDenied(true)
+      setLoadingLocation(false)
 
-    // Reset mapCenter after it's been used to prevent re-centering
-    useEffect(() => {
-        if (mapCenter) {
-            // Reset after a short delay to allow the center update to complete
-            const timer = setTimeout(() => {
-                setMapCenter(null)
-            }, 600) // Slightly longer than the animation duration
-            return () => clearTimeout(timer)
-        }
-    }, [mapCenter])
+      // Log the specific error for debugging
+      if (error instanceof Error) {
+        console.error("Error message:", error.message)
+        console.error("Error code:", (error as any).code)
+      }
+    }
+  }, [setUserLocation])
 
-    const showLoading =
-        loadingLocation ||
-        (userLocation && sortedBenches.length === 0 && state.loading)
+  // Handle recenter button click
+  const handleRecenter = useCallback(() => {
+    if (userLocation) {
+      setMapCenter([userLocation.lat, userLocation.lng])
+    }
+  }, [userLocation])
 
-    return (
-        <PageContainer>
-            <MobileAuthHeader />
-            {showLoading && (
-                <LoadingOverlay>
-                    <LoadingSpinner />
-                    <LoadingText>
-                        {loadingLocation
-                            ? "Requesting location permission..."
-                            : "Finding nearby benches..."}
-                    </LoadingText>
-                </LoadingOverlay>
-            )}
+  // Initial map center based on user location or default
+  const initialMapCenter: [number, number] = userLocation
+    ? [userLocation.lat, userLocation.lng]
+    : [52.3613577, 4.8666322] // Default to Amsterdam
 
-            {locationPermissionDenied && !userLocation && (
-                <LoadingOverlay>
-                    <LocationPrompt>
-                        <LocationPromptTitle>📍 Location Required</LocationPromptTitle>
-                        <LocationPromptText>
-                            We need your location to show you the nearest benches.
-                            {loadingLocation
-                                ? "\n\nRequesting location permission..."
-                                : "\n\nClick the button below to allow location access. If you previously denied permission, you may need to enable it in Safari Settings > Privacy & Security > Location Services."}
-                        </LocationPromptText>
-                        <LocationPromptButton
-                            onClick={handleRequestLocation}
-                            disabled={loadingLocation}
-                        >
-                            {loadingLocation
-                                ? "Requesting..."
-                                : "Allow Location Access"}
-                        </LocationPromptButton>
-                    </LocationPrompt>
-                </LoadingOverlay>
-            )}
+  // Reset mapCenter after it's been used to prevent re-centering
+  useEffect(() => {
+    if (mapCenter) {
+      // Reset after a short delay to allow the center update to complete
+      const timer = setTimeout(() => {
+        setMapCenter(null)
+      }, 600) // Slightly longer than the animation duration
+      return () => clearTimeout(timer)
+    }
+  }, [mapCenter])
 
-            {userLocation && (
-                <>
-                    <RecenterButton
-                        onClick={handleRecenter}
-                        aria-label="Recenter map on your location"
-                        title="Recenter map on your location"
-                    >
-                        📍
-                    </RecenterButton>
-                    <MapContainer
-                        center={initialMapCenter}
-                        zoom={16}
-                        style={{ height: "100%", width: "100%" }}
-                        zoomControl={true}
-                        scrollWheelZoom={true}
-                    >
-                        <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                            maxZoom={19}
-                        />
+  const showLoading =
+    loadingLocation ||
+    (userLocation && sortedBenches.length === 0 && state.loading)
 
-                        <MapCenterUpdater center={mapCenter} zoom={16} />
+  return (
+    <PageContainer>
+      <MobileAuthHeader />
+      {showLoading && (
+        <LoadingOverlay>
+          <LoadingSpinner />
+          <LoadingText>
+            {loadingLocation
+              ? "Requesting location permission..."
+              : "Finding nearby benches..."}
+          </LoadingText>
+        </LoadingOverlay>
+      )}
 
-                    {/* Map pan detector for loading benches in chunks */}
-                    <MapPanDetector
-                        onBoundsChange={handleBoundsChange}
-                        userLocation={userLocation}
-                    />
+      {locationPermissionDenied && !userLocation && (
+        <LoadingOverlay>
+          <LocationPrompt>
+            <LocationPromptTitle>📍 Location Required</LocationPromptTitle>
+            <LocationPromptText>
+              We need your location to show you the nearest benches.
+              {loadingLocation
+                ? "\n\nRequesting location permission..."
+                : "\n\nClick the button below to allow location access. If you previously denied permission, you may need to enable it in Safari Settings > Privacy & Security > Location Services."}
+            </LocationPromptText>
+            <LocationPromptButton
+              onClick={handleRequestLocation}
+              disabled={loadingLocation}
+            >
+              {loadingLocation ? "Requesting..." : "Allow Location Access"}
+            </LocationPromptButton>
+          </LocationPrompt>
+        </LoadingOverlay>
+      )}
 
-                    {/* User location marker */}
-                    <Marker
-                        position={[userLocation.lat, userLocation.lng]}
-                        icon={divIcon({
-                            html: `
+      {userLocation && (
+        <>
+          <RecenterButton
+            onClick={handleRecenter}
+            aria-label="Recenter map on your location"
+            title="Recenter map on your location"
+          >
+            📍
+          </RecenterButton>
+          <MapContainer
+            center={initialMapCenter}
+            zoom={16}
+            style={{ height: "100%", width: "100%" }}
+            zoomControl={true}
+            scrollWheelZoom={true}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              maxZoom={19}
+            />
+
+            <MapCenterUpdater center={mapCenter} zoom={16} />
+
+            {/* Map pan detector for loading benches in chunks */}
+            <MapPanDetector
+              onBoundsChange={handleBoundsChange}
+              userLocation={userLocation}
+            />
+
+            {/* User location marker */}
+            <Marker
+              position={[userLocation.lat, userLocation.lng]}
+              icon={divIcon({
+                html: `
                 <div style="
                   width: 32px;
                   height: 32px;
@@ -1237,26 +1241,26 @@ const MobileMapPage: React.FC = () => {
                   font-size: 18px;
                 ">📍</div>
               `,
-                            className: "user-location-marker",
-                            iconSize: [32, 32],
-                            iconAnchor: [16, 16],
-                        })}
-                    />
+                className: "user-location-marker",
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+              })}
+            />
 
-                    {/* Bench markers */}
-                    {sortedBenches.map((bench, index) => {
-                        const isCurrent = index === currentBenchIndex
-                        const size = isCurrent ? 56 : 40
-                        const borderWidth = isCurrent ? 4 : 3
-                        const shadowSize = isCurrent ? "0 4px 12px" : "0 2px 8px"
-                        const bgColor = isCurrent ? "#059669" : "#10b981"
+            {/* Bench markers */}
+            {sortedBenches.map((bench, index) => {
+              const isCurrent = index === currentBenchIndex
+              const size = isCurrent ? 56 : 40
+              const borderWidth = isCurrent ? 4 : 3
+              const shadowSize = isCurrent ? "0 4px 12px" : "0 2px 8px"
+              const bgColor = isCurrent ? "#059669" : "#10b981"
 
-                        return (
-                            <Marker
-                                key={bench.id}
-                                position={[bench.lat, bench.lng]}
-                                icon={divIcon({
-                                    html: `
+              return (
+                <Marker
+                  key={bench.id}
+                  position={[bench.lat, bench.lng]}
+                  icon={divIcon({
+                    html: `
                     <div style="
                       width: ${size}px;
                       height: ${size}px;
@@ -1273,246 +1277,246 @@ const MobileMapPage: React.FC = () => {
                       cursor: pointer;
                     ">🪑</div>
                   `,
-                                    className: `bench-marker ${isCurrent ? "current" : ""}`,
-                                    iconSize: [size, size],
-                                    iconAnchor: [size / 2, size / 2],
-                                })}
-                                zIndexOffset={isCurrent ? 1000 : 0}
-                                eventHandlers={{
-                                    click: () => {
-                                        handleBenchMarkerClick(bench.id)
-                                    },
-                                }}
-                            />
-                        )
-                    })}
-                    </MapContainer>
-                </>
-            )}
-
-            {/* Swipe indicators */}
-            <SwipeIndicator $direction={swipeDirection}>
-                {swipeDirection === "left" && "←"}
-                {swipeDirection === "right" && "→"}
-            </SwipeIndicator>
-
-            {/* Navigation controls for desktop */}
-            {currentBench && sortedBenches.length > 1 && (
-                <NavigationControls>
-                    <NavButton
-                        $disabled={currentBenchIndex === 0}
-                        onClick={handlePreviousBench}
-                        disabled={currentBenchIndex === 0}
-                        aria-label="Previous bench"
-                    >
-                        ←
-                    </NavButton>
-                    <NavButton
-                        $disabled={currentBenchIndex === sortedBenches.length - 1}
-                        onClick={handleNextBench}
-                        disabled={currentBenchIndex === sortedBenches.length - 1}
-                        aria-label="Next bench"
-                    >
-                        →
-                    </NavButton>
-                </NavigationControls>
-            )}
-
-            {/* Bench info card stack */}
-            {currentBench && userLocation && (
-                <CardStackContainer>
-                    {/* Next card (behind current) */}
-                    {nextBench && (
-                        <BenchCard
-                            $isNext={true}
-                            $swiping={swipeStartX !== null || isDragging}
-                            $swipeOffset={swipeOffset}
-                            $opacity={0.85}
-                        >
-                            {nextImageUrl ? (
-                                <BenchImageContainer>
-                                    <BenchImage
-                                        src={nextImageUrl}
-                                        alt={`Bench ${nextBench.id}`}
-                                        loading="lazy"
-                                    />
-                                </BenchImageContainer>
-                            ) : (
-                                <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
-                            )}
-                            <BenchCardContent>
-                                <BenchCardHeader>
-                                    <BenchTitle>Bench #{nextBench.id}</BenchTitle>
-                                    <BenchDistance>
-                                        {nextBench.distance_km < 1
-                                            ? `${nextBench.distance_meters}m`
-                                            : `${nextBench.distance_km}km`}
-                                    </BenchDistance>
-                                </BenchCardHeader>
-                                {nextBench.reverse_geocode?.formatted_address && (
-                                    <BenchAddress>
-                                        {nextBench.reverse_geocode.formatted_address}
-                                    </BenchAddress>
-                                )}
-                            </BenchCardContent>
-                        </BenchCard>
-                    )}
-
-                    {/* Previous card (when swiping right) */}
-                    {previousBench && swipeOffset > 0 && (
-                        <BenchCard
-                            $isPrevious={true}
-                            $swiping={swipeStartX !== null || isDragging}
-                            $swipeOffset={swipeOffset}
-                            $opacity={0.85}
-                        >
-                            {previousImageUrl ? (
-                                <BenchImageContainer>
-                                    <BenchImage
-                                        src={previousImageUrl}
-                                        alt={`Bench ${previousBench.id}`}
-                                        loading="lazy"
-                                    />
-                                </BenchImageContainer>
-                            ) : (
-                                <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
-                            )}
-                            <BenchCardContent>
-                                <BenchCardHeader>
-                                    <BenchTitle>Bench #{previousBench.id}</BenchTitle>
-                                    <BenchDistance>
-                                        {previousBench.distance_km < 1
-                                            ? `${previousBench.distance_meters}m`
-                                            : `${previousBench.distance_km}km`}
-                                    </BenchDistance>
-                                </BenchCardHeader>
-                                {previousBench.reverse_geocode?.formatted_address && (
-                                    <BenchAddress>
-                                        {previousBench.reverse_geocode.formatted_address}
-                                    </BenchAddress>
-                                )}
-                            </BenchCardContent>
-                        </BenchCard>
-                    )}
-
-                    {/* Current card (on top) */}
-                    <BenchCard
-                        $swiping={swipeStartX !== null || isDragging}
-                        $swipeOffset={swipeOffset}
-                        onTouchStart={handleCardTouchStart}
-                        onTouchMove={handleCardTouchMove}
-                        onTouchEnd={handleCardTouchEnd}
-                        onMouseDown={handleCardMouseDown}
-                        onMouseMove={handleCardMouseMove}
-                        onMouseUp={handleCardMouseUp}
-                        onClick={() => {
-                            // Only open modal if we didn't just drag
-                            if (!isDragging && !wasDragging && Math.abs(swipeOffset) < 10) {
-                                handleCardClick()
-                            }
-                            // Reset wasDragging after a short delay
-                            if (wasDragging) {
-                                setTimeout(() => setWasDragging(false), 100)
-                            }
-                        }}
-                        style={{ cursor: "pointer" }}
-                    >
-                        {/* Bench image */}
-                        {currentImageUrl ? (
-                            <BenchImageContainer>
-                                <BenchImage
-                                    ref={imageRef}
-                                    src={currentImageUrl}
-                                    alt={`Bench ${currentBench.id}`}
-                                    loading="lazy"
-                                    $objectPosition={objectPosition}
-                                />
-                                {currentBench.best_bbox &&
-                                    imageLoaded &&
-                                    imageDimensions &&
-                                    imageDimensions.width > 0 &&
-                                    imageDimensions.height > 0 && (
-                                        <BoundingBoxOverlay
-                                            $x={currentBench.best_bbox.x1}
-                                            $y={currentBench.best_bbox.y1}
-                                            $width={
-                                                currentBench.best_bbox.x2 - currentBench.best_bbox.x1
-                                            }
-                                            $height={
-                                                currentBench.best_bbox.y2 - currentBench.best_bbox.y1
-                                            }
-                                            $imageWidth={imageDimensions.width}
-                                            $imageHeight={imageDimensions.height}
-                                        />
-                                    )}
-                            </BenchImageContainer>
-                        ) : (
-                            <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
-                        )}
-
-                        <BenchCardContent>
-                            <BenchCardHeader>
-                                <BenchTitle>Bench #{currentBench.id}</BenchTitle>
-                                <BenchDistance>
-                                    {currentBench.distance_km < 1
-                                        ? `${currentBench.distance_meters}m`
-                                        : `${currentBench.distance_km}km`}
-                                </BenchDistance>
-                            </BenchCardHeader>
-                            {currentBench.reverse_geocode?.formatted_address && (
-                                <BenchAddress>
-                                    {currentBench.reverse_geocode.formatted_address}
-                                </BenchAddress>
-                            )}
-                            <BenchAddress
-                                style={{ marginTop: "8px", fontSize: "0.75rem", opacity: 0.7 }}
-                            >
-                                {currentBenchIndex + 1} of {sortedBenches.length} • Swipe to
-                                navigate
-                            </BenchAddress>
-                        </BenchCardContent>
-                    </BenchCard>
-                </CardStackContainer>
-            )}
-
-            {/* Modal for bench details */}
-            {modalOpen && currentBench && (
-                <Modal
-                    isOpen={modalOpen}
-                    onClose={() => setModalOpen(false)}
-                    bench={currentBench}
-                    imageUrl={selectedImageUrl}
-                    imageId={selectedImageId}
-                    allBenches={sortedBenches}
-                    currentIndex={currentBenchIndex}
-                    onNavigate={(direction: "prev" | "next") => {
-                        // Update to the next/prev bench
-                        const newIndex =
-                            direction === "prev"
-                                ? Math.max(0, currentBenchIndex - 1)
-                                : Math.min(sortedBenches.length - 1, currentBenchIndex + 1)
-                        const newBench = sortedBenches[newIndex]
-                        if (newBench && newIndex !== currentBenchIndex) {
-                            setCurrentBenchIndex(newIndex)
-                            setSelectedBenchId(newBench.id) // Track the selected bench ID
-                            // Center map on the new bench
-                            setMapCenter([newBench.lat, newBench.lng])
-                            // Update selected image for new bench
-                            const imageUrl =
-                                newBench.image_urls?.[0] ??
-                                (newBench.image_filenames?.[0]
-                                    ? `/images/${newBench.image_filenames[0]}`
-                                    : null)
-                            const imageId = newBench.image_ids?.[0] || null
-                            setSelectedImageUrl(imageUrl)
-                            setSelectedImageId(imageId)
-                        }
-                    }}
-                    onImageSelect={handleImageSelect}
+                    className: `bench-marker ${isCurrent ? "current" : ""}`,
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2],
+                  })}
+                  zIndexOffset={isCurrent ? 1000 : 0}
+                  eventHandlers={{
+                    click: () => {
+                      handleBenchMarkerClick(bench.id)
+                    },
+                  }}
                 />
+              )
+            })}
+          </MapContainer>
+        </>
+      )}
+
+      {/* Swipe indicators */}
+      <SwipeIndicator $direction={swipeDirection}>
+        {swipeDirection === "left" && "←"}
+        {swipeDirection === "right" && "→"}
+      </SwipeIndicator>
+
+      {/* Navigation controls for desktop */}
+      {currentBench && sortedBenches.length > 1 && (
+        <NavigationControls>
+          <NavButton
+            $disabled={currentBenchIndex === 0}
+            onClick={handlePreviousBench}
+            disabled={currentBenchIndex === 0}
+            aria-label="Previous bench"
+          >
+            ←
+          </NavButton>
+          <NavButton
+            $disabled={currentBenchIndex === sortedBenches.length - 1}
+            onClick={handleNextBench}
+            disabled={currentBenchIndex === sortedBenches.length - 1}
+            aria-label="Next bench"
+          >
+            →
+          </NavButton>
+        </NavigationControls>
+      )}
+
+      {/* Bench info card stack */}
+      {currentBench && userLocation && (
+        <CardStackContainer>
+          {/* Next card (behind current) */}
+          {nextBench && (
+            <BenchCard
+              $isNext={true}
+              $swiping={swipeStartX !== null || isDragging}
+              $swipeOffset={swipeOffset}
+              $opacity={0.85}
+            >
+              {nextImageUrl ? (
+                <BenchImageContainer>
+                  <BenchImage
+                    src={nextImageUrl}
+                    alt={`Bench ${nextBench.id}`}
+                    loading="lazy"
+                  />
+                </BenchImageContainer>
+              ) : (
+                <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
+              )}
+              <BenchCardContent>
+                <BenchCardHeader>
+                  <BenchTitle>Bench #{nextBench.id}</BenchTitle>
+                  <BenchDistance>
+                    {nextBench.distance_km < 1
+                      ? `${nextBench.distance_meters}m`
+                      : `${nextBench.distance_km}km`}
+                  </BenchDistance>
+                </BenchCardHeader>
+                {nextBench.reverse_geocode?.formatted_address && (
+                  <BenchAddress>
+                    {nextBench.reverse_geocode.formatted_address}
+                  </BenchAddress>
+                )}
+              </BenchCardContent>
+            </BenchCard>
+          )}
+
+          {/* Previous card (when swiping right) */}
+          {previousBench && swipeOffset > 0 && (
+            <BenchCard
+              $isPrevious={true}
+              $swiping={swipeStartX !== null || isDragging}
+              $swipeOffset={swipeOffset}
+              $opacity={0.85}
+            >
+              {previousImageUrl ? (
+                <BenchImageContainer>
+                  <BenchImage
+                    src={previousImageUrl}
+                    alt={`Bench ${previousBench.id}`}
+                    loading="lazy"
+                  />
+                </BenchImageContainer>
+              ) : (
+                <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
+              )}
+              <BenchCardContent>
+                <BenchCardHeader>
+                  <BenchTitle>Bench #{previousBench.id}</BenchTitle>
+                  <BenchDistance>
+                    {previousBench.distance_km < 1
+                      ? `${previousBench.distance_meters}m`
+                      : `${previousBench.distance_km}km`}
+                  </BenchDistance>
+                </BenchCardHeader>
+                {previousBench.reverse_geocode?.formatted_address && (
+                  <BenchAddress>
+                    {previousBench.reverse_geocode.formatted_address}
+                  </BenchAddress>
+                )}
+              </BenchCardContent>
+            </BenchCard>
+          )}
+
+          {/* Current card (on top) */}
+          <BenchCard
+            $swiping={swipeStartX !== null || isDragging}
+            $swipeOffset={swipeOffset}
+            onTouchStart={handleCardTouchStart}
+            onTouchMove={handleCardTouchMove}
+            onTouchEnd={handleCardTouchEnd}
+            onMouseDown={handleCardMouseDown}
+            onMouseMove={handleCardMouseMove}
+            onMouseUp={handleCardMouseUp}
+            onClick={() => {
+              // Only open modal if we didn't just drag
+              if (!isDragging && !wasDragging && Math.abs(swipeOffset) < 10) {
+                handleCardClick()
+              }
+              // Reset wasDragging after a short delay
+              if (wasDragging) {
+                setTimeout(() => setWasDragging(false), 100)
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            {/* Bench image */}
+            {currentImageUrl ? (
+              <BenchImageContainer>
+                <BenchImage
+                  ref={imageRef}
+                  src={currentImageUrl}
+                  alt={`Bench ${currentBench.id}`}
+                  loading="lazy"
+                  $objectPosition={objectPosition}
+                />
+                {currentBench.best_bbox &&
+                  imageLoaded &&
+                  imageDimensions &&
+                  imageDimensions.width > 0 &&
+                  imageDimensions.height > 0 && (
+                    <BoundingBoxOverlay
+                      $x={currentBench.best_bbox.x1}
+                      $y={currentBench.best_bbox.y1}
+                      $width={
+                        currentBench.best_bbox.x2 - currentBench.best_bbox.x1
+                      }
+                      $height={
+                        currentBench.best_bbox.y2 - currentBench.best_bbox.y1
+                      }
+                      $imageWidth={imageDimensions.width}
+                      $imageHeight={imageDimensions.height}
+                    />
+                  )}
+              </BenchImageContainer>
+            ) : (
+              <BenchImagePlaceholder>🪑</BenchImagePlaceholder>
             )}
-        </PageContainer>
-    )
+
+            <BenchCardContent>
+              <BenchCardHeader>
+                <BenchTitle>Bench #{currentBench.id}</BenchTitle>
+                <BenchDistance>
+                  {currentBench.distance_km < 1
+                    ? `${currentBench.distance_meters}m`
+                    : `${currentBench.distance_km}km`}
+                </BenchDistance>
+              </BenchCardHeader>
+              {currentBench.reverse_geocode?.formatted_address && (
+                <BenchAddress>
+                  {currentBench.reverse_geocode.formatted_address}
+                </BenchAddress>
+              )}
+              <BenchAddress
+                style={{ marginTop: "8px", fontSize: "0.75rem", opacity: 0.7 }}
+              >
+                {currentBenchIndex + 1} of {sortedBenches.length} • Swipe to
+                navigate
+              </BenchAddress>
+            </BenchCardContent>
+          </BenchCard>
+        </CardStackContainer>
+      )}
+
+      {/* Modal for bench details */}
+      {modalOpen && currentBench && (
+        <Modal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          bench={currentBench}
+          imageUrl={selectedImageUrl}
+          imageId={selectedImageId}
+          allBenches={sortedBenches}
+          currentIndex={currentBenchIndex}
+          onNavigate={(direction: "prev" | "next") => {
+            // Update to the next/prev bench
+            const newIndex =
+              direction === "prev"
+                ? Math.max(0, currentBenchIndex - 1)
+                : Math.min(sortedBenches.length - 1, currentBenchIndex + 1)
+            const newBench = sortedBenches[newIndex]
+            if (newBench && newIndex !== currentBenchIndex) {
+              setCurrentBenchIndex(newIndex)
+              setSelectedBenchId(newBench.id) // Track the selected bench ID
+              // Center map on the new bench
+              setMapCenter([newBench.lat, newBench.lng])
+              // Update selected image for new bench
+              const imageUrl =
+                newBench.image_urls?.[0] ??
+                (newBench.image_filenames?.[0]
+                  ? `/images/${newBench.image_filenames[0]}`
+                  : null)
+              const imageId = newBench.image_ids?.[0] || null
+              setSelectedImageUrl(imageUrl)
+              setSelectedImageId(imageId)
+            }
+          }}
+          onImageSelect={handleImageSelect}
+        />
+      )}
+    </PageContainer>
+  )
 }
 
 export default MobileMapPage
