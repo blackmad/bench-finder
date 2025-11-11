@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 
 # Any import removed - not used
 import uvicorn
-from fastapi import Body, FastAPI, HTTPException, Path, Query, Request, status
+from fastapi import Body, Depends, FastAPI, HTTPException, Path, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -72,7 +72,7 @@ from .api_models import (
     StructuredAddress,
     WebBenchData,
 )
-from .auth import get_user_from_header
+from .auth import get_current_user, get_current_user_optional
 
 
 logger = logging.getLogger(__name__)
@@ -3134,16 +3134,9 @@ async def rate_bench(
     request: Request,
     bench_id: int = Path(..., description="Bench candidate ID"),
     rating_data: RatingRequest = Body(...),
+    user: dict = Depends(get_current_user),
 ) -> RatingResponse:
     """Rate a bench. Updates existing rating if user has already rated this bench."""
-    # Get current user (optional for now - can make required later)
-    user = get_user_from_header(request.headers.get("Authorization"))
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required to rate benches",
-        )
-
     db = request.app.state.db
     user_id = user["user_id"]
 
@@ -3220,15 +3213,9 @@ async def rate_bench(
 async def delete_rating(
     request: Request,
     bench_id: int = Path(..., description="Bench candidate ID"),
+    user: dict = Depends(get_current_user),
 ) -> None:
     """Remove user's rating for a bench."""
-    user = get_user_from_header(request.headers.get("Authorization"))
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-        )
-
     db = request.app.state.db
     user_id = user["user_id"]
 
@@ -3274,14 +3261,9 @@ async def set_bench_status(
     request: Request,
     bench_id: int = Path(..., description="Bench candidate ID"),
     status_data: BenchUserStatusRequest = Body(...),
+    user: dict = Depends(get_current_user),
 ) -> BenchUserStatusResponse:
     """Set a status marker for a bench (been, want_to_go, favorite)."""
-    user = get_user_from_header(request.headers.get("Authorization"))
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-        )
 
     # Validate status
     try:
@@ -3373,14 +3355,9 @@ async def remove_bench_status(
     request: Request,
     bench_id: int = Path(..., description="Bench candidate ID"),
     status_value: str = Path(..., description="Status to remove"),
+    user: dict = Depends(get_current_user),
 ) -> None:
     """Remove a status marker for a bench."""
-    user = get_user_from_header(request.headers.get("Authorization"))
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-        )
 
     # Validate status
     try:
@@ -3439,15 +3416,9 @@ async def add_comment(
     request: Request,
     bench_id: int = Path(..., description="Bench candidate ID"),
     comment_data: CommentRequest = Body(...),
+    user: dict = Depends(get_current_user),
 ) -> CommentResponse:
     """Add a comment to a bench."""
-    user = get_user_from_header(request.headers.get("Authorization"))
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-        )
-
     db = request.app.state.db
     user_id = user["user_id"]
 
@@ -3501,12 +3472,10 @@ async def add_comment(
 async def get_bench_user_data(
     request: Request,
     bench_id: int = Path(..., description="Bench candidate ID"),
+    user: dict | None = Depends(get_current_user_optional),
 ) -> BenchUserDataResponse:
     """Get user-specific data for a bench including ratings, statuses, and comments."""
     db = request.app.state.db
-
-    # Get current user (optional)
-    user = get_user_from_header(request.headers.get("Authorization"))
     user_id = user["user_id"] if user else None
 
     try:
