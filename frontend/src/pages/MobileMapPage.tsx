@@ -124,7 +124,7 @@ const BenchCard = styled.div<{
   $isPrevious?: boolean
   $opacity?: number
 }>`
-  position: ${({ $isNext, $isPrevious }) => (($isNext || $isPrevious) ? "absolute" : "relative")};
+  position: ${({ $isNext, $isPrevious }) => ($isNext || $isPrevious ? "absolute" : "relative")};
   bottom: 0;
   left: 0;
   right: 0;
@@ -173,7 +173,7 @@ const BenchCard = styled.div<{
   opacity: ${({ $opacity = 1 }) => $opacity};
   display: flex;
   flex-direction: column;
-  pointer-events: ${({ $isNext, $isPrevious }) => (($isNext || $isPrevious) ? "none" : "auto")};
+  pointer-events: ${({ $isNext, $isPrevious }) => ($isNext || $isPrevious ? "none" : "auto")};
 `
 
 const BenchImageContainer = styled.div`

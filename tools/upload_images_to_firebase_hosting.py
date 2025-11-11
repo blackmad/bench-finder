@@ -290,7 +290,7 @@ def upload_images_to_firebase_hosting(
                     logger.debug(f"stderr: {e.stderr}")
                 raise
             except FileNotFoundError:
-                logger.error(
+                logger.exception(
                     "Firebase CLI not found. Please install it: "
                     "npm install -g firebase-tools"
                 )
@@ -406,7 +406,7 @@ def upload_images(
         logger.info(f"Found {len(images_with_candidates)} images to process")
 
         # Upload images to Firebase Hosting
-        image_urls = upload_images_to_firebase_hosting(
+        upload_images_to_firebase_hosting(
             images_with_candidates,
             images_path,
             firebase_project_id,
