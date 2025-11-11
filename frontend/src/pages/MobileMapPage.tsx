@@ -588,7 +588,8 @@ const MobileMapPage: React.FC = () => {
     (benchId: number) => {
       const benchIndex = sortedBenches.findIndex((b) => b.id === benchId)
       if (benchIndex !== -1 && emblaApi) {
-        emblaApi.scrollTo(benchIndex)
+        // Use jump option to disable animation for instant navigation
+        emblaApi.scrollTo(benchIndex, true)
         setSelectedBenchId(benchId) // Track the selected bench ID
         // Don't center map - just open the bench card
       }
