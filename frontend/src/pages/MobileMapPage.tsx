@@ -797,29 +797,20 @@ const MobileMapPage: React.FC = () => {
     }
   }, [isDragging, handlePreviousBench, handleNextBench])
 
-  // Request location permission on mount
+  // Check if location is already available, but don't request on mount
+  // (iOS Safari requires user gesture to trigger permission prompt)
   useEffect(() => {
-    const requestLocation = async () => {
-      if (!("geolocation" in navigator)) {
-        setLocationPermissionDenied(true)
-        setLoadingLocation(false)
-        return
-      }
-
-      try {
-        const location = await getCurrentLocation()
-        setUserLocationState({ lat: location.lat, lng: location.lng })
-        setUserLocation(location.lat, location.lng)
-        setLoadingLocation(false)
-      } catch (error) {
-        console.warn("Location permission denied or failed:", error)
-        setLocationPermissionDenied(true)
-        setLoadingLocation(false)
-      }
+    if (!("geolocation" in navigator)) {
+      setLocationPermissionDenied(true)
+      setLoadingLocation(false)
+      return
     }
 
-    requestLocation()
-  }, [setUserLocation])
+    // Don't automatically request - wait for user to click the button
+    // This is required for iOS Safari which only shows permission prompt on user gesture
+    setLoadingLocation(false)
+    setLocationPermissionDenied(true)
+  }, [])
 
   // Load benches when location is available
   useEffect(() => {
@@ -914,6 +905,7 @@ const MobileMapPage: React.FC = () => {
     setLocationPermissionDenied(false)
 
     try {
+      // This must be called from a user gesture (button click) to work on iOS
       const location = await getCurrentLocation()
       setUserLocationState({ lat: location.lat, lng: location.lng })
       setUserLocation(location.lat, location.lng)
@@ -922,6 +914,11 @@ const MobileMapPage: React.FC = () => {
       console.warn("Location permission denied:", error)
       setLocationPermissionDenied(true)
       setLoadingLocation(false)
+
+      // On iOS, if permission was denied, provide helpful message
+      if (error instanceof Error && error.message.includes("denied")) {
+        // The modal will show with instructions
+      }
     }
   }, [setUserLocation])
 
@@ -964,8 +961,9 @@ const MobileMapPage: React.FC = () => {
           <LocationPrompt>
             <LocationPromptTitle>📍 Location Required</LocationPromptTitle>
             <LocationPromptText>
-              We need your location to show you the nearest benches. Please
-              enable location access in your browser settings.
+              We need your location to show you the nearest benches. Click the
+              button below to allow location access. You'll see a permission
+              prompt from your browser.
             </LocationPromptText>
             <LocationPromptButton onClick={handleRequestLocation}>
               Allow Location Access
