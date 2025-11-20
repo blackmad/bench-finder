@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database migration script to add image_source column to images table.
+Database migration script to add image_source, panorama_lat, panorama_lng, and panorama_metadata columns to images table.
 """
 
 import logging
@@ -28,7 +28,7 @@ logging.basicConfig(
 
 
 def migrate_database():
-    """Migrate existing database to add image_source column to images table."""
+    """Migrate existing database to add image_source, panorama_lat, panorama_lng, and panorama_metadata columns to images table."""
 
     if not os.path.exists(DATABASE_PATH):
         logger.error(f"Database not found at {DATABASE_PATH}")
@@ -67,6 +67,30 @@ def migrate_database():
         else:
             logger.info("✅ 'image_source' column already exists in images table")
 
+        # Add panorama_lat column to images table if it doesn't exist
+        if "panorama_lat" not in image_columns:
+            logger.info("Adding 'panorama_lat' column to images table...")
+            cursor.execute("ALTER TABLE images ADD COLUMN panorama_lat REAL")
+            logger.info("✅ Added 'panorama_lat' column to images table")
+        else:
+            logger.info("✅ 'panorama_lat' column already exists in images table")
+
+        # Add panorama_lng column to images table if it doesn't exist
+        if "panorama_lng" not in image_columns:
+            logger.info("Adding 'panorama_lng' column to images table...")
+            cursor.execute("ALTER TABLE images ADD COLUMN panorama_lng REAL")
+            logger.info("✅ Added 'panorama_lng' column to images table")
+        else:
+            logger.info("✅ 'panorama_lng' column already exists in images table")
+
+        # Add panorama_metadata column to images table if it doesn't exist
+        if "panorama_metadata" not in image_columns:
+            logger.info("Adding 'panorama_metadata' column to images table...")
+            cursor.execute("ALTER TABLE images ADD COLUMN panorama_metadata TEXT")
+            logger.info("✅ Added 'panorama_metadata' column to images table")
+        else:
+            logger.info("✅ 'panorama_metadata' column already exists in images table")
+
         conn.commit()
         logger.info("🎉 Database migration completed successfully!")
 
@@ -75,11 +99,21 @@ def migrate_database():
         image_columns_after = [col[1] for col in cursor.fetchall()]
         logger.info(f"Image columns after migration: {image_columns_after}")
 
-        if "image_source" in image_columns_after:
+        required_columns = [
+            "image_source",
+            "panorama_lat",
+            "panorama_lng",
+            "panorama_metadata",
+        ]
+        missing_columns = [
+            col for col in required_columns if col not in image_columns_after
+        ]
+
+        if not missing_columns:
             logger.info("✅ Migration verification successful!")
         else:
             logger.error(
-                "❌ Migration verification failed - image_source column not found"
+                f"❌ Migration verification failed - missing columns: {missing_columns}"
             )
             return False
 
@@ -101,7 +135,7 @@ def migrate_database():
 
 
 if __name__ == "__main__":
-    print("🗄️  Bench Finder Database Migration - Add image_source Column")
+    print("🗄️  Bench Finder Database Migration - Add Image Columns")
     print("=" * 60)
     print(f"Database: {DATABASE_PATH}")
 
@@ -121,7 +155,11 @@ if __name__ == "__main__":
 
     if success:
         print("\n🎉 Migration completed successfully!")
-        print("The 'image_source' column has been added to the images table.")
+        print("The following columns have been added to the images table:")
+        print("  - image_source")
+        print("  - panorama_lat")
+        print("  - panorama_lng")
+        print("  - panorama_metadata")
     else:
         print("\n❌ Migration failed!")
         sys.exit(1)
