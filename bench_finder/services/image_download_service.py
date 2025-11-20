@@ -26,21 +26,25 @@ logger = logging.getLogger(__name__)
 class ImageDownloadService:
     """Service for downloading and caching images for bench candidates."""
 
-    def __init__(self, cached_only: bool = False):
+    def __init__(self, cached_only: bool = False, force: bool = False):
         """
         Initialize the image download service.
 
         Args:
             cached_only: If True, only process candidates that already have images
                         in the database, skipping any new downloads.
+            force: If True, force re-processing even if candidate already has images
+                   or is in a "done" status.
         """
         self.cached_only = cached_only
+        self.force = force
         self.streetview_client = StreetViewClient()
         self.database = BenchDatabase()
 
         mode_str = "cached-only mode" if cached_only else "download mode"
+        force_str = " (force mode)" if force else ""
         logger.info(
-            f"ImageDownloadService initialized for image downloading and caching ({mode_str})"
+            f"ImageDownloadService initialized for image downloading and caching ({mode_str}{force_str})"
         )
 
     def process_benches(
@@ -355,16 +359,17 @@ class ImageDownloadService:
                 )
 
                 if candidate and candidate.id:
-                    # Only update status if it's not already image_download_done or detection_done
-                    if candidate.status not in [
+                    # Update status - force mode bypasses status checks
+                    if self.force or candidate.status not in [
                         BenchCandidateStatus.IMAGE_DOWNLOAD_DONE,
                         BenchCandidateStatus.DETECTION_DONE,
                     ]:
                         self.database.update_bench_candidate_status(
                             candidate.id, BenchCandidateStatus.IMAGE_DOWNLOAD_DONE
                         )
+                        force_msg = " (forced)" if self.force else ""
                         logger.debug(
-                            f"Updated candidate {candidate.id} status to image_download_done"
+                            f"Updated candidate {candidate.id} status to image_download_done{force_msg}"
                         )
                     else:
                         logger.debug(

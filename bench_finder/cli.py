@@ -613,22 +613,32 @@ def fetch_images(
         "--max-candidates",
         help="Maximum number of candidates to process (for testing)",
     ),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Maximum number of candidates to process (alias for --max-candidates)",
+    ),
     status: str = typer.Option(
         BenchCandidateStatus.PENDING,
         "--status",
-        help="Process candidates with this status (pending, image_download_done, detection_done)",
+        help="Process candidates with this status (pending, image_download_done, detection_done). Ignored if --force is used.",
     ),
     cached_only: bool = typer.Option(
         False,
         "--cached-only",
         help="Only use images that are already cached in the database, skip downloading new images",
     ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Force fetch for all candidates regardless of their current status",
+    ),
 ):
     """
     Download and cache images for bench candidates from the database.
 
     This command processes existing bench candidates by:
-    1. Loading candidates from the bench_candidates table with 'pending' status
+    1. Loading candidates from the bench_candidates table with the specified status (or all if --force)
     2. Converting them to Bench records
     3. Capturing Street View images (unless --cached-only is set)
     4. Storing images in the database
@@ -639,7 +649,10 @@ def fetch_images(
     With --cached-only: Only process candidates that already have images in the database,
     skipping any new downloads from Street View API.
 
-    This command ignores search_id and processes all candidates with the specified status.
+    With --force: Process all candidates regardless of their current status, forcing
+    re-fetch even if they already have images or are marked as done.
+
+    This command ignores search_id and processes all candidates with the specified status (or all if --force).
     """
     # Setup logging first
     setup_logging(level=log_level)
@@ -655,41 +668,45 @@ def fetch_images(
                 BenchCandidate as DBBenchCandidate,
             )
 
-            # Parse status string to enum
-            try:
-                status_enum = BenchCandidateStatus(status)
-            except ValueError as err:
-                console.print(
-                    f"[red]Invalid status: {status}. Valid values: pending, image_download_done, detection_done[/red]"
-                )
-                raise typer.Exit(1) from err
+            # Build query - if force is used, ignore status filter
+            query = session.query(DBBenchCandidate)
 
-            # Query all candidates with the specified status (ignoring search_id)
-            query = session.query(DBBenchCandidate).filter(
-                DBBenchCandidate.status == status_enum
-            )
+            if not force:
+                # Parse status string to enum
+                try:
+                    status_enum = BenchCandidateStatus(status)
+                except ValueError as err:
+                    console.print(
+                        f"[red]Invalid status: {status}. Valid values: pending, image_download_done, detection_done[/red]"
+                    )
+                    raise typer.Exit(1) from err
 
-            # Apply max_candidates limit if specified
-            if max_candidates:
-                query = query.limit(max_candidates)
+                # Query all candidates with the specified status (ignoring search_id)
+                query = query.filter(DBBenchCandidate.status == status_enum)
+
+            # Apply limit: use --limit if provided, otherwise use --max-candidates
+            limit_value = limit if limit is not None else max_candidates
+            if limit_value:
+                query = query.limit(limit_value)
 
             candidates = query.all()
 
         if not candidates:
-            console.print(
-                f"[yellow]No candidates found with status '{status}'[/yellow]"
-            )
+            status_str = "any status" if force else f"status '{status}'"
+            console.print(f"[yellow]No candidates found with {status_str}[/yellow]")
             return
 
         mode_str = "cached-only" if cached_only else "download"
+        force_str = " (force mode)" if force else ""
+        status_str = f"status: {status}" if not force else "all statuses"
         console.print(
-            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates (status: {status}, mode: {mode_str})[/bold blue]\n"
+            f"[bold blue]📸 Fetching images for {len(candidates)} bench candidates ({status_str}, mode: {mode_str}{force_str})[/bold blue]\n"
         )
 
         # Initialize image download service
         from bench_finder.services.image_download_service import ImageDownloadService
 
-        image_service = ImageDownloadService(cached_only=cached_only)
+        image_service = ImageDownloadService(cached_only=cached_only, force=force)
 
         console.print("[dim]Image download service initialized[/dim]\n")
 
