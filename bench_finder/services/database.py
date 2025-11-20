@@ -195,13 +195,17 @@ class BenchDatabase:
                     file_size=image_data.file_size,
                     capture_success=image_data.capture_success,
                     capture_error=image_data.capture_error,
+                    image_source=image_data.image_source,
+                    panorama_lat=image_data.panorama_lat,
+                    panorama_lng=image_data.panorama_lng,
+                    panorama_metadata=image_data.panorama_metadata,
                 )
                 session.add(image)
                 session.commit()
                 session.refresh(image)
 
                 logger.debug(
-                    f"Added image record {image.id} for bench candidate {bench_id}, heading {image_data.heading}"
+                    f"Added image record {image.id} for bench candidate {bench_id}, heading {image_data.heading}, source {image_data.image_source}"
                 )
                 return image.id
 

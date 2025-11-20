@@ -55,3 +55,13 @@ class BenchUserStatus(StrEnum):
     BEEN = "been"
     WANT_TO_GO = "want_to_go"
     FAVORITE = "favorite"
+
+
+class ImageSource(StrEnum):
+    """Source of the street view image."""
+
+    STREETVIEW_API = "streetview_api"  # Google Street View Static API
+    STREETVIEW_STREETLEVEL = (
+        "streetview_streetlevel"  # Google Street View via streetlevel library
+    )
+    APPLE_STREETLEVEL = "apple_streetlevel"  # Apple Look Around via streetlevel library

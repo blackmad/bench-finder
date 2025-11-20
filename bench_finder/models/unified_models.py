@@ -25,6 +25,7 @@ from .enums import (
     BenchUserStatus,
     DataSource,
     DetectionSource,
+    ImageSource,
     LocationMethod,
     MissingBenchReportStatus,
     SearchStatus,
@@ -329,6 +330,24 @@ class Image(SQLModel, table=True):
     )
     capture_success: bool = Field(nullable=False)
     capture_error: str | None = Field(default=None)
+    # Image provenance tracking
+    image_source: ImageSource | None = Field(
+        default=None,
+        description="Source of the image: streetview_api, streetview_streetlevel, or apple_streetlevel",
+    )
+    # Panorama location (for streetlevel sources - may differ from bench location)
+    panorama_lat: float | None = Field(
+        default=None, description="Latitude of the actual panorama location"
+    )
+    panorama_lng: float | None = Field(
+        default=None, description="Longitude of the actual panorama location"
+    )
+    # Panorama metadata (pano_id, date, etc.)
+    panorama_metadata: dict[str, Any] | None = Field(
+        default=None,
+        description="Additional panorama metadata (pano_id, date, etc.)",
+        sa_column=Column(JSON),
+    )
     created_at: datetime = Field(default_factory=datetime.now)
 
     # Relationships
@@ -692,6 +711,10 @@ class ImageBase(SQLModel):
     file_size: int | None = None
     capture_success: bool
     capture_error: str | None = None
+    image_source: ImageSource | None = None
+    panorama_lat: float | None = None
+    panorama_lng: float | None = None
+    panorama_metadata: dict[str, Any] | None = None
 
 
 class DetectionBase(SQLModel):

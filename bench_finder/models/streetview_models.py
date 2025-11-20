@@ -2,6 +2,8 @@
 Pydantic models for Google Street View Static API responses.
 """
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -27,6 +29,22 @@ class StreetViewImageCapture(BaseModel):
     error: str | None = Field(None, description="Error message if capture failed")
     width: int = Field(..., description="Width of the image")
     height: int = Field(..., description="Height of the image")
+    # Image provenance tracking
+    image_source: str | None = Field(
+        None,
+        description="Source: streetview_api, streetview_streetlevel, or apple_streetlevel",
+    )
+    panorama_lat: float | None = Field(
+        None,
+        description="Latitude of the actual panorama location (may differ from bench location)",
+    )
+    panorama_lng: float | None = Field(
+        None,
+        description="Longitude of the actual panorama location (may differ from bench location)",
+    )
+    panorama_metadata: dict[str, Any] | None = Field(
+        None, description="Additional panorama metadata (pano_id, date, etc.)"
+    )
 
     @property
     def is_valid(self) -> bool:

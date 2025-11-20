@@ -297,6 +297,18 @@ class ImageDownloadService:
             # Add all images to database
             for image_capture in image_results.captures:
                 try:
+                    # Convert image_source string to ImageSource enum if present
+                    from bench_finder.models.enums import ImageSource
+
+                    image_source = None
+                    if image_capture.image_source:
+                        try:
+                            image_source = ImageSource(image_capture.image_source)
+                        except ValueError:
+                            logger.warning(
+                                f"Unknown image_source: {image_capture.image_source}"
+                            )
+
                     self.database.add_image(
                         ImageBase(
                             heading=image_capture.heading,
@@ -305,6 +317,10 @@ class ImageDownloadService:
                             file_size=image_capture.file_size,
                             capture_success=image_capture.success,
                             capture_error=image_capture.error,
+                            image_source=image_source,
+                            panorama_lat=image_capture.panorama_lat,
+                            panorama_lng=image_capture.panorama_lng,
+                            panorama_metadata=image_capture.panorama_metadata,
                         ),
                         bench_id=bench_id,
                     )
