@@ -664,12 +664,14 @@ def fetch_images(
 
         # Query all candidates with the specified status using SQLAlchemy ORM
         with database.get_session() as session:
+            from sqlmodel import select
+
             from bench_finder.models.unified_models import (
                 BenchCandidate as DBBenchCandidate,
             )
 
             # Build query - if force is used, ignore status filter
-            query = session.query(DBBenchCandidate)
+            statement = select(DBBenchCandidate)
 
             if not force:
                 # Parse status string to enum
@@ -682,14 +684,14 @@ def fetch_images(
                     raise typer.Exit(1) from err
 
                 # Query all candidates with the specified status (ignoring search_id)
-                query = query.filter(DBBenchCandidate.status == status_enum)
+                statement = statement.where(DBBenchCandidate.status == status_enum)
 
             # Apply limit: use --limit if provided, otherwise use --max-candidates
             limit_value = limit if limit is not None else max_candidates
             if limit_value:
-                query = query.limit(limit_value)
+                statement = statement.limit(limit_value)
 
-            candidates = query.all()
+            candidates = list(session.exec(statement).all())
 
         if not candidates:
             status_str = "any status" if force else f"status '{status}'"
