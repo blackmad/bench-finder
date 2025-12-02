@@ -229,3 +229,4 @@ firebase_creds.json
 .vercel
 .env*.local
 .firebase
+streetlevel_panorama_viewer.ipynb
