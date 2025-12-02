@@ -780,6 +780,9 @@ def fetch_images(
                 had_existing_images = False
                 if not cached_only:
                     with database.get_session() as session:
+                        from sqlalchemy import func
+                        from sqlmodel import select
+
                         from bench_finder.models.unified_models import (
                             BenchCandidate as DBBenchCandidate,
                         )
@@ -787,21 +790,19 @@ def fetch_images(
                             Image,
                         )
 
-                        db_candidate = (
-                            session.query(DBBenchCandidate)
-                            .filter(
+                        db_candidate = session.exec(
+                            select(DBBenchCandidate).where(
                                 DBBenchCandidate.provider_id
                                 == bench_candidate.provider_id,
                                 DBBenchCandidate.search_id == search_id,
                             )
-                            .first()
-                        )
+                        ).first()
                         if db_candidate:
-                            existing_count = (
-                                session.query(Image)
-                                .filter(Image.bench_candidate_id == db_candidate.id)
-                                .count()
-                            )
+                            existing_count = session.exec(
+                                select(func.count(Image.id)).where(
+                                    Image.bench_candidate_id == db_candidate.id
+                                )
+                            ).one()
                             had_existing_images = existing_count > 0
 
                 result = image_service._process_single_bench(search_id, bench_candidate)
