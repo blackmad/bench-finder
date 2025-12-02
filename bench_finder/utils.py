@@ -33,8 +33,21 @@ def setup_logging(level: str | None = None, format_str: str | None = None) -> No
     if not isinstance(numeric_level, int):
         raise TypeError(f"Invalid log level: {level}")
 
-    # Configure root logger
-    logging.basicConfig(level=numeric_level, format=format_str, stream=sys.stdout)
+    # Get root logger and force reconfiguration
+    root_logger = logging.getLogger()
+
+    # Remove all existing handlers to allow reconfiguration
+    root_logger.handlers.clear()
+
+    # Set the level on the root logger
+    root_logger.setLevel(numeric_level)
+
+    # Create a new handler with the desired format
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(numeric_level)
+    formatter = logging.Formatter(format_str)
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
 
     # Set specific loggers to appropriate levels
     logging.getLogger("urllib3").setLevel(logging.WARNING)  # Suppress HTTP debug logs
@@ -42,7 +55,9 @@ def setup_logging(level: str | None = None, format_str: str | None = None) -> No
     logging.getLogger("PIL").setLevel(logging.WARNING)  # Pillow image processing logs
 
     logger = logging.getLogger(__name__)
-    logger.info(f"Logging configured at {level.upper()} level")
+    # Only log the configuration message if level allows it
+    if numeric_level <= logging.INFO:
+        logger.info(f"Logging configured at {level.upper()} level")
 
 
 def retry_on_failure(
