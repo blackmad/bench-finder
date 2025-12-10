@@ -198,7 +198,14 @@ class StreetViewClient:
                                 f"Successfully downloaded image at heading {heading}° from {result.image_source}"
                             )
                     else:
-                        logger.warning(f"Failed to capture image at heading {heading}°")
+                        error_msg = (
+                            f" - error: {result.error}"
+                            if result and result.error
+                            else ""
+                        )
+                        logger.warning(
+                            f"Failed to capture image at heading {heading}°{error_msg}"
+                        )
 
                 except Exception:
                     logger.exception(f"Error capturing image at heading {heading}°")
@@ -412,6 +419,7 @@ class StreetViewClient:
 
             # If both streetlevel sources failed, try API as fallback
             # (or if source was explicitly set to API)
+            api_error = None
             if not source or source == ImageSource.STREETVIEW_API:
                 if source != ImageSource.STREETVIEW_API:
                     logger.debug(
@@ -479,14 +487,28 @@ class StreetViewClient:
                                 lat, lng, api_source.value, metadata
                             )
                         return result
+                    elif result and result.error:
+                        api_error = result.error
                 except Exception as e:
+                    api_error = str(e)
                     logger.debug(
                         f"Failed to capture from API for heading {heading}: {e}"
                     )
 
-            # All sources failed
+            # All sources failed - collect error information
+            error_details = [
+                f"{result.image_source}: {result.error}"
+                for result in streetlevel_results
+                if result and not result.success and result.error
+            ]
+            if api_error:
+                error_details.append(f"API: {api_error}")
+
+            error_msg = (
+                f" - errors: {', '.join(error_details)}" if error_details else ""
+            )
             logger.warning(
-                f"All sources failed for bench {bench_id} at heading {heading}"
+                f"All sources failed for bench {bench_id} at heading {heading}{error_msg}"
             )
             return None
 
