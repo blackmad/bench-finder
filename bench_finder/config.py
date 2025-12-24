@@ -35,10 +35,6 @@ ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
 ULTRALYTICS_API_KEY = os.getenv("ULTRALYTICS_API_KEY")
 MAPILLARY_ACCESS_TOKEN = os.getenv("MAPILLARY_ACCESS_TOKEN")
 
-# Supabase configuration
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 # Application settings
 SEARCH_RADIUS_METERS = 500  # Radius to search for benches around the starting point
@@ -217,13 +213,14 @@ def validate_config() -> bool:
             "MAPILLARY_ACCESS_TOKEN not set - Mapillary integration will not be available"
         )
 
-    # Supabase validation (optional for social features - only warn if not set)
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    # Firebase validation (optional for auth features - only warn if not set)
+    if not FIREBASE_CREDENTIALS_PATH and not FIREBASE_CREDENTIALS_BASE64:
         import logging
 
         logging.getLogger(__name__).warning(
-            "SUPABASE_URL or SUPABASE_ANON_KEY not set - Social features will not be available"
+            "FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_BASE64 not set - Auth features may not be available"
         )
+
 
     if errors:
         raise ValueError(

@@ -1,4 +1,4 @@
-import type { Session, User } from "@supabase/supabase-js"
+import type { User } from "firebase/auth"
 import {
   createContext,
   type ReactNode,
@@ -6,69 +6,75 @@ import {
   useEffect,
   useState,
 } from "react"
-import { supabase } from "../services/supabase"
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut as firebaseSignOut,
+} from "firebase/auth"
+import { auth, authProviders, type AuthProviderType } from "../services/firebase"
 
 interface AuthContextType {
   user: User | null
-  session: Session | null
   loading: boolean
   signInWithProvider: (
-    provider: "google" | "github" | "apple" | "facebook"
+    provider: AuthProviderType
   ) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
-  getAccessToken: () => string | null
+  getAccessToken: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+    if (!auth) {
+      setLoading(false)
+      return
+    }
+
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user)
       setLoading(false)
     })
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
-
-    return () => subscription.unsubscribe()
+    return () => unsubscribe()
   }, [])
 
-  const signInWithProvider = async (
-    provider: "google" | "github" | "apple" | "facebook"
-  ) => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}${window.location.pathname}`,
-      },
-    })
-    return { error }
+  const signInWithProvider = async (provider: AuthProviderType) => {
+    if (!auth) {
+      return { error: new Error("Firebase auth not initialized") }
+    }
+
+    try {
+      const authProvider = authProviders[provider]
+      await signInWithPopup(auth, authProvider)
+      return { error: null }
+    } catch (error) {
+      console.error(`Failed to sign in with ${provider}:`, error)
+      return { error: error as Error }
+    }
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    if (!auth) return
+    await firebaseSignOut(auth)
   }
 
-  const getAccessToken = () => {
-    return session?.access_token ?? null
+  const getAccessToken = async (): Promise<string | null> => {
+    if (!user) return null
+    try {
+      return await user.getIdToken()
+    } catch {
+      return null
+    }
   }
 
   const value = {
     user,
-    session,
     loading,
     signInWithProvider,
     signOut,

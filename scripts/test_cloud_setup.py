@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Test script to verify Supabase and Firebase setup.
+Test script to verify Firebase setup.
 
 This script checks:
-1. Supabase database connection
+1. Database connection (SQLite or Cloud SQL)
 2. Firebase Storage initialization
-3. Database schema (tables exist)
-4. Firebase Storage bucket access
+3. Firebase Auth (Admin SDK)
+4. Database schema (tables exist)
+5. Firebase Storage bucket access
 
 Usage:
     python scripts/test_cloud_setup.py
@@ -22,29 +23,25 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 
-def test_supabase():
-    """Test Supabase database connection."""
+def test_database():
+    """Test database connection (SQLite or Cloud SQL)."""
     print("=" * 60)
-    print("Testing Supabase Database Connection")
+    print("Testing Database Connection")
     print("=" * 60)
 
-    use_supabase = os.getenv("USE_SUPABASE", "false").lower() == "true"
-    supabase_url = os.getenv("SUPABASE_DB_URL")
-
-    if not use_supabase:
-        print("⚠️  USE_SUPABASE not set to 'true', skipping Supabase test")
-        return False
-
-    if not supabase_url:
-        print("❌ SUPABASE_DB_URL environment variable not set")
-        return False
+    database_url = os.getenv("DATABASE_URL")
+    database_path = os.getenv("DATABASE_PATH", "data/benches.db")
 
     try:
         from bench_finder.models.unified_models import BenchCandidate, Image, Search
         from bench_finder.services.database import BenchDatabase
 
-        print(f"Connecting to: {supabase_url[:50]}...")
-        db = BenchDatabase(db_url=supabase_url)
+        if database_url and database_url.startswith("postgresql"):
+            print(f"Connecting to PostgreSQL: {database_url[:50]}...")
+        else:
+            print(f"Connecting to SQLite: {database_path}")
+
+        db = BenchDatabase()
 
         # Test connection by querying tables
         with db.get_session() as session:
@@ -63,7 +60,7 @@ def test_supabase():
         return False
 
 
-def test_firebase():
+def test_firebase_storage():
     """Test Firebase Storage initialization."""
     print("\n" + "=" * 60)
     print("Testing Firebase Storage")
@@ -119,44 +116,77 @@ def test_firebase():
         return False
 
 
-def test_local_fallback():
-    """Test that local fallback still works."""
+def test_firebase_auth():
+    """Test Firebase Auth (Admin SDK)."""
     print("\n" + "=" * 60)
-    print("Testing Local Database (Fallback)")
+    print("Testing Firebase Auth (Admin SDK)")
     print("=" * 60)
 
+    credentials_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
+    credentials_base64 = os.getenv("FIREBASE_CREDENTIALS_BASE64")
+
+    if not credentials_path and not credentials_base64:
+        print(
+            "⚠️  FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_BASE64 not set. Skipping Firebase Auth test."
+        )
+        return False
+
     try:
-        from bench_finder.services.database import BenchDatabase
+        import firebase_admin
+        from firebase_admin import auth, credentials
 
-        db = BenchDatabase()  # Should use local SQLite
-        with db.get_session() as session:
-            from bench_finder.models.unified_models import Search
+        # Check if already initialized
+        try:
+            firebase_admin.get_app()
+            print("Firebase Admin SDK already initialized")
+        except ValueError:
+            # Initialize
+            if credentials_base64:
+                import base64
+                import json
 
-            count = session.query(Search).count()
+                creds_json = base64.b64decode(credentials_base64).decode("utf-8")
+                creds_dict = json.loads(creds_json)
+                cred = credentials.Certificate(creds_dict)
+                print("  Credentials: Using base64-encoded credentials")
+            elif credentials_path:
+                cred = credentials.Certificate(credentials_path)
+                print(f"  Credentials: {credentials_path}")
+            else:
+                cred = credentials.ApplicationDefault()
+                print("  Credentials: Using Application Default Credentials")
 
-        print("✓ Local database connection works!")
-        print(f"  Searches in local DB: {count}")
+            firebase_admin.initialize_app(cred)
+
+        # Test by getting project info
+        app = firebase_admin.get_app()
+        print(f"✓ Firebase Admin SDK initialized successfully!")
+        print(f"  Project ID: {app.project_id}")
         return True
 
+    except ImportError as e:
+        print(f"❌ Failed to import Firebase Admin: {e}")
+        print("   Install with: pip install firebase-admin")
+        return False
     except Exception as e:
-        print(f"❌ Local database test failed: {e}")
+        print(f"❌ Firebase Auth initialization failed: {e}")
         return False
 
 
 def main():
     """Run all tests."""
-    print("\n" + "🔍 Cloud Setup Verification" + "\n")
+    print("\n" + "🔍 Firebase Cloud Setup Verification" + "\n")
 
     results = []
 
-    # Test local fallback first
-    results.append(("Local Database", test_local_fallback()))
+    # Test database
+    results.append(("Database", test_database()))
 
-    # Test Supabase if configured
-    results.append(("Supabase", test_supabase()))
+    # Test Firebase Auth
+    results.append(("Firebase Auth", test_firebase_auth()))
 
-    # Test Firebase if configured
-    results.append(("Firebase Storage", test_firebase()))
+    # Test Firebase Storage
+    results.append(("Firebase Storage", test_firebase_storage()))
 
     # Summary
     print("\n" + "=" * 60)

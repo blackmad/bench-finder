@@ -21,7 +21,7 @@
     "prepare": "cd .. && husky frontend/.husky || true"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.47.10",
+    "firebase": "^10.14.1",
     "@tanstack/react-query": "^5.90.2",
     "@types/leaflet": "^1.9.20",
     "@types/styled-components": "^5.1.34",

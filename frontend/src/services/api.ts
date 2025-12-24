@@ -23,26 +23,35 @@ import {
   OpenAPI,
 } from "../api"
 import type { AppFilters } from "../contexts/AppContext"
-import { supabase } from "./supabase"
+import { auth } from "./firebase"
 
 // Configure the OpenAPI client
 OpenAPI.BASE = "" // Use relative URLs for Vite proxy in development
 OpenAPI.WITH_CREDENTIALS = false
 OpenAPI.CREDENTIALS = "same-origin"
 
-// Add auth token interceptor
+// Add auth token interceptor for Firebase
 const updateAuthToken = async () => {
-  const session = await supabase.auth.getSession()
-  if (session.data.session?.access_token) {
-    OpenAPI.TOKEN = session.data.session.access_token
+  if (auth?.currentUser) {
+    try {
+      const token = await auth.currentUser.getIdToken()
+      OpenAPI.TOKEN = token
+    } catch {
+      OpenAPI.TOKEN = undefined
+    }
+  } else {
+    OpenAPI.TOKEN = undefined
   }
 }
 
-// Update token on init and set up refresh
+// Update token on init and set up refresh via Firebase auth state changes
 updateAuthToken()
-supabase.auth.onAuthStateChange(() => {
-  updateAuthToken()
-})
+if (auth) {
+  const { onAuthStateChanged } = await import("firebase/auth")
+  onAuthStateChanged(auth, () => {
+    updateAuthToken()
+  })
+}
 
 // Create the main API client instance
 const benchFinderApi = new BenchFinderApi()
@@ -55,11 +64,15 @@ export const api = axios.create({
   },
 })
 
-// Add auth interceptor to axios instance
+// Add auth interceptor to axios instance for Firebase
 api.interceptors.request.use(async (config) => {
-  const session = await supabase.auth.getSession()
-  if (session.data.session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.data.session.access_token}`
+  if (auth?.currentUser) {
+    try {
+      const token = await auth.currentUser.getIdToken()
+      config.headers.Authorization = `Bearer ${token}`
+    } catch {
+      // Token fetch failed, continue without auth
+    }
   }
   return config
 })
@@ -350,9 +363,9 @@ export const calculateDistance = (
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2)
+    Math.cos(toRadians(lat2)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2)
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c // Distance in meters

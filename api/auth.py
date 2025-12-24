@@ -1,49 +1,83 @@
 """
-Authentication utilities for Supabase integration.
-Provides helpers to verify Supabase JWT tokens and extract user information.
+Authentication utilities for Firebase integration.
+Provides helpers to verify Firebase JWT tokens and extract user information.
 """
 
 import logging
 
 from fastapi import Header, HTTPException, status
-from supabase import Client, create_client
 
 from bench_finder.config import (
-    SUPABASE_ANON_KEY,
-    SUPABASE_URL,
+    FIREBASE_CREDENTIALS_BASE64,
+    FIREBASE_CREDENTIALS_PATH,
 )
 
 
 logger = logging.getLogger(__name__)
 
-# Cache Supabase client instance
-_supabase_client: Client | None = None
+# Firebase Admin SDK initialization
+_firebase_app_initialized = False
 
 
-def get_supabase_client() -> Client | None:
-    """Get or create Supabase client instance."""
-    global _supabase_client  # noqa: PLW0603
+def _initialize_firebase_admin() -> bool:
+    """Initialize Firebase Admin SDK if not already initialized."""
+    global _firebase_app_initialized  # noqa: PLW0603
 
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        logger.warning(
-            "Supabase credentials not configured - authentication features will be disabled"
-        )
-        return None
+    if _firebase_app_initialized:
+        return True
 
-    if _supabase_client is None:
+    try:
+        import firebase_admin
+        from firebase_admin import credentials
+
+        # Check if already initialized
         try:
-            _supabase_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-            logger.info("Supabase client initialized successfully")
-        except Exception:
-            logger.exception("Failed to initialize Supabase client")
-            return None
+            firebase_admin.get_app()
+            _firebase_app_initialized = True
+            return True
+        except ValueError:
+            # App not initialized yet, continue with initialization
+            pass
 
-    return _supabase_client
+        # Try to initialize with credentials
+        cred = None
+
+        # Option 1: Base64-encoded credentials (for Vercel/serverless)
+        if FIREBASE_CREDENTIALS_BASE64:
+            import base64
+            import json
+
+            creds_json = base64.b64decode(FIREBASE_CREDENTIALS_BASE64).decode("utf-8")
+            creds_dict = json.loads(creds_json)
+            cred = credentials.Certificate(creds_dict)
+            logger.info("Firebase Admin SDK initialized with base64 credentials")
+
+        # Option 2: Credentials file path
+        elif FIREBASE_CREDENTIALS_PATH:
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+            logger.info(
+                f"Firebase Admin SDK initialized with credentials from {FIREBASE_CREDENTIALS_PATH}"
+            )
+
+        # Option 3: Application Default Credentials (GCP environments)
+        else:
+            cred = credentials.ApplicationDefault()
+            logger.info(
+                "Firebase Admin SDK initialized with Application Default Credentials"
+            )
+
+        firebase_admin.initialize_app(cred)
+        _firebase_app_initialized = True
+        return True
+
+    except Exception:
+        logger.exception("Failed to initialize Firebase Admin SDK")
+        return False
 
 
 def verify_token(token: str) -> dict | None:
     """
-    Verify Supabase JWT token and return user information.
+    Verify Firebase JWT token and return user information.
 
     Args:
         token: JWT token from Authorization header
@@ -51,47 +85,34 @@ def verify_token(token: str) -> dict | None:
     Returns:
         Dictionary with user information (user_id, email, etc.) or None if invalid
     """
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        # If Supabase is not configured, we can't verify tokens
-        # This is fine for optional auth - return None to allow unauthenticated access
+    if not _initialize_firebase_admin():
         logger.debug(
-            "Supabase credentials not configured - skipping token verification"
+            "Firebase Admin SDK not initialized - skipping token verification"
         )
         return None
 
     try:
-        # Use Supabase client to verify the token
-        # Create a client instance and set the session with the token
-        from supabase import create_client as create_supabase_client
+        from firebase_admin import auth
 
-        # Create a new client instance with the token
-        temp_client = create_supabase_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        # Verify the ID token
+        decoded_token = auth.verify_id_token(token)
 
-        # Set the session with the access token
-        temp_client.auth.set_session(
-            {
-                "access_token": token,
-                "refresh_token": "",
-                "expires_in": 3600,
-                "token_type": "bearer",
-                "user": None,
-            }
-        )
+        return {
+            "user_id": decoded_token.get("uid"),
+            "email": decoded_token.get("email"),
+            "metadata": {
+                "name": decoded_token.get("name"),
+                "picture": decoded_token.get("picture"),
+                "email_verified": decoded_token.get("email_verified", False),
+                "provider_id": decoded_token.get("firebase", {}).get(
+                    "sign_in_provider"
+                ),
+            },
+        }
 
-        # Get the user - this will verify the token
-        response = temp_client.auth.get_user()
-
-        if response and response.user:
-            return {
-                "user_id": response.user.id,
-                "email": response.user.email,
-                "metadata": response.user.user_metadata or {},
-            }
     except Exception as e:
         logger.debug(f"Token verification failed: {e}")
         return None
-
-    return None
 
 
 def get_user_from_header(authorization: str | None) -> dict | None:

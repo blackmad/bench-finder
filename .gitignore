@@ -230,3 +230,4 @@ firebase_creds.json
 .env*.local
 .firebase
 streetlevel_panorama_viewer.ipynb
+.env.firebase

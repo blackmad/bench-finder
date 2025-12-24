@@ -1,28 +1,42 @@
 #!/usr/bin/env python3
 """
-Migration script to copy data from SQLite to Supabase PostgreSQL database.
+Migration script to copy data from SQLite to Cloud SQL PostgreSQL database.
 
 This script exports all data from the local SQLite database and imports it
-into a Supabase PostgreSQL database, maintaining all relationships and data integrity.
+into a PostgreSQL database (Cloud SQL or any PostgreSQL), maintaining all
+relationships and data integrity.
+
+The script automatically adds the current IP to the Cloud SQL authorized
+networks before migration if CLOUDSQL_INSTANCE and GCP_PROJECT are configured.
 
 For uploading images to Firebase Hosting, use the separate script:
     python tools/upload_images_to_firebase_hosting.py
 
 Usage:
-    python tools/migrate_to_supabase.py \\
+    python tools/migrate_to_cloudsql.py \\
         [--sqlite-path data/benches.db] \\
-        [--supabase-url postgresql://user:pass@host/db] \\
+        [--postgres-url postgresql://user:pass@host/db] \\
+        [--cloudsql-instance instance-name] \\
+        [--gcp-project project-id] \\
         [--dry-run] \\
         [--clear-tables]
 
-If --supabase-url is not provided, DATABASE_POSTGRES_URL from .env will be used.
+If --postgres-url is not provided, DATABASE_URL from .env will be used.
+If --cloudsql-instance and --gcp-project are not provided, CLOUDSQL_INSTANCE
+and GCP_PROJECT from .env will be used for automatic IP allowlisting.
 """
 
 import argparse
+import json
 import logging
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
+import urllib.request
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -38,7 +52,9 @@ from sqlalchemy import inspect, text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from bench_finder.models.unified_models import (  # noqa: E402
+    BenchCandidate,
     BenchReport,
+    DataSource,
     Detection,
     DetectionItem,
     Image,
@@ -58,6 +74,339 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+def get_current_ip() -> str:
+    """
+    Get the current public IP address.
+
+    Returns:
+        The current public IP address as a string.
+
+    Raises:
+        RuntimeError: If unable to determine the public IP address.
+    """
+    services = [
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+        "https://icanhazip.com",
+    ]
+
+    for service in services:
+        try:
+            with urllib.request.urlopen(service, timeout=5) as response:
+                ip = response.read().decode("utf-8").strip()
+                logger.info(f"Current public IP: {ip}")
+                return ip
+        except Exception as e:
+            logger.debug(f"Failed to get IP from {service}: {e}")
+            continue
+
+    raise RuntimeError("Unable to determine public IP address")
+
+
+def _get_cloudsql_service():
+    """
+    Get an authenticated Cloud SQL Admin API service client.
+
+    Loads credentials from firebase_creds.json or FIREBASE_CREDENTIALS_PATH.
+
+    Returns:
+        A tuple of (Google Cloud SQL Admin API service client, project_id).
+
+    Raises:
+        RuntimeError: If unable to authenticate.
+    """
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient import discovery
+
+        # Find credentials file - try multiple paths
+        creds_paths = [
+            os.getenv("FIREBASE_CREDENTIALS_PATH"),
+            "firebase_creds.json",
+            project_root / "firebase_creds.json",
+        ]
+        
+        creds_path = None
+        for path in creds_paths:
+            if path and Path(path).exists():
+                creds_path = path
+                break
+        
+        if not creds_path:
+            raise RuntimeError(
+                "Credentials file not found. Set FIREBASE_CREDENTIALS_PATH "
+                "or place firebase_creds.json in the project root."
+            )
+
+        credentials = service_account.Credentials.from_service_account_file(
+            str(creds_path),
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+
+        # Get project ID from credentials file
+        with open(creds_path) as f:
+            creds_data = json.load(f)
+            project_id = creds_data.get("project_id")
+
+        service = discovery.build("sqladmin", "v1beta4", credentials=credentials)
+        return service, project_id
+    except Exception as e:
+        logger.error(f"Failed to create Cloud SQL API client: {e}")
+        raise RuntimeError(f"Failed to authenticate with Google Cloud: {e}")
+
+
+def get_gcp_project() -> str | None:
+    """
+    Get the current GCP project from firebase_creds.json or gcloud config.
+
+    Returns:
+        The current GCP project ID, or None if not configured.
+    """
+    # Try firebase_creds.json first
+    try:
+        creds_paths = [
+            os.getenv("FIREBASE_CREDENTIALS_PATH"),
+            "firebase_creds.json",
+            project_root / "firebase_creds.json",
+        ]
+        for creds_path in creds_paths:
+            if creds_path and Path(creds_path).exists():
+                with open(creds_path) as f:
+                    creds_data = json.load(f)
+                    project = creds_data.get("project_id")
+                    if project:
+                        logger.info(f"Discovered GCP project from credentials: {project}")
+                        return project
+    except Exception as e:
+        logger.debug(f"Failed to get project from credentials file: {e}")
+
+    # Fall back to gcloud config
+    try:
+        result = subprocess.run(
+            ["gcloud", "config", "get-value", "project"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        project = result.stdout.strip()
+        if project and project != "(unset)":
+            logger.info(f"Discovered GCP project from gcloud config: {project}")
+            return project
+    except subprocess.CalledProcessError:
+        pass
+    except FileNotFoundError:
+        logger.debug("gcloud CLI not found")
+
+    return None
+
+
+def get_cloudsql_instance(project_id: str) -> str | None:
+    """
+    Get the Cloud SQL instance name for a project.
+
+    Tries Python API first, then falls back to gcloud CLI.
+    If there's only one instance, returns it. If there are multiple,
+    returns the first one and logs a warning.
+
+    Args:
+        project_id: Google Cloud project ID
+
+    Returns:
+        The Cloud SQL instance name, or None if no instances found.
+    """
+    instances = []
+
+    # Try Python API first
+    try:
+        service, _ = _get_cloudsql_service()
+        request = service.instances().list(project=project_id)
+        response = request.execute()
+        instances = [i["name"] for i in response.get("items", [])]
+    except Exception as e:
+        logger.debug(f"Python API failed to list instances: {e}")
+
+    # Fall back to gcloud CLI
+    if not instances:
+        try:
+            result = subprocess.run(
+                [
+                    "gcloud",
+                    "sql",
+                    "instances",
+                    "list",
+                    "--project",
+                    project_id,
+                    "--format=value(name)",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            instances = [i.strip() for i in result.stdout.strip().split("\n") if i.strip()]
+        except subprocess.CalledProcessError as e:
+            logger.debug(f"gcloud failed to list instances: {e.stderr}")
+        except FileNotFoundError:
+            logger.debug("gcloud CLI not found")
+
+    if not instances:
+        logger.warning(f"No Cloud SQL instances found in project {project_id}")
+        return None
+
+    if len(instances) == 1:
+        logger.info(f"Discovered Cloud SQL instance: {instances[0]}")
+        return instances[0]
+    else:
+        logger.warning(
+            f"Multiple Cloud SQL instances found: {instances}. "
+            f"Using first one: {instances[0]}. "
+            f"Use --cloudsql-instance to specify a different one."
+        )
+        return instances[0]
+
+
+def add_ip_to_cloudsql_allowlist(
+    instance_name: str,
+    project_id: str,
+    ip_address: str | None = None,
+) -> None:
+    """
+    Add the current IP address to Cloud SQL instance authorized networks.
+
+    Tries Python API first, then falls back to gcloud CLI.
+
+    Args:
+        instance_name: Cloud SQL instance name
+        project_id: Google Cloud project ID
+        ip_address: IP address to add (if None, will be auto-detected)
+
+    Raises:
+        RuntimeError: If unable to add IP to allowlist
+    """
+    if ip_address is None:
+        ip_address = get_current_ip()
+
+    logger.info(f"Adding IP {ip_address} to Cloud SQL allowlist...")
+
+    # Try Python API first
+    try:
+        service, _ = _get_cloudsql_service()
+
+        # Get current instance settings
+        request = service.instances().get(project=project_id, instance=instance_name)
+        instance_info = request.execute()
+
+        # Get current authorized networks
+        settings = instance_info.get("settings", {})
+        ip_config = settings.get("ipConfiguration", {})
+        current_networks = ip_config.get("authorizedNetworks", [])
+
+        # Check if IP is already authorized
+        for network in current_networks:
+            if network.get("value") == ip_address or network.get("value") == f"{ip_address}/32":
+                logger.info(f"IP {ip_address} is already in the allowlist")
+                return
+
+        # Build the new authorized networks list
+        new_networks = list(current_networks)
+        new_entry_name = f"migrate-{ip_address.replace('.', '-')}"
+        new_networks.append({
+            "name": new_entry_name,
+            "value": f"{ip_address}/32",
+        })
+
+        # Update the instance
+        logger.info(f"Updating Cloud SQL instance {instance_name} authorized networks...")
+        body = {
+            "settings": {
+                "ipConfiguration": {
+                    "authorizedNetworks": new_networks,
+                }
+            }
+        }
+        request = service.instances().patch(
+            project=project_id,
+            instance=instance_name,
+            body=body,
+        )
+        request.execute()
+        logger.info(f"✓ Successfully added IP {ip_address} to Cloud SQL allowlist")
+        return
+    except Exception as e:
+        logger.debug(f"Python API failed to update allowlist: {e}")
+
+    # Fall back to gcloud CLI
+    logger.info("Falling back to gcloud CLI...")
+    try:
+        # Get current authorized networks via gcloud
+        result = subprocess.run(
+            [
+                "gcloud",
+                "sql",
+                "instances",
+                "describe",
+                instance_name,
+                "--project",
+                project_id,
+                "--format=json",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        instance_info = json.loads(result.stdout)
+
+        settings = instance_info.get("settings", {})
+        ip_config = settings.get("ipConfiguration", {})
+        current_networks = ip_config.get("authorizedNetworks", [])
+
+        # Check if IP is already authorized
+        for network in current_networks:
+            if network.get("value") == ip_address or network.get("value") == f"{ip_address}/32":
+                logger.info(f"IP {ip_address} is already in the allowlist")
+                return
+
+        # Build the new authorized networks list for gcloud
+        # gcloud format is just comma-separated CIDR values
+        network_values = []
+        for network in current_networks:
+            value = network.get("value", "")
+            if value:
+                network_values.append(value)
+
+        # Add the new IP
+        new_ip_cidr = f"{ip_address}/32"
+        network_values.append(new_ip_cidr)
+        networks_arg = ",".join(network_values)
+
+        # Update via gcloud
+        logger.info(f"Updating Cloud SQL instance {instance_name} authorized networks...")
+        result = subprocess.run(
+            [
+                "gcloud",
+                "sql",
+                "instances",
+                "patch",
+                instance_name,
+                "--project",
+                project_id,
+                f"--authorized-networks={networks_arg}",
+                "--quiet",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        logger.info(f"✓ Successfully added IP {ip_address} to Cloud SQL allowlist")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"gcloud failed: {e.stderr}")
+        raise RuntimeError(f"Failed to add IP to Cloud SQL allowlist: {e.stderr}")
+    except FileNotFoundError:
+        raise RuntimeError(
+            "Neither Python API nor gcloud CLI could update the allowlist. "
+            "Install gcloud or grant Cloud SQL Admin permissions to the service account."
+        )
 
 
 def is_mapillary_image(
@@ -441,7 +790,7 @@ def migrate_table(
 
     Args:
         source_session: Source database session (SQLite)
-        target_session: Target database session (Supabase)
+        target_session: Target database session (PostgreSQL/Cloud SQL)
         model_class: SQLModel class for the table
         table_name: Name of the table
         batch_size: Number of records to process per batch
@@ -587,21 +936,21 @@ def clear_tables(
 
 def migrate_database(
     sqlite_path: str,
-    supabase_url: str,
+    postgres_url: str,
     dry_run: bool = False,
     clear_tables_first: bool = False,
 ):
     """
-    Migrate all data from SQLite to Supabase.
+    Migrate all data from SQLite to PostgreSQL (Cloud SQL or other).
 
     Args:
         sqlite_path: Path to SQLite database file
-        supabase_url: Supabase PostgreSQL connection URL
+        postgres_url: PostgreSQL connection URL
         dry_run: If True, only validate without migrating
         clear_tables_first: If True, clear all tables in target before migrating
     """
     logger.info("=" * 60)
-    logger.info("Database Migration: SQLite -> Supabase")
+    logger.info("Database Migration: SQLite -> PostgreSQL (Cloud SQL)")
     logger.info("=" * 60)
 
     if dry_run:
@@ -619,9 +968,9 @@ def migrate_database(
             f"Please ensure the SQLite path is correct: {sqlite_path}"
         )
 
-    # Create target database connection (Supabase)
-    logger.info("Connecting to target database (Supabase)...")
-    target_engine = init_database(database_url=supabase_url)
+    # Create target database connection (PostgreSQL/Cloud SQL)
+    logger.info("Connecting to target database (PostgreSQL)...")
+    target_engine = init_database(database_url=postgres_url)
     logger.info("Target database tables initialized")
 
     # Get table names
@@ -716,7 +1065,7 @@ def migrate_database(
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Migrate SQLite database to Supabase PostgreSQL"
+        description="Migrate SQLite database to PostgreSQL (Cloud SQL)"
     )
     parser.add_argument(
         "--sqlite-path",
@@ -725,13 +1074,20 @@ def main():
         help="Path to SQLite database file",
     )
     parser.add_argument(
-        "--supabase-url",
+        "--postgres-url",
         type=str,
         default=None,
         help=(
-            "Supabase PostgreSQL connection URL (postgresql://user:pass@host/db). "
-            "If not provided, DATABASE_POSTGRES_URL from .env will be used."
+            "PostgreSQL connection URL (postgresql://user:pass@host/db). "
+            "If not provided, DATABASE_URL from .env will be used."
         ),
+    )
+    # Legacy argument for backward compatibility
+    parser.add_argument(
+        "--supabase-url",
+        type=str,
+        default=None,
+        help=argparse.SUPPRESS,  # Hidden, for backward compatibility
     )
     parser.add_argument(
         "--dry-run",
@@ -743,34 +1099,77 @@ def main():
         action="store_true",
         help="Clear all tables in target database before migrating",
     )
+    parser.add_argument(
+        "--cloudsql-instance",
+        type=str,
+        default=None,
+        help=(
+            "Cloud SQL instance name. If not provided, CLOUDSQL_INSTANCE "
+            "from .env will be used."
+        ),
+    )
+    parser.add_argument(
+        "--gcp-project",
+        type=str,
+        default=None,
+        help=(
+            "Google Cloud project ID. If not provided, GCP_PROJECT "
+            "from .env will be used."
+        ),
+    )
 
     args = parser.parse_args()
 
-    # Get Supabase URL from argument or environment variable
-    supabase_url = args.supabase_url or os.getenv("DATABASE_POSTGRES_URL")
-    if not supabase_url:
+    # Get PostgreSQL URL from argument or environment variable
+    postgres_url = args.postgres_url or args.supabase_url or os.getenv("DATABASE_URL")
+    if not postgres_url:
         logger.error(
-            "Supabase URL not provided. Either use --supabase-url argument "
-            "or set DATABASE_POSTGRES_URL in .env file"
+            "PostgreSQL URL not provided. Either use --postgres-url argument "
+            "or set DATABASE_URL in .env file"
         )
         sys.exit(1)
 
     # Normalize postgres:// to postgresql:// (SQLAlchemy requirement)
-    if supabase_url.startswith("postgres://"):
+    if postgres_url.startswith("postgres://"):
         logger.info(
             "Converting postgres:// to postgresql:// for SQLAlchemy compatibility"
         )
-        supabase_url = supabase_url.replace("postgres://", "postgresql://", 1)
+        postgres_url = postgres_url.replace("postgres://", "postgresql://", 1)
 
     # Validate SQLite path exists
     if not Path(args.sqlite_path).exists():
         logger.error(f"SQLite database not found: {args.sqlite_path}")
         sys.exit(1)
 
+    # Get Cloud SQL instance and project for IP allowlisting
+    # Priority: CLI arg > env var > auto-discover from gcloud
+    gcp_project = args.gcp_project or os.getenv("GCP_PROJECT") or get_gcp_project()
+    cloudsql_instance = args.cloudsql_instance or os.getenv("CLOUDSQL_INSTANCE")
+    
+    # If we have a project but no instance, try to discover the instance
+    if gcp_project and not cloudsql_instance:
+        cloudsql_instance = get_cloudsql_instance(gcp_project)
+
+    # Add current IP to Cloud SQL allowlist
+    if cloudsql_instance and gcp_project:
+        try:
+            add_ip_to_cloudsql_allowlist(
+                instance_name=cloudsql_instance,
+                project_id=gcp_project,
+            )
+        except RuntimeError as e:
+            logger.error(f"Failed to add IP to allowlist: {e}")
+            logger.warning("Continuing with migration - connection may fail if IP not allowed")
+    else:
+        logger.warning(
+            "Could not determine Cloud SQL instance or project. Skipping IP allowlist. "
+            "Ensure gcloud is configured or set CLOUDSQL_INSTANCE and GCP_PROJECT in .env."
+        )
+
     try:
         migrate_database(
             sqlite_path=args.sqlite_path,
-            supabase_url=supabase_url,
+            postgres_url=postgres_url,
             dry_run=args.dry_run,
             clear_tables_first=args.clear_tables,
         )
