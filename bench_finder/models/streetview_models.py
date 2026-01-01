@@ -21,7 +21,7 @@ class StreetViewImageCapture(BaseModel):
     lat: float = Field(..., description="Latitude of the capture location")
     lng: float = Field(..., description="Longitude of the capture location")
     heading: int = Field(..., description="Compass heading (0-360 degrees)")
-    filepath: str = Field(..., description="Local file path to the image")
+    filepath: str | None = Field(None, description="Local file path to the image")
     filename: str = Field(..., description="Image filename")
     success: bool = Field(..., description="Whether the capture was successful")
     file_size: int | None = Field(None, description="File size in bytes")
@@ -49,6 +49,9 @@ class StreetViewImageCapture(BaseModel):
     @property
     def is_valid(self) -> bool:
         """Check if this is a valid image capture."""
+        # For Apple Look Around, filepath can be None if cached=True (faces are cached)
+        if self.image_source == "apple_streetlevel" and self.cached:
+            return self.success and self.filename is not None
         return self.success and self.filepath is not None and self.filename is not None
 
     @property

@@ -520,6 +520,87 @@ def reset_detections(
             "\n[dim]💡 You can now re-run detections using the run-detections command.[/dim]"
         )
 
+    except Exception as e:
+        console.print(f"[bold red]💥 Unexpected error: {e}[/bold red]")
+        logger.exception("Unexpected error")
+        raise typer.Exit(1) from e
+
+
+@app.command("reset-image-status")
+def reset_image_status(
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    confirm: bool = typer.Option(False, "--confirm", help="Skip confirmation prompt"),
+):
+    """
+    Reset bench candidate status to PENDING to allow re-downloading images.
+    
+    This command resets candidates with status IMAGE_DOWNLOAD_DONE or DETECTION_DONE
+    back to PENDING. This is useful if you want to re-run the image fetch process
+    (e.g., to retry failed downloads or fetch missing images) without deleting
+    the existing images or candidates.
+    """
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Initialize database
+        database = BenchDatabase()
+
+        # Get counts before reset
+        with database.get_session() as session:
+            from bench_finder.models.unified_models import BenchCandidate
+            
+            candidate_count = (
+                session.query(BenchCandidate)
+                .filter(
+                    BenchCandidate.status.in_(
+                        [
+                            BenchCandidateStatus.IMAGE_DOWNLOAD_DONE,
+                            BenchCandidateStatus.DETECTION_DONE,
+                        ]
+                    )
+                )
+                .count()
+            )
+
+        if candidate_count == 0:
+            console.print("[yellow]No candidates found with status IMAGE_DOWNLOAD_DONE or DETECTION_DONE.[/yellow]")
+            return
+
+        # Show what will be reset
+        console.print("[bold blue]🔄 Reset Image Download Status[/bold blue]")
+        console.print(f"[dim]This will reset {candidate_count} bench candidates to PENDING status.[/dim]")
+        console.print("[dim]Existing images will NOT be deleted.[/dim]\n")
+
+        # Confirmation prompt
+        if not confirm and not typer.confirm("Are you sure you want to proceed?"):
+            console.print("[yellow]Operation cancelled.[/yellow]")
+            return
+
+        # Reset statuses
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            reset_task = progress.add_task(
+                "Resetting bench candidate statuses...", total=None
+            )
+            reset_count = database.reset_bench_candidate_image_status()
+            progress.update(reset_task, description="✅ Bench candidate statuses reset")
+
+        # Display results
+        console.print("\n[bold green]✅ Reset complete![/bold green]")
+        console.print(
+            f"[green]  • Reset {reset_count} bench candidates to PENDING status[/green]"
+        )
+        console.print(
+            "\n[dim]💡 You can now re-run fetch-images to download missing images.[/dim]"
+        )
+
     except KeyboardInterrupt:
         console.print("\n[bold yellow]🛑 Operation cancelled by user[/bold yellow]")
         raise typer.Exit(130) from None

@@ -592,6 +592,47 @@ class BenchDatabase:
             logger.exception("Error resetting bench candidate detection status")
             return 0
 
+    def reset_bench_candidate_image_status(self) -> int:
+        """
+        Reset bench candidate status from IMAGE_DOWNLOAD_DONE or DETECTION_DONE to PENDING.
+        This allows re-downloading images without deleting existing ones.
+
+        Returns:
+            Number of candidates that were reset
+        """
+        try:
+            with self.get_session() as session:
+                # Find all candidates with IMAGE_DOWNLOAD_DONE or DETECTION_DONE status
+                candidates_to_reset = (
+                    session.query(BenchCandidate)
+                    .filter(
+                        BenchCandidate.status.in_(
+                            [
+                                BenchCandidateStatus.IMAGE_DOWNLOAD_DONE,
+                                BenchCandidateStatus.DETECTION_DONE,
+                            ]
+                        )
+                    )
+                    .all()
+                )
+
+                count = len(candidates_to_reset)
+
+                # Update their status to PENDING
+                for candidate in candidates_to_reset:
+                    candidate.status = BenchCandidateStatus.PENDING
+
+                session.commit()
+
+                logger.info(
+                    f"Reset {count} bench candidates to PENDING status"
+                )
+                return count
+
+        except Exception:
+            logger.exception("Error resetting bench candidate image status")
+            return 0
+
     def get_random_streetview_image(self) -> Image | None:
         """
         Get a random streetview image that was successfully captured.

@@ -141,6 +141,10 @@ OVERPASS_TIMEOUT = 25  # seconds
 LOG_LEVEL = "INFO"
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+# Backoff settings for image downloading
+BACKOFF_INITIAL_WAIT = 60  # Seconds to wait initially after an error
+BACKOFF_DECREASE_STEP = 5  # Seconds to decrease wait time by after each successful fetch
+
 
 def validate_config() -> bool:
     """Validate that all required configuration is present."""

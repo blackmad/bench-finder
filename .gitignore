@@ -231,3 +231,5 @@ firebase_creds.json
 .firebase
 streetlevel_panorama_viewer.ipynb
 .env.firebase
+
+*.ipynb

@@ -11,12 +11,14 @@ import math
 import os
 from typing import Any
 
+import aiohttp
 import numpy as np
 import requests
 from aiohttp import ClientSession
 from PIL import Image as PILImage
 from streetlevel import lookaround
 from streetlevel import streetview as streetlevel_streetview
+from streetlevel import util as streetlevel_util
 
 from bench_finder.config import (
     GOOGLE_MAPS_API_KEY,
@@ -24,6 +26,8 @@ from bench_finder.config import (
     STREETVIEW_FOV,
     STREETVIEW_HEADINGS,
     STREETVIEW_SIZE,
+    BACKOFF_INITIAL_WAIT,
+    BACKOFF_DECREASE_STEP,
 )
 from bench_finder.models.enums import ImageSource
 from bench_finder.models.streetview_models import (
@@ -40,6 +44,32 @@ logger = logging.getLogger(__name__)
 
 STREETLEVEL_STREETVIEW_AVAILABLE = True
 STREETLEVEL_LOOKAROUND_AVAILABLE = True
+
+
+# Monkey-patch download_files_async to ensure sessions are always closed
+_original_download_files_async = streetlevel_util.download_files_async
+
+
+async def _patched_download_files_async(
+    urls: list[str], session: ClientSession | None = None
+) -> list[bytes]:
+    """
+    Patched version that ensures any created session is always closed.
+    """
+    close_session = session is None
+    if session is None:
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        session = ClientSession(timeout=timeout)
+
+    try:
+        return await _original_download_files_async(urls, session)
+    finally:
+        if close_session:
+            await session.close()
+
+
+# Apply the patch
+streetlevel_util.download_files_async = _patched_download_files_async
 
 
 class StreetViewClient:
@@ -59,6 +89,10 @@ class StreetViewClient:
         # Metadata cache directory
         self.metadata_cache_dir = os.path.join(IMAGES_DIR, ".metadata_cache")
         os.makedirs(self.metadata_cache_dir, exist_ok=True)
+
+        # Backoff state
+        self.current_backoff = 0
+
 
     def _get_metadata_cache_path(self, lat: float, lng: float, source: str) -> str:
         """Get the path to the metadata cache file for a location and source."""
@@ -106,6 +140,47 @@ class StreetViewClient:
         if is_direct_heading:
             return f"bench_{bench_id}_direct_heading_{source_suffix}.jpg"
         return f"bench_{bench_id}_heading_{heading}_{source_suffix}.jpg"
+
+    def _handle_backoff(self) -> None:
+        """
+        Handle backoff if active.
+        Waits for the current backoff duration and then decreases it.
+        """
+        if self.current_backoff > 0:
+            import time
+
+            logger.warning(
+                f"Backing off for {self.current_backoff} seconds due to previous errors..."
+            )
+            time.sleep(self.current_backoff)
+
+            # Decrease backoff for next time
+            self.current_backoff = max(
+                0, self.current_backoff - BACKOFF_DECREASE_STEP
+            )
+            if self.current_backoff > 0:
+                logger.info(
+                    f"Backoff decreased to {self.current_backoff} seconds for next request"
+                )
+            else:
+                logger.info("Backoff cleared")
+
+    def _trigger_backoff(self) -> None:
+        """
+        Trigger backoff due to an error.
+        Sets the backoff to the initial wait time.
+        """
+        import time
+
+        self.current_backoff = BACKOFF_INITIAL_WAIT
+        logger.warning(
+            f"Error occurred, triggering backoff. Waiting {self.current_backoff} seconds..."
+        )
+        # Wait immediately to let the system cool down
+        time.sleep(self.current_backoff)
+        
+        # Decrease for next time (since we just waited)
+        self.current_backoff = max(0, self.current_backoff - BACKOFF_DECREASE_STEP)
 
     def capture_bench_images(
         self, lat: float, lng: float, bench_id: str
@@ -164,12 +239,26 @@ class StreetViewClient:
         self, lat: float, lng: float, bench_id: str
     ) -> list[StreetViewImageCapture | None]:
         """Async helper to capture images from multiple headings."""
+        # Handle backoff before starting batch
+        self._handle_backoff()
+
         capture_results = []
         panorama_location = (
             None  # Store panorama location for direct heading calculation
         )
 
-        async with ClientSession() as session:
+           # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        # Try set trace configs for debugging on session creation
+        trace_config = aiohttp.TraceConfig()
+        # async def on_request_start(session, trace_config_ctx, params):
+        #     print(f"Request started: {params.method} {params.url}")
+        # async def on_request_end(session, trace_config_ctx, params):
+        #     print(f"Request ended: {params.method} {params.url} -> {params.response.status}")
+        # trace_config.on_request_start.append(on_request_start)
+        # trace_config.on_request_end.append(on_request_end)
+
+        async with ClientSession(trace_configs=[trace_config], timeout=timeout) as session:
             # First, capture all the regular heading images
             for heading in STREETVIEW_HEADINGS:
                 try:
@@ -221,7 +310,7 @@ class StreetViewClient:
                     )
                     direct_heading_int = int(round(direct_heading))
 
-                    logger.error(
+                    logger.debug(
                         f"Calculating direct heading from panorama ({panorama_lat}, {panorama_lng}) "
                         f"to bench ({lat}, {lng}): {direct_heading:.1f}°"
                     )
@@ -290,7 +379,17 @@ class StreetViewClient:
         """
         should_close = session is None
         if session is None:
-            session = ClientSession()
+               # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            # Try set trace configs for debugging on session creation
+            trace_config = aiohttp.TraceConfig()
+            async def on_request_start(session, trace_config_ctx, params):
+                print(f"Request started: {params.method} {params.url}")
+            async def on_request_end(session, trace_config_ctx, params):
+                print(f"Request ended: {params.method} {params.url} -> {params.response.status}")
+            trace_config.on_request_start.append(on_request_start)
+            trace_config.on_request_end.append(on_request_end)
+            session = ClientSession(trace_configs=[trace_config], timeout=timeout)
 
         try:
             # Always try both streetlevel sources (Google Street View and Apple Look Around)
@@ -512,6 +611,12 @@ class StreetViewClient:
             )
             return None
 
+        except Exception as e:
+            # Trigger backoff on unexpected errors
+            logger.error(f"Unexpected error in capture_image_async: {e}")
+            self._trigger_backoff()
+            return None
+
         finally:
             if should_close:
                 await session.close()
@@ -590,8 +695,12 @@ class StreetViewClient:
                 panorama_metadata=None,
             )
 
+            return None
+
         except Exception as e:
             logger.debug(f"Error capturing from API: {e}")
+            # Trigger backoff on API errors
+            self._trigger_backoff()
             return None
 
     def _get_pano_filename(self, pano_id: str | None, lat: float, lng: float) -> str:
