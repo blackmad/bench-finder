@@ -82,6 +82,8 @@ class DetectionClient(ABC):
 
             from PIL import Image
 
+            Image.MAX_IMAGE_PIXELS = 300_000_000
+
             if not os.path.exists(image_path):
                 self.logger.warning(f"Image file does not exist: {image_path}")
                 return False

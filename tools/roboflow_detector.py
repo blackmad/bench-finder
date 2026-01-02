@@ -14,6 +14,9 @@ from typing import Any
 import cv2
 from clients.roboflow_client import RoboflowClient
 from PIL import Image, ImageDraw, ImageFont
+
+Image.MAX_IMAGE_PIXELS = 300_000_000
+
 from term_image.image import ITerm2Image, from_file
 from term_image.utils import get_terminal_name_version
 

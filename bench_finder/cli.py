@@ -663,6 +663,9 @@ def show_random_image(
         from PIL import Image
         from term_image.image import AutoImage
 
+        # Increase PIL max image pixels limit to handle large panoramas
+        Image.MAX_IMAGE_PIXELS = 300_000_000
+
         try:
             pil_image = Image.open(random_image.filepath)
             print(AutoImage(pil_image))
@@ -1979,6 +1982,195 @@ def _display_statistics_table(stats: dict):
                 f"source: {ld['source']}) - {ld['created_at']}"
             )
         console.print()
+
+
+@app.command("stitch-lookaround")
+def stitch_lookaround(
+    images_dir: str = typer.Option(
+        None,
+        "--images-dir",
+        help="Directory containing images (defaults to IMAGES_DIR from config)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be done without creating stitched images",
+    ),
+    stitch_method: str = typer.Option(
+        "net",
+        "--method",
+        help="Stitching method: net (cube net) or row (horizontal row)",
+    ),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+):
+    """
+    Stitch Apple Look Around face images into cubemap panoramas.
+
+    Scans the images directory for lookaround face images (6 faces per bench),
+    and creates stitched cubemap images for any bench that has all 6 faces
+    but no existing stitched image.
+
+    Face files follow the pattern: bench_{id}_lookaround_face_{face}.jpg
+    where face is one of: back, left, front, right, top, bottom
+
+    Stitched output: bench_{id}_lookaround_stitched.jpg
+    """
+    import re
+    from collections import defaultdict
+    from pathlib import Path
+
+    from PIL import Image
+    from streetlevel.util import CubemapStitchingMethod, stitch_cubemap_faces
+
+    from bench_finder.config import IMAGES_DIR
+
+    # Increase PIL limit for large images
+    Image.MAX_IMAGE_PIXELS = 300_000_000
+
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    # Get images directory
+    images_path = Path(images_dir) if images_dir else Path(IMAGES_DIR)
+    if not images_path.exists():
+        console.print(f"[red]Images directory not found: {images_path}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold blue]🔍 Scanning for lookaround faces in: {images_path}[/bold blue]")
+
+    # Parse stitching method
+    if stitch_method.lower() == "net":
+        method = CubemapStitchingMethod.NET
+    elif stitch_method.lower() == "row":
+        method = CubemapStitchingMethod.ROW
+    else:
+        console.print(f"[red]Unknown stitch method: {stitch_method}. Use 'net' or 'row'.[/red]")
+        raise typer.Exit(1)
+
+    # Face names in our file naming convention
+    # Our order: back=0, left=1, front=2, right=3, top=4, bottom=5
+    face_names = ["back", "left", "front", "right", "top", "bottom"]
+
+    # stitch_cubemap_faces expects: front, right, back, left, top, bottom
+    # So we need to reorder: [2, 3, 0, 1, 4, 5]
+    face_reorder = [2, 3, 0, 1, 4, 5]
+
+    # Pattern to match lookaround face files
+    # bench_{id}_lookaround_face_{face}.jpg
+    face_pattern = re.compile(
+        r"^bench_(.+)_lookaround_face_(back|left|front|right|top|bottom)\.jpg$"
+    )
+
+    # Group faces by bench ID
+    bench_faces: dict[str, dict[str, Path]] = defaultdict(dict)
+
+    for file_path in images_path.glob("bench_*_lookaround_face_*.jpg"):
+        match = face_pattern.match(file_path.name)
+        if match:
+            bench_id = match.group(1)
+            face_name = match.group(2)
+            bench_faces[bench_id][face_name] = file_path
+
+    console.print(f"[dim]Found {len(bench_faces)} benches with lookaround faces[/dim]")
+
+    # Find benches with all 6 faces but no stitched image
+    benches_to_stitch = []
+    benches_already_stitched = 0
+    benches_incomplete = 0
+
+    for bench_id, faces in bench_faces.items():
+        stitched_path = images_path / f"bench_{bench_id}_lookaround_stitched.jpg"
+
+        if stitched_path.exists():
+            benches_already_stitched += 1
+            continue
+
+        if len(faces) == 6:
+            benches_to_stitch.append((bench_id, faces, stitched_path))
+        else:
+            benches_incomplete += 1
+            missing = set(face_names) - set(faces.keys())
+            logger.debug(f"Bench {bench_id} missing faces: {missing}")
+
+    console.print(f"[dim]  • Already stitched: {benches_already_stitched}[/dim]")
+    console.print(f"[dim]  • Incomplete (missing faces): {benches_incomplete}[/dim]")
+    console.print(f"[dim]  • Ready to stitch: {len(benches_to_stitch)}[/dim]")
+
+    if not benches_to_stitch:
+        console.print("[green]✅ No benches need stitching[/green]")
+        return
+
+    if dry_run:
+        console.print("\n[yellow]🔍 DRY RUN - Would stitch the following:[/yellow]")
+        for bench_id, faces, stitched_path in benches_to_stitch[:20]:
+            console.print(f"  • {bench_id} -> {stitched_path.name}")
+        if len(benches_to_stitch) > 20:
+            console.print(f"  ... and {len(benches_to_stitch) - 20} more")
+        return
+
+    # Stitch the images
+    console.print(f"\n[bold blue]🧵 Stitching {len(benches_to_stitch)} lookaround panoramas...[/bold blue]")
+
+    stitched_count = 0
+    error_count = 0
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TextColumn("({task.completed}/{task.total})"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task(
+            "🧵 Stitching lookaround faces",
+            total=len(benches_to_stitch),
+        )
+
+        for bench_id, faces, stitched_path in benches_to_stitch:
+            try:
+                # Load faces in our order: back, left, front, right, top, bottom
+                face_images_our_order = []
+                for face_name in face_names:
+                    img = Image.open(faces[face_name])
+                    face_images_our_order.append(img)
+
+                # Reorder for stitch_cubemap_faces: front, right, back, left, top, bottom
+                face_images_reordered = [face_images_our_order[i] for i in face_reorder]
+
+                # Get face size (assume square faces)
+                face_size = face_images_reordered[0].width
+
+                # Stitch
+                stitched = stitch_cubemap_faces(face_images_reordered, face_size, method)
+
+                # Save
+                stitched.save(stitched_path, "JPEG", quality=95)
+                stitched_count += 1
+
+                logger.debug(f"Stitched {bench_id} -> {stitched_path.name}")
+
+                # Close images to free memory
+                for img in face_images_our_order:
+                    img.close()
+                stitched.close()
+
+            except Exception as e:
+                error_count += 1
+                logger.warning(f"Failed to stitch {bench_id}: {e}")
+
+            progress.update(task, advance=1)
+
+    # Summary
+    console.print(f"\n[bold green]✅ Stitching complete![/bold green]")
+    console.print(f"[green]  • Successfully stitched: {stitched_count}[/green]")
+    if error_count > 0:
+        console.print(f"[yellow]  • Errors: {error_count}[/yellow]")
 
 
 def main():

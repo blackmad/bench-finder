@@ -16,9 +16,13 @@ import numpy as np
 import requests
 from aiohttp import ClientSession
 from PIL import Image as PILImage
+
+# Increase PIL max image pixels limit to handle large panoramas (e.g., 16384x8192)
+# Default is ~89 million pixels, we set to 300 million to handle 4x larger images
+PILImage.MAX_IMAGE_PIXELS = 300_000_000
+
 from streetlevel import lookaround
 from streetlevel import streetview as streetlevel_streetview
-from streetlevel import util as streetlevel_util
 
 from bench_finder.config import (
     GOOGLE_MAPS_API_KEY,
@@ -44,32 +48,6 @@ logger = logging.getLogger(__name__)
 
 STREETLEVEL_STREETVIEW_AVAILABLE = True
 STREETLEVEL_LOOKAROUND_AVAILABLE = True
-
-
-# Monkey-patch download_files_async to ensure sessions are always closed
-_original_download_files_async = streetlevel_util.download_files_async
-
-
-async def _patched_download_files_async(
-    urls: list[str], session: ClientSession | None = None
-) -> list[bytes]:
-    """
-    Patched version that ensures any created session is always closed.
-    """
-    close_session = session is None
-    if session is None:
-        timeout = aiohttp.ClientTimeout(total=30, connect=10)
-        session = ClientSession(timeout=timeout)
-
-    try:
-        return await _original_download_files_async(urls, session)
-    finally:
-        if close_session:
-            await session.close()
-
-
-# Apply the patch
-streetlevel_util.download_files_async = _patched_download_files_async
 
 
 class StreetViewClient:
@@ -310,7 +288,7 @@ class StreetViewClient:
                     )
                     direct_heading_int = int(round(direct_heading))
 
-                    logger.debug(
+                    logger.error(
                         f"Calculating direct heading from panorama ({panorama_lat}, {panorama_lng}) "
                         f"to bench ({lat}, {lng}): {direct_heading:.1f}°"
                     )
@@ -433,6 +411,9 @@ class StreetViewClient:
                 sources_to_try = streetlevel_sources
 
             # Try both streetlevel sources - always download both if available
+            # Track errors from each source for better error reporting
+            source_errors: dict[str, str] = {}
+
             for img_source, capture_func in sources_to_try:
                 # Check if image already exists for this source
                 filename = self._generate_filename(
@@ -502,7 +483,16 @@ class StreetViewClient:
                             )
                         streetlevel_results.append(result)
                         at_least_one_streetlevel_success = True
+                    elif result and result.error:
+                        # Capture returned a failed result with error info
+                        source_errors[img_source.value] = result.error
+                        streetlevel_results.append(result)
+                    else:
+                        # Capture returned None - no panorama found
+                        source_errors[img_source.value] = "no panorama found"
                 except Exception as e:
+                    error_msg = str(e)
+                    source_errors[img_source.value] = error_msg
                     logger.debug(
                         f"Failed to capture from {img_source.value} for heading {heading}: {e}"
                     )
@@ -594,11 +584,9 @@ class StreetViewClient:
                         f"Failed to capture from API for heading {heading}: {e}"
                     )
 
-            # All sources failed - collect error information
+            # All sources failed - collect error information from source_errors dict
             error_details = [
-                f"{result.image_source}: {result.error}"
-                for result in streetlevel_results
-                if result and not result.success and result.error
+                f"{source}: {error}" for source, error in source_errors.items()
             ]
             if api_error:
                 error_details.append(f"API: {api_error}")
@@ -729,7 +717,7 @@ class StreetViewClient:
         lng: float,
         bench_id: str | None = None,
         session: ClientSession | None = None,
-    ) -> tuple[Any, PILImage.Image | None, str | None, float, float] | None:
+    ) -> tuple[Any, PILImage.Image | None, str | None, float, float, str | None] | None:
         """
         Get or download a Google Street View panorama, reusing cached version if available.
 
@@ -740,8 +728,9 @@ class StreetViewClient:
             session: aiohttp session for requests
 
         Returns:
-            Tuple of (pano object, equirectangular PIL Image, pano_id, panorama_lat, panorama_lng)
-            or None if panorama not found
+            Tuple of (pano object, equirectangular PIL Image, pano_id, panorama_lat, panorama_lng, error)
+            Returns None if panorama not found (with error in last element if tuple returned)
+            The error element is None on success, or an error message string on failure
         """
         try:
             # Find panorama
@@ -750,8 +739,9 @@ class StreetViewClient:
             )
 
             if not pano:
-                logger.debug("No Google Street View panorama found via streetlevel")
-                return None
+                error_msg = f"no panorama found within 25m of ({lat:.6f}, {lng:.6f})"
+                logger.debug(f"Google Street View streetlevel: {error_msg}")
+                return (None, None, None, lat, lng, error_msg)
 
             # Get panorama location and ID
             panorama_lat = pano.lat if hasattr(pano, "lat") else lat
@@ -771,7 +761,7 @@ class StreetViewClient:
                 logger.debug(f"Reusing cached panorama: {pano_filename}")
                 try:
                     equirectangular = PILImage.open(pano_filepath)
-                    return (pano, equirectangular, pano_id, panorama_lat, panorama_lng)
+                    return (pano, equirectangular, pano_id, panorama_lat, panorama_lng, None)
                 except Exception as e:
                     logger.warning(
                         f"Failed to load cached panorama {pano_filename}: {e}"
@@ -785,8 +775,9 @@ class StreetViewClient:
             )
 
             if not equirectangular:
-                logger.debug("Failed to get panorama image from streetlevel")
-                return None
+                error_msg = f"failed to download panorama tiles for pano_id={pano_id}"
+                logger.debug(f"Google Street View streetlevel: {error_msg}")
+                return (pano, None, pano_id, panorama_lat, panorama_lng, error_msg)
 
             # Save the panorama (only once)
             try:
@@ -795,11 +786,12 @@ class StreetViewClient:
             except Exception as e:
                 logger.warning(f"Failed to save full panorama {pano_filename}: {e}")
 
-            return (pano, equirectangular, pano_id, panorama_lat, panorama_lng)
+            return (pano, equirectangular, pano_id, panorama_lat, panorama_lng, None)
 
         except Exception as e:
+            error_msg = f"exception: {e}"
             logger.debug(f"Error getting panorama: {e}")
-            return None
+            return (None, None, None, lat, lng, error_msg)
 
     def _calculate_bearing(
         self, lat1: float, lon1: float, lat2: float, lon2: float
@@ -998,7 +990,21 @@ class StreetViewClient:
     ) -> StreetViewImageCapture | None:
         """Capture image from Google Street View via streetlevel library."""
         if not STREETLEVEL_STREETVIEW_AVAILABLE:
-            return None
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=filepath,
+                filename=filename,
+                success=False,
+                file_size=0,
+                cached=False,
+                error="streetlevel library not available",
+                image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                width=0,
+                height=0,
+            )
 
         try:
             logger.debug(
@@ -1010,10 +1016,48 @@ class StreetViewClient:
             result = await self._get_or_download_panorama(
                 lat, lng, bench_id=bench_id, session=session
             )
-            if not result:
-                return None
 
-            pano, equirectangular, pano_id, panorama_lat, panorama_lng = result
+            # Handle errors from panorama download
+            if result is None:
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    success=False,
+                    file_size=0,
+                    cached=False,
+                    error="panorama download returned None",
+                    image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                    width=0,
+                    height=0,
+                )
+
+            pano, equirectangular, pano_id, panorama_lat, panorama_lng, pano_error = (
+                result
+            )
+
+            # Check for error from panorama download
+            if pano_error or equirectangular is None:
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    success=False,
+                    file_size=0,
+                    cached=False,
+                    error=pano_error or "failed to get panorama image",
+                    image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                    panorama_lat=panorama_lat,
+                    panorama_lng=panorama_lng,
+                    width=0,
+                    height=0,
+                )
 
             # Extract perspective view at the specified heading and FOV
             # Use higher resolution to match the high-res panorama (zoom=5 is ~2048x1024)
@@ -1070,7 +1114,21 @@ class StreetViewClient:
 
         except Exception as e:
             logger.debug(f"Error capturing from streetlevel (Google): {e}")
-            return None
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=filepath,
+                filename=filename,
+                success=False,
+                file_size=0,
+                cached=False,
+                error=f"exception: {e}",
+                image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                width=0,
+                height=0,
+            )
 
     async def _capture_from_streetlevel_apple(
         self,
@@ -1084,7 +1142,21 @@ class StreetViewClient:
     ) -> StreetViewImageCapture | None:
         """Capture image from Apple Look Around via streetlevel library."""
         if not STREETLEVEL_LOOKAROUND_AVAILABLE:
-            return None
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=filepath,
+                filename=filename,
+                success=False,
+                file_size=0,
+                cached=False,
+                error="streetlevel library (lookaround) not available",
+                image_source=ImageSource.APPLE_STREETLEVEL.value,
+                width=0,
+                height=0,
+            )
 
         try:
             logger.debug(
@@ -1098,7 +1170,21 @@ class StreetViewClient:
 
             if not tile or not tile.panos or len(tile.panos) == 0:
                 logger.debug("No Apple Look Around panoramas found")
-                return None
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    success=False,
+                    file_size=0,
+                    cached=False,
+                    error=f"no Look Around coverage at ({lat:.6f}, {lng:.6f})",
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    width=0,
+                    height=0,
+                )
 
             # Find the closest panorama
             import math
@@ -1131,7 +1217,21 @@ class StreetViewClient:
 
             if closest_pano is None:
                 logger.debug("No closest panorama found")
-                return None
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    success=False,
+                    file_size=0,
+                    cached=False,
+                    error="no closest panorama found in coverage tile",
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    width=0,
+                    height=0,
+                )
 
             pano = closest_pano
             panorama_lat = pano.lat
@@ -1272,7 +1372,23 @@ class StreetViewClient:
                 # Don't write the per-heading file to disk - just cache the faces
                 if not any(faces):
                     logger.debug("Could not get any faces from Apple Look Around")
-                    return None
+                    return StreetViewImageCapture(
+                        bench_id=bench_id,
+                        lat=lat,
+                        lng=lng,
+                        heading=heading,
+                        filepath=filepath,
+                        filename=filename,
+                        success=False,
+                        file_size=0,
+                        cached=False,
+                        error="could not fetch any faces from Look Around",
+                        image_source=ImageSource.APPLE_STREETLEVEL.value,
+                        panorama_lat=panorama_lat,
+                        panorama_lng=panorama_lng,
+                        width=0,
+                        height=0,
+                    )
 
                 # Faces are cached, but we don't write the per-heading file
                 logger.debug(
@@ -1281,7 +1397,23 @@ class StreetViewClient:
                 )
             except Exception as e:
                 logger.debug(f"Error fetching Apple Look Around faces: {e}")
-                return None
+                return StreetViewImageCapture(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    success=False,
+                    file_size=0,
+                    cached=False,
+                    error=f"error fetching faces: {e}",
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    panorama_lat=panorama_lat,
+                    panorama_lng=panorama_lng,
+                    width=0,
+                    height=0,
+                )
 
             # Get image dimensions from front face if available, otherwise use default
             if faces[2]:  # FRONT face
@@ -1329,7 +1461,21 @@ class StreetViewClient:
 
         except Exception as e:
             logger.debug(f"Error capturing from streetlevel (Apple): {e}")
-            return None
+            return StreetViewImageCapture(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                heading=heading,
+                filepath=filepath,
+                filename=filename,
+                success=False,
+                file_size=0,
+                cached=False,
+                error=f"exception: {e}",
+                image_source=ImageSource.APPLE_STREETLEVEL.value,
+                width=0,
+                height=0,
+            )
 
     def capture_image(
         self, lat: float, lng: float, bench_id: str, heading: int

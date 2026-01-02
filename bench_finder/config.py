@@ -6,7 +6,11 @@ Manages API keys and application settings.
 import os
 
 from dotenv import load_dotenv
+from PIL import Image as PILImage
 
+# Increase PIL max image pixels limit to handle large panoramas (e.g., 16384x8192)
+# Default is ~89 million pixels, we set to 300 million to handle 4x larger images
+PILImage.MAX_IMAGE_PIXELS = 300_000_000
 
 # Import term_image conditionally to avoid issues when running in background
 try:

@@ -12,6 +12,9 @@ import dotenv
 import supervision as sv
 import typer
 from PIL import Image
+
+Image.MAX_IMAGE_PIXELS = 300_000_000
+
 from term_image.image import AutoImage, ITerm2Image
 from term_image.utils import get_terminal_name_version
 

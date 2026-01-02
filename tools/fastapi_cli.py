@@ -22,6 +22,9 @@ from typing import Any
 
 import requests
 from PIL import Image as PILImage
+
+PILImage.MAX_IMAGE_PIXELS = 300_000_000
+
 from term_image.image import AutoImage
 
 from api.api_models import (

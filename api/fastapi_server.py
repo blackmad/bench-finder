@@ -3025,6 +3025,8 @@ async def report_missing_bench(
 
         from PIL import Image
 
+        Image.MAX_IMAGE_PIXELS = 300_000_000
+
         # Process uploaded image if provided
         uploaded_image_filename = None
         if image_data:
