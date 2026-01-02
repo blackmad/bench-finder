@@ -1,5 +1,10 @@
 import type { User } from "firebase/auth"
 import {
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  signInWithPopup,
+} from "firebase/auth"
+import {
   createContext,
   type ReactNode,
   useContext,
@@ -7,11 +12,10 @@ import {
   useState,
 } from "react"
 import {
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-} from "firebase/auth"
-import { auth, authProviders, type AuthProviderType } from "../services/firebase"
+  type AuthProviderType,
+  auth,
+  authProviders,
+} from "../services/firebase"
 
 interface AuthContextType {
   user: User | null

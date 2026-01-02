@@ -23,7 +23,7 @@
    - **Status**: Partially updated
    - **Issue**: Contains 61 SQL query usages that need to be converted to Firestore
    - **Complexity**: Many queries use complex SQL features (joins, aggregations, subqueries) that need to be rewritten
-   - **Next Steps**: 
+   - **Next Steps**:
      - Update endpoints incrementally
      - Replace `session.query()` with Firestore queries
      - Handle complex queries by fetching data in multiple steps (Firestore doesn't support joins)
@@ -52,7 +52,7 @@
 - **No Joins**: Firestore doesn't support SQL joins. Need to fetch related data in separate queries
 - **Limited Aggregations**: Firestore has limited aggregation functions. Complex aggregations need to be done in application code
 - **No Transactions Across Collections**: Firestore transactions are limited to a single collection
-- **Query Limitations**: 
+- **Query Limitations**:
   - Can only filter on one field with inequality operators
   - Can't do `IN` queries with multiple values (need separate queries)
   - Can't do complex `OR` queries easily
@@ -85,7 +85,7 @@ To test the Firestore migration:
 2. Test basic operations:
    ```python
    from bench_finder.services.database import BenchDatabase
-   
+
    db = BenchDatabase()
    # Test operations...
    ```
@@ -97,4 +97,3 @@ To test the Firestore migration:
 - Firestore document IDs are stored as strings, but we maintain integer IDs in the document data for compatibility
 - Timestamps are handled automatically by Firestore's `SERVER_TIMESTAMP`
 - Complex queries may need to be broken into multiple Firestore queries and combined in application code
-

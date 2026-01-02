@@ -86,9 +86,7 @@ def verify_token(token: str) -> dict | None:
         Dictionary with user information (user_id, email, etc.) or None if invalid
     """
     if not _initialize_firebase_admin():
-        logger.debug(
-            "Firebase Admin SDK not initialized - skipping token verification"
-        )
+        logger.debug("Firebase Admin SDK not initialized - skipping token verification")
         return None
 
     try:

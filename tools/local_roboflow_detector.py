@@ -13,6 +13,7 @@ import supervision as sv
 import typer
 from PIL import Image
 
+
 Image.MAX_IMAGE_PIXELS = 300_000_000
 
 from term_image.image import AutoImage, ITerm2Image

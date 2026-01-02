@@ -1,31 +1,31 @@
 import { initializeApp } from "firebase/app"
 import {
-    getAuth,
-    GoogleAuthProvider,
-    GithubAuthProvider,
-    OAuthProvider,
-    FacebookAuthProvider,
-    type Auth,
+  type Auth,
+  FacebookAuthProvider,
+  GithubAuthProvider,
+  GoogleAuthProvider,
+  getAuth,
+  OAuthProvider,
 } from "firebase/auth"
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
 }
 
 // Check if Firebase is configured
 const isConfigured =
-    firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId
+  firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId
 
 if (!isConfigured) {
-    console.warn(
-        "Firebase credentials not configured. Authentication features will be disabled."
-    )
+  console.warn(
+    "Firebase credentials not configured. Authentication features will be disabled."
+  )
 }
 
 // Initialize Firebase app
@@ -42,10 +42,10 @@ export const facebookProvider = new FacebookAuthProvider()
 
 // Provider mapping for easy access
 export const authProviders = {
-    google: googleProvider,
-    github: githubProvider,
-    apple: appleProvider,
-    facebook: facebookProvider,
+  google: googleProvider,
+  github: githubProvider,
+  apple: appleProvider,
+  facebook: facebookProvider,
 } as const
 
 export type AuthProviderType = keyof typeof authProviders

@@ -127,13 +127,13 @@ def _get_cloudsql_service():
             "firebase_creds.json",
             project_root / "firebase_creds.json",
         ]
-        
+
         creds_path = None
         for path in creds_paths:
             if path and Path(path).exists():
                 creds_path = path
                 break
-        
+
         if not creds_path:
             raise RuntimeError(
                 "Credentials file not found. Set FIREBASE_CREDENTIALS_PATH "
@@ -177,7 +177,9 @@ def get_gcp_project() -> str | None:
                     creds_data = json.load(f)
                     project = creds_data.get("project_id")
                     if project:
-                        logger.info(f"Discovered GCP project from credentials: {project}")
+                        logger.info(
+                            f"Discovered GCP project from credentials: {project}"
+                        )
                         return project
     except Exception as e:
         logger.debug(f"Failed to get project from credentials file: {e}")
@@ -244,7 +246,9 @@ def get_cloudsql_instance(project_id: str) -> str | None:
                 text=True,
                 check=True,
             )
-            instances = [i.strip() for i in result.stdout.strip().split("\n") if i.strip()]
+            instances = [
+                i.strip() for i in result.stdout.strip().split("\n") if i.strip()
+            ]
         except subprocess.CalledProcessError as e:
             logger.debug(f"gcloud failed to list instances: {e.stderr}")
         except FileNotFoundError:
@@ -304,20 +308,27 @@ def add_ip_to_cloudsql_allowlist(
 
         # Check if IP is already authorized
         for network in current_networks:
-            if network.get("value") == ip_address or network.get("value") == f"{ip_address}/32":
+            if (
+                network.get("value") == ip_address
+                or network.get("value") == f"{ip_address}/32"
+            ):
                 logger.info(f"IP {ip_address} is already in the allowlist")
                 return
 
         # Build the new authorized networks list
         new_networks = list(current_networks)
         new_entry_name = f"migrate-{ip_address.replace('.', '-')}"
-        new_networks.append({
-            "name": new_entry_name,
-            "value": f"{ip_address}/32",
-        })
+        new_networks.append(
+            {
+                "name": new_entry_name,
+                "value": f"{ip_address}/32",
+            }
+        )
 
         # Update the instance
-        logger.info(f"Updating Cloud SQL instance {instance_name} authorized networks...")
+        logger.info(
+            f"Updating Cloud SQL instance {instance_name} authorized networks..."
+        )
         body = {
             "settings": {
                 "ipConfiguration": {
@@ -363,7 +374,10 @@ def add_ip_to_cloudsql_allowlist(
 
         # Check if IP is already authorized
         for network in current_networks:
-            if network.get("value") == ip_address or network.get("value") == f"{ip_address}/32":
+            if (
+                network.get("value") == ip_address
+                or network.get("value") == f"{ip_address}/32"
+            ):
                 logger.info(f"IP {ip_address} is already in the allowlist")
                 return
 
@@ -381,7 +395,9 @@ def add_ip_to_cloudsql_allowlist(
         networks_arg = ",".join(network_values)
 
         # Update via gcloud
-        logger.info(f"Updating Cloud SQL instance {instance_name} authorized networks...")
+        logger.info(
+            f"Updating Cloud SQL instance {instance_name} authorized networks..."
+        )
         result = subprocess.run(
             [
                 "gcloud",
@@ -1145,7 +1161,7 @@ def main():
     # Priority: CLI arg > env var > auto-discover from gcloud
     gcp_project = args.gcp_project or os.getenv("GCP_PROJECT") or get_gcp_project()
     cloudsql_instance = args.cloudsql_instance or os.getenv("CLOUDSQL_INSTANCE")
-    
+
     # If we have a project but no instance, try to discover the instance
     if gcp_project and not cloudsql_instance:
         cloudsql_instance = get_cloudsql_instance(gcp_project)
@@ -1159,7 +1175,9 @@ def main():
             )
         except RuntimeError as e:
             logger.error(f"Failed to add IP to allowlist: {e}")
-            logger.warning("Continuing with migration - connection may fail if IP not allowed")
+            logger.warning(
+                "Continuing with migration - connection may fail if IP not allowed"
+            )
     else:
         logger.warning(
             "Could not determine Cloud SQL instance or project. Skipping IP allowlist. "

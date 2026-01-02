@@ -535,7 +535,7 @@ def reset_image_status(
 ):
     """
     Reset bench candidate status to PENDING to allow re-downloading images.
-    
+
     This command resets candidates with status IMAGE_DOWNLOAD_DONE or DETECTION_DONE
     back to PENDING. This is useful if you want to re-run the image fetch process
     (e.g., to retry failed downloads or fetch missing images) without deleting
@@ -552,7 +552,7 @@ def reset_image_status(
         # Get counts before reset
         with database.get_session() as session:
             from bench_finder.models.unified_models import BenchCandidate
-            
+
             candidate_count = (
                 session.query(BenchCandidate)
                 .filter(
@@ -567,12 +567,16 @@ def reset_image_status(
             )
 
         if candidate_count == 0:
-            console.print("[yellow]No candidates found with status IMAGE_DOWNLOAD_DONE or DETECTION_DONE.[/yellow]")
+            console.print(
+                "[yellow]No candidates found with status IMAGE_DOWNLOAD_DONE or DETECTION_DONE.[/yellow]"
+            )
             return
 
         # Show what will be reset
         console.print("[bold blue]🔄 Reset Image Download Status[/bold blue]")
-        console.print(f"[dim]This will reset {candidate_count} bench candidates to PENDING status.[/dim]")
+        console.print(
+            f"[dim]This will reset {candidate_count} bench candidates to PENDING status.[/dim]"
+        )
         console.print("[dim]Existing images will NOT be deleted.[/dim]\n")
 
         # Confirmation prompt
@@ -2039,7 +2043,9 @@ def stitch_lookaround(
         console.print(f"[red]Images directory not found: {images_path}[/red]")
         raise typer.Exit(1)
 
-    console.print(f"[bold blue]🔍 Scanning for lookaround faces in: {images_path}[/bold blue]")
+    console.print(
+        f"[bold blue]🔍 Scanning for lookaround faces in: {images_path}[/bold blue]"
+    )
 
     # Parse stitching method
     if stitch_method.lower() == "net":
@@ -2047,7 +2053,9 @@ def stitch_lookaround(
     elif stitch_method.lower() == "row":
         method = CubemapStitchingMethod.ROW
     else:
-        console.print(f"[red]Unknown stitch method: {stitch_method}. Use 'net' or 'row'.[/red]")
+        console.print(
+            f"[red]Unknown stitch method: {stitch_method}. Use 'net' or 'row'.[/red]"
+        )
         raise typer.Exit(1)
 
     # Face names in our file naming convention
@@ -2112,7 +2120,9 @@ def stitch_lookaround(
         return
 
     # Stitch the images
-    console.print(f"\n[bold blue]🧵 Stitching {len(benches_to_stitch)} lookaround panoramas...[/bold blue]")
+    console.print(
+        f"\n[bold blue]🧵 Stitching {len(benches_to_stitch)} lookaround panoramas...[/bold blue]"
+    )
 
     stitched_count = 0
     error_count = 0
@@ -2147,7 +2157,9 @@ def stitch_lookaround(
                 face_size = face_images_reordered[0].width
 
                 # Stitch
-                stitched = stitch_cubemap_faces(face_images_reordered, face_size, method)
+                stitched = stitch_cubemap_faces(
+                    face_images_reordered, face_size, method
+                )
 
                 # Save
                 stitched.save(stitched_path, "JPEG", quality=95)
@@ -2167,7 +2179,7 @@ def stitch_lookaround(
             progress.update(task, advance=1)
 
     # Summary
-    console.print(f"\n[bold green]✅ Stitching complete![/bold green]")
+    console.print("\n[bold green]✅ Stitching complete![/bold green]")
     console.print(f"[green]  • Successfully stitched: {stitched_count}[/green]")
     if error_count > 0:
         console.print(f"[yellow]  • Errors: {error_count}[/yellow]")

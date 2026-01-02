@@ -46,6 +46,7 @@ os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
 from PIL import Image as PILImage
 
+
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
 
 from bench_finder.clients.multi_model_client import UnifiedMultiModelDetectionClient

@@ -160,7 +160,7 @@ def test_firebase_auth():
 
         # Test by getting project info
         app = firebase_admin.get_app()
-        print(f"✓ Firebase Admin SDK initialized successfully!")
+        print("✓ Firebase Admin SDK initialized successfully!")
         print(f"  Project ID: {app.project_id}")
         return True
 

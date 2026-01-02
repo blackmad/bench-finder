@@ -624,9 +624,7 @@ class BenchDatabase:
 
                 session.commit()
 
-                logger.info(
-                    f"Reset {count} bench candidates to PENDING status"
-                )
+                logger.info(f"Reset {count} bench candidates to PENDING status")
                 return count
 
         except Exception:

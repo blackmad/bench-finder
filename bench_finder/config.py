@@ -8,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from PIL import Image as PILImage
 
+
 # Increase PIL max image pixels limit to handle large panoramas (e.g., 16384x8192)
 # Default is ~89 million pixels, we set to 300 million to handle 4x larger images
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
@@ -147,7 +148,9 @@ LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 # Backoff settings for image downloading
 BACKOFF_INITIAL_WAIT = 60  # Seconds to wait initially after an error
-BACKOFF_DECREASE_STEP = 5  # Seconds to decrease wait time by after each successful fetch
+BACKOFF_DECREASE_STEP = (
+    5  # Seconds to decrease wait time by after each successful fetch
+)
 
 
 def validate_config() -> bool:
@@ -228,7 +231,6 @@ def validate_config() -> bool:
         logging.getLogger(__name__).warning(
             "FIREBASE_CREDENTIALS_PATH or FIREBASE_CREDENTIALS_BASE64 not set - Auth features may not be available"
         )
-
 
     if errors:
         raise ValueError(

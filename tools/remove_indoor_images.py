@@ -22,6 +22,7 @@ import numpy as np
 import torch
 from PIL import Image as PILImage
 
+
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
 
 from torchvision import transforms

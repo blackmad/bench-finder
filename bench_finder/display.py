@@ -8,6 +8,7 @@ import cv2
 from PIL import Image as PILImage
 from PIL import ImageDraw, ImageFont
 
+
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
 
 from term_image.image import AutoImage, ITerm2Image

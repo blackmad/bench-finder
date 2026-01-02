@@ -19,16 +19,13 @@ from bench_finder.models.unified_models import (
     BenchBase,
     BenchCandidate,
     BenchCandidateStatus,
-    Detection,
     DetectionBase,
-    DetectionItem,
     Image,
     ImageBase,
-    ProcessedBench,
     ReverseGeocode,
-    Search,
     SearchBase,
 )
+
 
 if TYPE_CHECKING:
     from google.cloud.firestore_v1.client import Client
@@ -62,7 +59,9 @@ def _initialize_firestore() -> "Client":
 
             # Option 1: Base64-encoded credentials (for Vercel/serverless)
             if FIREBASE_CREDENTIALS_BASE64:
-                creds_json = base64.b64decode(FIREBASE_CREDENTIALS_BASE64).decode("utf-8")
+                creds_json = base64.b64decode(FIREBASE_CREDENTIALS_BASE64).decode(
+                    "utf-8"
+                )
                 creds_dict = json.loads(creds_json)
                 cred = credentials.Certificate(creds_dict)
                 logger.info("Firebase Admin SDK initialized with base64 credentials")
@@ -171,7 +170,7 @@ class FirestoreDatabase:
                 .limit(1)
                 .get()
             )
-            
+
             if existing:
                 max_id = int(existing[0].to_dict().get("id", 0))
                 search_id = max_id + 1
@@ -184,9 +183,13 @@ class FirestoreDatabase:
             search_dict["status"] = SearchStatus.PENDING.value
 
             # Use integer ID as document ID (stored as string)
-            self.client.collection(self.COLLECTION_SEARCHES).document(str(search_id)).set(search_dict)
+            self.client.collection(self.COLLECTION_SEARCHES).document(
+                str(search_id)
+            ).set(search_dict)
 
-            logger.info(f"Created search record {search_id} for query: {search_data.query}")
+            logger.info(
+                f"Created search record {search_id} for query: {search_data.query}"
+            )
             return search_id
 
         except Exception:
@@ -228,7 +231,7 @@ class FirestoreDatabase:
                 .limit(1)
                 .get()
             )
-            
+
             if existing:
                 max_id = int(existing[0].to_dict().get("id", 0))
                 bench_id = max_id + 1
@@ -241,7 +244,9 @@ class FirestoreDatabase:
             bench_dict["created_at"] = SERVER_TIMESTAMP
             bench_dict["status"] = BenchCandidateStatus.PENDING.value
 
-            self.client.collection(self.COLLECTION_BENCH_CANDIDATES).document(str(bench_id)).set(bench_dict)
+            self.client.collection(self.COLLECTION_BENCH_CANDIDATES).document(
+                str(bench_id)
+            ).set(bench_dict)
 
             logger.debug(f"Added bench {bench_data.provider_id} as record {bench_id}")
             return bench_id
@@ -269,7 +274,7 @@ class FirestoreDatabase:
                 .limit(1)
                 .get()
             )
-            
+
             if existing:
                 max_id = int(existing[0].to_dict().get("id", 0))
                 image_id = max_id + 1
@@ -281,7 +286,9 @@ class FirestoreDatabase:
             image_dict["bench_candidate_id"] = bench_id
             image_dict["created_at"] = SERVER_TIMESTAMP
 
-            self.client.collection(self.COLLECTION_IMAGES).document(str(image_id)).set(image_dict)
+            self.client.collection(self.COLLECTION_IMAGES).document(str(image_id)).set(
+                image_dict
+            )
 
             logger.debug(
                 f"Added image record {image_id} for bench candidate {bench_id}, heading {image_data.heading}"
@@ -311,7 +318,7 @@ class FirestoreDatabase:
                 .limit(1)
                 .get()
             )
-            
+
             if existing:
                 max_id = int(existing[0].to_dict().get("id", 0))
                 detection_id = max_id + 1
@@ -323,10 +330,15 @@ class FirestoreDatabase:
             detection_dict["image_id"] = image_id
             detection_dict["created_at"] = SERVER_TIMESTAMP
 
-            self.client.collection(self.COLLECTION_DETECTIONS).document(str(detection_id)).set(detection_dict)
+            self.client.collection(self.COLLECTION_DETECTIONS).document(
+                str(detection_id)
+            ).set(detection_dict)
 
             # Add detection items if they exist
-            if hasattr(detection_data, "detection_items") and detection_data.detection_items:
+            if (
+                hasattr(detection_data, "detection_items")
+                and detection_data.detection_items
+            ):
                 # Get next detection item ID
                 item_existing = (
                     self.client.collection(self.COLLECTION_DETECTION_ITEMS)
@@ -334,7 +346,7 @@ class FirestoreDatabase:
                     .limit(1)
                     .get()
                 )
-                
+
                 if item_existing:
                     item_max_id = int(item_existing[0].to_dict().get("id", 0))
                     item_id = item_max_id + 1
@@ -346,7 +358,9 @@ class FirestoreDatabase:
                     item_dict["id"] = item_id
                     item_dict["detection_id"] = detection_id
                     item_dict["created_at"] = SERVER_TIMESTAMP
-                    self.client.collection(self.COLLECTION_DETECTION_ITEMS).document(str(item_id)).set(item_dict)
+                    self.client.collection(self.COLLECTION_DETECTION_ITEMS).document(
+                        str(item_id)
+                    ).set(item_dict)
                     item_id += 1
 
             logger.debug(
@@ -376,7 +390,9 @@ class FirestoreDatabase:
             if completed_at is None:
                 completed_at = datetime.now()
 
-            doc_ref = self.client.collection(self.COLLECTION_SEARCHES).document(str(search_id))
+            doc_ref = self.client.collection(self.COLLECTION_SEARCHES).document(
+                str(search_id)
+            )
             doc_ref.update({"status": status.value, "completed_at": completed_at})
 
             logger.debug(f"Updated search {search_id} status to {status}")
@@ -420,7 +436,7 @@ class FirestoreDatabase:
                 .limit(1)
                 .get()
             )
-            
+
             if existing:
                 max_id = int(existing[0].to_dict().get("id", 0))
                 candidate_id = max_id + 1
@@ -441,7 +457,9 @@ class FirestoreDatabase:
                 "created_at": SERVER_TIMESTAMP,
             }
 
-            self.client.collection(self.COLLECTION_BENCH_CANDIDATES).document(str(candidate_id)).set(candidate_dict)
+            self.client.collection(self.COLLECTION_BENCH_CANDIDATES).document(
+                str(candidate_id)
+            ).set(candidate_dict)
 
             logger.debug(f"Added bench candidate: {provider_id} from {source}")
             return candidate_id
@@ -525,7 +543,9 @@ class FirestoreDatabase:
             return True
 
         except Exception:
-            logger.exception(f"Error updating candidate {candidate_id} status to {status}")
+            logger.exception(
+                f"Error updating candidate {candidate_id} status to {status}"
+            )
             return False
 
     def get_bench_candidates_by_status(
@@ -651,7 +671,9 @@ class FirestoreDatabase:
             )
 
             if detections:
-                best_detection_id = int(detections[0].to_dict().get("id", detections[0].id))
+                best_detection_id = int(
+                    detections[0].to_dict().get("id", detections[0].id)
+                )
 
             # Check if ProcessedBench already exists
             existing = (
@@ -682,7 +704,7 @@ class FirestoreDatabase:
                 .limit(1)
                 .get()
             )
-            
+
             if existing_id:
                 max_id = int(existing_id[0].to_dict().get("id", 0))
                 processed_id = max_id + 1
@@ -699,7 +721,9 @@ class FirestoreDatabase:
                 "created_at": SERVER_TIMESTAMP,
             }
 
-            self.client.collection(self.COLLECTION_PROCESSED_BENCHES).document(str(processed_id)).set(processed_dict)
+            self.client.collection(self.COLLECTION_PROCESSED_BENCHES).document(
+                str(processed_id)
+            ).set(processed_dict)
             logger.debug(
                 f"Inserted ProcessedBench for bench candidate {bench_id} -> image {image_id} (confidence {confidence:.2f})"
             )
@@ -728,7 +752,10 @@ class FirestoreDatabase:
             batch_count = 0
 
             for doc in candidates:
-                batch.update(doc.reference, {"status": BenchCandidateStatus.IMAGE_DOWNLOAD_DONE.value})
+                batch.update(
+                    doc.reference,
+                    {"status": BenchCandidateStatus.IMAGE_DOWNLOAD_DONE.value},
+                )
                 batch_count += 1
                 count += 1
 
@@ -776,7 +803,9 @@ class FirestoreDatabase:
             batch_count = 0
 
             for doc in candidates:
-                batch.update(doc.reference, {"status": BenchCandidateStatus.PENDING.value})
+                batch.update(
+                    doc.reference, {"status": BenchCandidateStatus.PENDING.value}
+                )
                 batch_count += 1
                 count += 1
 
@@ -902,7 +931,7 @@ class FirestoreDatabase:
                     .limit(1)
                     .get()
                 )
-                
+
                 if id_existing:
                     max_id = int(id_existing[0].to_dict().get("id", 0))
                     geocode_id = max_id + 1
@@ -912,7 +941,9 @@ class FirestoreDatabase:
                 # Create new record
                 geocode_dict["id"] = geocode_id
                 geocode_dict["created_at"] = SERVER_TIMESTAMP
-                self.client.collection(self.COLLECTION_REVERSE_GEOCODES).document(str(geocode_id)).set(geocode_dict)
+                self.client.collection(self.COLLECTION_REVERSE_GEOCODES).document(
+                    str(geocode_id)
+                ).set(geocode_dict)
                 logger.debug(
                     f"Added reverse geocode for bench candidate {bench_candidate_id}: {formatted_address[:50]}..."
                 )
@@ -980,10 +1011,10 @@ class FirestoreDatabase:
             candidates = candidates_query.get()
 
             # Get all reverse geocodes
-            geocodes = (
-                self.client.collection(self.COLLECTION_REVERSE_GEOCODES).get()
-            )
-            geocode_bench_ids = {int(doc.to_dict()["bench_candidate_id"]) for doc in geocodes}
+            geocodes = self.client.collection(self.COLLECTION_REVERSE_GEOCODES).get()
+            geocode_bench_ids = {
+                int(doc.to_dict()["bench_candidate_id"]) for doc in geocodes
+            }
 
             # Filter candidates without geocode
             result = []
@@ -1006,9 +1037,7 @@ class FirestoreDatabase:
     def close(self) -> None:
         """Close database connection if needed."""
         # Firestore client doesn't need explicit closing
-        pass
 
     def get_session(self) -> "Client":
         """Get Firestore client (for compatibility with SQLAlchemy interface)."""
         return self.client
-
