@@ -2304,8 +2304,9 @@ def backfill_panorama_heading(
 
     This command:
     1. Finds images with image_source = streetview_streetlevel or apple_streetlevel
-    2. Extracts the heading from panorama_metadata (if available)
-    3. Updates the panorama_heading field in the database
+    2. Re-fetches panorama data from the streetlevel API using pano_id
+    3. Extracts the heading from the API response
+    4. Updates the panorama_heading field in the database
 
     Use --dry-run to preview changes without updating the database.
     """
@@ -2317,6 +2318,10 @@ def backfill_panorama_heading(
     )
 
     try:
+        # Import streetlevel libraries
+        from streetlevel import lookaround
+        from streetlevel import streetview as streetlevel_streetview
+
         database = BenchDatabase()
 
         # Query images that need backfilling
@@ -2326,14 +2331,15 @@ def backfill_panorama_heading(
             from bench_finder.models.enums import ImageSource
             from bench_finder.models.unified_models import Image
 
-            # Find images from streetlevel/lookaround sources
+            # Find images from streetlevel/lookaround sources that don't have panorama_heading yet
             statement = select(Image).where(
                 Image.image_source.in_(
                     [
                         ImageSource.STREETVIEW_STREETLEVEL,
                         ImageSource.APPLE_STREETLEVEL,
                     ]
-                )
+                ),
+                Image.panorama_heading.is_(None),
             )
 
             if limit:
@@ -2343,7 +2349,7 @@ def backfill_panorama_heading(
 
         if not images:
             console.print(
-                "[yellow]No streetlevel or lookaround images found in database.[/yellow]"
+                "[yellow]No streetlevel or lookaround images without panorama_heading found.[/yellow]"
             )
             return
 
@@ -2352,7 +2358,8 @@ def backfill_panorama_heading(
         # Process images
         updated_count = 0
         skipped_count = 0
-        no_heading_count = 0
+        error_count = 0
+        no_pano_id_count = 0
 
         with Progress(
             SpinnerColumn(),
@@ -2369,52 +2376,121 @@ def backfill_panorama_heading(
 
             for image in images:
                 try:
-                    # Check if already has panorama_heading
-                    if image.panorama_heading is not None:
-                        logger.debug(
-                            f"Image {image.id} already has panorama_heading: {image.panorama_heading}"
-                        )
-                        skipped_count += 1
-                        progress.update(task, advance=1)
-                        continue
-
-                    # Check if panorama_metadata has heading
+                    # Check if panorama_metadata has heading already (from new data)
                     if (
                         image.panorama_metadata
                         and "heading" in image.panorama_metadata
+                        and image.panorama_metadata["heading"] is not None
                     ):
                         heading = image.panorama_metadata["heading"]
-                        if heading is not None:
-                            if not dry_run:
-                                with database.get_session() as session:
-                                    db_image = session.get(Image, image.id)
-                                    if db_image:
-                                        db_image.panorama_heading = heading
-                                        session.add(db_image)
-                                        session.commit()
+                        if not dry_run:
+                            with database.get_session() as session:
+                                db_image = session.get(Image, image.id)
+                                if db_image:
+                                    db_image.panorama_heading = heading
+                                    session.add(db_image)
+                                    session.commit()
+                        logger.debug(
+                            f"Image {image.id}: Found heading in metadata: {heading}"
+                        )
+                        updated_count += 1
+                        progress.update(task, advance=1)
+                        continue
+
+                    # Check if we have pano_id to re-fetch
+                    if not image.panorama_metadata or "pano_id" not in image.panorama_metadata:
+                        logger.debug(f"Image {image.id}: No pano_id in metadata, skipping")
+                        no_pano_id_count += 1
+                        progress.update(task, advance=1)
+                        continue
+
+                    pano_id = image.panorama_metadata["pano_id"]
+                    if not pano_id:
+                        logger.debug(f"Image {image.id}: Empty pano_id, skipping")
+                        no_pano_id_count += 1
+                        progress.update(task, advance=1)
+                        continue
+
+                    # Re-fetch panorama from API based on image_source
+                    heading = None
+                    if image.image_source == ImageSource.STREETVIEW_STREETLEVEL:
+                        # Fetch from Google Street View
+                        try:
+                            pano = streetlevel_streetview.find_panorama_by_id(pano_id)
+                            if pano and hasattr(pano, "heading"):
+                                heading = pano.heading
                                 logger.debug(
-                                    f"Updated image {image.id} with panorama_heading: {heading}"
+                                    f"Image {image.id}: Fetched heading from Street View: {heading}"
                                 )
-                            else:
-                                logger.info(
-                                    f"[DRY RUN] Would update image {image.id} with panorama_heading: {heading}"
-                                )
-                            updated_count += 1
-                        else:
-                            logger.debug(
-                                f"Image {image.id} has heading=None in panorama_metadata"
+                        except Exception as e:
+                            logger.warning(
+                                f"Image {image.id}: Failed to fetch Street View panorama {pano_id}: {e}"
                             )
-                            no_heading_count += 1
+                            error_count += 1
+                            progress.update(task, advance=1)
+                            continue
+
+                    elif image.image_source == ImageSource.APPLE_STREETLEVEL:
+                        # Fetch from Apple Look Around
+                        # Need lat/lng to get coverage tile
+                        if not image.panorama_lat or not image.panorama_lng:
+                            logger.debug(
+                                f"Image {image.id}: No panorama coordinates for Look Around, skipping"
+                            )
+                            no_pano_id_count += 1
+                            progress.update(task, advance=1)
+                            continue
+
+                        try:
+                            tile = lookaround.get_coverage_tile_by_latlon(
+                                image.panorama_lat, image.panorama_lng
+                            )
+                            if tile and tile.panos:
+                                # Find the panorama with matching ID
+                                for pano in tile.panos:
+                                    if hasattr(pano, "id") and pano.id == pano_id:
+                                        if hasattr(pano, "heading"):
+                                            heading = pano.heading
+                                            logger.debug(
+                                                f"Image {image.id}: Fetched heading from Look Around: {heading}"
+                                            )
+                                        break
+                        except Exception as e:
+                            logger.warning(
+                                f"Image {image.id}: Failed to fetch Look Around panorama {pano_id}: {e}"
+                            )
+                            error_count += 1
+                            progress.update(task, advance=1)
+                            continue
+
+                    # Update database if we got a heading
+                    if heading is not None:
+                        if not dry_run:
+                            with database.get_session() as session:
+                                db_image = session.get(Image, image.id)
+                                if db_image:
+                                    db_image.panorama_heading = heading
+                                    # Also update the metadata to include heading
+                                    if db_image.panorama_metadata:
+                                        db_image.panorama_metadata["heading"] = heading
+                                    session.add(db_image)
+                                    session.commit()
+                        else:
+                            logger.info(
+                                f"[DRY RUN] Would update image {image.id} with panorama_heading: {heading}"
+                            )
+                        updated_count += 1
                     else:
                         logger.debug(
-                            f"Image {image.id} has no 'heading' field in panorama_metadata"
+                            f"Image {image.id}: Could not get heading from API for pano_id {pano_id}"
                         )
-                        no_heading_count += 1
+                        error_count += 1
 
                 except Exception as e:
                     logger.exception(
                         f"Error processing image {image.id}: {e}"
                     )
+                    error_count += 1
 
                 progress.update(task, advance=1)
 
@@ -2423,10 +2499,9 @@ def backfill_panorama_heading(
         if dry_run:
             console.print("[yellow]  (DRY RUN - no changes made)[/yellow]")
         console.print(f"[green]  • Updated: {updated_count}[/green]")
-        console.print(f"[dim]  • Skipped (already set): {skipped_count}[/dim]")
-        console.print(
-            f"[dim]  • No heading in metadata: {no_heading_count}[/dim]"
-        )
+        console.print(f"[dim]  • No pano_id in metadata: {no_pano_id_count}[/dim]")
+        if error_count > 0:
+            console.print(f"[yellow]  • Errors: {error_count}[/yellow]")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
