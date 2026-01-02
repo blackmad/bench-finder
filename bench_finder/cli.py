@@ -2287,6 +2287,177 @@ def stitch_lookaround(
         console.print(f"[yellow]  • Errors: {error_count}[/yellow]")
 
 
+@app.command("backfill-heading")
+def backfill_heading(
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be done without updating the database",
+    ),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+):
+    """
+    Backfill heading for all streetlevel and lookaround images in the database.
+    
+    Calculates heading from panorama location to bench location for images that have:
+    - image_source in ['streetview_streetlevel', 'apple_streetlevel']
+    - panorama_metadata with pano_id
+    - panorama_lat and panorama_lng
+    - bench_candidate with lat and lng
+    """
+    import math
+
+    # Setup logging
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    console.print(
+        "[bold blue]🔄 Backfilling heading for streetlevel and lookaround images[/bold blue]"
+    )
+
+    db = BenchDatabase()
+
+    with db.get_session() as session:
+        from bench_finder.models.enums import ImageSource
+        from bench_finder.models.unified_models import BenchCandidate, Image
+
+        # Find all images that need heading backfilled
+        # Filter by image_source and check for required metadata
+        images_to_update = (
+            session.query(Image)
+            .join(BenchCandidate, Image.bench_candidate_id == BenchCandidate.id)
+            .filter(
+                Image.image_source.in_(
+                    [
+                        ImageSource.STREETVIEW_STREETLEVEL.value,
+                        ImageSource.APPLE_STREETLEVEL.value,
+                    ]
+                ),
+                Image.panorama_metadata.isnot(None),
+                Image.panorama_lat.isnot(None),
+                Image.panorama_lng.isnot(None),
+            )
+            .all()
+        )
+
+        console.print(f"[dim]Found {len(images_to_update)} images to process[/dim]")
+
+        if not images_to_update:
+            console.print("[green]✅ No images need heading backfilled[/green]")
+            return
+
+        # Helper function to calculate bearing (heading) from point 1 to point 2
+        def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+            """Calculate the bearing (heading) from point 1 to point 2 in degrees."""
+            # Convert to radians
+            lat1_rad = math.radians(lat1)
+            lat2_rad = math.radians(lat2)
+            delta_lon = math.radians(lon2 - lon1)
+
+            # Calculate bearing
+            y = math.sin(delta_lon) * math.cos(lat2_rad)
+            x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(
+                lat2_rad
+            ) * math.cos(delta_lon)
+
+            bearing = math.atan2(y, x)
+            bearing_degrees = math.degrees(bearing)
+
+            # Normalize to 0-360
+            bearing_degrees = (bearing_degrees + 360) % 360
+
+            return int(round(bearing_degrees))
+
+        updated_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task(
+                "🔄 Backfilling heading",
+                total=len(images_to_update),
+            )
+
+            for image in images_to_update:
+                try:
+                    # Check if panorama_metadata has pano_id
+                    if not image.panorama_metadata or not image.panorama_metadata.get("pano_id"):
+                        skipped_count += 1
+                        logger.debug(
+                            f"Image {image.id}: Missing pano_id in panorama_metadata, skipping"
+                        )
+                        progress.update(task, advance=1)
+                        continue
+
+                    # Get bench candidate location
+                    bench_candidate = image.bench_candidate
+                    if not bench_candidate:
+                        skipped_count += 1
+                        logger.debug(f"Image {image.id}: Missing bench_candidate, skipping")
+                        progress.update(task, advance=1)
+                        continue
+
+                    bench_lat = bench_candidate.lat
+                    bench_lng = bench_candidate.lng
+                    panorama_lat = image.panorama_lat
+                    panorama_lng = image.panorama_lng
+
+                    if not all([bench_lat, bench_lng, panorama_lat, panorama_lng]):
+                        skipped_count += 1
+                        logger.debug(
+                            f"Image {image.id}: Missing location data, skipping"
+                        )
+                        progress.update(task, advance=1)
+                        continue
+
+                    # Calculate heading from panorama location to bench location
+                    heading = calculate_bearing(panorama_lat, panorama_lng, bench_lat, bench_lng)
+
+                    if dry_run:
+                        console.print(
+                            f"[dim]Would update image {image.id}: heading={heading}° "
+                            f"(panorama: {panorama_lat}, {panorama_lng} -> bench: {bench_lat}, {bench_lng})[/dim]"
+                        )
+                        updated_count += 1
+                    else:
+                        # Update heading in database
+                        image.heading = heading
+                        session.add(image)
+                        updated_count += 1
+                        logger.debug(
+                            f"Updated image {image.id}: heading={heading}° "
+                            f"(panorama: {panorama_lat}, {panorama_lng} -> bench: {bench_lat}, {bench_lng})"
+                        )
+
+                except Exception as e:
+                    error_count += 1
+                    logger.warning(f"Failed to process image {image.id}: {e}", exc_info=True)
+
+                progress.update(task, advance=1)
+
+            if not dry_run:
+                session.commit()
+
+        # Summary
+        console.print("\n[bold green]✅ Backfill complete![/bold green]")
+        console.print(f"[green]  • Updated: {updated_count}[/green]")
+        if skipped_count > 0:
+            console.print(f"[yellow]  • Skipped: {skipped_count}[/yellow]")
+        if error_count > 0:
+            console.print(f"[red]  • Errors: {error_count}[/red]")
+
+
 def main():
     """Main entry point for the CLI."""
     app()

@@ -321,7 +321,7 @@ class Image(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
-    heading: int = Field(nullable=False)
+    heading: int | None = Field(default=None, nullable=True)
     filepath: str | None = Field(default=None)
     filename: str | None = Field(default=None)
     file_size: int | None = Field(default=None)
@@ -705,7 +705,7 @@ class BenchBase(SQLModel):
 class ImageBase(SQLModel):
     """Base schema for image data."""
 
-    heading: int
+    heading: int | None = None
     filepath: str | None = None
     filename: str | None = None
     file_size: int | None = None
