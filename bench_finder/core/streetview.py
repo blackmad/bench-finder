@@ -1295,6 +1295,22 @@ class StreetViewClient:
                 if panorama_metadata:
                     panorama_metadata["face_filenames"] = face_filenames
 
+                # Ensure metadata file exists for stitching
+                metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
+                if not os.path.exists(metadata_path):
+                    try:
+                        metadata_to_save = {
+                            "pano_id": pano.id if hasattr(pano, "id") else None,
+                            "panorama_lat": panorama_lat,
+                            "panorama_lng": panorama_lng,
+                            "date": str(pano.date) if hasattr(pano, "date") else None,
+                        }
+                        with open(metadata_path, "w") as f:
+                            json.dump(metadata_to_save, f, indent=2)
+                        logger.debug(f"Saved panorama metadata to {os.path.basename(metadata_path)}")
+                    except Exception as e:
+                        logger.warning(f"Failed to save metadata file {metadata_path}: {e}")
+
                 # Get dimensions from front face
                 try:
                     with PILImage.open(face_filepaths[2]) as img:  # FRONT face
@@ -1455,6 +1471,21 @@ class StreetViewClient:
                 "date": str(pano.date) if hasattr(pano, "date") else None,
                 "face_filenames": face_filenames,  # Track individual face files
             }
+
+            # Save metadata to JSON file for stitching
+            metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
+            try:
+                metadata_to_save = {
+                    "pano_id": pano.id if hasattr(pano, "id") else None,
+                    "panorama_lat": panorama_lat,
+                    "panorama_lng": panorama_lng,
+                    "date": str(pano.date) if hasattr(pano, "date") else None,
+                }
+                with open(metadata_path, "w") as f:
+                    json.dump(metadata_to_save, f, indent=2)
+                logger.debug(f"Saved panorama metadata to {os.path.basename(metadata_path)}")
+            except Exception as e:
+                logger.warning(f"Failed to save metadata file {metadata_path}: {e}")
 
             logger.debug(
                 f"Cached Apple Look Around faces for bench {bench_id}: panorama at {panorama_lat}, {panorama_lng}, "

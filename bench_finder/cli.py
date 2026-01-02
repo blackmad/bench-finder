@@ -2003,35 +2003,39 @@ def stitch_lookaround(
     stitch_method: str = typer.Option(
         "net",
         "--method",
-        help="Stitching method: net (cube net) or row (horizontal row)",
+        help="Stitching method: net (cube net) or row (horizontal row) - DEPRECATED, now uses to_equirectangular",
     ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
     ),
 ):
     """
-    Stitch Apple Look Around face images into cubemap panoramas.
+    Stitch Apple Look Around face images into equirectangular panoramas.
 
     Scans the images directory for lookaround face images (6 faces per bench),
-    and creates stitched cubemap images for any bench that has all 6 faces
+    and creates stitched equirectangular images for any bench that has all 6 faces
     but no existing stitched image.
+
+    Uses streetlevel.lookaround.to_equirectangular() to create proper equirectangular
+    projections from the cubemap faces.
 
     Face files follow the pattern: bench_{id}_lookaround_face_{face}.jpg
     where face is one of: back, left, front, right, top, bottom
 
     Stitched output: bench_{id}_lookaround_stitched.jpg
     """
+    import json
     import re
     from collections import defaultdict
     from pathlib import Path
 
-    from PIL import Image
-    from streetlevel.util import CubemapStitchingMethod, stitch_cubemap_faces
+    from PIL import Image as PILImage
+    from streetlevel import lookaround
 
     from bench_finder.config import IMAGES_DIR
 
     # Increase PIL limit for large images
-    Image.MAX_IMAGE_PIXELS = 300_000_000
+    PILImage.MAX_IMAGE_PIXELS = 300_000_000
 
     # Setup logging
     setup_logging(level=log_level)
@@ -2047,24 +2051,13 @@ def stitch_lookaround(
         f"[bold blue]🔍 Scanning for lookaround faces in: {images_path}[/bold blue]"
     )
 
-    # Parse stitching method
-    if stitch_method.lower() == "net":
-        method = CubemapStitchingMethod.NET
-    elif stitch_method.lower() == "row":
-        method = CubemapStitchingMethod.ROW
-    else:
-        console.print(
-            f"[red]Unknown stitch method: {stitch_method}. Use 'net' or 'row'.[/red]"
-        )
-        raise typer.Exit(1)
+    # Note: stitch_method parameter is kept for backward compatibility but ignored
+    # We now always use to_equirectangular from streetlevel.lookaround
 
     # Face names in our file naming convention
     # Our order: back=0, left=1, front=2, right=3, top=4, bottom=5
+    # to_equirectangular expects faces in order: [0, 1, 2, 3, 4, 5] (back, left, front, right, top, bottom)
     face_names = ["back", "left", "front", "right", "top", "bottom"]
-
-    # stitch_cubemap_faces expects: front, right, back, left, top, bottom
-    # So we need to reorder: [2, 3, 0, 1, 4, 5]
-    face_reorder = [2, 3, 0, 1, 4, 5]
 
     # Pattern to match lookaround face files
     # bench_{id}_lookaround_face_{face}.jpg
@@ -2144,37 +2137,146 @@ def stitch_lookaround(
 
         for bench_id, faces, stitched_path in benches_to_stitch:
             try:
-                # Load faces in our order: back, left, front, right, top, bottom
-                face_images_our_order = []
+                # Load metadata file if it exists
+                metadata_path = images_path / f"bench_{bench_id}_lookaround_metadata.json"
+                metadata = None
+                if metadata_path.exists():
+                    try:
+                        with open(metadata_path, "r") as f:
+                            metadata = json.load(f)
+                        logger.debug(f"Loaded metadata for bench {bench_id} from {metadata_path.name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to load metadata from {metadata_path.name}: {e}")
+
+                # Try to get panorama metadata from database if not in file
+                if not metadata or not metadata.get("pano_id"):
+                    try:
+                        from bench_finder.services.database import BenchDatabase
+                        db = BenchDatabase()
+                        with db.get_session() as session:
+                            from bench_finder.models.unified_models import Image
+                            # Look for an image with this bench_id pattern in panorama_metadata
+                            # bench_id might be a string identifier, try to find matching images
+                            images = (
+                                session.query(Image)
+                                .filter(
+                                    Image.image_source == "apple_streetlevel",
+                                    Image.panorama_metadata.isnot(None),
+                                )
+                                .all()
+                            )
+                            # Find image with matching bench_id in metadata or filename
+                            for img in images:
+                                if img.panorama_metadata and img.panorama_metadata.get("pano_id"):
+                                    # Check if this image's bench_candidate might match
+                                    # We'll use the first one we find with panorama metadata
+                                    if not metadata:
+                                        metadata = {
+                                            "pano_id": img.panorama_metadata.get("pano_id"),
+                                            "panorama_lat": img.panorama_lat,
+                                            "panorama_lng": img.panorama_lng,
+                                        }
+                                        logger.debug(f"Found metadata for bench {bench_id} from database")
+                                        break
+                    except Exception as e:
+                        logger.debug(f"Could not get metadata from database: {e}")
+
+                # If we still don't have metadata, we can't proceed
+                if not metadata or not metadata.get("pano_id"):
+                    logger.warning(
+                        f"Bench {bench_id}: No panorama metadata found. "
+                        "Cannot use to_equirectangular without pano_id. "
+                        "Skipping this bench."
+                    )
+                    error_count += 1
+                    progress.update(task, advance=1)
+                    continue
+
+                # Load faces in order: back, left, front, right, top, bottom
+                face_images = []
                 for face_name in face_names:
-                    img = Image.open(faces[face_name])
-                    face_images_our_order.append(img)
+                    img = PILImage.open(faces[face_name])
+                    face_images.append(img)
 
-                # Reorder for stitch_cubemap_faces: front, right, back, left, top, bottom
-                face_images_reordered = [face_images_our_order[i] for i in face_reorder]
+                # Re-fetch panorama to get camera_metadata
+                panorama_lat = metadata.get("panorama_lat")
+                panorama_lng = metadata.get("panorama_lng")
+                pano_id = metadata.get("pano_id")
 
-                # Get face size (assume square faces)
-                face_size = face_images_reordered[0].width
+                if not panorama_lat or not panorama_lng:
+                    logger.warning(
+                        f"Bench {bench_id}: Missing panorama coordinates in metadata. "
+                        "Cannot re-fetch panorama for camera_metadata."
+                    )
+                    error_count += 1
+                    for img in face_images:
+                        img.close()
+                    progress.update(task, advance=1)
+                    continue
 
-                # Stitch
-                stitched = stitch_cubemap_faces(
-                    face_images_reordered, face_size, method
+                logger.debug(
+                    f"Re-fetching panorama {pano_id} at ({panorama_lat}, {panorama_lng}) "
+                    f"for bench {bench_id}"
                 )
 
+                # Get coverage tile and find panorama
+                tile = lookaround.get_coverage_tile_by_latlon(panorama_lat, panorama_lng)
+                if not tile or not tile.panos:
+                    logger.warning(
+                        f"Bench {bench_id}: Could not get coverage tile for panorama"
+                    )
+                    error_count += 1
+                    for img in face_images:
+                        img.close()
+                    progress.update(task, advance=1)
+                    continue
+
+                # Find panorama by ID
+                pano = None
+                for candidate_pano in tile.panos:
+                    if hasattr(candidate_pano, "id") and candidate_pano.id == pano_id:
+                        pano = candidate_pano
+                        break
+
+                if not pano:
+                    logger.warning(
+                        f"Bench {bench_id}: Could not find panorama {pano_id} in coverage tile"
+                    )
+                    error_count += 1
+                    for img in face_images:
+                        img.close()
+                    progress.update(task, advance=1)
+                    continue
+
+                # Get camera_metadata from panorama
+                if not hasattr(pano, "camera_metadata") or not pano.camera_metadata:
+                    logger.warning(
+                        f"Bench {bench_id}: Panorama {pano_id} has no camera_metadata"
+                    )
+                    error_count += 1
+                    for img in face_images:
+                        img.close()
+                    progress.update(task, advance=1)
+                    continue
+
+                # Use to_equirectangular to create equirectangular projection
+                logger.debug(f"Creating equirectangular projection for bench {bench_id}")
+                stitched = lookaround.to_equirectangular(face_images, pano.camera_metadata)
+
                 # Save
-                stitched.save(stitched_path, "JPEG", quality=95)
+                stitched.save(stitched_path, "JPEG", quality=95, options={"quality": 95})
                 stitched_count += 1
 
                 logger.debug(f"Stitched {bench_id} -> {stitched_path.name}")
 
                 # Close images to free memory
-                for img in face_images_our_order:
+                for img in face_images:
                     img.close()
                 stitched.close()
 
             except Exception as e:
                 error_count += 1
-                logger.warning(f"Failed to stitch {bench_id}: {e}")
+                logger.warning(f"Failed to stitch {bench_id}: {e}", exc_info=True)
 
             progress.update(task, advance=1)
 
