@@ -2301,13 +2301,19 @@ def backfill_heading(
     """
     Backfill heading for all streetlevel and lookaround images in the database.
     
-    Calculates heading from panorama location to bench location for images that have:
+    Fetches panorama metadata from streetlevel/lookaround using pano_id and calculates
+    heading from panorama location to bench location for images that have:
     - image_source in ['streetview_streetlevel', 'apple_streetlevel']
     - panorama_metadata with pano_id
     - panorama_lat and panorama_lng
     - bench_candidate with lat and lng
     """
+    import asyncio
     import math
+
+    from aiohttp import ClientSession
+    from streetlevel import lookaround
+    from streetlevel import streetview as streetlevel_streetview
 
     # Setup logging
     setup_logging(level=log_level)
@@ -2349,7 +2355,7 @@ def backfill_heading(
             return
 
         # Helper function to calculate bearing (heading) from point 1 to point 2
-        def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> int:
             """Calculate the bearing (heading) from point 1 to point 2 in degrees."""
             # Convert to radians
             lat1_rad = math.radians(lat1)
@@ -2369,6 +2375,92 @@ def backfill_heading(
             bearing_degrees = (bearing_degrees + 360) % 360
 
             return int(round(bearing_degrees))
+
+        async def fetch_panorama_and_calculate_heading(
+            image: Image, bench_candidate: BenchCandidate
+        ) -> int | None:
+            """Fetch panorama metadata and calculate heading."""
+            try:
+                pano_id = image.panorama_metadata.get("pano_id")
+                if not pano_id:
+                    return None
+
+                panorama_lat = image.panorama_lat
+                panorama_lng = image.panorama_lng
+                bench_lat = bench_candidate.lat
+                bench_lng = bench_candidate.lng
+
+                if not all([panorama_lat, panorama_lng, bench_lat, bench_lng]):
+                    return None
+
+                # Fetch panorama based on image_source
+                async with ClientSession() as http_session:
+                    if image.image_source == ImageSource.APPLE_STREETLEVEL.value:
+                        # Fetch Apple Look Around panorama
+                        tile = await lookaround.get_coverage_tile_by_latlon_async(
+                            panorama_lat, panorama_lng, session=http_session
+                        )
+                        if not tile or not tile.panos:
+                            logger.debug(
+                                f"Image {image.id}: No panoramas found in coverage tile"
+                            )
+                            return None
+
+                        # Find panorama by ID
+                        pano = None
+                        for candidate_pano in tile.panos:
+                            if hasattr(candidate_pano, "id") and candidate_pano.id == pano_id:
+                                pano = candidate_pano
+                                break
+
+                        if not pano:
+                            logger.debug(
+                                f"Image {image.id}: Panorama {pano_id} not found in coverage tile"
+                            )
+                            return None
+
+                        # Get actual panorama location
+                        actual_panorama_lat = pano.lat if hasattr(pano, "lat") else panorama_lat
+                        actual_panorama_lng = pano.lon if hasattr(pano, "lon") else panorama_lng
+
+                    elif image.image_source == ImageSource.STREETVIEW_STREETLEVEL.value:
+                        # Fetch Google Street View panorama
+                        pano = await streetlevel_streetview.find_panorama_async(
+                            panorama_lat,
+                            panorama_lng,
+                            radius=25,
+                            session=http_session,
+                            search_third_party=True,
+                        )
+
+                        if not pano:
+                            logger.debug(
+                                f"Image {image.id}: Panorama {pano_id} not found near ({panorama_lat}, {panorama_lng})"
+                            )
+                            return None
+
+                        # Verify it's the same panorama
+                        if hasattr(pano, "id") and pano.id != pano_id:
+                            logger.debug(
+                                f"Image {image.id}: Found different panorama {pano.id} instead of {pano_id}"
+                            )
+                            return None
+
+                        # Get actual panorama location
+                        actual_panorama_lat = pano.lat if hasattr(pano, "lat") else panorama_lat
+                        actual_panorama_lng = pano.lon if hasattr(pano, "lon") else panorama_lng
+                    else:
+                        return None
+
+                    # Calculate heading from panorama location to bench location
+                    heading = calculate_bearing(
+                        actual_panorama_lat, actual_panorama_lng, bench_lat, bench_lng
+                    )
+                    return heading
+
+            except Exception as e:
+                logger.debug(f"Error fetching panorama for image {image.id}: {e}")
+                return None
 
         updated_count = 0
         skipped_count = 0
@@ -2408,26 +2500,21 @@ def backfill_heading(
                         progress.update(task, advance=1)
                         continue
 
-                    bench_lat = bench_candidate.lat
-                    bench_lng = bench_candidate.lng
-                    panorama_lat = image.panorama_lat
-                    panorama_lng = image.panorama_lng
+                    # Fetch panorama and calculate heading
+                    heading = asyncio.run(
+                        fetch_panorama_and_calculate_heading(image, bench_candidate)
+                    )
 
-                    if not all([bench_lat, bench_lng, panorama_lat, panorama_lng]):
+                    if heading is None:
                         skipped_count += 1
-                        logger.debug(
-                            f"Image {image.id}: Missing location data, skipping"
-                        )
+                        logger.debug(f"Image {image.id}: Could not determine heading, skipping")
                         progress.update(task, advance=1)
                         continue
-
-                    # Calculate heading from panorama location to bench location
-                    heading = calculate_bearing(panorama_lat, panorama_lng, bench_lat, bench_lng)
 
                     if dry_run:
                         console.print(
                             f"[dim]Would update image {image.id}: heading={heading}° "
-                            f"(panorama: {panorama_lat}, {panorama_lng} -> bench: {bench_lat}, {bench_lng})[/dim]"
+                            f"(panorama: {image.panorama_lat}, {image.panorama_lng} -> bench: {bench_candidate.lat}, {bench_candidate.lng})[/dim]"
                         )
                         updated_count += 1
                     else:
@@ -2437,7 +2524,7 @@ def backfill_heading(
                         updated_count += 1
                         logger.debug(
                             f"Updated image {image.id}: heading={heading}° "
-                            f"(panorama: {panorama_lat}, {panorama_lng} -> bench: {bench_lat}, {bench_lng})"
+                            f"(panorama: {image.panorama_lat}, {image.panorama_lng} -> bench: {bench_candidate.lat}, {bench_candidate.lng})"
                         )
 
                 except Exception as e:
