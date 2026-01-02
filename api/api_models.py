@@ -8,6 +8,9 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+from sqlmodel import SQLModel
+
+from bench_finder.models.unified_models import Image as ImageModel
 
 from bench_finder.models.enums import (
     BenchReportType,
@@ -97,9 +100,10 @@ class BenchResponseModel(BenchBase):
     created_at: datetime
 
 
-class ImageResponse(BaseModel):
-    """Schema for image response - uses Image fields but with bench_id instead of bench_candidate_id."""
+class ImageResponse(SQLModel):
+    """SQLModel response schema for images - extends Image but uses bench_id for API compatibility."""
 
+    # Include all Image fields except bench_candidate_id
     id: int
     bench_id: int  # API uses ProcessedBench id, not bench_candidate_id
     heading: int | None = None
@@ -114,6 +118,26 @@ class ImageResponse(BaseModel):
     panorama_lng: float | None = None
     panorama_metadata: dict[str, Any] | None = None
     created_at: datetime
+
+    @classmethod
+    def from_image(cls, image: ImageModel, bench_id: int) -> "ImageResponse":
+        """Create ImageResponse from Image model."""
+        return cls(
+            id=image.id or 0,
+            bench_id=bench_id,
+            heading=image.heading,
+            filepath=image.filepath,
+            filename=image.filename,
+            file_size=image.file_size,
+            firebase_url=image.firebase_url,
+            capture_success=image.capture_success,
+            capture_error=image.capture_error,
+            image_source=image.image_source.value if image.image_source else None,
+            panorama_lat=image.panorama_lat,
+            panorama_lng=image.panorama_lng,
+            panorama_metadata=image.panorama_metadata,
+            created_at=image.created_at,
+        )
 
 
 # DetectionBase now imported from unified_models
