@@ -24,7 +24,6 @@ from bench_finder.models.unified_models import (
     DetectionBase,
     DetectionItem,
     Image,
-    ImageBase,
     ProcessedBench,
     ReverseGeocode,
     Search,
@@ -174,12 +173,12 @@ class BenchDatabase:
             logger.exception("Error adding bench record")
             raise
 
-    def add_image(self, image_data: ImageBase, bench_id: int) -> int:
+    def add_image(self, image_data: Image, bench_id: int) -> int:
         """
         Add an image record to the database.
 
         Args:
-            image_data: ImageBase schema with image capture results
+            image_data: Image model with image capture results (id will be ignored, bench_candidate_id will be set)
             bench_id: ID of the bench this image belongs to
 
         Returns:
@@ -187,12 +186,14 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
+                # Create new Image instance with bench_candidate_id set
                 image = Image(
                     bench_candidate_id=bench_id,
                     heading=image_data.heading,
                     filepath=image_data.filepath,
                     filename=image_data.filename,
                     file_size=image_data.file_size,
+                    firebase_url=image_data.firebase_url,
                     capture_success=image_data.capture_success,
                     capture_error=image_data.capture_error,
                     image_source=image_data.image_source,

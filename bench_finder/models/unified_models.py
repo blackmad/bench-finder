@@ -702,19 +702,6 @@ class BenchBase(SQLModel):
     external_id: str | None = None  # For Mapillary image IDs
 
 
-class ImageBase(SQLModel):
-    """Base schema for image data."""
-
-    heading: int | None = None
-    filepath: str | None = None
-    filename: str | None = None
-    file_size: int | None = None
-    capture_success: bool
-    capture_error: str | None = None
-    image_source: ImageSource | None = None
-    panorama_lat: float | None = None
-    panorama_lng: float | None = None
-    panorama_metadata: dict[str, Any] | None = None
 
 
 class DetectionBase(SQLModel):

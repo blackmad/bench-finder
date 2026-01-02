@@ -21,7 +21,6 @@ from bench_finder.models.unified_models import (
     BenchCandidateStatus,
     DetectionBase,
     Image,
-    ImageBase,
     ReverseGeocode,
     SearchBase,
 )
@@ -255,12 +254,12 @@ class FirestoreDatabase:
             logger.exception("Error adding bench record")
             raise
 
-    def add_image(self, image_data: ImageBase, bench_id: int) -> int:
+    def add_image(self, image_data: Image, bench_id: int) -> int:
         """
         Add an image record to the database.
 
         Args:
-            image_data: ImageBase schema with image capture results
+            image_data: Image model with image capture results (without id, bench_candidate_id, created_at)
             bench_id: ID of the bench this image belongs to
 
         Returns:

@@ -13,7 +13,7 @@ from bench_finder.models.enums import BenchCandidateStatus
 from bench_finder.models.unified_models import (
     BenchBase,
     BenchProcessingResult,
-    ImageBase,
+    Image,
     ProcessingStats,
 )
 from bench_finder.services.database import BenchDatabase
@@ -313,21 +313,22 @@ class ImageDownloadService:
                                 f"Unknown image_source: {image_capture.image_source}"
                             )
 
-                    self.database.add_image(
-                        ImageBase(
-                            heading=image_capture.heading,
-                            filepath=image_capture.filepath,
-                            filename=image_capture.filename,
-                            file_size=image_capture.file_size,
-                            capture_success=image_capture.success,
-                            capture_error=image_capture.error,
-                            image_source=image_source,
-                            panorama_lat=image_capture.panorama_lat,
-                            panorama_lng=image_capture.panorama_lng,
-                            panorama_metadata=image_capture.panorama_metadata,
-                        ),
-                        bench_id=bench_id,
+                    # Create Image instance (id, bench_candidate_id, created_at will be set by database)
+                    image_data = Image(
+                        bench_candidate_id=bench_id,  # Will be overridden by add_image, but required for Image model
+                        heading=image_capture.heading,
+                        filepath=image_capture.filepath,
+                        filename=image_capture.filename,
+                        file_size=image_capture.file_size,
+                        firebase_url=None,
+                        capture_success=image_capture.success,
+                        capture_error=image_capture.error,
+                        image_source=image_source,
+                        panorama_lat=image_capture.panorama_lat,
+                        panorama_lng=image_capture.panorama_lng,
+                        panorama_metadata=image_capture.panorama_metadata,
                     )
+                    self.database.add_image(image_data, bench_id=bench_id)
 
                     logger.debug(
                         f"Added image record for bench {bench.provider_id}, heading {image_capture.heading}"

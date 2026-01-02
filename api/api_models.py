@@ -22,7 +22,6 @@ from bench_finder.models.unified_models import (
     BoundingBox,
     DetectionBase,
     DetectionItem,
-    ImageBase,
     Polygon,
     SearchBase,
 )
@@ -98,14 +97,22 @@ class BenchResponseModel(BenchBase):
     created_at: datetime
 
 
-# ImageBase now imported from unified_models
-
-
-class ImageResponse(ImageBase):
-    """Schema for image response."""
+class ImageResponse(BaseModel):
+    """Schema for image response - uses Image fields but with bench_id instead of bench_candidate_id."""
 
     id: int
-    bench_id: int
+    bench_id: int  # API uses ProcessedBench id, not bench_candidate_id
+    heading: int | None = None
+    filepath: str | None = None
+    filename: str | None = None
+    file_size: int | None = None
+    firebase_url: str | None = None
+    capture_success: bool
+    capture_error: str | None = None
+    image_source: str | None = None
+    panorama_lat: float | None = None
+    panorama_lng: float | None = None
+    panorama_metadata: dict[str, Any] | None = None
     created_at: datetime
 
 
