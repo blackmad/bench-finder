@@ -17,6 +17,7 @@ import requests
 from aiohttp import ClientSession
 from PIL import Image as PILImage
 
+
 # Increase PIL max image pixels limit to handle large panoramas (e.g., 16384x8192)
 # Default is ~89 million pixels, we set to 300 million to handle 4x larger images
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
@@ -25,13 +26,13 @@ from streetlevel import lookaround
 from streetlevel import streetview as streetlevel_streetview
 
 from bench_finder.config import (
+    BACKOFF_DECREASE_STEP,
+    BACKOFF_INITIAL_WAIT,
     GOOGLE_MAPS_API_KEY,
     IMAGES_DIR,
     STREETVIEW_FOV,
     STREETVIEW_HEADINGS,
     STREETVIEW_SIZE,
-    BACKOFF_INITIAL_WAIT,
-    BACKOFF_DECREASE_STEP,
 )
 from bench_finder.models.enums import ImageSource
 from bench_finder.models.streetview_models import (
@@ -70,7 +71,6 @@ class StreetViewClient:
 
         # Backoff state
         self.current_backoff = 0
-
 
     def _get_metadata_cache_path(self, lat: float, lng: float, source: str) -> str:
         """Get the path to the metadata cache file for a location and source."""
@@ -133,9 +133,7 @@ class StreetViewClient:
             time.sleep(self.current_backoff)
 
             # Decrease backoff for next time
-            self.current_backoff = max(
-                0, self.current_backoff - BACKOFF_DECREASE_STEP
-            )
+            self.current_backoff = max(0, self.current_backoff - BACKOFF_DECREASE_STEP)
             if self.current_backoff > 0:
                 logger.info(
                     f"Backoff decreased to {self.current_backoff} seconds for next request"
@@ -156,7 +154,7 @@ class StreetViewClient:
         )
         # Wait immediately to let the system cool down
         time.sleep(self.current_backoff)
-        
+
         # Decrease for next time (since we just waited)
         self.current_backoff = max(0, self.current_backoff - BACKOFF_DECREASE_STEP)
 
@@ -225,7 +223,7 @@ class StreetViewClient:
             None  # Store panorama location for direct heading calculation
         )
 
-           # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
+        # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
         timeout = aiohttp.ClientTimeout(total=30, connect=10)
         # Try set trace configs for debugging on session creation
         trace_config = aiohttp.TraceConfig()
@@ -236,7 +234,9 @@ class StreetViewClient:
         # trace_config.on_request_start.append(on_request_start)
         # trace_config.on_request_end.append(on_request_end)
 
-        async with ClientSession(trace_configs=[trace_config], timeout=timeout) as session:
+        async with ClientSession(
+            trace_configs=[trace_config], timeout=timeout
+        ) as session:
             # First, capture all the regular heading images
             for heading in STREETVIEW_HEADINGS:
                 try:
@@ -357,14 +357,19 @@ class StreetViewClient:
         """
         should_close = session is None
         if session is None:
-               # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
+            # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
             timeout = aiohttp.ClientTimeout(total=30, connect=10)
             # Try set trace configs for debugging on session creation
             trace_config = aiohttp.TraceConfig()
+
             async def on_request_start(session, trace_config_ctx, params):
                 print(f"Request started: {params.method} {params.url}")
+
             async def on_request_end(session, trace_config_ctx, params):
-                print(f"Request ended: {params.method} {params.url} -> {params.response.status}")
+                print(
+                    f"Request ended: {params.method} {params.url} -> {params.response.status}"
+                )
+
             trace_config.on_request_start.append(on_request_start)
             trace_config.on_request_end.append(on_request_end)
             session = ClientSession(trace_configs=[trace_config], timeout=timeout)
@@ -720,6 +725,7 @@ class StreetViewClient:
     ) -> tuple[Any, PILImage.Image | None, str | None, float, float, str | None] | None:
         """
         Get or download a Google Street View panorama, reusing cached version if available.
+        Falls back to third-party panoramas if no official Google panorama is found.
 
         Args:
             lat: Latitude to search for panorama
@@ -733,13 +739,22 @@ class StreetViewClient:
             The error element is None on success, or an error message string on failure
         """
         try:
-            # Find panorama
+            # First try to find official Google panorama
             pano = await streetlevel_streetview.find_panorama_async(
-                lat, lng, radius=25, session=session
+                lat, lng, radius=25, session=session, search_third_party=False
             )
 
+            # If no official panorama found, try third-party panoramas as fallback
             if not pano:
-                error_msg = f"no panorama found within 25m of ({lat:.6f}, {lng:.6f})"
+                logger.debug(
+                    f"No official Google panorama found within 25m of ({lat:.6f}, {lng:.6f}), trying third-party"
+                )
+                pano = await streetlevel_streetview.find_panorama_async(
+                    lat, lng, radius=25, session=session, search_third_party=True
+                )
+
+            if not pano:
+                error_msg = f"no panorama found within 25m of ({lat:.6f}, {lng:.6f}) (including third-party)"
                 logger.debug(f"Google Street View streetlevel: {error_msg}")
                 return (None, None, None, lat, lng, error_msg)
 
@@ -761,7 +776,14 @@ class StreetViewClient:
                 logger.debug(f"Reusing cached panorama: {pano_filename}")
                 try:
                     equirectangular = PILImage.open(pano_filepath)
-                    return (pano, equirectangular, pano_id, panorama_lat, panorama_lng, None)
+                    return (
+                        pano,
+                        equirectangular,
+                        pano_id,
+                        panorama_lat,
+                        panorama_lng,
+                        None,
+                    )
                 except Exception as e:
                     logger.warning(
                         f"Failed to load cached panorama {pano_filename}: {e}"
