@@ -2298,17 +2298,21 @@ def backfill_panorama_heading(
     limit: int | None = typer.Option(
         None, "--limit", help="Limit the number of images to process"
     ),
+    batch_size: int = typer.Option(
+        50, "--batch-size", help="Number of images to process in parallel"
+    ),
 ):
     """
     Backfill panorama_heading for streetlevel and lookaround images.
 
     This command:
     1. Finds images with image_source = streetview_streetlevel or apple_streetlevel
-    2. Re-fetches panorama data from the streetlevel API using pano_id
+    2. Re-fetches panorama data from the streetlevel API using pano_id (async batches)
     3. Extracts the heading from the API response
     4. Updates the panorama_heading field in the database
 
     Use --dry-run to preview changes without updating the database.
+    Use --batch-size to control parallelism (default: 50).
     """
     setup_logging(level=log_level)
     logger = logging.getLogger(__name__)
@@ -2318,6 +2322,8 @@ def backfill_panorama_heading(
     )
 
     try:
+        import asyncio
+
         # Import streetlevel libraries
         from streetlevel import lookaround
         from streetlevel import streetview as streetlevel_streetview
@@ -2335,11 +2341,11 @@ def backfill_panorama_heading(
             statement = select(Image).where(
                 Image.image_source.in_(
                     [
-                        ImageSource.STREETVIEW_STREETLEVEL,
-                        ImageSource.APPLE_STREETLEVEL,
+                        ImageSource.STREETVIEW_STREETLEVEL.value,
+                        ImageSource.APPLE_STREETLEVEL.value,
                     ]
                 ),
-                Image.panorama_heading.is_(None),
+                Image.panorama_heading == None,
             )
 
             if limit:
@@ -2354,10 +2360,137 @@ def backfill_panorama_heading(
             return
 
         console.print(f"Found {len(images)} images to process\n")
+        console.print(f"[dim]Processing in batches of {batch_size}...[/dim]\n")
 
-        # Process images
+        # Async function to process a single image
+        async def process_image_async(image, session_aio):
+            """Process a single image to fetch and update its panorama heading."""
+            nonlocal updated_count, error_count, no_pano_id_count
+            
+            try:
+                # Check if panorama_metadata has heading already (from new data)
+                if (
+                    image.panorama_metadata
+                    and "heading" in image.panorama_metadata
+                    and image.panorama_metadata["heading"] is not None
+                ):
+                    heading = image.panorama_metadata["heading"]
+                    if not dry_run:
+                        with database.get_session() as session:
+                            db_image = session.get(Image, image.id)
+                            if db_image:
+                                db_image.panorama_heading = heading
+                                session.add(db_image)
+                                session.commit()
+                    logger.debug(
+                        f"Image {image.id}: Found heading in metadata: {heading}"
+                    )
+                    updated_count += 1
+                    return True
+
+                # Check if we have pano_id to re-fetch
+                if not image.panorama_metadata or "pano_id" not in image.panorama_metadata:
+                    logger.debug(f"Image {image.id}: No pano_id in metadata, skipping")
+                    no_pano_id_count += 1
+                    return False
+
+                pano_id = image.panorama_metadata["pano_id"]
+                if not pano_id:
+                    logger.debug(f"Image {image.id}: Empty pano_id, skipping")
+                    no_pano_id_count += 1
+                    return False
+
+                # Re-fetch panorama from API based on image_source
+                heading = None
+                if image.image_source == ImageSource.STREETVIEW_STREETLEVEL.value:
+                    # Fetch from Google Street View (async)
+                    try:
+                        pano = await streetlevel_streetview.find_panorama_by_id_async(
+                            pano_id, session_aio
+                        )
+                        if pano and hasattr(pano, "heading"):
+                            heading = pano.heading
+                            logger.debug(
+                                f"Image {image.id}: Fetched heading from Street View: {heading}"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Image {image.id}: Failed to fetch Street View panorama {pano_id}: {e}"
+                        )
+                        error_count += 1
+                        return False
+
+                elif image.image_source == ImageSource.APPLE_STREETLEVEL.value:
+                    # Fetch from Apple Look Around (async)
+                    if not image.panorama_lat or not image.panorama_lng:
+                        logger.debug(
+                            f"Image {image.id}: No panorama coordinates for Look Around, skipping"
+                        )
+                        no_pano_id_count += 1
+                        return False
+
+                    try:
+                        tile = await lookaround.get_coverage_tile_by_latlon_async(
+                            image.panorama_lat, image.panorama_lng, session=session_aio
+                        )
+                        if tile and tile.panos:
+                            # Find the panorama with matching ID
+                            for pano in tile.panos:
+                                if hasattr(pano, "id") and pano.id == pano_id:
+                                    if hasattr(pano, "heading"):
+                                        heading = pano.heading
+                                        logger.debug(
+                                            f"Image {image.id}: Fetched heading from Look Around: {heading}"
+                                        )
+                                    break
+                    except Exception as e:
+                        logger.warning(
+                            f"Image {image.id}: Failed to fetch Look Around panorama {pano_id}: {e}"
+                        )
+                        error_count += 1
+                        return False
+
+                # Update database if we got a heading
+                if heading is not None:
+                    if not dry_run:
+                        with database.get_session() as session:
+                            db_image = session.get(Image, image.id)
+                            if db_image:
+                                db_image.panorama_heading = heading
+                                # Also update the metadata to include heading
+                                if db_image.panorama_metadata:
+                                    db_image.panorama_metadata["heading"] = heading
+                                session.add(db_image)
+                                session.commit()
+                    else:
+                        logger.info(
+                            f"[DRY RUN] Would update image {image.id} with panorama_heading: {heading}"
+                        )
+                    updated_count += 1
+                    return True
+                else:
+                    logger.debug(
+                        f"Image {image.id}: Could not get heading from API for pano_id {pano_id}"
+                    )
+                    error_count += 1
+                    return False
+
+            except Exception as e:
+                logger.exception(f"Error processing image {image.id}: {e}")
+                error_count += 1
+                return False
+
+        # Async function to process a batch of images
+        async def process_batch_async(batch):
+            """Process a batch of images in parallel."""
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session_aio:
+                tasks = [process_image_async(image, session_aio) for image in batch]
+                return await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process images in batches
         updated_count = 0
-        skipped_count = 0
         error_count = 0
         no_pano_id_count = 0
 
@@ -2374,125 +2507,14 @@ def backfill_panorama_heading(
                 "Processing images...", total=len(images)
             )
 
-            for image in images:
-                try:
-                    # Check if panorama_metadata has heading already (from new data)
-                    if (
-                        image.panorama_metadata
-                        and "heading" in image.panorama_metadata
-                        and image.panorama_metadata["heading"] is not None
-                    ):
-                        heading = image.panorama_metadata["heading"]
-                        if not dry_run:
-                            with database.get_session() as session:
-                                db_image = session.get(Image, image.id)
-                                if db_image:
-                                    db_image.panorama_heading = heading
-                                    session.add(db_image)
-                                    session.commit()
-                        logger.debug(
-                            f"Image {image.id}: Found heading in metadata: {heading}"
-                        )
-                        updated_count += 1
-                        progress.update(task, advance=1)
-                        continue
-
-                    # Check if we have pano_id to re-fetch
-                    if not image.panorama_metadata or "pano_id" not in image.panorama_metadata:
-                        logger.debug(f"Image {image.id}: No pano_id in metadata, skipping")
-                        no_pano_id_count += 1
-                        progress.update(task, advance=1)
-                        continue
-
-                    pano_id = image.panorama_metadata["pano_id"]
-                    if not pano_id:
-                        logger.debug(f"Image {image.id}: Empty pano_id, skipping")
-                        no_pano_id_count += 1
-                        progress.update(task, advance=1)
-                        continue
-
-                    # Re-fetch panorama from API based on image_source
-                    heading = None
-                    if image.image_source == ImageSource.STREETVIEW_STREETLEVEL:
-                        # Fetch from Google Street View
-                        try:
-                            pano = streetlevel_streetview.find_panorama_by_id(pano_id)
-                            if pano and hasattr(pano, "heading"):
-                                heading = pano.heading
-                                logger.debug(
-                                    f"Image {image.id}: Fetched heading from Street View: {heading}"
-                                )
-                        except Exception as e:
-                            logger.warning(
-                                f"Image {image.id}: Failed to fetch Street View panorama {pano_id}: {e}"
-                            )
-                            error_count += 1
-                            progress.update(task, advance=1)
-                            continue
-
-                    elif image.image_source == ImageSource.APPLE_STREETLEVEL:
-                        # Fetch from Apple Look Around
-                        # Need lat/lng to get coverage tile
-                        if not image.panorama_lat or not image.panorama_lng:
-                            logger.debug(
-                                f"Image {image.id}: No panorama coordinates for Look Around, skipping"
-                            )
-                            no_pano_id_count += 1
-                            progress.update(task, advance=1)
-                            continue
-
-                        try:
-                            tile = lookaround.get_coverage_tile_by_latlon(
-                                image.panorama_lat, image.panorama_lng
-                            )
-                            if tile and tile.panos:
-                                # Find the panorama with matching ID
-                                for pano in tile.panos:
-                                    if hasattr(pano, "id") and pano.id == pano_id:
-                                        if hasattr(pano, "heading"):
-                                            heading = pano.heading
-                                            logger.debug(
-                                                f"Image {image.id}: Fetched heading from Look Around: {heading}"
-                                            )
-                                        break
-                        except Exception as e:
-                            logger.warning(
-                                f"Image {image.id}: Failed to fetch Look Around panorama {pano_id}: {e}"
-                            )
-                            error_count += 1
-                            progress.update(task, advance=1)
-                            continue
-
-                    # Update database if we got a heading
-                    if heading is not None:
-                        if not dry_run:
-                            with database.get_session() as session:
-                                db_image = session.get(Image, image.id)
-                                if db_image:
-                                    db_image.panorama_heading = heading
-                                    # Also update the metadata to include heading
-                                    if db_image.panorama_metadata:
-                                        db_image.panorama_metadata["heading"] = heading
-                                    session.add(db_image)
-                                    session.commit()
-                        else:
-                            logger.info(
-                                f"[DRY RUN] Would update image {image.id} with panorama_heading: {heading}"
-                            )
-                        updated_count += 1
-                    else:
-                        logger.debug(
-                            f"Image {image.id}: Could not get heading from API for pano_id {pano_id}"
-                        )
-                        error_count += 1
-
-                except Exception as e:
-                    logger.exception(
-                        f"Error processing image {image.id}: {e}"
-                    )
-                    error_count += 1
-
-                progress.update(task, advance=1)
+            for i in range(0, len(images), batch_size):
+                batch = images[i : i + batch_size]
+                
+                # Process batch asynchronously
+                asyncio.run(process_batch_async(batch))
+                
+                # Update progress
+                progress.update(task, advance=len(batch))
 
         # Summary
         console.print("\n[bold green]✅ Backfill complete![/bold green]")
