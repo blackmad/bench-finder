@@ -1105,14 +1105,16 @@ class StreetViewClient:
 
             width, height = perspective_view.size
 
-            # Extract panorama metadata
+            # Extract panorama metadata and heading
             panorama_metadata = {
                 "pano_id": pano_id,
                 "date": str(pano.date) if hasattr(pano, "date") else None,
+                "heading": pano.heading if hasattr(pano, "heading") else None,
             }
+            panorama_heading = pano.heading if hasattr(pano, "heading") else None
 
             logger.debug(
-                f"Saved image {filename} from streetlevel (Google): {width}x{height}, panorama at {panorama_lat}, {panorama_lng}, heading={heading}°"
+                f"Saved image {filename} from streetlevel (Google): {width}x{height}, panorama at {panorama_lat}, {panorama_lng}, heading={heading}°, pano_heading={panorama_heading}"
             )
 
             return StreetViewImageCapture(
@@ -1132,6 +1134,7 @@ class StreetViewClient:
                 panorama_lat=panorama_lat,
                 panorama_lng=panorama_lng,
                 panorama_metadata=panorama_metadata,
+                panorama_heading=panorama_heading,
             )
 
         except Exception as e:
@@ -1465,12 +1468,14 @@ class StreetViewClient:
                     width = int(STREETVIEW_SIZE.split("x")[0])
                     height = int(STREETVIEW_SIZE.split("x")[1])
 
-            # Extract panorama metadata
+            # Extract panorama metadata and heading
             panorama_metadata = {
                 "pano_id": pano.id if hasattr(pano, "id") else None,
                 "date": str(pano.date) if hasattr(pano, "date") else None,
+                "heading": pano.heading if hasattr(pano, "heading") else None,
                 "face_filenames": face_filenames,  # Track individual face files
             }
+            panorama_heading = pano.heading if hasattr(pano, "heading") else None
 
             # Save metadata to JSON file for stitching
             metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
@@ -1480,6 +1485,7 @@ class StreetViewClient:
                     "panorama_lat": panorama_lat,
                     "panorama_lng": panorama_lng,
                     "date": str(pano.date) if hasattr(pano, "date") else None,
+                    "heading": panorama_heading,
                 }
                 with open(metadata_path, "w") as f:
                     json.dump(metadata_to_save, f, indent=2)
@@ -1489,7 +1495,7 @@ class StreetViewClient:
 
             logger.debug(
                 f"Cached Apple Look Around faces for bench {bench_id}: panorama at {panorama_lat}, {panorama_lng}, "
-                f"with {len([f for f in faces if f is not None])} faces (per-heading file skipped)"
+                f"with {len([f for f in faces if f is not None])} faces (per-heading file skipped), pano_heading={panorama_heading}"
             )
 
             # Return success but with None filepath since we're not writing the per-heading file
@@ -1510,6 +1516,7 @@ class StreetViewClient:
                 panorama_lat=panorama_lat,
                 panorama_lng=panorama_lng,
                 panorama_metadata=panorama_metadata,
+                panorama_heading=panorama_heading,
             )
 
         except Exception as e:

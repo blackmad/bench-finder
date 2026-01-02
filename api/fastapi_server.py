@@ -2602,9 +2602,20 @@ async def get_bench_images(
                 .all()
             )
 
-            images = [
-                ImageResponse.from_image(image, bench_id) for image in images_query
-            ]
+            images = []
+            for image in images_query:
+                image_response = ImageResponse(
+                    id=image.id,
+                    bench_id=bench_id,  # Use ProcessedBench id for API compatibility
+                    heading=image.heading,
+                    filepath=image.filepath,
+                    filename=image.filename,
+                    file_size=image.file_size,
+                    capture_success=image.capture_success,
+                    capture_error=image.capture_error,
+                    created_at=image.created_at,
+                )
+                images.append(image_response)
 
             return ImageListResponse(images=images)
 

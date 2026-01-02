@@ -45,6 +45,10 @@ class StreetViewImageCapture(BaseModel):
     panorama_metadata: dict[str, Any] | None = Field(
         None, description="Additional panorama metadata (pano_id, date, etc.)"
     )
+    panorama_heading: float | None = Field(
+        None,
+        description="Heading/orientation of the panorama itself (from streetlevel/lookaround API)",
+    )
 
     @property
     def is_valid(self) -> bool:

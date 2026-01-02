@@ -321,7 +321,7 @@ class Image(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
-    heading: int | None = Field(default=None, nullable=True)
+    heading: int = Field(nullable=False)
     filepath: str | None = Field(default=None)
     filename: str | None = Field(default=None)
     file_size: int | None = Field(default=None)
@@ -347,6 +347,11 @@ class Image(SQLModel, table=True):
         default=None,
         description="Additional panorama metadata (pano_id, date, etc.)",
         sa_column=Column(JSON),
+    )
+    # Panorama heading (from streetlevel/lookaround API)
+    panorama_heading: float | None = Field(
+        default=None,
+        description="Heading/orientation of the panorama itself (from streetlevel/lookaround API)",
     )
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -702,6 +707,20 @@ class BenchBase(SQLModel):
     external_id: str | None = None  # For Mapillary image IDs
 
 
+class ImageBase(SQLModel):
+    """Base schema for image data."""
+
+    heading: int
+    filepath: str | None = None
+    filename: str | None = None
+    file_size: int | None = None
+    capture_success: bool
+    capture_error: str | None = None
+    image_source: ImageSource | None = None
+    panorama_lat: float | None = None
+    panorama_lng: float | None = None
+    panorama_metadata: dict[str, Any] | None = None
+    panorama_heading: float | None = None
 
 
 class DetectionBase(SQLModel):
