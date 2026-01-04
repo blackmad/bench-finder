@@ -26,12 +26,12 @@ class PanoramaMetadata(BaseModel):
     source: str | None = Field(
         None, description="Source: streetview_streetlevel or apple_streetlevel"
     )
-    
+
     # Additional optional fields that may be present
     pitch: float | None = Field(None, description="Pitch offset in radians")
     roll: float | None = Field(None, description="Roll offset in radians")
     elevation: float | None = Field(None, description="Elevation in meters")
-    
+
     # For Apple Look Around
     build_id: int | None = Field(None, description="Build ID for Apple Look Around")
     coverage_type: str | None = Field(
@@ -47,18 +47,18 @@ class PanoramaMetadata(BaseModel):
     ) -> "PanoramaMetadata":
         """
         Create PanoramaMetadata from a StreetViewPanorama object.
-        
+
         Args:
             pano: StreetViewPanorama object from streetlevel library
             source: Source identifier (default: "streetview_streetlevel")
-        
+
         Returns:
             PanoramaMetadata instance
         """
         date_str = None
         if hasattr(pano, "date") and pano.date:
             date_str = str(pano.date)
-        
+
         return cls(
             pano_id=pano.id if hasattr(pano, "id") else None,
             panorama_lat=pano.lat if hasattr(pano, "lat") else 0.0,
@@ -80,12 +80,12 @@ class PanoramaMetadata(BaseModel):
     ) -> "PanoramaMetadata":
         """
         Create PanoramaMetadata from a LookaroundPanorama object.
-        
+
         Args:
             pano: LookaroundPanorama object from streetlevel library
             source: Source identifier (default: "apple_streetlevel")
             face_filenames: Optional list of face filenames for cached faces
-        
+
         Returns:
             PanoramaMetadata instance
         """
@@ -95,11 +95,11 @@ class PanoramaMetadata(BaseModel):
                 date_str = pano.date.isoformat()
             else:
                 date_str = str(pano.date)
-        
+
         coverage_type_str = None
         if hasattr(pano, "coverage_type") and pano.coverage_type:
             coverage_type_str = str(pano.coverage_type.name)
-        
+
         return cls(
             pano_id=pano.id if hasattr(pano, "id") else None,
             panorama_lat=pano.lat if hasattr(pano, "lat") else 0.0,
@@ -151,7 +151,7 @@ class StreetViewImageCapture(BaseModel):
         None,
         description="Longitude of the actual panorama location (may differ from bench location)",
     )
-    panorama_metadata: dict[str, Any] | None = Field(
+    panorama_metadata: "PanoramaMetadata | None" = Field(
         None, description="Additional panorama metadata (pano_id, date, etc.)"
     )
     panorama_heading: float | None = Field(

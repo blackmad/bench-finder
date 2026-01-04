@@ -2583,12 +2583,18 @@ def backfill_metadata_cache_heading(
         # Find all metadata cache files
         metadata_cache_dir = os.path.join(IMAGES_DIR, ".metadata_cache")
         if not os.path.exists(metadata_cache_dir):
-            console.print(f"[yellow]Metadata cache directory not found: {metadata_cache_dir}[/yellow]")
+            console.print(
+                f"[yellow]Metadata cache directory not found: {metadata_cache_dir}[/yellow]"
+            )
             return
 
         # Find all streetview_streetlevel and apple_streetlevel JSON files
-        streetview_files = glob.glob(os.path.join(metadata_cache_dir, "*_streetview_streetlevel.json"))
-        apple_files = glob.glob(os.path.join(metadata_cache_dir, "*_apple_streetlevel.json"))
+        streetview_files = glob.glob(
+            os.path.join(metadata_cache_dir, "*_streetview_streetlevel.json")
+        )
+        apple_files = glob.glob(
+            os.path.join(metadata_cache_dir, "*_apple_streetlevel.json")
+        )
         all_files = streetview_files + apple_files
 
         if not all_files:
@@ -2600,37 +2606,53 @@ def backfill_metadata_cache_heading(
         console.print(f"  • Apple Look Around: {len(apple_files)}")
         console.print(f"[dim]Processing in batches of {batch_size}...[/dim]\n")
 
+        # Import PanoramaMetadata for proper type safety
+        from bench_finder.models.streetview_models import PanoramaMetadata
+
         # Parse file info and load metadata
         file_info_list = []
         for filepath in all_files:
             try:
                 with open(filepath) as f:
-                    metadata = json.load(f)
-                
-                # Skip if already has panorama_heading
-                if "panorama_heading" in metadata and metadata["panorama_heading"] is not None:
+                    metadata_dict = json.load(f)
+
+                # Parse into PanoramaMetadata for validation
+                try:
+                    pano_meta = PanoramaMetadata(**metadata_dict)
+                except Exception as e:
+                    logger.warning(f"Failed to parse metadata for {filepath}: {e}")
                     continue
-                
+
+                # Skip if already has panorama_heading
+                if pano_meta.panorama_heading is not None:
+                    continue
+
                 # Extract coordinates from filename: lat_lng_source.json
                 filename = os.path.basename(filepath)
                 parts = filename.replace(".json", "").split("_")
                 if len(parts) >= 3:
                     lat = float(parts[0])
                     lng = float(parts[1])
-                    source = "_".join(parts[2:])  # e.g., "streetview_streetlevel" or "apple_streetlevel"
-                    
-                    file_info_list.append({
-                        "filepath": filepath,
-                        "lat": lat,
-                        "lng": lng,
-                        "source": source,
-                        "metadata": metadata,
-                    })
+                    source = "_".join(
+                        parts[2:]
+                    )  # e.g., "streetview_streetlevel" or "apple_streetlevel"
+
+                    file_info_list.append(
+                        {
+                            "filepath": filepath,
+                            "lat": lat,
+                            "lng": lng,
+                            "source": source,
+                            "pano_meta": pano_meta,
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"Failed to parse file {filepath}: {e}")
 
         if not file_info_list:
-            console.print("[yellow]No files need updating (all have panorama_heading).[/yellow]")
+            console.print(
+                "[yellow]No files need updating (all have panorama_heading).[/yellow]"
+            )
             return
 
         console.print(f"Found {len(file_info_list)} files needing panorama_heading\n")
@@ -2645,12 +2667,14 @@ def backfill_metadata_cache_heading(
                 lat = file_info["lat"]
                 lng = file_info["lng"]
                 source = file_info["source"]
-                metadata = file_info["metadata"]
+                pano_meta = file_info["pano_meta"]
 
-                # Check if we have pano_id (PanoramaMetadata has it at top level)
-                pano_id = metadata.get("pano_id")
+                # Check if we have pano_id
+                pano_id = pano_meta.pano_id
                 if not pano_id:
-                    logger.warning(f"File {os.path.basename(filepath)}: No pano_id in metadata, skipping")
+                    logger.warning(
+                        f"File {os.path.basename(filepath)}: No pano_id in metadata, skipping"
+                    )
                     no_pano_id_count += 1
                     return False
 
@@ -2676,10 +2700,9 @@ def backfill_metadata_cache_heading(
 
                 elif source == "apple_streetlevel":
                     # Fetch from Apple Look Around (async)
-                    # PanoramaMetadata has these at top level
-                    panorama_lat = metadata.get("panorama_lat")
-                    panorama_lng = metadata.get("panorama_lng")
-                    
+                    panorama_lat = pano_meta.panorama_lat
+                    panorama_lng = pano_meta.panorama_lng
+
                     if not panorama_lat or not panorama_lng:
                         logger.debug(
                             f"File {os.path.basename(filepath)}: No panorama coordinates for Look Around, skipping"
@@ -2711,9 +2734,10 @@ def backfill_metadata_cache_heading(
                 # Update file if we got a heading
                 if heading is not None:
                     if not dry_run:
-                        metadata["panorama_heading"] = heading
+                        # Update the Pydantic model and save
+                        pano_meta.panorama_heading = heading
                         with open(filepath, "w") as f:
-                            json.dump(metadata, f, indent=2)
+                            json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
                     else:
                         logger.info(
                             f"[DRY RUN] Would update file {os.path.basename(filepath)} with panorama_heading: {heading}"
@@ -2728,7 +2752,9 @@ def backfill_metadata_cache_heading(
                     return False
 
             except Exception as e:
-                error_msg = f"Error processing file {file_info.get('filepath', 'unknown')}: {e}"
+                error_msg = (
+                    f"Error processing file {file_info.get('filepath', 'unknown')}: {e}"
+                )
                 logger.exception(error_msg)
                 error_messages.append(error_msg)
                 error_count += 1
@@ -2740,7 +2766,9 @@ def backfill_metadata_cache_heading(
             import aiohttp
 
             async with aiohttp.ClientSession() as session_aio:
-                tasks = [process_file_async(file_info, session_aio) for file_info in batch]
+                tasks = [
+                    process_file_async(file_info, session_aio) for file_info in batch
+                ]
                 return await asyncio.gather(*tasks, return_exceptions=True)
 
         # Process files in batches

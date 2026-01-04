@@ -22,10 +22,10 @@ from PIL import Image as PILImage
 # Default is ~89 million pixels, we set to 300 million to handle 4x larger images
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
 
-from streetlevel import lookaround
-from streetlevel import streetview as streetlevel_streetview
+from streetlevel import lookaround  # noqa: E402
+from streetlevel import streetview as streetlevel_streetview  # noqa: E402
 
-from bench_finder.config import (
+from bench_finder.config import (  # noqa: E402
     BACKOFF_DECREASE_STEP,
     BACKOFF_INITIAL_WAIT,
     GOOGLE_MAPS_API_KEY,
@@ -34,8 +34,8 @@ from bench_finder.config import (
     STREETVIEW_HEADINGS,
     STREETVIEW_SIZE,
 )
-from bench_finder.models.enums import ImageSource
-from bench_finder.models.streetview_models import (
+from bench_finder.models.enums import ImageSource  # noqa: E402
+from bench_finder.models.streetview_models import (  # noqa: E402
     PanoramaMetadata,
     StreetViewBatchCaptureResult,
     StreetViewCleanupResult,
@@ -179,27 +179,10 @@ class StreetViewClient:
             f"Capturing street view images for bench {bench_id} at {lat}, {lng}"
         )
 
-        # Run async capture in event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            # If loop is already running, we need to use a different approach
-            # Create a new task or use asyncio.run_coroutine_threadsafe
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run, self._capture_bench_images_async(lat, lng, bench_id)
-                )
-                capture_results = future.result()
-        else:
-            capture_results = loop.run_until_complete(
-                self._capture_bench_images_async(lat, lng, bench_id)
-            )
+        # Run async capture
+        capture_results = asyncio.run(
+            self._capture_bench_images_async(lat, lng, bench_id)
+        )
 
         # Create batch result from individual capture results
         batch_result = StreetViewBatchCaptureResult.from_capture_results(
@@ -227,18 +210,8 @@ class StreetViewClient:
 
         # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
         timeout = aiohttp.ClientTimeout(total=30, connect=10)
-        # Try set trace configs for debugging on session creation
-        trace_config = aiohttp.TraceConfig()
-        # async def on_request_start(session, trace_config_ctx, params):
-        #     print(f"Request started: {params.method} {params.url}")
-        # async def on_request_end(session, trace_config_ctx, params):
-        #     print(f"Request ended: {params.method} {params.url} -> {params.response.status}")
-        # trace_config.on_request_start.append(on_request_start)
-        # trace_config.on_request_end.append(on_request_end)
 
-        async with ClientSession(
-            trace_configs=[trace_config], timeout=timeout
-        ) as session:
+        async with ClientSession(timeout=timeout) as session:
             # First, capture all the regular heading images
             for heading in STREETVIEW_HEADINGS:
                 try:
@@ -283,7 +256,9 @@ class StreetViewClient:
 
             # Now capture the direct heading image (from panorama center to bench location)
             if panorama_location:
-                panorama_lat, panorama_lng, source_str, panorama_heading = panorama_location
+                panorama_lat, panorama_lng, source_str, panorama_heading = (
+                    panorama_location
+                )
                 try:
                     # Calculate heading from panorama location to bench location
                     direct_heading = self._calculate_bearing(
@@ -292,7 +267,7 @@ class StreetViewClient:
                     direct_heading_int = int(round(direct_heading))
                     panorama_heading_deg = np.degrees(panorama_heading)
 
-                    logger.error(
+                    logger.debug(
                         f"Calculating direct heading from panorama ({panorama_lat}, {panorama_lng}) "
                         f"to bench ({lat}, {lng}): {direct_heading:.1f}°"
                     )
@@ -361,22 +336,8 @@ class StreetViewClient:
         """
         should_close = session is None
         if session is None:
-            # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
             timeout = aiohttp.ClientTimeout(total=30, connect=10)
-            # Try set trace configs for debugging on session creation
-            trace_config = aiohttp.TraceConfig()
-
-            async def on_request_start(session, trace_config_ctx, params):
-                print(f"Request started: {params.method} {params.url}")
-
-            async def on_request_end(session, trace_config_ctx, params):
-                print(
-                    f"Request ended: {params.method} {params.url} -> {params.response.status}"
-                )
-
-            trace_config.on_request_start.append(on_request_start)
-            trace_config.on_request_end.append(on_request_end)
-            session = ClientSession(trace_configs=[trace_config], timeout=timeout)
+            session = ClientSession(timeout=timeout)
 
         try:
             # Always try both streetlevel sources (Google Street View and Apple Look Around)
@@ -439,19 +400,6 @@ class StreetViewClient:
                     logger.debug(f"Image already exists: {filename}, skipping download")
                     # Load metadata if available
                     pano_meta = self._load_cached_metadata(lat, lng, img_source.value)
-                    panorama_lat = pano_meta.panorama_lat if pano_meta else None
-                    panorama_lng = pano_meta.panorama_lng if pano_meta else None
-                    panorama_heading = pano_meta.panorama_heading if pano_meta else None
-                    # Convert PanoramaMetadata to dict for backward compatibility
-                    panorama_metadata = (
-                        {
-                            "pano_id": pano_meta.pano_id,
-                            "date": pano_meta.date,
-                            "heading": pano_meta.panorama_heading,
-                        }
-                        if pano_meta
-                        else None
-                    )
 
                     try:
                         with PILImage.open(filepath) as img:
@@ -474,10 +422,12 @@ class StreetViewClient:
                         width=width,
                         height=height,
                         image_source=img_source.value,
-                        panorama_lat=panorama_lat,
-                        panorama_lng=panorama_lng,
-                        panorama_metadata=panorama_metadata,
-                        panorama_heading=panorama_heading,
+                        panorama_lat=pano_meta.panorama_lat if pano_meta else None,
+                        panorama_lng=pano_meta.panorama_lng if pano_meta else None,
+                        panorama_metadata=pano_meta,
+                        panorama_heading=pano_meta.panorama_heading
+                        if pano_meta
+                        else None,
                     )
                     streetlevel_results.append(result)
                     at_least_one_streetlevel_success = True
@@ -489,26 +439,10 @@ class StreetViewClient:
                         lat, lng, bench_id, heading, filename, filepath, session
                     )
                     if result and result.success:
-                        # Save metadata to cache using PanoramaMetadata
-                        if result.panorama_metadata or result.panorama_lat:
-                            # Extract fields from panorama_metadata dict
-                            pano_dict = result.panorama_metadata or {}
-                            pano_meta = PanoramaMetadata(
-                                pano_id=pano_dict.get("pano_id"),
-                                panorama_lat=result.panorama_lat or lat,
-                                panorama_lng=result.panorama_lng or lng,
-                                panorama_heading=result.panorama_heading,
-                                date=pano_dict.get("date"),
-                                source=img_source.value,
-                                face_filenames=pano_dict.get("face_filenames"),
-                                pitch=None,
-                                roll=None,
-                                elevation=None,
-                                build_id=None,
-                                coverage_type=None,
-                            )
+                        # Save metadata to cache
+                        if result.panorama_metadata:
                             self._save_metadata_cache(
-                                lat, lng, img_source.value, pano_meta
+                                lat, lng, img_source.value, result.panorama_metadata
                             )
                         streetlevel_results.append(result)
                         at_least_one_streetlevel_success = True
@@ -556,19 +490,6 @@ class StreetViewClient:
                         f"API image already exists: {api_filename}, skipping download"
                     )
                     pano_meta = self._load_cached_metadata(lat, lng, api_source.value)
-                    panorama_lat = pano_meta.panorama_lat if pano_meta else None
-                    panorama_lng = pano_meta.panorama_lng if pano_meta else None
-                    panorama_heading = pano_meta.panorama_heading if pano_meta else None
-                    # Convert PanoramaMetadata to dict for backward compatibility
-                    panorama_metadata = (
-                        {
-                            "pano_id": pano_meta.pano_id,
-                            "date": pano_meta.date,
-                            "heading": pano_meta.panorama_heading,
-                        }
-                        if pano_meta
-                        else None
-                    )
 
                     try:
                         with PILImage.open(api_filepath) as img:
@@ -591,10 +512,12 @@ class StreetViewClient:
                         width=width,
                         height=height,
                         image_source=api_source.value,
-                        panorama_lat=panorama_lat,
-                        panorama_lng=panorama_lng,
-                        panorama_metadata=panorama_metadata,
-                        panorama_heading=panorama_heading,
+                        panorama_lat=pano_meta.panorama_lat if pano_meta else None,
+                        panorama_lng=pano_meta.panorama_lng if pano_meta else None,
+                        panorama_metadata=pano_meta,
+                        panorama_heading=pano_meta.panorama_heading
+                        if pano_meta
+                        else None,
                     )
 
                 # Try API capture
@@ -603,26 +526,10 @@ class StreetViewClient:
                         lat, lng, bench_id, heading, api_filename, api_filepath, session
                     )
                     if result and result.success:
-                        # Save metadata to cache using PanoramaMetadata
-                        if result.panorama_metadata or result.panorama_lat:
-                            # Extract fields from panorama_metadata dict
-                            pano_dict = result.panorama_metadata or {}
-                            pano_meta = PanoramaMetadata(
-                                pano_id=pano_dict.get("pano_id"),
-                                panorama_lat=result.panorama_lat or lat,
-                                panorama_lng=result.panorama_lng or lng,
-                                panorama_heading=result.panorama_heading,
-                                date=pano_dict.get("date"),
-                                source=api_source.value,
-                                pitch=None,
-                                roll=None,
-                                elevation=None,
-                                build_id=None,
-                                coverage_type=None,
-                                face_filenames=None,
-                            )
+                        # Save metadata to cache
+                        if result.panorama_metadata:
                             self._save_metadata_cache(
-                                lat, lng, api_source.value, pano_meta
+                                lat, lng, api_source.value, result.panorama_metadata
                             )
                         return result
                     elif result and result.error:
@@ -648,9 +555,9 @@ class StreetViewClient:
             )
             return None
 
-        except Exception as e:
+        except Exception:
             # Trigger backoff on unexpected errors
-            logger.error(f"Unexpected error in capture_image_async: {e}")
+            logger.exception("Unexpected error in capture_image_async")
             self._trigger_backoff()
             return None
 
@@ -731,8 +638,6 @@ class StreetViewClient:
                 panorama_lng=lng,
                 panorama_metadata=None,
             )
-
-            return None
 
         except Exception as e:
             logger.debug(f"Error capturing from API: {e}")
@@ -1153,17 +1058,9 @@ class StreetViewClient:
             pano_meta = PanoramaMetadata.from_streetview_pano(
                 pano, source="streetview_streetlevel"
             )
-            
-            # Convert to dict for backward compatibility with StreetViewImageCapture
-            panorama_metadata = {
-                "pano_id": pano_meta.pano_id,
-                "date": pano_meta.date,
-                "heading": pano_meta.panorama_heading,
-            }
-            panorama_heading = pano_meta.panorama_heading
 
             logger.debug(
-                f"Saved image {filename} from streetlevel (Google): {width}x{height}, panorama at {panorama_lat}, {panorama_lng}, heading={heading}°, pano_heading={panorama_heading}"
+                f"Saved image {filename} from streetlevel (Google): {width}x{height}, panorama at {panorama_lat}, {panorama_lng}, heading={heading}°, pano_heading={pano_meta.panorama_heading}"
             )
 
             return StreetViewImageCapture(
@@ -1182,8 +1079,8 @@ class StreetViewClient:
                 image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
                 panorama_lat=panorama_lat,
                 panorama_lng=panorama_lng,
-                panorama_metadata=panorama_metadata,
-                panorama_heading=panorama_heading,
+                panorama_metadata=pano_meta,
+                panorama_heading=pano_meta.panorama_heading,
             )
 
         except Exception as e:
@@ -1261,8 +1158,6 @@ class StreetViewClient:
                 )
 
             # Find the closest panorama
-            import math
-
             def haversine_distance(lat1, lon1, lat2, lon2):
                 """Calculate the great circle distance between two points on Earth in meters."""
                 R = 6371000  # Earth radius in meters
@@ -1335,14 +1230,12 @@ class StreetViewClient:
                 pano_meta = self._load_cached_metadata(
                     lat, lng, ImageSource.APPLE_STREETLEVEL.value
                 )
-                
+
                 # If no cached metadata, create from pano object
                 if not pano_meta:
                     pano_meta = PanoramaMetadata.from_lookaround_pano(
                         pano, source="apple_streetlevel", face_filenames=face_filenames
                     )
-                
-                # Convert to dict for backward compatibility
                 panorama_metadata = {
                     "pano_id": pano_meta.pano_id,
                     "date": pano_meta.date,
@@ -1351,14 +1244,22 @@ class StreetViewClient:
                 }
 
                 # Ensure metadata file exists for stitching
-                metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
+                metadata_path = os.path.join(
+                    IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json"
+                )
                 if not os.path.exists(metadata_path):
                     try:
                         with open(metadata_path, "w") as f:
-                            json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
-                        logger.debug(f"Saved panorama metadata to {os.path.basename(metadata_path)}")
+                            json.dump(
+                                pano_meta.model_dump(exclude_none=True), f, indent=2
+                            )
+                        logger.debug(
+                            f"Saved panorama metadata to {os.path.basename(metadata_path)}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to save metadata file {metadata_path}: {e}")
+                        logger.warning(
+                            f"Failed to save metadata file {metadata_path}: {e}"
+                        )
 
                 # Get dimensions from front face
                 try:
@@ -1518,22 +1419,24 @@ class StreetViewClient:
             pano_meta = PanoramaMetadata.from_lookaround_pano(
                 pano, source="apple_streetlevel", face_filenames=face_filenames
             )
-            
-            # Convert to dict for backward compatibility with StreetViewImageCapture
             panorama_metadata = {
                 "pano_id": pano_meta.pano_id,
                 "date": pano_meta.date,
                 "heading": pano_meta.panorama_heading,
-                "face_filenames": face_filenames,  # Track individual face files
+                "face_filenames": face_filenames,
             }
             panorama_heading = pano_meta.panorama_heading
 
             # Save metadata to JSON file for stitching (using Pydantic model)
-            metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
+            metadata_path = os.path.join(
+                IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json"
+            )
             try:
                 with open(metadata_path, "w") as f:
                     json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
-                logger.debug(f"Saved panorama metadata to {os.path.basename(metadata_path)}")
+                logger.debug(
+                    f"Saved panorama metadata to {os.path.basename(metadata_path)}"
+                )
             except Exception as e:
                 logger.warning(f"Failed to save metadata file {metadata_path}: {e}")
 
@@ -1596,25 +1499,7 @@ class StreetViewClient:
         Returns:
             StreetViewImageCapture with capture results
         """
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    self.capture_image_async(lat, lng, bench_id, heading),
-                )
-                return future.result()
-        else:
-            return loop.run_until_complete(
-                self.capture_image_async(lat, lng, bench_id, heading)
-            )
+        return asyncio.run(self.capture_image_async(lat, lng, bench_id, heading))
 
     def get_street_view_metadata(
         self, lat: float, lng: float
