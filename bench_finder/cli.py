@@ -3,6 +3,7 @@
 CLI interface for the bench finder application using Typer.
 """
 
+import json
 import logging
 import os
 
