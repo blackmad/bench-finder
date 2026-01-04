@@ -10,6 +10,7 @@ import logging
 import math
 import os
 from typing import Any
+from equilib import equi2pers
 
 import aiohttp
 import numpy as np
@@ -858,20 +859,6 @@ class StreetViewClient:
         Returns:
             Perspective view image at the specified heading and FOV
         """
-        try:
-            from equilib import equi2pers
-        except ImportError:
-            # Fallback: try pyequilib
-            try:
-                from pyequilib import equi2pers
-            except ImportError:
-                logger.warning(
-                    "equilib/pyequilib not available, falling back to manual projection"
-                )
-                return self._extract_perspective_view_manual(
-                    equirectangular, heading, fov, size
-                )
-
         width, height = size
 
         # Convert PIL Image to numpy array
@@ -1323,7 +1310,7 @@ class StreetViewClient:
                                 face_idx,
                                 zoom,
                                 auth,
-                                None,
+                                None,  # pyright: ignore[reportArgumentType]
                             )
                             img = PILImage.open(io.BytesIO(face_heic))
                             faces.append(img)
