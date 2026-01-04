@@ -13,7 +13,6 @@ from pydantic_core import to_jsonable_python
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
-    from bench_finder.models.mapillary_models import MapillaryDetection
     from bench_finder.models.overpass_models import OSMBench
 from sqlalchemy import JSON, String
 from sqlmodel import Column, Field, Relationship, Session, SQLModel, create_engine
@@ -156,7 +155,7 @@ class DetectionResult(SQLModel):
     # Source information
     source: DetectionSource = Field(
         default=DetectionSource.ROBOFLOW,
-        description="Source of the detection (roboflow, ultralytics, mapillary)",
+        description="Source of the detection (roboflow, ultralytics)",
     )
 
     # Ultralytics-specific fields (optional)
@@ -204,7 +203,7 @@ class UnifiedBench(SQLModel):
     """Common model that can represent bench data from any source."""
 
     provider_id: str = Field(description="Unique provider ID")
-    source: DataSource = Field(description="Data source ('osm' or 'mapillary')")
+    source: DataSource = Field(description="Data source (currently only 'osm')")
     external_id: str = Field(description="External ID from the source")
     lat: float = Field(description="Bench latitude")
     lng: float = Field(description="Bench longitude")
@@ -221,8 +220,8 @@ class UnifiedBench(SQLModel):
         default=None, description="OSM element type (node, way, relation)"
     )
     osm_id: int | None = Field(default=None, description="Original OSM element ID")
-    image_id: str | None = Field(default=None, description="Mapillary image ID")
-    detection_id: str | None = Field(default=None, description="Mapillary detection ID")
+    image_id: str | None = Field(default=None, description="External image ID")
+    detection_id: str | None = Field(default=None, description="External detection ID")
 
     @classmethod
     def from_osm_bench(cls, osm_bench: "OSMBench") -> "UnifiedBench":
@@ -240,29 +239,6 @@ class UnifiedBench(SQLModel):
             osm_id=osm_bench.osm_id,
         )
 
-    @classmethod
-    def from_mapillary_detection(
-        cls, detection: "MapillaryDetection", coordinates: tuple[float, float]
-    ) -> "UnifiedBench":
-        """Create UnifiedBench from MapillaryDetection object."""
-        # coordinates is (lng, lat) from Mapillary
-        lng, lat = coordinates
-        return cls(
-            provider_id=f"mapillary_{detection.detection_id}",
-            source=DataSource.MAPILLARY,
-            external_id=detection.detection_id,
-            lat=lat,
-            lng=lng,
-            tags={
-                "detection_value": detection.value,
-                "image_id": detection.image_id,
-                "confidence": detection.confidence,
-            },
-            confidence=detection.confidence,
-            image_id=detection.image_id,
-            detection_id=detection.detection_id,
-        )
-
 
 class UnifiedSearchResult(SQLModel):
     """Common model for search results from any source."""
@@ -274,7 +250,7 @@ class UnifiedSearchResult(SQLModel):
     search_center_lng: float = Field(description="Search center longitude")
     search_radius_meters: int = Field(description="Search radius in meters")
     total_count: int = Field(description="Total number of benches found")
-    source: DataSource = Field(description="Data source ('osm' or 'mapillary')")
+    source: DataSource = Field(description="Data source (currently only 'osm')")
     search_timestamp: datetime = Field(
         default_factory=datetime.now, description="Search timestamp"
     )
@@ -384,10 +360,10 @@ class Detection(SQLModel, table=True):
     confidence_threshold: float = Field(nullable=False)
     source: DetectionSource = Field(
         default=DetectionSource.ROBOFLOW
-    )  # 'roboflow', 'ultralytics', 'mapillary'
+    )  # 'roboflow', 'ultralytics'
     external_detection_id: str | None = Field(
         default=None
-    )  # For Mapillary detection IDs
+    )  # For external detection IDs
 
     model_url: str | None = Field(default=None)
     iou_threshold: float | None = Field(default=None)
@@ -532,16 +508,14 @@ class BenchCandidate(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     search_id: int = Field(foreign_key="searches.id", nullable=False)
-    provider_id: str | None = Field(default=None)  # Unified ID from OSM or Mapillary
+    provider_id: str | None = Field(default=None)  # Unified ID from OSM
     lat: float = Field(nullable=False)
     lng: float = Field(nullable=False)
     tags: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSON)
-    )  # JSON column for OSM tags or Mapillary metadata
-    source: DataSource = Field(default=DataSource.OSM)  # 'osm' or 'mapillary'
-    external_id: str | None = Field(
-        default=None
-    )  # For Mapillary image IDs or other external IDs
+    )  # JSON column for OSM tags or other metadata
+    source: DataSource = Field(default=DataSource.OSM)  # Currently only 'osm'
+    external_id: str | None = Field(default=None)  # For external IDs
     confidence: float | None = Field(
         default=None
     )  # Confidence score if available from source
@@ -704,7 +678,7 @@ class BenchBase(SQLModel):
     lng: float
     tags: dict[str, Any] = {}
     source: DataSource = DataSource.OSM  # 'osm' or 'mapillary'
-    external_id: str | None = None  # For Mapillary image IDs
+    external_id: str | None = None  # For external IDs
 
 
 class ImageBase(SQLModel):
@@ -734,10 +708,8 @@ class DetectionBase(SQLModel):
     detection_error: str | None = None
     model_id: str
     confidence_threshold: float
-    source: DetectionSource = (
-        DetectionSource.ROBOFLOW
-    )  # 'roboflow', 'ultralytics', 'mapillary'
-    external_detection_id: str | None = None  # For Mapillary detection IDs
+    source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics'
+    external_detection_id: str | None = None  # For external detection IDs
 
     # Ultralytics-specific fields (optional for backward compatibility)
     # full_response: Optional[Dict[str, Any]] = None

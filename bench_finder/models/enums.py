@@ -3,13 +3,11 @@ from enum import StrEnum
 
 class DataSource(StrEnum):
     OSM = "OSM"
-    MAPILLARY = "MAPILLARY"
 
 
 class DetectionSource(StrEnum):
     ROBOFLOW = "ROBOFLOW"
     ULTRALYTICS = "ULTRALYTICS"
-    MAPILLARY = "MAPILLARY"
     MULTI_MODEL = "MULTI_MODEL"
     NONE = "NONE"
 

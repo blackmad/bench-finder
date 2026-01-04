@@ -18,10 +18,9 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from bench_finder.config import MAPILLARY_ACCESS_TOKEN, SEARCH_RADIUS_METERS
+from bench_finder.config import SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
 from bench_finder.generators.bench_generator import BenchCandidate, BenchGenerator
-from bench_finder.generators.mapillary import MapillaryBenchGenerator
 from bench_finder.generators.overpass import OverpassBenchGenerator
 
 # Import enums and models separately to avoid double-loading unified_models
@@ -57,7 +56,7 @@ def generate_candidates(
         None,
         "--source",
         "-s",
-        help="Filter by source(s): osm, mapillary (can be specified multiple times). If not specified, all sources are used.",
+        help="Filter by source(s): osm (can be specified multiple times). If not specified, all sources are used.",
     ),
     log_level: str = typer.Option(
         "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
@@ -73,7 +72,7 @@ def generate_candidates(
     Generate bench candidates by running the first 3 phases:
     1. Geocode query
     2. Create search record
-    3. Find candidates using OSM and Mapillary
+    3. Find candidates using OSM
 
     This command only finds potential bench locations without processing images or running detection.
     """
@@ -142,7 +141,6 @@ def generate_candidates(
             # Map common aliases
             source_mapping = {
                 "OSM": DataSource.OSM,
-                "MAPILLARY": DataSource.MAPILLARY,
             }
             source_filter = set()
             for s in source_normalized:
@@ -150,7 +148,7 @@ def generate_candidates(
                     source_filter.add(source_mapping[s])
                 else:
                     console.print(
-                        f"[yellow]⚠️  Unknown source: {s}. Valid sources are: osm, mapillary[/yellow]"
+                        f"[yellow]⚠️  Unknown source: {s}. Valid sources are: osm[/yellow]"
                     )
                     raise typer.Exit(1)
 
@@ -169,20 +167,6 @@ def generate_candidates(
                 logger.info("Added OpenStreetMap generator")
             except Exception:
                 logger.exception("Failed to initialize OSM generator")
-
-        # Add Mapillary generator if token is available (if not filtered out)
-        if not source_filter or DataSource.MAPILLARY in source_filter:
-            try:
-                if MAPILLARY_ACCESS_TOKEN:
-                    mapillary_generator = MapillaryBenchGenerator()
-                    generators.append(mapillary_generator)
-                    logger.info("Added Mapillary generator")
-                else:
-                    logger.warning(
-                        "MAPILLARY_ACCESS_TOKEN not set - Mapillary generator not available"
-                    )
-            except Exception as e:
-                logger.warning(f"Failed to initialize Mapillary generator: {e}")
 
         if not generators:
             if source_filter:
@@ -2138,23 +2122,31 @@ def stitch_lookaround(
         for bench_id, faces, stitched_path in benches_to_stitch:
             try:
                 # Load metadata file if it exists
-                metadata_path = images_path / f"bench_{bench_id}_lookaround_metadata.json"
+                metadata_path = (
+                    images_path / f"bench_{bench_id}_lookaround_metadata.json"
+                )
                 metadata = None
                 if metadata_path.exists():
                     try:
-                        with open(metadata_path, "r") as f:
+                        with open(metadata_path) as f:
                             metadata = json.load(f)
-                        logger.debug(f"Loaded metadata for bench {bench_id} from {metadata_path.name}")
+                        logger.debug(
+                            f"Loaded metadata for bench {bench_id} from {metadata_path.name}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to load metadata from {metadata_path.name}: {e}")
+                        logger.warning(
+                            f"Failed to load metadata from {metadata_path.name}: {e}"
+                        )
 
                 # Try to get panorama metadata from database if not in file
                 if not metadata or not metadata.get("pano_id"):
                     try:
                         from bench_finder.services.database import BenchDatabase
+
                         db = BenchDatabase()
                         with db.get_session() as session:
                             from bench_finder.models.unified_models import Image
+
                             # Look for an image with this bench_id pattern in panorama_metadata
                             # bench_id might be a string identifier, try to find matching images
                             images = (
@@ -2167,16 +2159,22 @@ def stitch_lookaround(
                             )
                             # Find image with matching bench_id in metadata or filename
                             for img in images:
-                                if img.panorama_metadata and img.panorama_metadata.get("pano_id"):
+                                if img.panorama_metadata and img.panorama_metadata.get(
+                                    "pano_id"
+                                ):
                                     # Check if this image's bench_candidate might match
                                     # We'll use the first one we find with panorama metadata
                                     if not metadata:
                                         metadata = {
-                                            "pano_id": img.panorama_metadata.get("pano_id"),
+                                            "pano_id": img.panorama_metadata.get(
+                                                "pano_id"
+                                            ),
                                             "panorama_lat": img.panorama_lat,
                                             "panorama_lng": img.panorama_lng,
                                         }
-                                        logger.debug(f"Found metadata for bench {bench_id} from database")
+                                        logger.debug(
+                                            f"Found metadata for bench {bench_id} from database"
+                                        )
                                         break
                     except Exception as e:
                         logger.debug(f"Could not get metadata from database: {e}")
@@ -2220,7 +2218,9 @@ def stitch_lookaround(
                 )
 
                 # Get coverage tile and find panorama
-                tile = lookaround.get_coverage_tile_by_latlon(panorama_lat, panorama_lng)
+                tile = lookaround.get_coverage_tile_by_latlon(
+                    panorama_lat, panorama_lng
+                )
                 if not tile or not tile.panos:
                     logger.warning(
                         f"Bench {bench_id}: Could not get coverage tile for panorama"
@@ -2260,11 +2260,17 @@ def stitch_lookaround(
                     continue
 
                 # Use to_equirectangular to create equirectangular projection
-                logger.debug(f"Creating equirectangular projection for bench {bench_id}")
-                stitched = lookaround.to_equirectangular(face_images, pano.camera_metadata)
+                logger.debug(
+                    f"Creating equirectangular projection for bench {bench_id}"
+                )
+                stitched = lookaround.to_equirectangular(
+                    face_images, pano.camera_metadata
+                )
 
                 # Save
-                stitched.save(stitched_path, "JPEG", quality=95, options={"quality": 95})
+                stitched.save(
+                    stitched_path, "JPEG", quality=95, options={"quality": 95}
+                )
                 stitched_count += 1
 
                 logger.debug(f"Stitched {bench_id} -> {stitched_path.name}")
@@ -2366,7 +2372,7 @@ def backfill_panorama_heading(
         async def process_image_async(image, session_aio):
             """Process a single image to fetch and update its panorama heading."""
             nonlocal updated_count, error_count, no_pano_id_count
-            
+
             try:
                 # Check if panorama_metadata has heading already (from new data)
                 if (
@@ -2389,7 +2395,10 @@ def backfill_panorama_heading(
                     return True
 
                 # Check if we have pano_id to re-fetch
-                if not image.panorama_metadata or "pano_id" not in image.panorama_metadata:
+                if (
+                    not image.panorama_metadata
+                    or "pano_id" not in image.panorama_metadata
+                ):
                     logger.debug(f"Image {image.id}: No pano_id in metadata, skipping")
                     no_pano_id_count += 1
                     return False
@@ -2503,16 +2512,14 @@ def backfill_panorama_heading(
             TimeRemainingColumn(),
             console=console,
         ) as progress:
-            task = progress.add_task(
-                "Processing images...", total=len(images)
-            )
+            task = progress.add_task("Processing images...", total=len(images))
 
             for i in range(0, len(images), batch_size):
                 batch = images[i : i + batch_size]
-                
+
                 # Process batch asynchronously
                 asyncio.run(process_batch_async(batch))
-                
+
                 # Update progress
                 progress.update(task, advance=len(batch))
 

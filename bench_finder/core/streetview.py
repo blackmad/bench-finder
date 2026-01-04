@@ -256,6 +256,7 @@ class StreetViewClient:
                                 result.panorama_lat,
                                 result.panorama_lng,
                                 result.image_source,
+                                result.panorama_heading,
                             )
 
                         if result.cached:
@@ -280,13 +281,14 @@ class StreetViewClient:
 
             # Now capture the direct heading image (from panorama center to bench location)
             if panorama_location:
-                panorama_lat, panorama_lng, source_str = panorama_location
+                panorama_lat, panorama_lng, source_str, panorama_heading = panorama_location
                 try:
                     # Calculate heading from panorama location to bench location
                     direct_heading = self._calculate_bearing(
                         panorama_lat, panorama_lng, lat, lng
                     )
                     direct_heading_int = int(round(direct_heading))
+                    panorama_heading_deg = np.degrees(panorama_heading)
 
                     logger.error(
                         f"Calculating direct heading from panorama ({panorama_lat}, {panorama_lng}) "
@@ -305,7 +307,7 @@ class StreetViewClient:
                         lat,
                         lng,
                         bench_id,
-                        direct_heading_int + 270,
+                        direct_heading_int + panorama_heading_deg,
                         session=session,
                         is_direct_heading=True,
                         source=source,

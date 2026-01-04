@@ -38,7 +38,6 @@ load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
 ULTRALYTICS_API_KEY = os.getenv("ULTRALYTICS_API_KEY")
-MAPILLARY_ACCESS_TOKEN = os.getenv("MAPILLARY_ACCESS_TOKEN")
 
 
 # Application settings
@@ -216,13 +215,6 @@ def validate_config() -> bool:
                 f"Multi-model detection will use: {', '.join(available_backends)}"
             )
 
-    # Mapillary validation (optional - only warn if not set)
-    if not MAPILLARY_ACCESS_TOKEN:
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "MAPILLARY_ACCESS_TOKEN not set - Mapillary integration will not be available"
-        )
 
     # Firebase validation (optional for auth features - only warn if not set)
     if not FIREBASE_CREDENTIALS_PATH and not FIREBASE_CREDENTIALS_BASE64:

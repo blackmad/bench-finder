@@ -1,5 +1,5 @@
 """
-API-only Pydantic models for bench finder application.
+API-only SQLModel models for bench finder application.
 These models are used for API requests/responses and don't have database tables.
 """
 
@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from sqlmodel import Field, SQLModel
 
 from bench_finder.models.enums import (
     BenchReportType,
@@ -47,7 +47,7 @@ class BenchMode(str, Enum):
 
 
 # API-specific DetectionItem that allows optional bbox (unlike the database model)
-class ApiDetectionItem(BaseModel):
+class ApiDetectionItem(SQLModel):
     """API-specific detection item with optional bbox for responses."""
 
     detection_id: int
@@ -75,7 +75,7 @@ class SearchResponse(SearchBase):
     status: SearchStatus = SearchStatus.PENDING
 
 
-class SearchSummary(BaseModel):
+class SearchSummary(SQLModel):
     """Schema for search summary with statistics."""
 
     id: int
@@ -140,7 +140,7 @@ class BenchWithDetections(BenchResponseModel):
     images: list[ImageWithDetections]
 
 
-class SearchResults(BaseModel):
+class SearchResults(SQLModel):
     """Schema for comprehensive search results."""
 
     search: SearchResponse
@@ -157,7 +157,7 @@ class SearchResults(BaseModel):
 # ============================================================================
 
 
-class StructuredAddress(BaseModel):
+class StructuredAddress(SQLModel):
     """Schema for structured address components."""
 
     formatted_address: str
@@ -169,7 +169,7 @@ class StructuredAddress(BaseModel):
     country: str | None = None
 
 
-class WebBenchData(BaseModel):
+class WebBenchData(SQLModel):
     """Schema for web UI bench data."""
 
     id: int
@@ -177,13 +177,12 @@ class WebBenchData(BaseModel):
     lat: float
     lng: float
     tags: dict[str, Any] = {}
-    source: DataSource  # 'osm' or 'mapillary'
+    source: DataSource  # Currently only 'osm'
     external_id: str | None = None
     bench_found: bool = True  # Whether a bench was actually detected
     best_confidence: float
     roboflow_confidence: float = 0.0
     ultralytics_confidence: float = 0.0
-    mapillary_confidence: float = 0.0
     detection_type: DetectionSource
     has_segmentation: bool
     image_count: int
@@ -212,7 +211,7 @@ class WebBenchData(BaseModel):
 # ============================================================================
 
 
-class PaginationInfo(BaseModel):
+class PaginationInfo(SQLModel):
     """Schema for pagination metadata."""
 
     page: int
@@ -222,20 +221,20 @@ class PaginationInfo(BaseModel):
     has_next: bool
 
 
-class BenchListResponse(BaseModel):
+class BenchListResponse(SQLModel):
     """Schema for paginated bench list response."""
 
     benches: list[WebBenchData]
     pagination: PaginationInfo
 
 
-class ImageListResponse(BaseModel):
+class ImageListResponse(SQLModel):
     """Schema for image list response."""
 
     images: list[ImageResponse]
 
 
-class SearchListResponse(BaseModel):
+class SearchListResponse(SQLModel):
     """Schema for search list response."""
 
     searches: list[SearchSummary]
@@ -246,7 +245,7 @@ class SearchListResponse(BaseModel):
 # ============================================================================
 
 
-class SegmentationData(BaseModel):
+class SegmentationData(SQLModel):
     """Schema for detection visualization data response (both segmentation and bounding boxes)."""
 
     filename: str
@@ -266,7 +265,7 @@ class SegmentationData(BaseModel):
     source: DetectionSource = DetectionSource.ROBOFLOW  # 'roboflow', 'ultralytics'
 
 
-class ImageWithDetectionData(BaseModel):
+class ImageWithDetectionData(SQLModel):
     """Schema for image data with detection items."""
 
     image_id: int
@@ -279,7 +278,7 @@ class ImageWithDetectionData(BaseModel):
     )
 
 
-class BenchDetectionData(BaseModel):
+class BenchDetectionData(SQLModel):
     """Schema for comprehensive bench detection data including all images and detections."""
 
     bench_id: int
@@ -297,7 +296,7 @@ class BenchDetectionData(BaseModel):
     )
 
 
-class ConfigResponse(BaseModel):
+class ConfigResponse(SQLModel):
     """Schema for configuration response."""
 
     default_start_lat: float
@@ -319,7 +318,7 @@ class ConfigResponse(BaseModel):
 # ============================================================================
 
 
-class ModelCacheInfo(BaseModel):
+class ModelCacheInfo(SQLModel):
     """Schema for model cache information."""
 
     cached_models: list[str]
@@ -331,7 +330,7 @@ class ModelCacheInfo(BaseModel):
 # ============================================================================
 
 
-class CacheStatus(BaseModel):
+class CacheStatus(SQLModel):
     """Schema for cache status information."""
 
     use_local_inference: bool
@@ -342,7 +341,7 @@ class CacheStatus(BaseModel):
     all_cached_models: list[str]
 
 
-class BenchProcessingResult(BaseModel):
+class BenchProcessingResult(SQLModel):
     """Schema for bench processing results."""
 
     bench_added: bool
@@ -353,7 +352,7 @@ class BenchProcessingResult(BaseModel):
     best_confidence: float
 
 
-class ProcessingStats(BaseModel):
+class ProcessingStats(SQLModel):
     """Schema for overall processing statistics."""
 
     benches_processed: int
@@ -365,7 +364,7 @@ class ProcessingStats(BaseModel):
     best_confidence: float
 
 
-class PipelineResult(BaseModel):
+class PipelineResult(SQLModel):
     """Schema for pipeline execution results."""
 
     success: bool
@@ -380,15 +379,14 @@ class PipelineResult(BaseModel):
 # ============================================================================
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(SQLModel):
     """Schema for health check response."""
 
     status: str
     database: str
-    mapillary: str
 
 
-class ApiInfoResponse(BaseModel):
+class ApiInfoResponse(SQLModel):
     """Schema for API information response."""
 
     name: str
@@ -404,7 +402,7 @@ class ApiInfoResponse(BaseModel):
 # MapillaryConfigResponse removed - using unified approach
 
 
-class ReportResponse(BaseModel):
+class ReportResponse(SQLModel):
     """Schema for bench report response."""
 
     success: bool
@@ -415,7 +413,7 @@ class ReportResponse(BaseModel):
     created_at: datetime
 
 
-class MissingBenchReportResponse(BaseModel):
+class MissingBenchReportResponse(SQLModel):
     """Schema for missing bench report response."""
 
     success: bool
@@ -427,7 +425,7 @@ class MissingBenchReportResponse(BaseModel):
     created_at: datetime
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(SQLModel):
     """Schema for error response."""
 
     error: str
@@ -450,7 +448,7 @@ class BenchCandidateResponse(BenchCandidateBase):
     created_at: datetime
 
 
-class BenchCandidateListResponse(BaseModel):
+class BenchCandidateListResponse(SQLModel):
     """Schema for list of bench candidates response."""
 
     candidates: list[BenchCandidateResponse]
@@ -464,13 +462,13 @@ class BenchCandidateListResponse(BaseModel):
 # ============================================================================
 
 
-class RatingRequest(BaseModel):
+class RatingRequest(SQLModel):
     """Schema for rating a bench."""
 
     rating: int = Field(ge=1, le=5, description="Rating from 1 to 5")
 
 
-class RatingResponse(BaseModel):
+class RatingResponse(SQLModel):
     """Schema for rating response."""
 
     id: int
@@ -481,13 +479,13 @@ class RatingResponse(BaseModel):
     updated_at: datetime
 
 
-class BenchUserStatusRequest(BaseModel):
+class BenchUserStatusRequest(SQLModel):
     """Schema for setting bench user status."""
 
     status: str = Field(description="Status: 'been', 'want_to_go', or 'favorite'")
 
 
-class BenchUserStatusResponse(BaseModel):
+class BenchUserStatusResponse(SQLModel):
     """Schema for bench user status response."""
 
     id: int
@@ -498,13 +496,13 @@ class BenchUserStatusResponse(BaseModel):
     updated_at: datetime
 
 
-class CommentRequest(BaseModel):
+class CommentRequest(SQLModel):
     """Schema for adding a comment."""
 
     comment: str = Field(min_length=1, max_length=5000, description="Comment text")
 
 
-class CommentResponse(BaseModel):
+class CommentResponse(SQLModel):
     """Schema for comment response."""
 
     id: int
@@ -515,7 +513,7 @@ class CommentResponse(BaseModel):
     updated_at: datetime
 
 
-class BenchUserDataResponse(BaseModel):
+class BenchUserDataResponse(SQLModel):
     """Schema for bench user data (ratings, status, comments)."""
 
     bench_candidate_id: int
