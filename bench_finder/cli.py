@@ -2638,7 +2638,7 @@ def backfill_metadata_cache_heading(
         # Async function to process a single file
         async def process_file_async(file_info, session_aio):
             """Process a single metadata cache file to fetch and update its panorama heading."""
-            nonlocal updated_count, error_count, no_pano_id_count
+            nonlocal updated_count, error_count, no_pano_id_count, error_messages
 
             try:
                 filepath = file_info["filepath"]
@@ -2647,16 +2647,10 @@ def backfill_metadata_cache_heading(
                 source = file_info["source"]
                 metadata = file_info["metadata"]
 
-                # Check if we have pano_id in panorama_metadata
-                panorama_metadata = metadata.get("panorama_metadata", {})
-                if not panorama_metadata or "pano_id" not in panorama_metadata:
-                    logger.debug(f"File {os.path.basename(filepath)}: No pano_id in metadata, skipping")
-                    no_pano_id_count += 1
-                    return False
-
-                pano_id = panorama_metadata["pano_id"]
+                # Check if we have pano_id (PanoramaMetadata has it at top level)
+                pano_id = metadata.get("pano_id")
                 if not pano_id:
-                    logger.debug(f"File {os.path.basename(filepath)}: Empty pano_id, skipping")
+                    logger.warning(f"File {os.path.basename(filepath)}: No pano_id in metadata, skipping")
                     no_pano_id_count += 1
                     return False
 
@@ -2674,14 +2668,15 @@ def backfill_metadata_cache_heading(
                                 f"File {os.path.basename(filepath)}: Fetched heading from Street View: {heading}"
                             )
                     except Exception as e:
-                        logger.warning(
-                            f"File {os.path.basename(filepath)}: Failed to fetch Street View panorama {pano_id}: {e}"
-                        )
+                        error_msg = f"File {os.path.basename(filepath)}: Failed to fetch Street View panorama {pano_id}: {e}"
+                        logger.warning(error_msg)
+                        error_messages.append(error_msg)
                         error_count += 1
                         return False
 
                 elif source == "apple_streetlevel":
                     # Fetch from Apple Look Around (async)
+                    # PanoramaMetadata has these at top level
                     panorama_lat = metadata.get("panorama_lat")
                     panorama_lng = metadata.get("panorama_lng")
                     
@@ -2707,9 +2702,9 @@ def backfill_metadata_cache_heading(
                                         )
                                     break
                     except Exception as e:
-                        logger.warning(
-                            f"File {os.path.basename(filepath)}: Failed to fetch Look Around panorama {pano_id}: {e}"
-                        )
+                        error_msg = f"File {os.path.basename(filepath)}: Failed to fetch Look Around panorama {pano_id}: {e}"
+                        logger.warning(error_msg)
+                        error_messages.append(error_msg)
                         error_count += 1
                         return False
 
@@ -2733,7 +2728,9 @@ def backfill_metadata_cache_heading(
                     return False
 
             except Exception as e:
-                logger.exception(f"Error processing file {file_info.get('filepath', 'unknown')}: {e}")
+                error_msg = f"Error processing file {file_info.get('filepath', 'unknown')}: {e}"
+                logger.exception(error_msg)
+                error_messages.append(error_msg)
                 error_count += 1
                 return False
 
@@ -2750,6 +2747,7 @@ def backfill_metadata_cache_heading(
         updated_count = 0
         error_count = 0
         no_pano_id_count = 0
+        error_messages = []
 
         with Progress(
             SpinnerColumn(),
@@ -2779,6 +2777,11 @@ def backfill_metadata_cache_heading(
         console.print(f"[dim]  • No pano_id in metadata: {no_pano_id_count}[/dim]")
         if error_count > 0:
             console.print(f"[yellow]  • Errors: {error_count}[/yellow]")
+            # Show first few errors for debugging
+            if error_messages:
+                console.print("\n[yellow]First few errors:[/yellow]")
+                for error_msg in error_messages[:10]:
+                    console.print(f"  [dim]{error_msg}[/dim]")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
