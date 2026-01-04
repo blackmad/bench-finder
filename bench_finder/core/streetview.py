@@ -250,9 +250,27 @@ class StreetViewClient:
                             f"Failed to capture image at heading {heading}°{error_msg}"
                         )
 
-                except Exception:
+                except Exception as e:
                     logger.exception(f"Error capturing image at heading {heading}°")
-                    capture_results.append(None)
+                    # Create a failed capture result instead of None
+                    capture_results.append(
+                        StreetViewImageCapture(
+                            bench_id=bench_id,
+                            lat=lat,
+                            lng=lng,
+                            heading=heading,
+                            filepath=None,
+                            filename=self._generate_filename(
+                                bench_id, heading, ImageSource.STREETVIEW_API
+                            ),
+                            success=False,
+                            file_size=0,
+                            cached=False,
+                            error=f"Exception during capture: {e}",
+                            width=0,
+                            height=0,
+                        )
+                    )
 
             # Now capture the direct heading image (from panorama center to bench location)
             if panorama_location:
@@ -300,9 +318,36 @@ class StreetViewClient:
                             f"Failed to capture direct heading image at {direct_heading:.1f}°"
                         )
 
-                except Exception:
+                except Exception as e:
                     logger.exception("Error capturing direct heading image")
-                    capture_results.append(None)
+                    # Create a failed capture result instead of None
+                    # Note: direct_heading_int might not be defined if error happened early
+                    try:
+                        heading_val = direct_heading_int + panorama_heading_deg
+                    except (NameError, TypeError):
+                        heading_val = 0  # Fallback if calculation failed
+
+                    capture_results.append(
+                        StreetViewImageCapture(
+                            bench_id=bench_id,
+                            lat=lat,
+                            lng=lng,
+                            heading=int(heading_val),
+                            filepath=None,
+                            filename=self._generate_filename(
+                                bench_id,
+                                int(heading_val),
+                                ImageSource.STREETVIEW_API,
+                                is_direct_heading=True,
+                            ),
+                            success=False,
+                            file_size=0,
+                            cached=False,
+                            error=f"Exception during direct heading capture: {e}",
+                            width=0,
+                            height=0,
+                        )
+                    )
             else:
                 logger.debug(
                     "No panorama location found, skipping direct heading capture"
