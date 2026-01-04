@@ -36,6 +36,7 @@ from bench_finder.config import (
 )
 from bench_finder.models.enums import ImageSource
 from bench_finder.models.streetview_models import (
+    PanoramaMetadata,
     StreetViewBatchCaptureResult,
     StreetViewCleanupResult,
     StreetViewImageCapture,
@@ -80,25 +81,26 @@ class StreetViewClient:
 
     def _load_cached_metadata(
         self, lat: float, lng: float, source: str
-    ) -> dict[str, Any] | None:
+    ) -> PanoramaMetadata | None:
         """Load cached metadata if it exists."""
         cache_path = self._get_metadata_cache_path(lat, lng, source)
         if os.path.exists(cache_path):
             try:
                 with open(cache_path) as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    return PanoramaMetadata(**data)
             except Exception as e:
                 logger.warning(f"Failed to load cached metadata from {cache_path}: {e}")
         return None
 
     def _save_metadata_cache(
-        self, lat: float, lng: float, source: str, metadata: dict[str, Any]
+        self, lat: float, lng: float, source: str, metadata: PanoramaMetadata
     ) -> None:
         """Save metadata to cache."""
         cache_path = self._get_metadata_cache_path(lat, lng, source)
         try:
             with open(cache_path, "w") as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata.model_dump(exclude_none=True), f, indent=2)
         except Exception as e:
             logger.warning(f"Failed to save metadata cache to {cache_path}: {e}")
 
@@ -436,13 +438,20 @@ class StreetViewClient:
                 elif os.path.exists(filepath) and os.path.getsize(filepath) > 0:
                     logger.debug(f"Image already exists: {filename}, skipping download")
                     # Load metadata if available
-                    metadata = self._load_cached_metadata(lat, lng, img_source.value)
-                    panorama_lat = metadata.get("panorama_lat") if metadata else None
-                    panorama_lng = metadata.get("panorama_lng") if metadata else None
+                    pano_meta = self._load_cached_metadata(lat, lng, img_source.value)
+                    panorama_lat = pano_meta.panorama_lat if pano_meta else None
+                    panorama_lng = pano_meta.panorama_lng if pano_meta else None
+                    panorama_heading = pano_meta.panorama_heading if pano_meta else None
+                    # Convert PanoramaMetadata to dict for backward compatibility
                     panorama_metadata = (
-                        metadata.get("panorama_metadata") if metadata else None
+                        {
+                            "pano_id": pano_meta.pano_id,
+                            "date": pano_meta.date,
+                            "heading": pano_meta.panorama_heading,
+                        }
+                        if pano_meta
+                        else None
                     )
-                    panorama_heading = metadata.get("panorama_heading") if metadata else None
 
                     try:
                         with PILImage.open(filepath) as img:
@@ -480,16 +489,26 @@ class StreetViewClient:
                         lat, lng, bench_id, heading, filename, filepath, session
                     )
                     if result and result.success:
-                        # Save metadata to cache
+                        # Save metadata to cache using PanoramaMetadata
                         if result.panorama_metadata or result.panorama_lat:
-                            metadata = {
-                                "panorama_lat": result.panorama_lat,
-                                "panorama_lng": result.panorama_lng,
-                                "panorama_metadata": result.panorama_metadata,
-                                "panorama_heading": result.panorama_heading,
-                            }
+                            # Extract fields from panorama_metadata dict
+                            pano_dict = result.panorama_metadata or {}
+                            pano_meta = PanoramaMetadata(
+                                pano_id=pano_dict.get("pano_id"),
+                                panorama_lat=result.panorama_lat or lat,
+                                panorama_lng=result.panorama_lng or lng,
+                                panorama_heading=result.panorama_heading,
+                                date=pano_dict.get("date"),
+                                source=img_source.value,
+                                face_filenames=pano_dict.get("face_filenames"),
+                                pitch=None,
+                                roll=None,
+                                elevation=None,
+                                build_id=None,
+                                coverage_type=None,
+                            )
                             self._save_metadata_cache(
-                                lat, lng, img_source.value, metadata
+                                lat, lng, img_source.value, pano_meta
                             )
                         streetlevel_results.append(result)
                         at_least_one_streetlevel_success = True
@@ -536,13 +555,20 @@ class StreetViewClient:
                     logger.debug(
                         f"API image already exists: {api_filename}, skipping download"
                     )
-                    metadata = self._load_cached_metadata(lat, lng, api_source.value)
-                    panorama_lat = metadata.get("panorama_lat") if metadata else None
-                    panorama_lng = metadata.get("panorama_lng") if metadata else None
+                    pano_meta = self._load_cached_metadata(lat, lng, api_source.value)
+                    panorama_lat = pano_meta.panorama_lat if pano_meta else None
+                    panorama_lng = pano_meta.panorama_lng if pano_meta else None
+                    panorama_heading = pano_meta.panorama_heading if pano_meta else None
+                    # Convert PanoramaMetadata to dict for backward compatibility
                     panorama_metadata = (
-                        metadata.get("panorama_metadata") if metadata else None
+                        {
+                            "pano_id": pano_meta.pano_id,
+                            "date": pano_meta.date,
+                            "heading": pano_meta.panorama_heading,
+                        }
+                        if pano_meta
+                        else None
                     )
-                    panorama_heading = metadata.get("panorama_heading") if metadata else None
 
                     try:
                         with PILImage.open(api_filepath) as img:
@@ -577,16 +603,26 @@ class StreetViewClient:
                         lat, lng, bench_id, heading, api_filename, api_filepath, session
                     )
                     if result and result.success:
-                        # Save metadata to cache
+                        # Save metadata to cache using PanoramaMetadata
                         if result.panorama_metadata or result.panorama_lat:
-                            metadata = {
-                                "panorama_lat": result.panorama_lat,
-                                "panorama_lng": result.panorama_lng,
-                                "panorama_metadata": result.panorama_metadata,
-                                "panorama_heading": result.panorama_heading,
-                            }
+                            # Extract fields from panorama_metadata dict
+                            pano_dict = result.panorama_metadata or {}
+                            pano_meta = PanoramaMetadata(
+                                pano_id=pano_dict.get("pano_id"),
+                                panorama_lat=result.panorama_lat or lat,
+                                panorama_lng=result.panorama_lng or lng,
+                                panorama_heading=result.panorama_heading,
+                                date=pano_dict.get("date"),
+                                source=api_source.value,
+                                pitch=None,
+                                roll=None,
+                                elevation=None,
+                                build_id=None,
+                                coverage_type=None,
+                                face_filenames=None,
+                            )
                             self._save_metadata_cache(
-                                lat, lng, api_source.value, metadata
+                                lat, lng, api_source.value, pano_meta
                             )
                         return result
                     elif result and result.error:
@@ -1113,13 +1149,18 @@ class StreetViewClient:
 
             width, height = perspective_view.size
 
-            # Extract panorama metadata and heading
+            # Create PanoramaMetadata from pano object
+            pano_meta = PanoramaMetadata.from_streetview_pano(
+                pano, source="streetview_streetlevel"
+            )
+            
+            # Convert to dict for backward compatibility with StreetViewImageCapture
             panorama_metadata = {
-                "pano_id": pano_id,
-                "date": str(pano.date) if hasattr(pano, "date") else None,
-                "heading": pano.heading if hasattr(pano, "heading") else None,
+                "pano_id": pano_meta.pano_id,
+                "date": pano_meta.date,
+                "heading": pano_meta.panorama_heading,
             }
-            panorama_heading = pano.heading if hasattr(pano, "heading") else None
+            panorama_heading = pano_meta.panorama_heading
 
             logger.debug(
                 f"Saved image {filename} from streetlevel (Google): {width}x{height}, panorama at {panorama_lat}, {panorama_lng}, heading={heading}°, pano_heading={panorama_heading}"
@@ -1291,33 +1332,30 @@ class StreetViewClient:
                     f"All Apple Look Around faces already cached for bench {bench_id}"
                 )
                 # Load metadata if available
-                metadata = self._load_cached_metadata(
+                pano_meta = self._load_cached_metadata(
                     lat, lng, ImageSource.APPLE_STREETLEVEL.value
                 )
-                panorama_metadata = (
-                    metadata.get("panorama_metadata")
-                    if metadata
-                    else {
-                        "pano_id": pano.id if hasattr(pano, "id") else None,
-                        "date": str(pano.date) if hasattr(pano, "date") else None,
-                    }
-                )
-                # Add face filenames to metadata
-                if panorama_metadata:
-                    panorama_metadata["face_filenames"] = face_filenames
+                
+                # If no cached metadata, create from pano object
+                if not pano_meta:
+                    pano_meta = PanoramaMetadata.from_lookaround_pano(
+                        pano, source="apple_streetlevel", face_filenames=face_filenames
+                    )
+                
+                # Convert to dict for backward compatibility
+                panorama_metadata = {
+                    "pano_id": pano_meta.pano_id,
+                    "date": pano_meta.date,
+                    "heading": pano_meta.panorama_heading,
+                    "face_filenames": face_filenames,
+                }
 
                 # Ensure metadata file exists for stitching
                 metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
                 if not os.path.exists(metadata_path):
                     try:
-                        metadata_to_save = {
-                            "pano_id": pano.id if hasattr(pano, "id") else None,
-                            "panorama_lat": panorama_lat,
-                            "panorama_lng": panorama_lng,
-                            "date": str(pano.date) if hasattr(pano, "date") else None,
-                        }
                         with open(metadata_path, "w") as f:
-                            json.dump(metadata_to_save, f, indent=2)
+                            json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
                         logger.debug(f"Saved panorama metadata to {os.path.basename(metadata_path)}")
                     except Exception as e:
                         logger.warning(f"Failed to save metadata file {metadata_path}: {e}")
@@ -1476,27 +1514,25 @@ class StreetViewClient:
                     width = int(STREETVIEW_SIZE.split("x")[0])
                     height = int(STREETVIEW_SIZE.split("x")[1])
 
-            # Extract panorama metadata and heading
+            # Create PanoramaMetadata from pano object
+            pano_meta = PanoramaMetadata.from_lookaround_pano(
+                pano, source="apple_streetlevel", face_filenames=face_filenames
+            )
+            
+            # Convert to dict for backward compatibility with StreetViewImageCapture
             panorama_metadata = {
-                "pano_id": pano.id if hasattr(pano, "id") else None,
-                "date": str(pano.date) if hasattr(pano, "date") else None,
-                "heading": pano.heading if hasattr(pano, "heading") else None,
+                "pano_id": pano_meta.pano_id,
+                "date": pano_meta.date,
+                "heading": pano_meta.panorama_heading,
                 "face_filenames": face_filenames,  # Track individual face files
             }
-            panorama_heading = pano.heading if hasattr(pano, "heading") else None
+            panorama_heading = pano_meta.panorama_heading
 
-            # Save metadata to JSON file for stitching
+            # Save metadata to JSON file for stitching (using Pydantic model)
             metadata_path = os.path.join(IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json")
             try:
-                metadata_to_save = {
-                    "pano_id": pano.id if hasattr(pano, "id") else None,
-                    "panorama_lat": panorama_lat,
-                    "panorama_lng": panorama_lng,
-                    "date": str(pano.date) if hasattr(pano, "date") else None,
-                    "heading": panorama_heading,
-                }
                 with open(metadata_path, "w") as f:
-                    json.dump(metadata_to_save, f, indent=2)
+                    json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
                 logger.debug(f"Saved panorama metadata to {os.path.basename(metadata_path)}")
             except Exception as e:
                 logger.warning(f"Failed to save metadata file {metadata_path}: {e}")

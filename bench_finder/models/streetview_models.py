@@ -2,9 +2,118 @@
 Pydantic models for Google Street View Static API responses.
 """
 
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+
+class PanoramaMetadata(BaseModel):
+    """
+    Cached panorama metadata from streetlevel/lookaround APIs.
+    This is a lightweight model that captures essential fields from
+    StreetViewPanorama or LookaroundPanorama objects for caching.
+    """
+
+    pano_id: str | int | None = Field(None, description="Panorama ID")
+    panorama_lat: float = Field(..., description="Latitude of the panorama")
+    panorama_lng: float = Field(..., description="Longitude of the panorama")
+    panorama_heading: float | None = Field(
+        None,
+        description="Heading/orientation of the panorama in radians (from API)",
+    )
+    date: str | None = Field(None, description="Capture date as string")
+    source: str | None = Field(
+        None, description="Source: streetview_streetlevel or apple_streetlevel"
+    )
+    
+    # Additional optional fields that may be present
+    pitch: float | None = Field(None, description="Pitch offset in radians")
+    roll: float | None = Field(None, description="Roll offset in radians")
+    elevation: float | None = Field(None, description="Elevation in meters")
+    
+    # For Apple Look Around
+    build_id: int | None = Field(None, description="Build ID for Apple Look Around")
+    coverage_type: str | None = Field(
+        None, description="Coverage type (e.g., 'CAR' or 'BACKPACK')"
+    )
+    face_filenames: list[str] | None = Field(
+        None, description="Filenames of cached panorama faces for Apple Look Around"
+    )
+
+    @classmethod
+    def from_streetview_pano(
+        cls, pano: Any, source: str = "streetview_streetlevel"
+    ) -> "PanoramaMetadata":
+        """
+        Create PanoramaMetadata from a StreetViewPanorama object.
+        
+        Args:
+            pano: StreetViewPanorama object from streetlevel library
+            source: Source identifier (default: "streetview_streetlevel")
+        
+        Returns:
+            PanoramaMetadata instance
+        """
+        date_str = None
+        if hasattr(pano, "date") and pano.date:
+            date_str = str(pano.date)
+        
+        return cls(
+            pano_id=pano.id if hasattr(pano, "id") else None,
+            panorama_lat=pano.lat if hasattr(pano, "lat") else 0.0,
+            panorama_lng=pano.lon if hasattr(pano, "lon") else 0.0,
+            panorama_heading=pano.heading if hasattr(pano, "heading") else None,
+            date=date_str,
+            source=source,
+            pitch=pano.pitch if hasattr(pano, "pitch") else None,
+            roll=pano.roll if hasattr(pano, "roll") else None,
+            elevation=pano.elevation if hasattr(pano, "elevation") else None,
+        )
+
+    @classmethod
+    def from_lookaround_pano(
+        cls,
+        pano: Any,
+        source: str = "apple_streetlevel",
+        face_filenames: list[str] | None = None,
+    ) -> "PanoramaMetadata":
+        """
+        Create PanoramaMetadata from a LookaroundPanorama object.
+        
+        Args:
+            pano: LookaroundPanorama object from streetlevel library
+            source: Source identifier (default: "apple_streetlevel")
+            face_filenames: Optional list of face filenames for cached faces
+        
+        Returns:
+            PanoramaMetadata instance
+        """
+        date_str = None
+        if hasattr(pano, "date") and pano.date:
+            if isinstance(pano.date, datetime):
+                date_str = pano.date.isoformat()
+            else:
+                date_str = str(pano.date)
+        
+        coverage_type_str = None
+        if hasattr(pano, "coverage_type") and pano.coverage_type:
+            coverage_type_str = str(pano.coverage_type.name)
+        
+        return cls(
+            pano_id=pano.id if hasattr(pano, "id") else None,
+            panorama_lat=pano.lat if hasattr(pano, "lat") else 0.0,
+            panorama_lng=pano.lon if hasattr(pano, "lon") else 0.0,
+            panorama_heading=pano.heading if hasattr(pano, "heading") else None,
+            date=date_str,
+            source=source,
+            pitch=pano.pitch if hasattr(pano, "pitch") else None,
+            roll=pano.roll if hasattr(pano, "roll") else None,
+            elevation=pano.elevation if hasattr(pano, "elevation") else None,
+            build_id=pano.build_id if hasattr(pano, "build_id") else None,
+            coverage_type=coverage_type_str,
+            face_filenames=face_filenames,
+        )
 
 
 class StreetViewLocation(BaseModel):
