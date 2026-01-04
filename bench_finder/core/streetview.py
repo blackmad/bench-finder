@@ -732,7 +732,7 @@ class StreetViewClient:
         try:
             # First try to find official Google panorama
             pano = await streetlevel_streetview.find_panorama_async(
-                lat, lng, radius=25, session=session, search_third_party=False
+                lat, lng, radius=25, session=session, search_third_party=False  # pyright: ignore[reportArgumentType]
             )
 
             # If no official panorama found, try third-party panoramas as fallback
@@ -741,7 +741,7 @@ class StreetViewClient:
                     f"No official Google panorama found within 25m of ({lat:.6f}, {lng:.6f}), trying third-party"
                 )
                 pano = await streetlevel_streetview.find_panorama_async(
-                    lat, lng, radius=25, session=session, search_third_party=True
+                    lat, lng, radius=25, session=session, search_third_party=True  # pyright: ignore[reportArgumentType]
                 )
 
             if not pano:
@@ -784,7 +784,7 @@ class StreetViewClient:
             # Download panorama if not cached
             logger.debug(f"Downloading panorama for {panorama_lat}, {panorama_lng}")
             equirectangular = await streetlevel_streetview.get_panorama_async(
-                pano, zoom=5, session=session
+                pano, zoom=5, session=session  # pyright: ignore[reportArgumentType]
             )
 
             if not equirectangular:
