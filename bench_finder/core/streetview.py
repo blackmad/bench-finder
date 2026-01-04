@@ -442,6 +442,7 @@ class StreetViewClient:
                     panorama_metadata = (
                         metadata.get("panorama_metadata") if metadata else None
                     )
+                    panorama_heading = metadata.get("panorama_heading") if metadata else None
 
                     try:
                         with PILImage.open(filepath) as img:
@@ -467,6 +468,7 @@ class StreetViewClient:
                         panorama_lat=panorama_lat,
                         panorama_lng=panorama_lng,
                         panorama_metadata=panorama_metadata,
+                        panorama_heading=panorama_heading,
                     )
                     streetlevel_results.append(result)
                     at_least_one_streetlevel_success = True
@@ -484,6 +486,7 @@ class StreetViewClient:
                                 "panorama_lat": result.panorama_lat,
                                 "panorama_lng": result.panorama_lng,
                                 "panorama_metadata": result.panorama_metadata,
+                                "panorama_heading": result.panorama_heading,
                             }
                             self._save_metadata_cache(
                                 lat, lng, img_source.value, metadata
@@ -539,6 +542,7 @@ class StreetViewClient:
                     panorama_metadata = (
                         metadata.get("panorama_metadata") if metadata else None
                     )
+                    panorama_heading = metadata.get("panorama_heading") if metadata else None
 
                     try:
                         with PILImage.open(api_filepath) as img:
@@ -564,6 +568,7 @@ class StreetViewClient:
                         panorama_lat=panorama_lat,
                         panorama_lng=panorama_lng,
                         panorama_metadata=panorama_metadata,
+                        panorama_heading=panorama_heading,
                     )
 
                 # Try API capture
@@ -578,6 +583,7 @@ class StreetViewClient:
                                 "panorama_lat": result.panorama_lat,
                                 "panorama_lng": result.panorama_lng,
                                 "panorama_metadata": result.panorama_metadata,
+                                "panorama_heading": result.panorama_heading,
                             }
                             self._save_metadata_cache(
                                 lat, lng, api_source.value, metadata

@@ -2538,6 +2538,253 @@ def backfill_panorama_heading(
         raise typer.Exit(1) from e
 
 
+@app.command("backfill-metadata-cache-heading")
+def backfill_metadata_cache_heading(
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview changes without updating files"
+    ),
+    batch_size: int = typer.Option(
+        50, "--batch-size", help="Number of files to process in parallel"
+    ),
+):
+    """
+    Backfill panorama_heading in .metadata_cache JSON files for streetlevel sources.
+
+    This command:
+    1. Reads all streetview_streetlevel JSON files in .metadata_cache
+    2. Re-fetches panorama data from the streetlevel API using coordinates (async batches)
+    3. Extracts the heading from the API response
+    4. Updates the panorama_heading field in the JSON file
+
+    Use --dry-run to preview changes without updating files.
+    Use --batch-size to control parallelism (default: 50).
+    """
+    setup_logging(level=log_level)
+    logger = logging.getLogger(__name__)
+
+    console.print(
+        "[bold blue]🔄 Backfilling panorama_heading in .metadata_cache JSON files[/bold blue]\n"
+    )
+
+    try:
+        import asyncio
+        import glob
+
+        # Import streetlevel libraries
+        from streetlevel import lookaround
+        from streetlevel import streetview as streetlevel_streetview
+
+        from bench_finder.config import IMAGES_DIR
+
+        # Find all metadata cache files
+        metadata_cache_dir = os.path.join(IMAGES_DIR, ".metadata_cache")
+        if not os.path.exists(metadata_cache_dir):
+            console.print(f"[yellow]Metadata cache directory not found: {metadata_cache_dir}[/yellow]")
+            return
+
+        # Find all streetview_streetlevel and apple_streetlevel JSON files
+        streetview_files = glob.glob(os.path.join(metadata_cache_dir, "*_streetview_streetlevel.json"))
+        apple_files = glob.glob(os.path.join(metadata_cache_dir, "*_apple_streetlevel.json"))
+        all_files = streetview_files + apple_files
+
+        if not all_files:
+            console.print("[yellow]No metadata cache files found.[/yellow]")
+            return
+
+        console.print(f"Found {len(all_files)} metadata cache files to process")
+        console.print(f"  • Google Street View: {len(streetview_files)}")
+        console.print(f"  • Apple Look Around: {len(apple_files)}")
+        console.print(f"[dim]Processing in batches of {batch_size}...[/dim]\n")
+
+        # Parse file info and load metadata
+        file_info_list = []
+        for filepath in all_files:
+            try:
+                with open(filepath) as f:
+                    metadata = json.load(f)
+                
+                # Skip if already has panorama_heading
+                if "panorama_heading" in metadata and metadata["panorama_heading"] is not None:
+                    continue
+                
+                # Extract coordinates from filename: lat_lng_source.json
+                filename = os.path.basename(filepath)
+                parts = filename.replace(".json", "").split("_")
+                if len(parts) >= 3:
+                    lat = float(parts[0])
+                    lng = float(parts[1])
+                    source = "_".join(parts[2:])  # e.g., "streetview_streetlevel" or "apple_streetlevel"
+                    
+                    file_info_list.append({
+                        "filepath": filepath,
+                        "lat": lat,
+                        "lng": lng,
+                        "source": source,
+                        "metadata": metadata,
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to parse file {filepath}: {e}")
+
+        if not file_info_list:
+            console.print("[yellow]No files need updating (all have panorama_heading).[/yellow]")
+            return
+
+        console.print(f"Found {len(file_info_list)} files needing panorama_heading\n")
+
+        # Async function to process a single file
+        async def process_file_async(file_info, session_aio):
+            """Process a single metadata cache file to fetch and update its panorama heading."""
+            nonlocal updated_count, error_count, no_pano_id_count
+
+            try:
+                filepath = file_info["filepath"]
+                lat = file_info["lat"]
+                lng = file_info["lng"]
+                source = file_info["source"]
+                metadata = file_info["metadata"]
+
+                # Check if we have pano_id in panorama_metadata
+                panorama_metadata = metadata.get("panorama_metadata", {})
+                if not panorama_metadata or "pano_id" not in panorama_metadata:
+                    logger.debug(f"File {os.path.basename(filepath)}: No pano_id in metadata, skipping")
+                    no_pano_id_count += 1
+                    return False
+
+                pano_id = panorama_metadata["pano_id"]
+                if not pano_id:
+                    logger.debug(f"File {os.path.basename(filepath)}: Empty pano_id, skipping")
+                    no_pano_id_count += 1
+                    return False
+
+                # Re-fetch panorama from API based on source
+                heading = None
+                if source == "streetview_streetlevel":
+                    # Fetch from Google Street View (async)
+                    try:
+                        pano = await streetlevel_streetview.find_panorama_by_id_async(
+                            pano_id, session_aio
+                        )
+                        if pano and hasattr(pano, "heading"):
+                            heading = pano.heading
+                            logger.debug(
+                                f"File {os.path.basename(filepath)}: Fetched heading from Street View: {heading}"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"File {os.path.basename(filepath)}: Failed to fetch Street View panorama {pano_id}: {e}"
+                        )
+                        error_count += 1
+                        return False
+
+                elif source == "apple_streetlevel":
+                    # Fetch from Apple Look Around (async)
+                    panorama_lat = metadata.get("panorama_lat")
+                    panorama_lng = metadata.get("panorama_lng")
+                    
+                    if not panorama_lat or not panorama_lng:
+                        logger.debug(
+                            f"File {os.path.basename(filepath)}: No panorama coordinates for Look Around, skipping"
+                        )
+                        no_pano_id_count += 1
+                        return False
+
+                    try:
+                        tile = await lookaround.get_coverage_tile_by_latlon_async(
+                            panorama_lat, panorama_lng, session=session_aio
+                        )
+                        if tile and tile.panos:
+                            # Find the panorama with matching ID
+                            for pano in tile.panos:
+                                if hasattr(pano, "id") and pano.id == pano_id:
+                                    if hasattr(pano, "heading"):
+                                        heading = pano.heading
+                                        logger.debug(
+                                            f"File {os.path.basename(filepath)}: Fetched heading from Look Around: {heading}"
+                                        )
+                                    break
+                    except Exception as e:
+                        logger.warning(
+                            f"File {os.path.basename(filepath)}: Failed to fetch Look Around panorama {pano_id}: {e}"
+                        )
+                        error_count += 1
+                        return False
+
+                # Update file if we got a heading
+                if heading is not None:
+                    if not dry_run:
+                        metadata["panorama_heading"] = heading
+                        with open(filepath, "w") as f:
+                            json.dump(metadata, f, indent=2)
+                    else:
+                        logger.info(
+                            f"[DRY RUN] Would update file {os.path.basename(filepath)} with panorama_heading: {heading}"
+                        )
+                    updated_count += 1
+                    return True
+                else:
+                    logger.debug(
+                        f"File {os.path.basename(filepath)}: Could not get heading from API for pano_id {pano_id}"
+                    )
+                    error_count += 1
+                    return False
+
+            except Exception as e:
+                logger.exception(f"Error processing file {file_info.get('filepath', 'unknown')}: {e}")
+                error_count += 1
+                return False
+
+        # Async function to process a batch of files
+        async def process_batch_async(batch):
+            """Process a batch of files in parallel."""
+            import aiohttp
+
+            async with aiohttp.ClientSession() as session_aio:
+                tasks = [process_file_async(file_info, session_aio) for file_info in batch]
+                return await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process files in batches
+        updated_count = 0
+        error_count = 0
+        no_pano_id_count = 0
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            TimeRemainingColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Processing files...", total=len(file_info_list))
+
+            for i in range(0, len(file_info_list), batch_size):
+                batch = file_info_list[i : i + batch_size]
+
+                # Process batch asynchronously
+                asyncio.run(process_batch_async(batch))
+
+                # Update progress
+                progress.update(task, advance=len(batch))
+
+        # Summary
+        console.print("\n[bold green]✅ Backfill complete![/bold green]")
+        if dry_run:
+            console.print("[yellow]  (DRY RUN - no changes made)[/yellow]")
+        console.print(f"[green]  • Updated: {updated_count}[/green]")
+        console.print(f"[dim]  • No pano_id in metadata: {no_pano_id_count}[/dim]")
+        if error_count > 0:
+            console.print(f"[yellow]  • Errors: {error_count}[/yellow]")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        logger.exception("Unexpected error during backfill")
+        raise typer.Exit(1) from e
+
+
 def main():
     """Main entry point for the CLI."""
     app()
