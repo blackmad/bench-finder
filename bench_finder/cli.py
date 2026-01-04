@@ -2547,6 +2547,11 @@ def backfill_metadata_cache_heading(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Preview changes without updating files"
     ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Re-fetch and update all files, even if they already have panorama_heading",
+    ),
     batch_size: int = typer.Option(
         50, "--batch-size", help="Number of files to process in parallel"
     ),
@@ -2561,6 +2566,7 @@ def backfill_metadata_cache_heading(
     4. Updates the panorama_heading field in the JSON file
 
     Use --dry-run to preview changes without updating files.
+    Use --force to re-fetch all files even if they already have panorama_heading.
     Use --batch-size to control parallelism (default: 50).
     """
     setup_logging(level=log_level)
@@ -2623,8 +2629,8 @@ def backfill_metadata_cache_heading(
                     logger.warning(f"Failed to parse metadata for {filepath}: {e}")
                     continue
 
-                # Skip if already has panorama_heading
-                if pano_meta.panorama_heading is not None:
+                # Skip if already has panorama_heading (unless --force)
+                if not force and pano_meta.panorama_heading is not None:
                     continue
 
                 # Extract coordinates from filename: lat_lng_source.json
@@ -2737,7 +2743,9 @@ def backfill_metadata_cache_heading(
                         # Update the Pydantic model and save
                         pano_meta.panorama_heading = heading
                         with open(filepath, "w") as f:
-                            json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
+                            json.dump(
+                                pano_meta.model_dump(exclude_none=True), f, indent=2
+                            )
                     else:
                         logger.info(
                             f"[DRY RUN] Would update file {os.path.basename(filepath)} with panorama_heading: {heading}"
