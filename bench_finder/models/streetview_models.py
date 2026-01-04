@@ -130,7 +130,7 @@ class StreetViewImageCaptureSuccess(BaseModel):
     """Successful Street View image capture."""
 
     status: Literal["success"] = Field(
-        "success", description="Discriminator field for successful capture"
+        default="success", description="Discriminator field for successful capture"
     )
     bench_id: str = Field(..., description="Unique identifier for the bench")
     lat: float = Field(..., description="Latitude of the capture location")
@@ -160,10 +160,10 @@ class StreetViewImageCaptureSuccess(BaseModel):
         description="Longitude of the actual panorama location (may differ from bench location)",
     )
     panorama_metadata: "PanoramaMetadata | None" = Field(
-        None, description="Additional panorama metadata (pano_id, date, etc.)"
+        default=None, description="Additional panorama metadata (pano_id, date, etc.)"
     )
     panorama_heading: float | None = Field(
-        None,
+        default=None,
         description="Heading/orientation of the panorama itself (from streetlevel/lookaround API)",
     )
 
@@ -190,7 +190,7 @@ class StreetViewImageCaptureError(BaseModel):
     """Failed Street View image capture with error information."""
 
     status: Literal["error"] = Field(
-        "error", description="Discriminator field for failed capture"
+        default="error", description="Discriminator field for failed capture"
     )
     bench_id: str = Field(..., description="Unique identifier for the bench")
     lat: float = Field(..., description="Latitude of the capture location")
@@ -200,15 +200,15 @@ class StreetViewImageCaptureError(BaseModel):
     error: str = Field(..., description="Error message describing the failure")
     # Optional fields for partial data
     image_source: str | None = Field(
-        None,
+        default=None,
         description="Source: streetview_api, streetview_streetlevel, or apple_streetlevel",
     )
     panorama_lat: float | None = Field(
-        None,
+        default=None,
         description="Latitude of the actual panorama location if available before error",
     )
     panorama_lng: float | None = Field(
-        None,
+        default=None,
         description="Longitude of the actual panorama location if available before error",
     )
     panorama_metadata: "PanoramaMetadata | None" = Field(

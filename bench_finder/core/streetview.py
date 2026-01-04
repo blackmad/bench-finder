@@ -280,7 +280,10 @@ class StreetViewClient:
                         panorama_lat, panorama_lng, lat, lng
                     )
                     direct_heading_int = int(round(direct_heading))
-                    panorama_heading_deg = np.degrees(panorama_heading)
+                    # panorama_heading might be None, handle that case
+                    panorama_heading_deg = (
+                        np.degrees(panorama_heading) if panorama_heading is not None else 0.0
+                    )
 
                     logger.debug(
                         f"Calculating direct heading from panorama ({panorama_lat}, {panorama_lng}) "
@@ -289,9 +292,9 @@ class StreetViewClient:
 
                     # Determine source from the string
                     source = ImageSource.STREETVIEW_STREETLEVEL  # Default
-                    if "api" in source_str:
+                    if source_str and "api" in source_str:
                         source = ImageSource.STREETVIEW_API
-                    elif "lookaround" in source_str:
+                    elif source_str and "lookaround" in source_str:
                         source = ImageSource.APPLE_STREETLEVEL
 
                     # Capture direct heading image
@@ -299,7 +302,7 @@ class StreetViewClient:
                         lat,
                         lng,
                         bench_id,
-                        direct_heading_int + panorama_heading_deg,
+                        int(direct_heading_int + panorama_heading_deg),
                         session=session,
                         is_direct_heading=True,
                         source=source,
@@ -318,10 +321,17 @@ class StreetViewClient:
                 except Exception as e:
                     logger.exception("Error capturing direct heading image")
                     # Create a failed capture result instead of None
-                    # Note: direct_heading_int might not be defined if error happened early
+                    # Calculate heading_val with fallback
                     try:
-                        heading_val = direct_heading_int + panorama_heading_deg
-                    except (NameError, TypeError):
+                        direct_heading = self._calculate_bearing(
+                            panorama_lat, panorama_lng, lat, lng
+                        )
+                        direct_heading_int = int(round(direct_heading))
+                        panorama_heading_deg = (
+                            np.degrees(panorama_heading) if panorama_heading is not None else 0.0
+                        )
+                        heading_val = int(direct_heading_int + panorama_heading_deg)
+                    except (NameError, TypeError, Exception):
                         heading_val = 0  # Fallback if calculation failed
 
                     capture_results.append(
@@ -1223,12 +1233,8 @@ class StreetViewClient:
                     pano_meta = PanoramaMetadata.from_lookaround_pano(
                         pano, source="apple_streetlevel", face_filenames=face_filenames
                     )
-                panorama_metadata = {
-                    "pano_id": pano_meta.pano_id,
-                    "date": pano_meta.date,
-                    "heading": pano_meta.panorama_heading,
-                    "face_filenames": face_filenames,
-                }
+                # Use the PanoramaMetadata object directly
+                panorama_metadata = pano_meta
 
                 # Ensure metadata file exists for stitching
                 metadata_path = os.path.join(
@@ -1392,12 +1398,8 @@ class StreetViewClient:
             pano_meta = PanoramaMetadata.from_lookaround_pano(
                 pano, source="apple_streetlevel", face_filenames=face_filenames
             )
-            panorama_metadata = {
-                "pano_id": pano_meta.pano_id,
-                "date": pano_meta.date,
-                "heading": pano_meta.panorama_heading,
-                "face_filenames": face_filenames,
-            }
+            # Use the PanoramaMetadata object directly
+            panorama_metadata = pano_meta
             panorama_heading = pano_meta.panorama_heading
 
             # Save metadata to JSON file for stitching (using Pydantic model)
