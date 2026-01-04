@@ -3,7 +3,7 @@ Pydantic models for Google Street View Static API responses.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -69,6 +69,9 @@ class PanoramaMetadata(BaseModel):
             pitch=pano.pitch if hasattr(pano, "pitch") else None,
             roll=pano.roll if hasattr(pano, "roll") else None,
             elevation=pano.elevation if hasattr(pano, "elevation") else None,
+            build_id=pano.build_id if hasattr(pano, "build_id") else None,
+            coverage_type=pano.coverage_type if hasattr(pano, "coverage_type") else None,
+            face_filenames=pano.face_filenames if hasattr(pano, "face_filenames") else None,
         )
 
     @classmethod
@@ -123,32 +126,37 @@ class StreetViewLocation(BaseModel):
     lng: float = Field(..., description="Longitude")
 
 
-class StreetViewImageCapture(BaseModel):
-    """Result of a single Street View image capture."""
+class StreetViewImageCaptureSuccess(BaseModel):
+    """Successful Street View image capture."""
 
+    status: Literal["success"] = Field(
+        "success", description="Discriminator field for successful capture"
+    )
     bench_id: str = Field(..., description="Unique identifier for the bench")
     lat: float = Field(..., description="Latitude of the capture location")
     lng: float = Field(..., description="Longitude of the capture location")
     heading: int = Field(..., description="Compass heading (0-360 degrees)")
-    filepath: str | None = Field(None, description="Local file path to the image")
+    filepath: str | None = Field(
+        ...,
+        description="Local file path to the image (None for Apple Look Around cached faces)",
+    )
     filename: str = Field(..., description="Image filename")
-    success: bool = Field(..., description="Whether the capture was successful")
-    file_size: int | None = Field(None, description="File size in bytes")
-    cached: bool = Field(False, description="Whether the image was already cached")
-    error: str | None = Field(None, description="Error message if capture failed")
+    file_size: int = Field(..., description="File size in bytes")
+    cached: bool = Field(default=False, description="Whether the image was already cached")
     width: int = Field(..., description="Width of the image")
     height: int = Field(..., description="Height of the image")
+    error: None = Field(default=None, description="Always None for successful captures")
     # Image provenance tracking
-    image_source: str | None = Field(
-        None,
+    image_source: str = Field(
+        ...,
         description="Source: streetview_api, streetview_streetlevel, or apple_streetlevel",
     )
-    panorama_lat: float | None = Field(
-        None,
+    panorama_lat: float = Field(
+        ...,
         description="Latitude of the actual panorama location (may differ from bench location)",
     )
-    panorama_lng: float | None = Field(
-        None,
+    panorama_lng: float = Field(
+        ...,
         description="Longitude of the actual panorama location (may differ from bench location)",
     )
     panorama_metadata: "PanoramaMetadata | None" = Field(
@@ -160,17 +168,82 @@ class StreetViewImageCapture(BaseModel):
     )
 
     @property
+    def success(self) -> bool:
+        """Whether the capture was successful."""
+        return True
+
+    @property
     def is_valid(self) -> bool:
         """Check if this is a valid image capture."""
         # For Apple Look Around, filepath can be None if cached=True (faces are cached)
         if self.image_source == "apple_streetlevel" and self.cached:
-            return self.success and self.filename is not None
-        return self.success and self.filepath is not None and self.filename is not None
+            return self.filename is not None
+        return self.filepath is not None and self.filename is not None
 
     @property
     def area(self) -> float:
         """Calculate the area of the image."""
         return self.width * self.height
+
+
+class StreetViewImageCaptureError(BaseModel):
+    """Failed Street View image capture with error information."""
+
+    status: Literal["error"] = Field(
+        "error", description="Discriminator field for failed capture"
+    )
+    bench_id: str = Field(..., description="Unique identifier for the bench")
+    lat: float = Field(..., description="Latitude of the capture location")
+    lng: float = Field(..., description="Longitude of the capture location")
+    heading: int = Field(..., description="Compass heading (0-360 degrees)")
+    filename: str = Field(..., description="Image filename that would have been used")
+    error: str = Field(..., description="Error message describing the failure")
+    # Optional fields for partial data
+    image_source: str | None = Field(
+        None,
+        description="Source: streetview_api, streetview_streetlevel, or apple_streetlevel",
+    )
+    panorama_lat: float | None = Field(
+        None,
+        description="Latitude of the actual panorama location if available before error",
+    )
+    panorama_lng: float | None = Field(
+        None,
+        description="Longitude of the actual panorama location if available before error",
+    )
+    panorama_metadata: "PanoramaMetadata | None" = Field(
+        default=None, description="Additional panorama metadata if available before error"
+    )
+    panorama_heading: float | None = Field(
+        default=None,
+        description="Heading/orientation of the panorama if available before error",
+    )
+    cached: bool = Field(default=False, description="Whether this was a cached operation")
+    width: int = Field(default=0, description="Width placeholder (always 0 for errors)")
+    height: int = Field(default=0, description="Height placeholder (always 0 for errors)")
+    file_size: int = Field(default=0, description="File size placeholder (always 0 for errors)")
+    filepath: str | None = Field(default=None, description="Filepath placeholder (always None for errors)")
+
+    @property
+    def success(self) -> bool:
+        """Whether the capture was successful."""
+        return False
+
+    @property
+    def is_valid(self) -> bool:
+        """Check if this is a valid image capture."""
+        return False  # Error captures are never valid
+
+    @property
+    def area(self) -> float:
+        """Calculate the area of the image."""
+        return 0  # Error captures have no area
+
+
+# Union type for image capture results
+StreetViewImageCapture = Union[
+    StreetViewImageCaptureSuccess, StreetViewImageCaptureError
+]
 
 
 class StreetViewBatchCaptureResult(BaseModel):

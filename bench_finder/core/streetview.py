@@ -40,6 +40,8 @@ from bench_finder.models.streetview_models import (  # noqa: E402
     StreetViewBatchCaptureResult,
     StreetViewCleanupResult,
     StreetViewImageCapture,
+    StreetViewImageCaptureError,
+    StreetViewImageCaptureSuccess,
     StreetViewLocation,
     StreetViewMetadata,
     StreetViewMetadataResponse,
@@ -254,21 +256,16 @@ class StreetViewClient:
                     logger.exception(f"Error capturing image at heading {heading}°")
                     # Create a failed capture result instead of None
                     capture_results.append(
-                        StreetViewImageCapture(
+                        StreetViewImageCaptureError(
                             bench_id=bench_id,
                             lat=lat,
                             lng=lng,
                             heading=heading,
-                            filepath=None,
                             filename=self._generate_filename(
                                 bench_id, heading, ImageSource.STREETVIEW_API
                             ),
-                            success=False,
-                            file_size=0,
-                            cached=False,
                             error=f"Exception during capture: {e}",
-                            width=0,
-                            height=0,
+                            image_source=ImageSource.STREETVIEW_API.value,
                         )
                     )
 
@@ -328,24 +325,19 @@ class StreetViewClient:
                         heading_val = 0  # Fallback if calculation failed
 
                     capture_results.append(
-                        StreetViewImageCapture(
+                        StreetViewImageCaptureError(
                             bench_id=bench_id,
                             lat=lat,
                             lng=lng,
                             heading=int(heading_val),
-                            filepath=None,
                             filename=self._generate_filename(
                                 bench_id,
                                 int(heading_val),
                                 ImageSource.STREETVIEW_API,
                                 is_direct_heading=True,
                             ),
-                            success=False,
-                            file_size=0,
-                            cached=False,
                             error=f"Exception during direct heading capture: {e}",
-                            width=0,
-                            height=0,
+                            image_source=ImageSource.STREETVIEW_API.value,
                         )
                     )
             else:
@@ -453,22 +445,20 @@ class StreetViewClient:
                         width = int(STREETVIEW_SIZE.split("x")[0])
                         height = int(STREETVIEW_SIZE.split("x")[1])
 
-                    result = StreetViewImageCapture(
+                    result = StreetViewImageCaptureSuccess(
                         bench_id=bench_id,
                         lat=lat,
                         lng=lng,
                         heading=heading,
                         filepath=filepath,
                         filename=filename,
-                        success=True,
                         file_size=os.path.getsize(filepath),
                         cached=True,
-                        error=None,
                         width=width,
                         height=height,
                         image_source=img_source.value,
-                        panorama_lat=pano_meta.panorama_lat if pano_meta else None,
-                        panorama_lng=pano_meta.panorama_lng if pano_meta else None,
+                        panorama_lat=pano_meta.panorama_lat if pano_meta else lat,
+                        panorama_lng=pano_meta.panorama_lng if pano_meta else lng,
                         panorama_metadata=pano_meta,
                         panorama_heading=pano_meta.panorama_heading
                         if pano_meta
@@ -543,22 +533,20 @@ class StreetViewClient:
                         width = int(STREETVIEW_SIZE.split("x")[0])
                         height = int(STREETVIEW_SIZE.split("x")[1])
 
-                    return StreetViewImageCapture(
+                    return StreetViewImageCaptureSuccess(
                         bench_id=bench_id,
                         lat=lat,
                         lng=lng,
                         heading=heading,
                         filepath=api_filepath,
                         filename=api_filename,
-                        success=True,
                         file_size=os.path.getsize(api_filepath),
                         cached=True,
-                        error=None,
                         width=width,
                         height=height,
                         image_source=api_source.value,
-                        panorama_lat=pano_meta.panorama_lat if pano_meta else None,
-                        panorama_lng=pano_meta.panorama_lng if pano_meta else None,
+                        panorama_lat=pano_meta.panorama_lat if pano_meta else lat,
+                        panorama_lng=pano_meta.panorama_lng if pano_meta else lng,
                         panorama_metadata=pano_meta,
                         panorama_heading=pano_meta.panorama_heading
                         if pano_meta
@@ -665,7 +653,7 @@ class StreetViewClient:
                 width = int(STREETVIEW_SIZE.split("x")[0])
                 height = int(STREETVIEW_SIZE.split("x")[1])
 
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureSuccess(
                 width=width,
                 height=height,
                 filename=filename,
@@ -674,10 +662,8 @@ class StreetViewClient:
                 lng=lng,
                 heading=heading,
                 filepath=filepath,
-                success=True,
                 file_size=os.path.getsize(filepath),
                 cached=False,
-                error=None,
                 image_source=ImageSource.STREETVIEW_API.value,
                 panorama_lat=lat,  # API uses requested location
                 panorama_lng=lng,
@@ -1006,20 +992,14 @@ class StreetViewClient:
     ) -> StreetViewImageCapture | None:
         """Capture image from Google Street View via streetlevel library."""
         if not STREETLEVEL_STREETVIEW_AVAILABLE:
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureError(
                 bench_id=bench_id,
                 lat=lat,
                 lng=lng,
                 heading=heading,
-                filepath=filepath,
                 filename=filename,
-                success=False,
-                file_size=0,
-                cached=False,
                 error="streetlevel library not available",
                 image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
-                width=0,
-                height=0,
             )
 
         try:
@@ -1035,20 +1015,14 @@ class StreetViewClient:
 
             # Handle errors from panorama download
             if result is None:
-                return StreetViewImageCapture(
+                return StreetViewImageCaptureError(
                     bench_id=bench_id,
                     lat=lat,
                     lng=lng,
                     heading=heading,
-                    filepath=filepath,
                     filename=filename,
-                    success=False,
-                    file_size=0,
-                    cached=False,
                     error="panorama download returned None",
                     image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
-                    width=0,
-                    height=0,
                 )
 
             pano, equirectangular, pano_id, panorama_lat, panorama_lng, pano_error = (
@@ -1057,22 +1031,16 @@ class StreetViewClient:
 
             # Check for error from panorama download
             if pano_error or equirectangular is None:
-                return StreetViewImageCapture(
+                return StreetViewImageCaptureError(
                     bench_id=bench_id,
                     lat=lat,
                     lng=lng,
                     heading=heading,
-                    filepath=filepath,
                     filename=filename,
-                    success=False,
-                    file_size=0,
-                    cached=False,
                     error=pano_error or "failed to get panorama image",
                     image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
                     panorama_lat=panorama_lat,
                     panorama_lng=panorama_lng,
-                    width=0,
-                    height=0,
                 )
 
             # Extract perspective view at the specified heading and FOV
@@ -1108,7 +1076,7 @@ class StreetViewClient:
                 f"Saved image {filename} from streetlevel (Google): {width}x{height}, panorama at {panorama_lat}, {panorama_lng}, heading={heading}°, pano_heading={pano_meta.panorama_heading}"
             )
 
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureSuccess(
                 width=width,
                 height=height,
                 filename=filename,
@@ -1117,10 +1085,8 @@ class StreetViewClient:
                 lng=lng,
                 heading=heading,
                 filepath=filepath,
-                success=True,
                 file_size=os.path.getsize(filepath),
                 cached=False,
-                error=None,
                 image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
                 panorama_lat=panorama_lat,
                 panorama_lng=panorama_lng,
@@ -1130,20 +1096,14 @@ class StreetViewClient:
 
         except Exception as e:
             logger.debug(f"Error capturing from streetlevel (Google): {e}")
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureError(
                 bench_id=bench_id,
                 lat=lat,
                 lng=lng,
                 heading=heading,
-                filepath=filepath,
                 filename=filename,
-                success=False,
-                file_size=0,
-                cached=False,
                 error=f"exception: {e}",
                 image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
-                width=0,
-                height=0,
             )
 
     async def _capture_from_streetlevel_apple(
@@ -1158,20 +1118,14 @@ class StreetViewClient:
     ) -> StreetViewImageCapture | None:
         """Capture image from Apple Look Around via streetlevel library."""
         if not STREETLEVEL_LOOKAROUND_AVAILABLE:
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureError(
                 bench_id=bench_id,
                 lat=lat,
                 lng=lng,
                 heading=heading,
-                filepath=filepath,
                 filename=filename,
-                success=False,
-                file_size=0,
-                cached=False,
                 error="streetlevel library (lookaround) not available",
                 image_source=ImageSource.APPLE_STREETLEVEL.value,
-                width=0,
-                height=0,
             )
 
         try:
@@ -1186,20 +1140,14 @@ class StreetViewClient:
 
             if not tile or not tile.panos or len(tile.panos) == 0:
                 logger.debug("No Apple Look Around panoramas found")
-                return StreetViewImageCapture(
+                return StreetViewImageCaptureError(
                     bench_id=bench_id,
                     lat=lat,
                     lng=lng,
                     heading=heading,
-                    filepath=filepath,
                     filename=filename,
-                    success=False,
-                    file_size=0,
-                    cached=False,
                     error=f"no Look Around coverage at ({lat:.6f}, {lng:.6f})",
                     image_source=ImageSource.APPLE_STREETLEVEL.value,
-                    width=0,
-                    height=0,
                 )
 
             # Find the closest panorama
@@ -1231,20 +1179,14 @@ class StreetViewClient:
 
             if closest_pano is None:
                 logger.debug("No closest panorama found")
-                return StreetViewImageCapture(
+                return StreetViewImageCaptureError(
                     bench_id=bench_id,
                     lat=lat,
                     lng=lng,
                     heading=heading,
-                    filepath=filepath,
                     filename=filename,
-                    success=False,
-                    file_size=0,
-                    cached=False,
                     error="no closest panorama found in coverage tile",
                     image_source=ImageSource.APPLE_STREETLEVEL.value,
-                    width=0,
-                    height=0,
                 )
 
             pano = closest_pano
@@ -1315,7 +1257,7 @@ class StreetViewClient:
                     height = int(STREETVIEW_SIZE.split("x")[1])
 
                 # Return success but with None filepath since we're not writing per-heading files
-                return StreetViewImageCapture(
+                return StreetViewImageCaptureSuccess(
                     width=width,
                     height=height,
                     filename=filename,
@@ -1324,10 +1266,8 @@ class StreetViewClient:
                     lng=lng,
                     heading=heading,
                     filepath=None,  # Not writing per-heading file to disk
-                    success=True,
                     file_size=0,  # No file written
                     cached=True,
-                    error=None,
                     image_source=ImageSource.APPLE_STREETLEVEL.value,
                     panorama_lat=panorama_lat,
                     panorama_lng=panorama_lng,
@@ -1405,22 +1345,16 @@ class StreetViewClient:
                 # Don't write the per-heading file to disk - just cache the faces
                 if not any(faces):
                     logger.debug("Could not get any faces from Apple Look Around")
-                    return StreetViewImageCapture(
+                    return StreetViewImageCaptureError(
                         bench_id=bench_id,
                         lat=lat,
                         lng=lng,
                         heading=heading,
-                        filepath=filepath,
                         filename=filename,
-                        success=False,
-                        file_size=0,
-                        cached=False,
                         error="could not fetch any faces from Look Around",
                         image_source=ImageSource.APPLE_STREETLEVEL.value,
                         panorama_lat=panorama_lat,
                         panorama_lng=panorama_lng,
-                        width=0,
-                        height=0,
                     )
 
                 # Faces are cached, but we don't write the per-heading file
@@ -1430,22 +1364,16 @@ class StreetViewClient:
                 )
             except Exception as e:
                 logger.debug(f"Error fetching Apple Look Around faces: {e}")
-                return StreetViewImageCapture(
+                return StreetViewImageCaptureError(
                     bench_id=bench_id,
                     lat=lat,
                     lng=lng,
                     heading=heading,
-                    filepath=filepath,
                     filename=filename,
-                    success=False,
-                    file_size=0,
-                    cached=False,
                     error=f"error fetching faces: {e}",
                     image_source=ImageSource.APPLE_STREETLEVEL.value,
                     panorama_lat=panorama_lat,
                     panorama_lng=panorama_lng,
-                    width=0,
-                    height=0,
                 )
 
             # Get image dimensions from front face if available, otherwise use default
@@ -1491,7 +1419,7 @@ class StreetViewClient:
             )
 
             # Return success but with None filepath since we're not writing the per-heading file
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureSuccess(
                 width=width,
                 height=height,
                 filename=filename,
@@ -1500,10 +1428,8 @@ class StreetViewClient:
                 lng=lng,
                 heading=heading,
                 filepath=None,  # Not writing per-heading file to disk
-                success=True,
                 file_size=0,  # No file written
                 cached=all_faces_cached,
-                error=None,
                 image_source=ImageSource.APPLE_STREETLEVEL.value,
                 panorama_lat=panorama_lat,
                 panorama_lng=panorama_lng,
@@ -1513,20 +1439,14 @@ class StreetViewClient:
 
         except Exception as e:
             logger.debug(f"Error capturing from streetlevel (Apple): {e}")
-            return StreetViewImageCapture(
+            return StreetViewImageCaptureError(
                 bench_id=bench_id,
                 lat=lat,
                 lng=lng,
                 heading=heading,
-                filepath=filepath,
                 filename=filename,
-                success=False,
-                file_size=0,
-                cached=False,
                 error=f"exception: {e}",
                 image_source=ImageSource.APPLE_STREETLEVEL.value,
-                width=0,
-                height=0,
             )
 
     def capture_image(

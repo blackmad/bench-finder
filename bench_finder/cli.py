@@ -2617,7 +2617,7 @@ def backfill_metadata_cache_heading(
                     metadata_dict = json.load(f)
 
                 # Extract only the pano_id from the existing file
-                pano_id = metadata_dict.get("pano_id")
+                pano_id = metadata_dict.get("panorama_metadata", {}).get("pano_id")
                 if not pano_id:
                     logger.warning(
                         f"No pano_id found in {os.path.basename(filepath)}, skipping"
