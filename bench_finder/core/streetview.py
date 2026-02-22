@@ -32,11 +32,11 @@ from bench_finder.config import (  # noqa: E402
     GOOGLE_MAPS_API_KEY,
     IMAGES_DIR,
     STREETVIEW_FOV,
-    STREETVIEW_HEADINGS,
     STREETVIEW_SIZE,
 )
 from bench_finder.models.enums import ImageSource  # noqa: E402
 from bench_finder.models.streetview_models import (  # noqa: E402
+    PanoramaCaptureResult,
     PanoramaMetadata,
     StreetViewBatchCaptureResult,
     StreetViewCleanupResult,
@@ -183,10 +183,152 @@ class StreetViewClient:
         )
 
         # Run async capture
-        capture_results = asyncio.run(
+        return asyncio.run(
             self._capture_bench_images_async(lat, lng, bench_id)
         )
 
+    async def _capture_bench_images_async(
+        self, lat: float, lng: float, bench_id: str
+    ) ->StreetViewBatchCaptureResult:
+        """Async helper to capture panorama and extract direct heading view."""
+        # Handle backoff before starting batch
+        self._handle_backoff()
+
+        capture_results = []
+
+        # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+
+        async with ClientSession(timeout=timeout) as session:
+            # First, capture the full panorama
+            try:
+                panorama_result = await self.capture_panorama_async(
+                    lat, lng, bench_id, session=session
+                )
+
+                if panorama_result and panorama_result.success:
+                    logger.debug(
+                        f"Successfully captured panorama from {panorama_result.image_source}"
+                    )
+
+                    # Calculate and extract direct heading view (from panorama center to bench location)
+                    try:
+                        # Calculate geographic bearing from panorama location to bench location
+                        # This matches the notebook's logic: calculate bearing, then adjust in extract_perspective_view
+                        direct_heading = self._calculate_bearing(
+                            panorama_result.panorama_lat,
+                            panorama_result.panorama_lng,
+                            lat,
+                            lng,
+                        )
+                        direct_heading_int = int(round(direct_heading))
+
+                        logger.debug(
+                            f"Calculating direct heading from panorama ({panorama_result.panorama_lat}, {panorama_result.panorama_lng}) "
+                            f"to bench ({lat}, {lng}): {direct_heading:.1f}° (geographic bearing)"
+                        )
+
+                        # Extract direct heading view from the panorama
+                        # Pass the geographic bearing directly - adjustment for panorama heading happens in _extract_perspective_view
+                        # panorama_result is guaranteed to be not None here due to the if check above
+                        assert panorama_result is not None
+                        direct_result = await self.extract_perspective_view_from_panorama(
+                            panorama_result,
+                            bench_id,
+                            direct_heading_int,
+                            is_direct_heading=True,
+                        )
+                        capture_results.append(direct_result)
+
+                        if direct_result and direct_result.success:
+                            logger.debug(
+                                f"Successfully extracted direct heading image at {direct_heading:.1f}° from {panorama_result.image_source}"
+                            )
+                        else:
+                            logger.warning(
+                                f"Failed to extract direct heading image at {direct_heading:.1f}°"
+                            )
+
+                    except Exception as e:
+                        logger.exception("Error extracting direct heading image")
+                        # Calculate heading_val with fallback
+                        try:
+                            direct_heading = self._calculate_bearing(
+                                panorama_result.panorama_lat,
+                                panorama_result.panorama_lng,
+                                lat,
+                                lng,
+                            )
+                            direct_heading_int = int(round(direct_heading))
+                            panorama_heading_deg = (
+                                np.degrees(panorama_result.panorama_heading)
+                                if panorama_result.panorama_heading is not None
+                                else 0.0
+                            )
+                            heading_val = int(direct_heading_int + panorama_heading_deg)
+                        except (NameError, TypeError, Exception):
+                            heading_val = 0  # Fallback if calculation failed
+
+                        capture_results.append(
+                            StreetViewImageCaptureError(
+                                bench_id=bench_id,
+                                lat=lat,
+                                lng=lng,
+                                heading=int(heading_val),
+                                filename=self._generate_filename(
+                                    bench_id,
+                                    int(heading_val),
+                                    ImageSource(panorama_result.image_source),
+                                    is_direct_heading=True,
+                                ),
+                                error=f"Exception during direct heading extraction: {e}",
+                                image_source=panorama_result.image_source,
+                                panorama_lat=panorama_result.panorama_lat,
+                                panorama_lng=panorama_result.panorama_lng,
+                                panorama_metadata=panorama_result.panorama_metadata,
+                                panorama_heading=panorama_result.panorama_heading,
+                            )
+                        )
+                else:
+                    error_msg = (
+                        f" - error: {panorama_result.error}"
+                        if panorama_result and panorama_result.error
+                        else ""
+                    )
+                    logger.warning(f"Failed to capture panorama{error_msg}")
+                    # Create a failed capture result
+                    capture_results.append(
+                        StreetViewImageCaptureError(
+                            bench_id=bench_id,
+                            lat=lat,
+                            lng=lng,
+                            heading=0,  # Default heading since we don't have panorama
+                            filename=self._generate_filename(
+                                bench_id, 0, ImageSource.STREETVIEW_API, is_direct_heading=True
+                            ),
+                            error=panorama_result.error if panorama_result and panorama_result.error else "panorama capture returned None",
+                            image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                        )
+                    )
+
+            except Exception as e:
+                logger.exception("Error capturing panorama")
+                # Create a failed capture result instead of None
+                capture_results.append(
+                    StreetViewImageCaptureError(
+                        bench_id=bench_id,
+                        lat=lat,
+                        lng=lng,
+                        heading=0,
+                        filename=self._generate_filename(
+                            bench_id, 0, ImageSource.STREETVIEW_API, is_direct_heading=True
+                        ),
+                        error=f"Exception during panorama capture: {e}",
+                            image_source=ImageSource.STREETVIEW_API.value,
+                        )
+                    )
+
+        
         # Create batch result from individual capture results
         batch_result = StreetViewBatchCaptureResult.from_capture_results(
             bench_id, lat, lng, capture_results
@@ -199,164 +341,348 @@ class StreetViewClient:
 
         return batch_result
 
-    async def _capture_bench_images_async(
-        self, lat: float, lng: float, bench_id: str
-    ) -> list[StreetViewImageCapture | None]:
-        """Async helper to capture images from multiple headings."""
-        # Handle backoff before starting batch
-        self._handle_backoff()
 
-        capture_results = []
-        panorama_location = (
-            None  # Store panorama location for direct heading calculation
-        )
+    async def capture_panorama_async(
+        self,
+        lat: float,
+        lng: float,
+        bench_id: str,
+        session: ClientSession | None = None,
+        source: ImageSource | None = None,
+    ) -> PanoramaCaptureResult | None:
+        """
+        Capture a full panorama at the specified location.
+        Tries multiple sources in order until one succeeds.
 
-        # Set timeout to prevent hanging (30 seconds total, 10 seconds connect)
-        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        Args:
+            lat: Latitude
+            lng: Longitude
+            bench_id: Unique identifier for the bench
+            session: Optional aiohttp session for reuse
+            source: Optional specific source to use
 
-        async with ClientSession(timeout=timeout) as session:
-            # First, capture all the regular heading images
-            for heading in STREETVIEW_HEADINGS:
-                try:
-                    result = await self.capture_image_async(
-                        lat, lng, bench_id, heading, session=session
-                    )
-                    capture_results.append(result)
+        Returns:
+            PanoramaCaptureResult with panorama capture information, or None if all sources failed
+        """
+        should_close = session is None
+        if session is None:
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            session = ClientSession(timeout=timeout)
 
-                    if result and result.success:
-                        # Store panorama location from first successful capture for direct heading
-                        if (
-                            panorama_location is None
-                            and result.panorama_lat
-                            and result.panorama_lng
-                        ):
-                            panorama_location = (
-                                result.panorama_lat,
-                                result.panorama_lng,
-                                result.image_source,
-                                result.panorama_heading,
-                            )
+        try:
+            # Always try both streetlevel sources (Google Street View and Apple Look Around)
+            # API is only used as fallback if both streetlevel sources fail
+            streetlevel_sources = [
+                (
+                    ImageSource.STREETVIEW_STREETLEVEL,
+                    self._capture_panorama_from_streetlevel_google,
+                ),
+                (ImageSource.APPLE_STREETLEVEL, self._capture_panorama_from_streetlevel_apple),
+            ]
 
-                        if result.cached:
-                            logger.debug(f"Using cached image at heading {heading}°")
-                        else:
-                            logger.debug(
-                                f"Successfully downloaded image at heading {heading}° from {result.image_source}"
-                            )
-                    else:
-                        error_msg = (
-                            f" - error: {result.error}"
-                            if result and result.error
-                            else ""
+            # Determine which sources to try
+            if source:
+                if source == ImageSource.STREETVIEW_STREETLEVEL:
+                    sources_to_try = [
+                        (
+                            ImageSource.STREETVIEW_STREETLEVEL,
+                            self._capture_panorama_from_streetlevel_google,
                         )
-                        logger.warning(
-                            f"Failed to capture image at heading {heading}°{error_msg}"
+                    ]
+                elif source == ImageSource.APPLE_STREETLEVEL:
+                    sources_to_try = [
+                        (
+                            ImageSource.APPLE_STREETLEVEL,
+                            self._capture_panorama_from_streetlevel_apple,
                         )
-
-                except Exception as e:
-                    logger.exception(f"Error capturing image at heading {heading}°")
-                    # Create a failed capture result instead of None
-                    capture_results.append(
-                        StreetViewImageCaptureError(
-                            bench_id=bench_id,
-                            lat=lat,
-                            lng=lng,
-                            heading=heading,
-                            filename=self._generate_filename(
-                                bench_id, heading, ImageSource.STREETVIEW_API
-                            ),
-                            error=f"Exception during capture: {e}",
-                            image_source=ImageSource.STREETVIEW_API.value,
-                        )
-                    )
-
-            # Now capture the direct heading image (from panorama center to bench location)
-            if panorama_location:
-                panorama_lat, panorama_lng, source_str, panorama_heading = (
-                    panorama_location
-                )
-                try:
-                    # Calculate heading from panorama location to bench location
-                    direct_heading = self._calculate_bearing(
-                        panorama_lat, panorama_lng, lat, lng
-                    )
-                    direct_heading_int = int(round(direct_heading))
-                    # panorama_heading might be None, handle that case
-                    panorama_heading_deg = (
-                        np.degrees(panorama_heading) if panorama_heading is not None else 0.0
-                    )
-
-                    logger.debug(
-                        f"Calculating direct heading from panorama ({panorama_lat}, {panorama_lng}) "
-                        f"to bench ({lat}, {lng}): {direct_heading:.1f}°"
-                    )
-
-                    # Determine source from the string
-                    source = ImageSource.STREETVIEW_STREETLEVEL  # Default
-                    if source_str and "api" in source_str:
-                        source = ImageSource.STREETVIEW_API
-                    elif source_str and "lookaround" in source_str:
-                        source = ImageSource.APPLE_STREETLEVEL
-
-                    # Capture direct heading image
-                    direct_result = await self.capture_image_async(
-                        lat,
-                        lng,
-                        bench_id,
-                        int(direct_heading_int + panorama_heading_deg),
-                        session=session,
-                        is_direct_heading=True,
-                        source=source,
-                    )
-                    capture_results.append(direct_result)
-
-                    if direct_result and direct_result.success:
-                        logger.debug(
-                            f"Successfully captured direct heading image at {direct_heading:.1f}° from {source_str}"
-                        )
-                    else:
-                        logger.warning(
-                            f"Failed to capture direct heading image at {direct_heading:.1f}°"
-                        )
-
-                except Exception as e:
-                    logger.exception("Error capturing direct heading image")
-                    # Create a failed capture result instead of None
-                    # Calculate heading_val with fallback
-                    try:
-                        direct_heading = self._calculate_bearing(
-                            panorama_lat, panorama_lng, lat, lng
-                        )
-                        direct_heading_int = int(round(direct_heading))
-                        panorama_heading_deg = (
-                            np.degrees(panorama_heading) if panorama_heading is not None else 0.0
-                        )
-                        heading_val = int(direct_heading_int + panorama_heading_deg)
-                    except (NameError, TypeError, Exception):
-                        heading_val = 0  # Fallback if calculation failed
-
-                    capture_results.append(
-                        StreetViewImageCaptureError(
-                            bench_id=bench_id,
-                            lat=lat,
-                            lng=lng,
-                            heading=int(heading_val),
-                            filename=self._generate_filename(
-                                bench_id,
-                                int(heading_val),
-                                ImageSource.STREETVIEW_API,
-                                is_direct_heading=True,
-                            ),
-                            error=f"Exception during direct heading capture: {e}",
-                            image_source=ImageSource.STREETVIEW_API.value,
-                        )
-                    )
+                    ]
+                elif source == ImageSource.STREETVIEW_API:
+                    sources_to_try = []  # Will be handled in API fallback section
+                else:
+                    sources_to_try = streetlevel_sources
             else:
-                logger.debug(
-                    "No panorama location found, skipping direct heading capture"
+                sources_to_try = streetlevel_sources
+
+            # Track errors from each source
+            source_errors: dict[str, str] = {}
+
+            # Try streetlevel sources
+            for img_source, capture_func in sources_to_try:
+                try:
+                    result = await capture_func(lat, lng, bench_id, session)
+                    if result and result.success:
+                        # Save metadata to cache
+                        if result.panorama_metadata:
+                            self._save_metadata_cache(
+                                lat, lng, img_source.value, result.panorama_metadata
+                            )
+                        return result
+                    elif result and result.error:
+                        source_errors[img_source.value] = result.error
+                    else:
+                        source_errors[img_source.value] = "no panorama found"
+                except Exception as e:
+                    error_msg = str(e)
+                    source_errors[img_source.value] = error_msg
+                    logger.debug(
+                        f"Failed to capture panorama from {img_source.value}: {e}"
+                    )
+
+            # If both streetlevel sources failed, try API as fallback
+            # (Note: API doesn't support full panoramas, so this is a limited fallback)
+            api_error = None
+            if not source or source == ImageSource.STREETVIEW_API:
+                if source != ImageSource.STREETVIEW_API:
+                    logger.debug(
+                        f"Both streetlevel sources failed for bench {bench_id}, trying API fallback"
+                    )
+                # API doesn't support full panoramas, so we return an error
+                api_error = "API does not support full panorama capture"
+                source_errors[ImageSource.STREETVIEW_API.value] = api_error
+
+            # All sources failed
+            error_details = [
+                f"{source}: {error}" for source, error in source_errors.items()
+            ]
+            error_msg = (
+                f" - errors: {', '.join(error_details)}" if error_details else ""
+            )
+            logger.warning(
+                f"All sources failed for bench {bench_id} panorama capture{error_msg}"
+            )
+            return None
+
+        except Exception:
+            # Trigger backoff on unexpected errors
+            logger.exception("Unexpected error in capture_panorama_async")
+            self._trigger_backoff()
+            return None
+
+        finally:
+            if should_close:
+                await session.close()
+
+    async def extract_perspective_view_from_panorama(
+        self,
+        panorama_result: PanoramaCaptureResult,
+        bench_id: str,
+        heading: int,
+        is_direct_heading: bool = False,
+    ) -> StreetViewImageCapture | None:
+        """
+        Extract a perspective view at a specific heading from a captured panorama.
+
+        Args:
+            panorama_result: The panorama capture result
+            bench_id: Unique identifier for the bench
+            heading: Compass heading (0-360 degrees)
+            is_direct_heading: Whether this is a direct heading image
+
+        Returns:
+            StreetViewImageCapture with the extracted view, or None if extraction failed
+        """
+        # Generate filename early to ensure it's always defined
+        filename = self._generate_filename(
+            bench_id,
+            heading,
+            ImageSource(panorama_result.image_source),
+            is_direct_heading=is_direct_heading,
+        )
+        filepath = os.path.join(IMAGES_DIR, filename)
+
+        try:
+
+            # Check if image already exists
+            if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+                logger.debug(f"Image already exists: {filename}, skipping extraction")
+                pano_meta = panorama_result.panorama_metadata
+
+                try:
+                    with PILImage.open(filepath) as img:
+                        width, height = img.size
+                except Exception:
+                    width = int(STREETVIEW_SIZE.split("x")[0])
+                    height = int(STREETVIEW_SIZE.split("x")[1])
+
+                return StreetViewImageCaptureSuccess(
+                    bench_id=bench_id,
+                    lat=panorama_result.lat,
+                    lng=panorama_result.lng,
+                    heading=heading,
+                    filepath=filepath,
+                    filename=filename,
+                    file_size=os.path.getsize(filepath),
+                    cached=True,
+                    width=width,
+                    height=height,
+                    image_source=panorama_result.image_source,
+                    panorama_lat=panorama_result.panorama_lat,
+                    panorama_lng=panorama_result.panorama_lng,
+                    panorama_metadata=pano_meta,
+                    panorama_heading=panorama_result.panorama_heading,
                 )
 
-        return capture_results
+            # Extract perspective view based on source type
+            if panorama_result.image_source == ImageSource.STREETVIEW_STREETLEVEL.value:
+                # Google Street View - use equirectangular panorama
+                if panorama_result.panorama_image is None:
+                    # Load from file if not in memory
+                    if panorama_result.panorama_filepath and os.path.exists(
+                        panorama_result.panorama_filepath
+                    ):
+                        equirectangular = PILImage.open(panorama_result.panorama_filepath)
+                    else:
+                        logger.error("No panorama image available for extraction")
+                        return StreetViewImageCaptureError(
+                            bench_id=bench_id,
+                            lat=panorama_result.lat,
+                            lng=panorama_result.lng,
+                            heading=heading,
+                            filename=filename,
+                            error="no panorama image available",
+                            image_source=panorama_result.image_source,
+                            panorama_lat=panorama_result.panorama_lat,
+                            panorama_lng=panorama_result.panorama_lng,
+                            panorama_metadata=panorama_result.panorama_metadata,
+                            panorama_heading=panorama_result.panorama_heading,
+                        )
+                else:
+                    equirectangular = panorama_result.panorama_image
+
+                # Extract perspective view
+                pano_width, pano_height = equirectangular.size
+                target_dimension = max(pano_width, pano_height)
+                target_dimension = min(target_dimension, 2048)
+                target_size = (target_dimension, target_dimension)
+
+                perspective_view = self._extract_perspective_view(
+                    equirectangular,
+                    heading,
+                    STREETVIEW_FOV,
+                    target_size,
+                    panorama_heading_rad=panorama_result.panorama_heading,
+                    image_source=panorama_result.image_source,
+                )
+
+                # Save the image
+                perspective_view.save(filepath, "JPEG")
+
+                if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+                    logger.error(f"Failed to save image to {filepath}")
+                    return StreetViewImageCaptureError(
+                        bench_id=bench_id,
+                        lat=panorama_result.lat,
+                        lng=panorama_result.lng,
+                        heading=heading,
+                        filename=filename,
+                        error="failed to save extracted view",
+                        image_source=panorama_result.image_source,
+                        panorama_lat=panorama_result.panorama_lat,
+                        panorama_lng=panorama_result.panorama_lng,
+                        panorama_metadata=panorama_result.panorama_metadata,
+                        panorama_heading=panorama_result.panorama_heading,
+                    )
+
+                width, height = perspective_view.size
+
+                logger.debug(
+                    f"Extracted perspective view {filename} at heading {heading}°: {width}x{height}"
+                )
+
+                return StreetViewImageCaptureSuccess(
+                    width=width,
+                    height=height,
+                    filename=filename,
+                    bench_id=bench_id,
+                    lat=panorama_result.lat,
+                    lng=panorama_result.lng,
+                    heading=heading,
+                    filepath=filepath,
+                    file_size=os.path.getsize(filepath),
+                    cached=False,
+                    image_source=panorama_result.image_source,
+                    panorama_lat=panorama_result.panorama_lat,
+                    panorama_lng=panorama_result.panorama_lng,
+                    panorama_metadata=panorama_result.panorama_metadata,
+                    panorama_heading=panorama_result.panorama_heading,
+                )
+
+            elif panorama_result.image_source == ImageSource.APPLE_STREETLEVEL.value:
+                # Apple Look Around - faces are already cached, we don't write per-heading files
+                # Return success but with None filepath
+                if panorama_result.face_filepaths:
+                    # Get dimensions from front face if available
+                    try:
+                        front_face_path = next(
+                            (
+                                fp
+                                for fp in panorama_result.face_filepaths
+                                if "front" in fp
+                            ),
+                            panorama_result.face_filepaths[0] if panorama_result.face_filepaths else None,
+                        )
+                        if front_face_path and os.path.exists(front_face_path):
+                            with PILImage.open(front_face_path) as img:
+                                width, height = img.size
+                        else:
+                            width = int(STREETVIEW_SIZE.split("x")[0])
+                            height = int(STREETVIEW_SIZE.split("x")[1])
+                    except Exception:
+                        width = int(STREETVIEW_SIZE.split("x")[0])
+                        height = int(STREETVIEW_SIZE.split("x")[1])
+                else:
+                    width = int(STREETVIEW_SIZE.split("x")[0])
+                    height = int(STREETVIEW_SIZE.split("x")[1])
+
+                return StreetViewImageCaptureSuccess(
+                    width=width,
+                    height=height,
+                    filename=filename,
+                    bench_id=bench_id,
+                    lat=panorama_result.lat,
+                    lng=panorama_result.lng,
+                    heading=heading,
+                    filepath=None,  # Not writing per-heading file
+                    file_size=0,
+                    cached=panorama_result.cached,
+                    image_source=panorama_result.image_source,
+                    panorama_lat=panorama_result.panorama_lat,
+                    panorama_lng=panorama_result.panorama_lng,
+                    panorama_metadata=panorama_result.panorama_metadata,
+                    panorama_heading=panorama_result.panorama_heading,
+                )
+
+            else:
+                # Unknown source
+                return StreetViewImageCaptureError(
+                    bench_id=bench_id,
+                    lat=panorama_result.lat,
+                    lng=panorama_result.lng,
+                    heading=heading,
+                    filename=filename,
+                    error=f"unknown source type: {panorama_result.image_source}",
+                    image_source=panorama_result.image_source,
+                    panorama_lat=panorama_result.panorama_lat,
+                    panorama_lng=panorama_result.panorama_lng,
+                    panorama_metadata=panorama_result.panorama_metadata,
+                    panorama_heading=panorama_result.panorama_heading,
+                )
+
+        except Exception as e:
+            logger.exception(f"Error extracting perspective view: {e}")
+            return StreetViewImageCaptureError(
+                bench_id=bench_id,
+                lat=panorama_result.lat,
+                lng=panorama_result.lng,
+                heading=heading,
+                filename=filename,
+                error=f"exception during extraction: {e}",
+                image_source=panorama_result.image_source,
+                panorama_lat=panorama_result.panorama_lat,
+                panorama_lng=panorama_result.panorama_lng,
+                panorama_metadata=panorama_result.panorama_metadata,
+                panorama_heading=panorama_result.panorama_heading,
+            )
 
     async def capture_image_async(
         self,
@@ -840,21 +1166,41 @@ class StreetViewClient:
 
         return bearing_degrees
 
+    def _ccw_to_cw_heading(self, ccw_heading_deg: float) -> float:
+        """
+        Convert a counter-clockwise heading to standard clockwise heading.
+
+        Apple Lookaround panorama headings are measured CCW from North:
+        - CCW: 0° = North, 90° = West, 180° = South, 270° = East
+        - CW (standard): 0° = North, 90° = East, 180° = South, 270° = West
+
+        Args:
+            ccw_heading_deg: Heading in degrees, measured counter-clockwise from North
+
+        Returns:
+            Heading in degrees, measured clockwise from North (standard geographic bearing)
+        """
+        return (360 - ccw_heading_deg) % 360
+
     def _extract_perspective_view(
         self,
         equirectangular: PILImage.Image,
         heading: int,
         fov: int,
         size: tuple[int, int],
+        panorama_heading_rad: float | None = None,
+        image_source: str | None = None,
     ) -> PILImage.Image:
         """
         Extract a perspective view from an equirectangular panorama using equi2pers.
 
         Args:
             equirectangular: The full equirectangular panorama image
-            heading: Compass heading in degrees (0-360, where 0 is North)
+            heading: Compass heading in degrees (0-360, where 0 is North) - geographic heading
             fov: Field of view in degrees
             size: Output image size (width, height)
+            panorama_heading_rad: Optional panorama heading in radians (direction panorama center points)
+            image_source: Optional image source to determine heading coordinate system
 
         Returns:
             Perspective view image at the specified heading and FOV
@@ -879,6 +1225,21 @@ class StreetViewClient:
         # In GSV: 0 = North, 90 = East, 180 = South, 270 = West
         # Based on notebook usage with yaw_angles=[0, 90, 180, 270], the coordinate systems match
         yaw_deg = float(heading)
+
+        # Adjust for panorama's heading offset (matching notebook logic)
+        # The panorama's center (yaw=0 in panorama coords) points at panorama_heading_rad direction
+        if panorama_heading_rad is not None:
+            panorama_heading_deg_raw = np.degrees(panorama_heading_rad)
+
+            # Convert CCW to CW for Apple Look Around (matching notebook logic)
+            if image_source == ImageSource.APPLE_STREETLEVEL.value:
+                panorama_heading_deg = self._ccw_to_cw_heading(panorama_heading_deg_raw)
+            else:
+                # Google Street View: heading is already CW from North
+                panorama_heading_deg = panorama_heading_deg_raw
+
+            # Adjust heading by adding panorama heading (matching notebook logic)
+            yaw_deg = (yaw_deg + panorama_heading_deg) % 360
 
         # Extract perspective view
         rots_dict = {
@@ -906,76 +1267,444 @@ class StreetViewClient:
 
         return PILImage.fromarray(pers_img)
 
-    def _extract_perspective_view_manual(
+    async def _capture_panorama_from_streetlevel_google(
         self,
-        equirectangular: PILImage.Image,
-        heading: int,
-        fov: int,
-        size: tuple[int, int],
-    ) -> PILImage.Image:
-        """
-        Fallback manual extraction method (original implementation).
-        Only used if equilib library is not available.
-        """
-        width, height = size
-        pano_width, pano_height = equirectangular.size
+        lat: float,
+        lng: float,
+        bench_id: str,
+        session: ClientSession,
+    ) -> PanoramaCaptureResult | None:
+        """Capture full panorama from Google Street View via streetlevel library."""
+        if not STREETLEVEL_STREETVIEW_AVAILABLE:
+            return PanoramaCaptureResult(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                panorama_lat=lat,
+                panorama_lng=lng,
+                panorama_metadata=None,
+                panorama_heading=None,
+                panorama_filepath=None,
+                panorama_image=None,
+                face_filepaths=None,
+                cached=False,
+                error="streetlevel library not available",
+            )
 
-        # Convert inputs to radians
-        fov_rad = np.radians(fov)
-        heading_rad = np.radians(heading)
+        try:
+            logger.debug(
+                f"Requesting panorama from streetlevel (Google): lat={lat}, lng={lng}"
+            )
 
-        # Camera parameters
-        f = 0.5 * width / np.tan(0.5 * fov_rad)
+            # Get or download panorama (reuses cached version if available)
+            result = await self._get_or_download_panorama(
+                lat, lng, bench_id=bench_id, session=session
+            )
 
-        # Create meshgrid of output pixel coordinates
-        x, y = np.meshgrid(np.arange(width), np.arange(height))
+            # Handle errors from panorama download
+            if result is None:
+                return PanoramaCaptureResult(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                    panorama_lat=lat,
+                    panorama_lng=lng,
+                    panorama_metadata=None,
+                    panorama_heading=None,
+                    panorama_filepath=None,
+                    panorama_image=None,
+                    face_filepaths=None,
+                    cached=False,
+                    error="panorama download returned None",
+                )
 
-        # Center coordinates
-        x_c = x - width / 2
-        y_c = y - height / 2
-        z_c = np.full_like(x_c, f)
+            pano, equirectangular, pano_id, panorama_lat, panorama_lng, pano_error = (
+                result
+            )
 
-        # Normalize vectors
-        norm = np.sqrt(x_c**2 + y_c**2 + z_c**2)
-        x_n = x_c / norm
-        y_n = y_c / norm
-        z_n = z_c / norm
+            # Check for error from panorama download
+            if pano_error or equirectangular is None:
+                return PanoramaCaptureResult(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                    panorama_lat=panorama_lat,
+                    panorama_lng=panorama_lng,
+                    panorama_metadata=None,
+                    panorama_heading=None,
+                    panorama_filepath=None,
+                    panorama_image=None,
+                    face_filepaths=None,
+                    cached=False,
+                    error=pano_error or "failed to get panorama image",
+                )
 
-        # Convert to spherical coordinates
-        phi = np.arctan2(x_n, z_n)
-        theta = np.arcsin(y_n)
+            # Generate panorama filename
+            if bench_id:
+                pano_filename = f"bench_{bench_id}_streetview_pano.jpg"
+            else:
+                pano_filename = self._get_pano_filename(pano_id, panorama_lat, panorama_lng)
+            pano_filepath = os.path.join(IMAGES_DIR, pano_filename)
 
-        # Adjust phi by heading
-        phi_world = phi + heading_rad
+            # Check if panorama was cached
+            was_cached = os.path.exists(pano_filepath) and os.path.getsize(pano_filepath) > 0
 
-        # Normalize phi to [-pi, pi]
-        phi_world = (phi_world + np.pi) % (2 * np.pi) - np.pi
+            # Create PanoramaMetadata from pano object
+            pano_meta = PanoramaMetadata.from_streetview_pano(
+                pano, source="streetview_streetlevel"
+            )
 
-        # Map to equirectangular pixel coordinates
-        u = (phi_world + np.pi) / (2 * np.pi)
-        v = (theta + np.pi / 2) / np.pi
+            logger.debug(
+                f"Captured panorama from streetlevel (Google): panorama at {panorama_lat}, {panorama_lng}, "
+                f"pano_heading={pano_meta.panorama_heading}, cached={was_cached}"
+            )
 
-        # Map to source image coordinates
-        src_x = u * pano_width
-        src_y = v * pano_height
+            return PanoramaCaptureResult(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                panorama_lat=panorama_lat,
+                panorama_lng=panorama_lng,
+                panorama_metadata=pano_meta,
+                panorama_heading=pano_meta.panorama_heading,
+                panorama_filepath=pano_filepath,
+                panorama_image=equirectangular,
+                face_filepaths=None,
+                cached=was_cached,
+                error=None,
+            )
 
-        # Wrap x coordinates
-        src_x = np.mod(src_x, pano_width)
+        except Exception as e:
+            logger.debug(f"Error capturing panorama from streetlevel (Google): {e}")
+            return PanoramaCaptureResult(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
+                panorama_lat=lat,
+                panorama_lng=lng,
+                panorama_metadata=None,
+                panorama_heading=None,
+                panorama_filepath=None,
+                panorama_image=None,
+                face_filepaths=None,
+                cached=False,
+                error=f"exception: {e}",
+            )
 
-        # Clip y coordinates
-        src_y = np.clip(src_y, 0, pano_height - 1)
+    async def _capture_panorama_from_streetlevel_apple(
+        self,
+        lat: float,
+        lng: float,
+        bench_id: str,
+        session: ClientSession,
+    ) -> PanoramaCaptureResult | None:
+        """Capture full panorama (faces) from Apple Look Around via streetlevel library."""
+        if not STREETLEVEL_LOOKAROUND_AVAILABLE:
+            return PanoramaCaptureResult(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                image_source=ImageSource.APPLE_STREETLEVEL.value,
+                panorama_lat=lat,
+                panorama_lng=lng,
+                panorama_metadata=None,
+                panorama_heading=None,
+                panorama_filepath=None,
+                panorama_image=None,
+                face_filepaths=None,
+                cached=False,
+                error="streetlevel library (lookaround) not available",
+            )
 
-        # Sample pixels
-        src_x_int = src_x.astype(int)
-        src_y_int = src_y.astype(int)
+        try:
+            logger.debug(
+                f"Requesting panorama from streetlevel (Apple): lat={lat}, lng={lng}"
+            )
 
-        # Convert PIL image to numpy array
-        pano_array = np.array(equirectangular)
+            # Get coverage tile
+            tile = await lookaround.get_coverage_tile_by_latlon_async(
+                lat, lng, session=session
+            )
 
-        # Sample
-        output_array = pano_array[src_y_int, src_x_int]
+            if not tile or not tile.panos or len(tile.panos) == 0:
+                logger.debug("No Apple Look Around panoramas found")
+                return PanoramaCaptureResult(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    panorama_lat=lat,
+                    panorama_lng=lng,
+                    panorama_metadata=None,
+                    panorama_heading=None,
+                    panorama_filepath=None,
+                    panorama_image=None,
+                    face_filepaths=None,
+                    cached=False,
+                    error=f"no Look Around coverage at ({lat:.6f}, {lng:.6f})",
+                )
 
-        return PILImage.fromarray(output_array)
+            # Find the closest panorama
+            def haversine_distance(lat1, lon1, lat2, lon2):
+                """Calculate the great circle distance between two points on Earth in meters."""
+                R = 6371000  # Earth radius in meters
+                phi1 = math.radians(lat1)
+                phi2 = math.radians(lat2)
+                delta_phi = math.radians(lat2 - lat1)
+                delta_lambda = math.radians(lon2 - lon1)
+
+                a = (
+                    math.sin(delta_phi / 2) ** 2
+                    + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+                )
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+                return R * c
+
+            closest_pano = None
+            min_distance = float("inf")
+            for candidate_pano in tile.panos:
+                distance = haversine_distance(
+                    lat, lng, candidate_pano.lat, candidate_pano.lon
+                )
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_pano = candidate_pano
+
+            if closest_pano is None:
+                logger.debug("No closest panorama found")
+                return PanoramaCaptureResult(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    panorama_lat=lat,
+                    panorama_lng=lng,
+                    panorama_metadata=None,
+                    panorama_heading=None,
+                    panorama_filepath=None,
+                    panorama_image=None,
+                    face_filepaths=None,
+                    cached=False,
+                    error="no closest panorama found in coverage tile",
+                )
+
+            pano = closest_pano
+            panorama_lat = pano.lat
+            panorama_lng = pano.lon
+
+            # Generate filenames for individual faces
+            face_names = ["back", "left", "front", "right", "top", "bottom"]
+            base_name = f"bench_{bench_id}_lookaround"
+            face_filenames = [f"{base_name}_face_{face_names[i]}.jpg" for i in range(6)]
+            face_filepaths = [
+                os.path.join(IMAGES_DIR, face_filename)
+                for face_filename in face_filenames
+            ]
+
+            # Check if all faces are already cached
+            all_faces_cached = all(
+                os.path.exists(fp) and os.path.getsize(fp) > 0 for fp in face_filepaths
+            )
+
+            if all_faces_cached:
+                logger.debug(
+                    f"All Apple Look Around faces already cached for bench {bench_id}"
+                )
+                # Load metadata if available
+                pano_meta = self._load_cached_metadata(
+                    lat, lng, ImageSource.APPLE_STREETLEVEL.value
+                )
+
+                # If no cached metadata, create from pano object
+                if not pano_meta:
+                    pano_meta = PanoramaMetadata.from_lookaround_pano(
+                        pano, source="apple_streetlevel", face_filenames=face_filenames
+                    )
+
+                return PanoramaCaptureResult(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    panorama_lat=panorama_lat,
+                    panorama_lng=panorama_lng,
+                    panorama_metadata=pano_meta,
+                    panorama_heading=pano_meta.panorama_heading,
+                    panorama_filepath=None,
+                    panorama_image=None,
+                    face_filepaths=face_filepaths,
+                    cached=True,
+                    error=None,
+                )
+
+            # Get panorama faces
+            auth = lookaround.Authenticator()
+            zoom = 2
+
+            # Try to get equirectangular projection
+            try:
+                # Try using pillow-heif if available
+                try:
+                    from pillow_heif import register_heif_opener
+
+                    register_heif_opener()
+                except ImportError:
+                    pass
+
+                # Get all 6 faces
+                faces = []
+                faces_cached = []
+                for face_idx in range(6):
+                    # Check if this face is already cached
+                    if (
+                        os.path.exists(face_filepaths[face_idx])
+                        and os.path.getsize(face_filepaths[face_idx]) > 0
+                    ):
+                        try:
+                            img = PILImage.open(face_filepaths[face_idx])
+                            faces.append(img)
+                            faces_cached.append(True)
+                            logger.debug(
+                                f"Using cached face {face_idx} ({face_names[face_idx]})"
+                            )
+                        except Exception as e:
+                            logger.debug(f"Could not load cached face {face_idx}: {e}")
+                            faces.append(None)
+                            faces_cached.append(False)
+                    else:
+                        # Fetch face from API
+                        try:
+                            face_heic = await asyncio.to_thread(
+                                lookaround.get_panorama_face,
+                                pano,
+                                face_idx,
+                                zoom,
+                                auth,
+                                None,  # pyright: ignore[reportArgumentType]
+                            )
+                            img = PILImage.open(io.BytesIO(face_heic))
+                            faces.append(img)
+                            faces_cached.append(False)
+
+                            # Save individual face
+                            img.save(face_filepaths[face_idx], "JPEG")
+                            logger.debug(
+                                f"Saved face {face_idx} ({face_names[face_idx]}) to {face_filenames[face_idx]}"
+                            )
+                        except Exception as e:
+                            logger.debug(f"Could not fetch face {face_idx}: {e}")
+                            faces.append(None)
+                            faces_cached.append(False)
+
+                # Save all successfully fetched faces (even if some failed)
+                for face_idx, face in enumerate(faces):
+                    if face is not None and not faces_cached[face_idx]:
+                        try:
+                            face.save(face_filepaths[face_idx], "JPEG")
+                        except Exception as e:
+                            logger.warning(f"Failed to save face {face_idx}: {e}")
+
+                if not any(faces):
+                    logger.debug("Could not get any faces from Apple Look Around")
+                    return PanoramaCaptureResult(
+                        bench_id=bench_id,
+                        lat=lat,
+                        lng=lng,
+                        image_source=ImageSource.APPLE_STREETLEVEL.value,
+                        panorama_lat=panorama_lat,
+                        panorama_lng=panorama_lng,
+                        panorama_metadata=None,
+                        panorama_heading=None,
+                        panorama_filepath=None,
+                        panorama_image=None,
+                        face_filepaths=None,
+                        cached=False,
+                        error="could not fetch any faces from Look Around",
+                    )
+
+                logger.debug(
+                    f"Cached {len([f for f in faces if f is not None])} faces for Apple Look Around"
+                )
+            except Exception as e:
+                logger.debug(f"Error fetching Apple Look Around faces: {e}")
+                return PanoramaCaptureResult(
+                    bench_id=bench_id,
+                    lat=lat,
+                    lng=lng,
+                    image_source=ImageSource.APPLE_STREETLEVEL.value,
+                    panorama_lat=panorama_lat,
+                    panorama_lng=panorama_lng,
+                    panorama_metadata=None,
+                    panorama_heading=None,
+                    panorama_filepath=None,
+                    panorama_image=None,
+                    face_filepaths=None,
+                    cached=False,
+                    error=f"error fetching faces: {e}",
+                )
+
+            # Create PanoramaMetadata from pano object
+            pano_meta = PanoramaMetadata.from_lookaround_pano(
+                pano, source="apple_streetlevel", face_filenames=face_filenames
+            )
+
+            # Save metadata to JSON file for stitching
+            metadata_path = os.path.join(
+                IMAGES_DIR, f"bench_{bench_id}_lookaround_metadata.json"
+            )
+            try:
+                with open(metadata_path, "w") as f:
+                    json.dump(pano_meta.model_dump(exclude_none=True), f, indent=2)
+                logger.debug(
+                    f"Saved panorama metadata to {os.path.basename(metadata_path)}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save metadata file {metadata_path}: {e}")
+
+            logger.debug(
+                f"Cached Apple Look Around faces for bench {bench_id}: panorama at {panorama_lat}, {panorama_lng}, "
+                f"with {len([f for f in faces if f is not None])} faces, pano_heading={pano_meta.panorama_heading}"
+            )
+
+            return PanoramaCaptureResult(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                image_source=ImageSource.APPLE_STREETLEVEL.value,
+                panorama_lat=panorama_lat,
+                panorama_lng=panorama_lng,
+                panorama_metadata=pano_meta,
+                panorama_heading=pano_meta.panorama_heading,
+                panorama_filepath=None,
+                panorama_image=None,
+                face_filepaths=face_filepaths,
+                cached=all_faces_cached,
+                error=None,
+            )
+
+        except Exception as e:
+            logger.debug(f"Error capturing panorama from streetlevel (Apple): {e}")
+            return PanoramaCaptureResult(
+                bench_id=bench_id,
+                lat=lat,
+                lng=lng,
+                image_source=ImageSource.APPLE_STREETLEVEL.value,
+                panorama_lat=lat,
+                panorama_lng=lng,
+                panorama_metadata=None,
+                panorama_heading=None,
+                panorama_filepath=None,
+                panorama_image=None,
+                face_filepaths=None,
+                cached=False,
+                error=f"exception: {e}",
+            )
 
     async def _capture_from_streetlevel_google(
         self,
@@ -1052,7 +1781,12 @@ class StreetViewClient:
             target_size = (target_dimension, target_dimension)
 
             perspective_view = self._extract_perspective_view(
-                equirectangular, heading, STREETVIEW_FOV, target_size
+                equirectangular,
+                heading,
+                STREETVIEW_FOV,
+                target_size,
+                panorama_heading_rad=None,  # For single image capture, panorama heading adjustment not needed
+                image_source=ImageSource.STREETVIEW_STREETLEVEL.value,
             )
 
             # Save the image
@@ -1437,23 +2171,6 @@ class StreetViewClient:
                 error=f"exception: {e}",
                 image_source=ImageSource.APPLE_STREETLEVEL.value,
             )
-
-    def capture_image(
-        self, lat: float, lng: float, bench_id: str, heading: int
-    ) -> StreetViewImageCapture | None:
-        """
-        Synchronous wrapper for capture_image_async.
-
-        Args:
-            lat: Latitude
-            lng: Longitude
-            bench_id: Unique identifier for the bench
-            heading: Compass heading (0-360 degrees)
-
-        Returns:
-            StreetViewImageCapture with capture results
-        """
-        return asyncio.run(self.capture_image_async(lat, lng, bench_id, heading))
 
     def get_street_view_metadata(
         self, lat: float, lng: float

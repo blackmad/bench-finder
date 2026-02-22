@@ -246,6 +246,54 @@ StreetViewImageCapture = Union[
 ]
 
 
+class PanoramaCaptureResult(BaseModel):
+    """Result of capturing a full panorama (not a specific heading view)."""
+
+    bench_id: str = Field(..., description="Unique identifier for the bench")
+    lat: float = Field(..., description="Latitude of the capture location")
+    lng: float = Field(..., description="Longitude of the capture location")
+    image_source: str = Field(
+        ...,
+        description="Source: streetview_api, streetview_streetlevel, or apple_streetlevel",
+    )
+    panorama_lat: float = Field(
+        ...,
+        description="Latitude of the actual panorama location (may differ from bench location)",
+    )
+    panorama_lng: float = Field(
+        ...,
+        description="Longitude of the actual panorama location (may differ from bench location)",
+    )
+    panorama_metadata: PanoramaMetadata | None = Field(
+        default=None, description="Additional panorama metadata (pano_id, date, etc.)"
+    )
+    panorama_heading: float | None = Field(
+        default=None,
+        description="Heading/orientation of the panorama itself (from streetlevel/lookaround API)",
+    )
+    panorama_filepath: str | None = Field(
+        default=None,
+        description="File path to the full panorama image (None for Apple Look Around which uses faces)",
+    )
+    panorama_image: Any | None = Field(
+        default=None,
+        description="PIL Image of the panorama (for Google Street View) or None (for Apple Look Around which uses faces)",
+    )
+    face_filepaths: list[str] | None = Field(
+        default=None,
+        description="File paths to individual faces (for Apple Look Around) or None",
+    )
+    cached: bool = Field(default=False, description="Whether the panorama was already cached")
+    error: str | None = Field(default=None, description="Error message if capture failed")
+
+    @property
+    def success(self) -> bool:
+        """Whether the panorama capture was successful."""
+        return self.error is None and (
+            self.panorama_image is not None or self.face_filepaths is not None
+        )
+
+
 class StreetViewBatchCaptureResult(BaseModel):
     """Result of capturing multiple Street View images for a bench."""
 

@@ -44,7 +44,6 @@ ULTRALYTICS_API_KEY = os.getenv("ULTRALYTICS_API_KEY")
 SEARCH_RADIUS_METERS = 500  # Radius to search for benches around the starting point
 STREETVIEW_SIZE = "640x640"  # Size of street view images
 STREETVIEW_FOV = 90  # Field of view for street view images
-STREETVIEW_HEADINGS = [0, 90, 180, 270]  # Headings to capture images from
 
 # Roboflow model settings
 ROBOFLOW_MODEL_ID = "bench-annotater/1"  # Legacy single model support

@@ -269,8 +269,7 @@ Documentation = "https://github.com/your-org/bench-finder/blob/main/docs/README.
 
 [project.scripts]
 bench-finder = "bench_finder.cli:main"
-bench-detection = "tools.bench_detection_cli:main"
-unified-bench-search = "tools.unified_bench_search_cli:main"
+bench-detection = "bench_finder.tools.bench_detection_cli:main"
 
 # Dependency overrides to force specific versions
 [tool.uv]
