@@ -12,10 +12,10 @@ from bench_finder.models.enums import DataSource
 
 
 @dataclass
-class BenchCandidate:
+class CandidateResult:
     """Represents a bench found by a generator."""
 
-    provider_id: DataSource  # Unique identifier for this bench from this source
+    provider_id: str  # Unique identifier for this bench from this source
     lat: float
     lng: float
     source: DataSource  # Source identifier (e.g., 'osm', 'mapillary')
@@ -66,7 +66,7 @@ class BenchGenerator(ABC):
     @abstractmethod
     def find_benches_near_point(
         self, lat: float, lng: float, radius: int = 1000
-    ) -> list[BenchCandidate]:
+    ) -> list[CandidateResult]:
         """
         Find all benches within a radius of a given point.
 
@@ -102,7 +102,7 @@ class BenchGenerator(ABC):
 
     def find_benches_in_area(
         self, min_lng: float, min_lat: float, max_lng: float, max_lat: float, **kwargs
-    ) -> list[BenchCandidate]:
+    ) -> list[CandidateResult]:
         """
         Find benches within a bounding box area.
 

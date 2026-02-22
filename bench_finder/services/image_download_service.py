@@ -8,7 +8,7 @@ for bench candidates without any detection logic.
 import logging
 
 from bench_finder.core.streetview import StreetViewClient
-from bench_finder.generators.bench_generator import BenchCandidate
+from bench_finder.generators.bench_generator import CandidateResult
 from bench_finder.models.enums import BenchCandidateStatus
 from bench_finder.models.unified_models import (
     BenchBase,

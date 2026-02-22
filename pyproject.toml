@@ -240,6 +240,8 @@ api = [
     "python-dotenv>=1.0.1",
     "aiofiles>=24.1.0",
     "httpx>=0.28.1",
+    "pillow>=9.11",  # Required by bench_finder.config
+    "supabase>=2.10.0",  # Required for authentication
 ]
 
 # Dependency groups for modern package managers (PEP 735)
@@ -259,6 +261,8 @@ api = [
     "python-dotenv>=1.0.1",
     "aiofiles>=24.1.0",
     "httpx>=0.28.1",
+    "pillow>=9.11",  # Required by bench_finder.config
+    "supabase>=2.10.0",  # Required for authentication
 ]
 
 [project.urls]

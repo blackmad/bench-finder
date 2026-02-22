@@ -19,6 +19,9 @@ psycopg2-binary>=2.9.0  # PostgreSQL support (for Supabase)
 # Configuration
 python-dotenv>=1.0.1
 
+# Image processing (required by bench_finder.config)
+Pillow>=9.11
+
 # Async file operations
 aiofiles>=24.1.0
 

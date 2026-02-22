@@ -21,7 +21,7 @@ from rich.table import Table
 
 from bench_finder.config import SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
-from bench_finder.generators.bench_generator import BenchCandidate, BenchGenerator
+from bench_finder.generators.bench_generator import CandidateResult, BenchGenerator
 from bench_finder.generators.overpass import OverpassBenchGenerator
 
 # Import enums and models separately to avoid double-loading unified_models
@@ -182,7 +182,7 @@ def generate_candidates(
             raise typer.Exit(1)
 
         # Find candidates using all generators
-        all_candidates: list[BenchCandidate] = []
+        all_candidates: list[CandidateResult] = []
         generator_results = {}
 
         for generator in generators:
@@ -368,7 +368,7 @@ def run_detections(
         for candidate in candidates:
             # Ensure provider_id is always a string
             provider_id = candidate.provider_id or f"candidate_{candidate.id}"
-            bench_candidate = BenchCandidate(
+            bench_candidate = CandidateResult(
                 provider_id=provider_id,
                 lat=candidate.lat,
                 lng=candidate.lng,
@@ -739,12 +739,10 @@ def fetch_images(
         with database.get_session() as session:
             from sqlmodel import select
 
-            from bench_finder.models.unified_models import (
-                BenchCandidate as DBBenchCandidate,
-            )
+            from bench_finder.models.unified_models import BenchCandidate
 
             # Build query - if force is used, ignore status filter
-            statement = select(DBBenchCandidate)
+            statement = select(BenchCandidate)
 
             if not force:
                 # Parse status string to enum
@@ -757,7 +755,7 @@ def fetch_images(
                     raise typer.Exit(1) from err
 
                 # Query all candidates with the specified status (ignoring search_id)
-                statement = statement.where(DBBenchCandidate.status == status_enum)
+                statement = statement.where(BenchCandidate.status == status_enum)
 
             # Apply limit: use --limit if provided, otherwise use --max-candidates
             limit_value = limit if limit is not None else max_candidates
@@ -790,7 +788,7 @@ def fetch_images(
         for candidate in candidates:
             # Ensure provider_id is always a string
             provider_id = candidate.provider_id or f"candidate_{candidate.id}"
-            bench_candidate = BenchCandidate(
+            bench_candidate = CandidateResult(
                 provider_id=provider_id,
                 lat=candidate.lat,
                 lng=candidate.lng,
@@ -859,17 +857,17 @@ def fetch_images(
                         from sqlmodel import select
 
                         from bench_finder.models.unified_models import (
-                            BenchCandidate as DBBenchCandidate,
+                            BenchCandidate,
                         )
                         from bench_finder.models.unified_models import (
                             Image,
                         )
 
                         db_candidate = session.exec(
-                            select(DBBenchCandidate).where(
-                                DBBenchCandidate.provider_id
+                            select(BenchCandidate).where(
+                                BenchCandidate.provider_id
                                 == bench_candidate.provider_id,
-                                DBBenchCandidate.search_id == search_id,
+                                BenchCandidate.search_id == search_id,
                             )
                         ).first()
                         if db_candidate:

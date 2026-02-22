@@ -58,9 +58,7 @@ from bench_finder.display import (
     display_bench_detection_results,
     display_no_bench_detected,
 )
-from bench_finder.generators.bench_generator import (
-    BenchCandidate as BenchCandidateGenerator,
-)
+from bench_finder.generators.bench_generator import CandidateResult
 from bench_finder.models.unified_models import (
     DetectionBase,
     DetectionItem,
@@ -165,6 +163,25 @@ class BenchDetector:
             logger.warning(f"Failed to copy bench image {image_path}: {e}")
             return None
 
+    def _find_best_detection_index(
+        self,
+        detection_results: list[DetectionResult],
+        pixel_coverage_results: list[float],
+    ) -> int:
+        """Select best detection by pixel coverage, then confidence as tiebreaker."""
+        best_index = 0
+        for i, (detection_result, pixel_coverage) in enumerate(
+            zip(detection_results, pixel_coverage_results, strict=False)
+        ):
+            current_best_coverage = pixel_coverage_results[best_index]
+            current_best_confidence = detection_results[best_index].max_confidence
+            if pixel_coverage > current_best_coverage or (
+                pixel_coverage == current_best_coverage
+                and detection_result.max_confidence > current_best_confidence
+            ):
+                best_index = i
+        return best_index
+
     def _calculate_pixel_coverage(
         self, detection_result: DetectionResult, image_path: str
     ) -> float:
@@ -225,7 +242,7 @@ class BenchDetector:
             return 0.0
 
     def process_benches_with_progress(
-        self, benches: list[BenchCandidateGenerator], progress: Progress, task: TaskID
+        self, benches: list[CandidateResult], progress: Progress, task: TaskID
     ) -> ProcessingStats:
         """
         Process each bench: run detection on existing images.
@@ -283,7 +300,7 @@ class BenchDetector:
         return stats
 
     def _process_single_bench(
-        self, bench: BenchCandidateGenerator
+        self, bench: CandidateResult
     ) -> BenchProcessingResult:
         """
         Process a single bench: run detection on existing images.
@@ -406,19 +423,9 @@ class BenchDetector:
         current_best_coverage = 0.0
 
         if detection_results:
-            # Find the index with highest pixel coverage, then highest confidence
-            best_index = 0
-            for i, (detection_result, pixel_coverage) in enumerate(
-                zip(detection_results, pixel_coverage_results, strict=False)
-            ):
-                current_best_coverage = pixel_coverage_results[best_index]
-                current_best_confidence = detection_results[best_index].max_confidence
-
-                if pixel_coverage > current_best_coverage or (
-                    pixel_coverage == current_best_coverage
-                    and detection_result.max_confidence > current_best_confidence
-                ):
-                    best_index = i
+            best_index = self._find_best_detection_index(
+                detection_results, pixel_coverage_results
+            )
             representative_detection = detection_results[best_index]
 
             logger.info(
@@ -524,23 +531,9 @@ class BenchDetector:
         # Persist the single best detected image per bench
         try:
             if detection_results and representative_detection:
-                # Find index of representative to get image id
-                best_index = 0
-                # recompute best_index the same way to avoid identity pitfalls
-                current_best_coverage = 0.0
-                if pixel_coverage_results:
-                    current_best_coverage = pixel_coverage_results[0]
-                for i, (detection_result, pixel_coverage) in enumerate(
-                    zip(detection_results, pixel_coverage_results, strict=False)
-                ):
-                    current_cov = pixel_coverage_results[best_index]
-                    current_conf = detection_results[best_index].max_confidence
-                    if pixel_coverage > current_cov or (
-                        pixel_coverage == current_cov
-                        and detection_result.max_confidence > current_conf
-                    ):
-                        best_index = i
-
+                best_index = self._find_best_detection_index(
+                    detection_results, pixel_coverage_results
+                )
                 best_image = successful_images[best_index]
                 if best_image.id is not None:
                     # upsert single ProcessedBench row

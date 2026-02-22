@@ -8,7 +8,7 @@ from bench_finder.clients.overpass_client import OverpassClient
 from bench_finder.models.enums import DataSource
 from bench_finder.models.overpass_models import OSMBench
 
-from .bench_generator import BenchCandidate, BenchGenerator
+from .bench_generator import CandidateResult, BenchGenerator
 
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class OverpassBenchGenerator(BenchGenerator):
 
     def find_benches_near_point(
         self, lat: float, lng: float, radius: int = 1000
-    ) -> list[BenchCandidate]:
+    ) -> list[CandidateResult]:
         try:
             logger.debug(
                 f"Searching OSM for benches near {lat}, {lng} (radius: {radius}m)"
@@ -35,7 +35,7 @@ class OverpassBenchGenerator(BenchGenerator):
                 lat, lng, radius
             )
 
-            bench_candidates: list[BenchCandidate] = []
+            bench_candidates: list[CandidateResult] = []
             for osm_bench in search_result.benches:
                 try:
                     candidate = self._convert_osm_bench_to_candidate(osm_bench)
@@ -54,9 +54,9 @@ class OverpassBenchGenerator(BenchGenerator):
             logger.exception("OSM bench search failed")
             raise
 
-    def _convert_osm_bench_to_candidate(self, osm_bench: OSMBench) -> BenchCandidate:
+    def _convert_osm_bench_to_candidate(self, osm_bench: OSMBench) -> CandidateResult:
         tags_dict = osm_bench.tags.model_dump() if osm_bench.tags else {}
-        return BenchCandidate(
+        return CandidateResult(
             provider_id=osm_bench.provider_id,
             lat=osm_bench.lat,
             lng=osm_bench.lng,
@@ -71,7 +71,7 @@ class OverpassBenchGenerator(BenchGenerator):
 
     def find_benches_in_area(
         self, min_lng: float, min_lat: float, max_lng: float, max_lat: float, **kwargs
-    ) -> list[BenchCandidate]:
+    ) -> list[CandidateResult]:
         return super().find_benches_in_area(
             min_lng, min_lat, max_lng, max_lat, **kwargs
         )
