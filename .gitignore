@@ -246,3 +246,4 @@ frontend/design-reference/img/
 .impeccable/review/
 .impeccable/config.local.json
 .impeccable/questions/
+dist-data/

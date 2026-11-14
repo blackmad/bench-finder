@@ -6,6 +6,7 @@ CLI interface for the bench finder application using Typer.
 import json
 import logging
 import os
+from pathlib import Path
 
 import typer
 from rich.console import Console
@@ -1071,7 +1072,9 @@ def _build_fetch_images_statement(
     if search_id is not None:
         statement = statement.where(BenchCandidate.search_id == search_id)
     if not force:
-        statement = statement.where(BenchCandidate.status == BenchCandidateStatus(status))
+        statement = statement.where(
+            BenchCandidate.status == BenchCandidateStatus(status)
+        )
     return statement
 
 
@@ -2757,9 +2760,7 @@ def backfill_metadata_cache_heading(
             console.print("[yellow]No files to process.[/yellow]")
             return
 
-        console.print(
-            f"Found {len(file_info_list)} files with pano_id to re-fetch\n"
-        )
+        console.print(f"Found {len(file_info_list)} files with pano_id to re-fetch\n")
 
         # Async function to process a single file
         async def process_file_async(file_info, session_aio):
@@ -2829,8 +2830,10 @@ def backfill_metadata_cache_heading(
 
                                 if pano:
                                     # Convert to PanoramaMetadata with new format
-                                    new_pano_meta = PanoramaMetadata.from_lookaround_pano(
-                                        pano, source="apple_streetlevel"
+                                    new_pano_meta = (
+                                        PanoramaMetadata.from_lookaround_pano(
+                                            pano, source="apple_streetlevel"
+                                        )
                                     )
                                     logger.debug(
                                         f"File {os.path.basename(filepath)}: Fetched complete metadata from Look Around for pano_id {pano_id}"
@@ -2953,15 +2956,21 @@ def backfill_metadata_cache_heading(
 @app.command("classify-views")
 def classify_views(
     backend: str = typer.Option("claude", help="claude, gemini or typesafe"),
-    model: str | None = typer.Option(None, help="Override the model id (claude/typesafe)"),
+    model: str | None = typer.Option(
+        None, help="Override the model id (claude/typesafe)"
+    ),
     limit: int = typer.Option(20, help="Maximum images to classify"),
     dry_run: bool = typer.Option(
-        False, "--dry-run", help="Print the request payload and a cost estimate; send nothing"
+        False,
+        "--dry-run",
+        help="Print the request payload and a cost estimate; send nothing",
     ),
     db: str = typer.Option("data/benches.db", help="SQLite database path"),
     images_root: str = typer.Option("images/", help="Image directory root"),
     batch: bool = typer.Option(
-        False, "--batch", help="Claude only: use Message Batches (50% cost, asynchronous)"
+        False,
+        "--batch",
+        help="Claude only: use Message Batches (50% cost, asynchronous)",
     ),
 ):
     """Classify bench views (type, view relation, quality, ...) into image_annotations."""
@@ -2984,8 +2993,12 @@ def classify_views(
     paths = [p for _, p, _ in todo]
 
     if dry_run:
-        console.print(f"[bold]{len(todo)} image(s) selected, first request payload:[/bold]")
-        console.print_json(json.dumps(vc.redact_payload(clf.build_request(paths[0], todo[0][2]))))
+        console.print(
+            f"[bold]{len(todo)} image(s) selected, first request payload:[/bold]"
+        )
+        console.print_json(
+            json.dumps(vc.redact_payload(clf.build_request(paths[0], todo[0][2])))
+        )
         console.print(f"[bold]Estimate:[/bold] {clf.estimate_cost(paths).line()}")
         console.print("[dim]Dry run: nothing sent, nothing written.[/dim]")
         return
@@ -3015,6 +3028,96 @@ def classify_views(
             vc.save_view_labels(conn, int(key), res)
             ok += 1
     console.print(f"[green]Saved {ok} image(s)[/green], {failed} failed.")
+
+
+@app.command("publish")
+def publish_command(
+    out: Path = typer.Option(Path("dist-data"), "--out", help="Output directory"),
+    db: str = typer.Option(
+        os.getenv("DATABASE_PATH", "data/benches.db"), "--db", help="SQLite database"
+    ),
+    images_root: Path = typer.Option(
+        Path(os.getenv("IMAGES_DIR", "images")),
+        "--images-root",
+        help="Directory holding the source image files",
+    ),
+    include_unclassified: bool = typer.Option(
+        False,
+        "--include-unclassified",
+        help="Also publish candidates with an address but no bench_attributes row",
+    ),
+    limit: int | None = typer.Option(
+        None, "--limit", help="Publish only the first N benches"
+    ),
+    gallery_size: int = typer.Option(4, "--gallery-size", help="Max images per bench"),
+    workers: int | None = typer.Option(
+        None, "--workers", help="Image process-pool size"
+    ),
+    budget_gb: float = typer.Option(
+        9.0, "--budget-gb", help="Projected R2 storage budget"
+    ),
+    upload: bool = typer.Option(
+        False, "--upload", help="Upload to R2 (needs R2_* env vars)"
+    ),
+) -> None:
+    """Build the static data set (AVIF/WebP images, GeoJSON, per-bench JSON, manifest)."""
+    from rich.table import Table
+
+    from bench_finder.publish import CapacityError, publish, upload_dir
+
+    def fmt(n: float) -> str:
+        return f"{n / 1e6:.2f} MB" if n >= 1e5 else f"{n / 1e3:.1f} kB"
+
+    try:
+        result = publish(
+            db,
+            images_root,
+            out,
+            include_unclassified=include_unclassified,
+            limit=limit,
+            gallery_size=gallery_size,
+            workers=workers,
+            budget_bytes=int(budget_gb * 1e9),
+        )
+        failure = None
+    except CapacityError as e:
+        result, failure = e.result, e  # type: ignore[attr-defined]
+
+    table = Table(title=f"Publish summary ({result.out})")
+    table.add_column("Item")
+    table.add_column("Value", justify="right")
+    table.add_row(
+        "Benches published / eligible", f"{result.benches} / {result.eligible}"
+    )
+    table.add_row("With hero image", str(result.with_hero))
+    table.add_row("Files", ", ".join(f"{k}={v}" for k, v in result.file_counts.items()))
+    table.add_row("Derivatives written this run", str(result.derivatives_written))
+    table.add_row(
+        "GeoJSON raw / gzip",
+        f"{fmt(result.geojson_bytes)} / {fmt(result.geojson_gz_bytes)}",
+    )
+    table.add_row("Image bytes", fmt(result.image_bytes))
+    table.add_row("Total output", fmt(result.total_bytes))
+    table.add_row("Projected total (all eligible)", fmt(result.projected_total_bytes))
+    table.add_row("Budget", f"{budget_gb:.1f} GB")
+    table.add_row("Elapsed", f"{result.seconds:.1f}s")
+    console.print(table)
+    if failure:
+        console.print(f"[bold red]CAPACITY GUARD FAILED:[/bold red] {failure}")
+        raise typer.Exit(2)
+
+    if upload:
+        from bench_finder.publish.upload import make_client
+
+        try:
+            client, bucket = make_client()
+        except KeyError as e:
+            console.print(f"[red]Missing environment variable {e}[/red]")
+            raise typer.Exit(1) from e
+        stats = upload_dir(result.out, client, bucket)
+        console.print(
+            f"Uploaded {stats['uploaded']}, skipped {stats['skipped']} existing"
+        )
 
 
 def main():
