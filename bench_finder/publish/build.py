@@ -187,7 +187,11 @@ def _order_images(
     by_conf = sorted(usable, key=lambda i: -(i["conf"] or 0.0))
     hero = next((i for i in usable if i["id"] == hero_id), None)
     if hero is None:
-        hero = next((i for i in by_conf if (i["conf"] or 0) > 0), None)
+        # Prefer an aimed view whose target bench was detected (detect_aimed sets
+        # has_bench only for a hit on the centre column), then any detection.
+        hero = next(
+            (i for i in by_conf if i["kind"] == "aimed" and (i["conf"] or 0) > 0), None
+        ) or next((i for i in by_conf if (i["conf"] or 0) > 0), None)
     rest = [i for i in by_conf if i is not hero]
     rest.sort(key=lambda i: i["kind"] != "aimed")  # stable: aimed first
     ordered = ([hero] if hero else []) + rest
