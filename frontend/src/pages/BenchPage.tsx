@@ -1,5 +1,10 @@
 import { useEffect } from "react"
 import { Link, useParams } from "react-router-dom"
+import {
+  BenchActions,
+  BenchNotes,
+  ReportRow,
+} from "../components/account/BenchSocial"
 import { BackIcon } from "../components/Icons"
 import { Stamp } from "../components/postmark/Stamp"
 import { TopBar } from "../components/TopBar"
@@ -151,6 +156,7 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
                 </>
               ) : null}
             </dl>
+            <BenchActions benchId={b.id} />
           </div>
           <div className="address">
             <div className="stampslot">
@@ -214,6 +220,9 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
           </div>
         </section>
       ) : null}
+
+      <BenchNotes benchId={b.id} />
+      <ReportRow benchId={b.id} lat={b.lat} lng={b.lng} />
     </>
   )
 }

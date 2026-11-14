@@ -16,13 +16,23 @@ export function Modal({ title, onClose, children }: ModalProps) {
   const closeRef = useRef(onClose)
   closeRef.current = onClose
 
+  // The element that had focus when the dialog opened; refocused on unmount.
+  // (Never call dialog.close() in cleanup: StrictMode's simulated unmount would
+  // fire the close event and dismiss the dialog straight away.)
+  const opener = useRef<HTMLElement | null>(
+    document.activeElement as HTMLElement | null
+  )
+
   useEffect(() => {
     const dialog = ref.current
-    const opener = document.activeElement as HTMLElement | null
     if (dialog && !dialog.open) dialog.showModal()
     return () => {
-      if (dialog?.open) dialog.close()
-      if (opener?.isConnected) opener.focus()
+      // Skip StrictMode's immediate re-run: only restore focus once truly gone.
+      queueMicrotask(() => {
+        if (!dialog?.isConnected && opener.current?.isConnected) {
+          opener.current.focus()
+        }
+      })
     }
   }, [])
 

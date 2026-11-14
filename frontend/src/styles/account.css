@@ -248,6 +248,7 @@
 .modal {
   border: 0;
   padding: 0;
+  margin: auto;
   background: var(--card);
   color: var(--ink);
   box-shadow: 0 12px 40px rgb(20 20 20 / 0.28);
@@ -414,6 +415,43 @@
   max-width: 240px;
   margin-top: 8px;
   display: block;
+}
+
+/* Section heads (also defined in bench.css for the bench page) */
+.block {
+  margin-top: 40px;
+}
+.blockhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  border-bottom: 1.5px solid var(--ink);
+  padding-bottom: 8px;
+  margin-bottom: 18px;
+}
+.blockhead h2 {
+  margin: 0;
+  font-size: 22px;
+  font-variation-settings: "wdth" 112;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.blockhead p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+.state {
+  padding: 48px 0;
+  color: var(--ink-2);
+}
+@media (max-width: 520px) {
+  .blockhead {
+    flex-direction: column;
+    align-items: start;
+    gap: 4px;
+  }
 }
 
 @media (max-width: 900px) {
