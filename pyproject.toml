@@ -274,6 +274,13 @@ vlm = [
 roboflow-local = [
     "inference>=0.58.0",
 ]
+# Extra local detectors for the bake-off (task 2.7): Grounding DINO, OWLv2.
+#   uv sync --group detect-extra
+detect-extra = [
+    "transformers>=4.57",
+    # PyPI build of OpenAI CLIP (module `clip`): text encoder for YOLOE / YOLO-World.
+    "openai-clip>=1.0.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/your-org/bench-finder"
@@ -288,7 +295,11 @@ bench-detection = "bench_finder.tools.bench_detection_cli:main"
 # Dependency overrides to force specific versions
 [tool.uv]
 default-groups = ["dev", "vlm"]
-conflicts = [[{ group = "vlm" }, { group = "roboflow-local" }]]
+conflicts = [
+    [{ group = "vlm" }, { group = "roboflow-local" }],
+    # inference pins an older transformers/tokenizers stack.
+    [{ group = "detect-extra" }, { group = "roboflow-local" }],
+]
 override-dependencies = [
     "pillow>=9.11",
 ]
