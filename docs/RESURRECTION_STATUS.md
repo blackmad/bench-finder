@@ -66,7 +66,7 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
 - **Maps Embed key** created in `bench-finder-a45db`, restricted to the Maps Embed API and to referrers on `bench.blackmad.com`, `bench-finder.pages.dev`, and localhost dev ports. It is in `frontend/.env.local` and the GitHub repo variable `VITE_GOOGLE_MAPS_EMBED_KEY`.
 - **GitHub repo variables set:** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_GOOGLE_MAPS_EMBED_KEY`.
 - **Supabase password: NOT rotated.** `ALTER ROLE postgres` was refused ("Only superusers can alter privileged roles"). Owner: Supabase dashboard → Project Settings → Database → Reset database password, then update `.env`/`.env.local`. Pre-attempt copies of both files: `~/bench_finder_backups/.env*.pre_pwrotate`. Nothing was changed.
-- **Dependencies:** Roboflow `inference` moved to the `roboflow-local` group, which is declared as conflicting with the new default `vlm` group. `vlm` holds `anthropic` 2.8 and `google-genai` 3.3, which has Decisions. `RoboflowClient` already falls back to the hosted API. The main `.venv` has **not** been re-synced while the image fetch runs; until it finishes, use `uv run --no-sync`. `av` has no wheel and won't build against Homebrew ffmpeg 9, so fresh environments and CI use `uv sync --no-install-package av`.
+- **Dependencies:** Roboflow `inference` moved to the `roboflow-local` group, which is declared as conflicting with the new default `vlm` group. `vlm` holds `anthropic` 2.8 and `google-genai` 3.3, which has Decisions. `RoboflowClient` already falls back to the hosted API. The unused `av` and `aiortc` pins (leftovers from `inference`; `av` has no wheel and won't build against ffmpeg 9) were removed, so a plain `uv sync` works. The main `.venv` was re-synced after the fetch finished.
 - **Firebase Storage bucket** `bench-finder-a45db.firebasestorage.app`: 13,310 objects, 1.36 GB (old images; tear down at 4.7).
 - **Defaults adopted (reversible):**
   - Keep the 699 >50 m panoramas quarantined.
@@ -74,3 +74,13 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
   - Keep picnic tables axis-only.
   - No 640 px derivative (400/800 cover the layouts).
   - Domain is `bench.blackmad.com`.
+
+### Full aimed fetch finished (2026-11-14)
+
+- Exit 0, about 2 h wall time.
+- 12,436 aimed image rows for all 3,229 benches. 361 are failed captures with no file (`filepath` NULL).
+- **2,964 benches have at least one usable aimed view; 265 have none.**
+- Views per bench: 1:279, 2:691, 3:371, 4:701, 5:268, 6:917.
+- Backup after the fetch: `~/bench_finder_backups/benches_2026-11-14_post_aimed_fetch.db`.
+- `images/` is now 64 GB locally. Pruning the legacy files is an owner GATE (deleting local image directories).
+- Next: gold labelling (2.6), owner.
