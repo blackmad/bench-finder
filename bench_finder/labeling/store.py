@@ -28,6 +28,15 @@ CHOICES: dict[str, set[str]] = {
         "unknown",
     },
     "bench_type": {"backrest", "backless", "picnic", "other"},
+    "faces_category": {
+        "water",
+        "street",
+        "park",
+        "square",
+        "wall",
+        "playground",
+        "other",
+    },
 }
 DISTANCE_BUCKETS = ((8, "<8m"), (15, "8-15m"), (30, "15-30m"))
 
@@ -222,7 +231,12 @@ def image_path(
     return next((p for p in candidates if p.is_file()), None)
 
 
-def save_labels(conn: sqlite3.Connection, image_id: int, labels: dict[str, Any]) -> int:
+def save_labels(
+    conn: sqlite3.Connection,
+    image_id: int,
+    labels: dict[str, Any],
+    annotator: str = ANNOTATOR,
+) -> int:
     """Upsert one ``image_annotations`` row per label type; returns rows written."""
     if (
         conn.execute("SELECT 1 FROM images WHERE id = ?", (image_id,)).fetchone()
@@ -243,21 +257,23 @@ def save_labels(conn: sqlite3.Connection, image_id: int, labels: dict[str, Any])
         cur = conn.execute(
             "UPDATE image_annotations SET value = ?, created_at = ? "
             "WHERE image_id = ? AND annotator = ? AND label_type = ?",
-            (payload, now, image_id, ANNOTATOR, label_type),
+            (payload, now, image_id, annotator, label_type),
         )
         if cur.rowcount == 0:
             conn.execute(
                 "INSERT INTO image_annotations (image_id, annotator, label_type, value, created_at) "
                 "VALUES (?, ?, ?, ?, ?)",
-                (image_id, ANNOTATOR, label_type, payload, now),
+                (image_id, annotator, label_type, payload, now),
             )
         written += 1
     conn.commit()
     return written
 
 
-def export_gold(conn: sqlite3.Connection, out_path: str) -> int:
-    """Write one JSON line per labeled image (all ``human:*`` annotators)."""
+def export_gold(
+    conn: sqlite3.Connection, out_path: str, annotator_like: str = "human:%"
+) -> int:
+    """Write one JSON line per labeled image (annotators matching ``annotator_like``)."""
     per_image: dict[tuple[int, str], dict[str, Any]] = {}
     for r in conn.execute(
         "SELECT a.image_id, a.annotator, a.label_type, a.value, a.created_at, "
@@ -265,7 +281,8 @@ def export_gold(conn: sqlite3.Connection, out_path: str) -> int:
         "i.camera_distance_m, c.tags "
         "FROM image_annotations a JOIN images i ON i.id = a.image_id "
         "JOIN bench_candidates c ON c.id = i.bench_candidate_id "
-        "WHERE a.annotator LIKE 'human:%' ORDER BY a.image_id, a.label_type"
+        "WHERE a.annotator LIKE ? ORDER BY a.image_id, a.label_type",
+        (annotator_like,),
     ):
         rec = per_image.setdefault(
             (r["image_id"], r["annotator"]),
