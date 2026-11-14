@@ -196,7 +196,6 @@ try {
 | Script | Description | Use Case |
 |--------|-------------|----------|
 | `npm run generate-api` | Generate from running FastAPI server | When backend is running on localhost:8866 |
-| `npm run generate-api:local` | Generate from local schema file | When you have openapi.json file |
 | `npm run generate-schema` | Export schema + generate client | Full regeneration from FastAPI code |
 | `npm run dev:with-api` | Generate + start dev server | Development with fresh API types |
 | `npm run build:with-api` | Generate + build for production | Production builds with latest API |

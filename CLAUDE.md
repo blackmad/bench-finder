@@ -44,7 +44,7 @@ uv run bench-finder --help
 
 # Database migrations
 make db-migrate            # Run database migrations
-uv run python tools/migrate_database.py
+uv run python -m bench_finder.migrate
 ```
 
 ### Frontend
@@ -66,7 +66,6 @@ npm run check:fix          # Fix all Biome issues
 
 # API client generation
 npm run generate-api       # Generate API client from running server
-npm run generate-api:local # Generate from local openapi.json
 ```
 
 ### Running Tests
@@ -173,7 +172,6 @@ See `DATABASE_MODEL.md` for complete schema documentation.
 
 **bench_finder/services/** - Business logic
 - `database.py`: SQLite database operations (SQLModel ORM)
-- `firestore_database.py`: Firestore/Firebase operations (legacy)
 - `image_download_service.py`: Async image downloading with retry logic
 - `image_storage.py`: Firebase Storage integration
 - `mapillary_service.py`: Mapillary search and image processing
@@ -186,14 +184,11 @@ See `DATABASE_MODEL.md` for complete schema documentation.
 - `fastapi_server.py`: Main FastAPI app with OpenAPI docs
 - `api_models.py`: Pydantic request/response models
 - `auth.py`: Firebase authentication
-- `database_service.py`: Database service layer for API
 
 **tools/** - Command-line utilities
 - `fastapi_cli.py`: FastAPI testing CLI with image display
-- `unified_bench_search_cli.py`: Unified search CLI
-- `migrate_database.py`: Database migration scripts
-- `backfill_*.py`: Data backfill scripts
-- Various migration and maintenance scripts
+- `local_roboflow_detector.py`: Local Roboflow detector helper
+- `remove_indoor_images.py`: Image cleanup helper
 
 **frontend/** - React TypeScript frontend
 - `src/api/`: Auto-generated API client (from OpenAPI)
@@ -249,7 +244,7 @@ Per `.cursor/rules/always-activate-venv.mdc`: Always activate the Python virtual
 ### Database Migrations
 When adding/modifying database models:
 1. Update models in `bench_finder/models/unified_models.py`
-2. Create migration script in `tools/` (e.g., `add_*_column.py`)
+2. Add a numbered SQL file in `migrations/` (e.g., `004_add_thing.sql`) and apply it with `make db-migrate` (see `DATABASE_MODEL.md`)
 3. Test migration locally before running on cloud database
 4. Use SQLModel's `create_all()` for automatic schema updates in development
 
@@ -270,7 +265,6 @@ When adding/modifying database models:
 - Frontend auto-generates API client from OpenAPI spec
 - Run `npm run generate-api` after API changes
 - API must be running on port 8866 for generation
-- Alternative: `npm run generate-api:local` uses `openapi.json` file
 
 ### Testing
 - Limited test coverage currently (`tests/` directory)
@@ -304,6 +298,5 @@ When adding/modifying database models:
 - `PERFORMANCE_OPTIMIZATIONS_APPLIED.md`: Performance improvements
 - `SPATIAL_INDEXING.md`: Database indexing strategy
 - `docs/FIREBASE_AUTH_SETUP.md`: Firebase authentication setup
-- `docs/FASTAPI_MIGRATION.md`: Flask → FastAPI migration notes
 - `frontend/OPENAPI_INTEGRATION.md`: API client generation
 - `frontend/PRE_COMMIT.md`: Frontend pre-commit setup

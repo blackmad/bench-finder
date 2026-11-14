@@ -1,248 +1,153 @@
-# Database Model Documentation
+# Database Model
 
-This document describes the current database model for the Bench Finder application, which uses SQLModel (built on SQLAlchemy) with SQLite as the database backend.
+The schema is defined by the SQLModel classes in `bench_finder/models/unified_models.py`
+and evolved by the numbered SQL files in `migrations/`. It is SQLite (`data/benches.db`,
+or `$DATABASE_PATH`). Enum values live in `bench_finder/models/enums.py`.
 
-## Overview
+Schema changes are applied with `uv run python -m bench_finder.migrate`
+(`make db-migrate`). A new database is created from the SQLModel metadata and every
+migration is recorded as applied. An existing database gets only the migrations not yet
+listed in `schema_migrations`.
 
-The database is designed to support a comprehensive bench detection and management system that:
-- Searches for bench locations from multiple data sources (OSM, Mapillary)
-- Captures street view images of potential bench locations
-- Performs AI-powered bench detection on those images
-- Manages user reports and feedback
-- Supports clustering and analysis of bench data
+Migrations applied so far: `001_baseline`, `002_constraints_and_indexes`, `003_schema_additions`.
 
-## Core Database Tables
-
-### 1. `searches` Table
-**Purpose**: Tracks search queries and their execution status.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique search identifier |
-| `query` | TEXT NOT NULL | Search query string |
-| `start_lat` | REAL NOT NULL | Starting latitude for search |
-| `start_lng` | REAL NOT NULL | Starting longitude for search |
-| `search_radius` | INTEGER NOT NULL | Search radius in meters |
-| `created_at` | DATETIME | Search creation timestamp |
-| `completed_at` | DATETIME | Search completion timestamp (nullable) |
-| `status` | TEXT | Search status: `pending`, `completed`, `failed` |
-
-**Relationships**:
-- One-to-many with `benches` table
-- One-to-many with `bench_candidates` table
-
-### 2. `benches` Table
-**Purpose**: Stores confirmed bench locations from various data sources.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique bench identifier |
-| `search_id` | INTEGER | Foreign key to `searches.id` |
-| `provider_id` | TEXT | Unified ID from OSM or Mapillary |
-| `lat` | REAL NOT NULL | Bench latitude |
-| `lng` | REAL NOT NULL | Bench longitude |
-| `tags` | JSON | Source-specific metadata (OSM tags, Mapillary data) |
-| `source` | TEXT | Data source: `OSM` or `MAPILLARY` |
-| `external_id` | TEXT | External system ID (Mapillary image ID, etc.) |
-| `created_at` | DATETIME | Bench creation timestamp |
-
-**Relationships**:
-- Many-to-one with `searches` table
-- One-to-many with `images` table
-- One-to-one with `images` table (representative image)
-
-### 3. `images` Table
-**Purpose**: Stores street view image metadata and capture results.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique image identifier |
-| `bench_id` | INTEGER NOT NULL | Foreign key to `benches.id` |
-| `heading` | INTEGER NOT NULL | Camera heading in degrees |
-| `filepath` | TEXT | Local file path to image |
-| `filename` | TEXT | Image filename |
-| `file_size` | INTEGER | File size in bytes |
-| `capture_success` | BOOLEAN NOT NULL | Whether image capture succeeded |
-| `capture_error` | TEXT | Error message if capture failed |
-| `created_at` | DATETIME | Image creation timestamp |
-
-**Relationships**:
-- Many-to-one with `benches` table
-- One-to-many with `detections` table
-
-### 4. `detections` Table
-**Purpose**: Stores AI detection results from various models.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique detection identifier |
-| `image_id` | INTEGER NOT NULL | Foreign key to `images.id` |
-| `has_bench` | BOOLEAN NOT NULL | Whether any benches were detected |
-| `bench_count` | INTEGER | Number of benches detected |
-| `max_confidence` | REAL | Highest confidence score among detections |
-| `detection_success` | BOOLEAN NOT NULL | Whether detection process succeeded |
-| `detection_error` | TEXT | Error message if detection failed |
-| `model_id` | TEXT NOT NULL | ID of the detection model used |
-| `confidence_threshold` | REAL NOT NULL | Confidence threshold used |
-| `source` | TEXT | Detection source: `ROBOFLOW`, `ULTRALYTICS`, `MAPILLARY`, `MULTI_MODEL`, `NONE` |
-| `external_detection_id` | TEXT | External detection ID (for Mapillary) |
-| `model_url` | TEXT | URL of the model used |
-| `iou_threshold` | REAL | IoU threshold for NMS |
-| `image_size` | INTEGER | Image size used for inference |
-| `inference_time` | REAL | Time taken for inference (seconds) |
-| `preprocess_time` | REAL | Time taken for preprocessing (seconds) |
-| `postprocess_time` | REAL | Time taken for postprocessing (seconds) |
-| `created_at` | DATETIME | Detection creation timestamp |
-
-**Relationships**:
-- Many-to-one with `images` table
-- One-to-many with `detection_items` table
-
-### 5. `detection_items` Table
-**Purpose**: Stores individual detection objects with bounding boxes and polygons.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique detection item identifier |
-| `detection_id` | INTEGER NOT NULL | Foreign key to `detections.id` |
-| `confidence` | REAL | Confidence score (0.0 to 1.0) |
-| `bbox` | JSON | Bounding box coordinates `{x1, y1, x2, y2}` |
-| `class_name` | TEXT | Class name (default: "bench") |
-| `polygon` | JSON | Optional polygon coordinates for segmentation |
-| `created_at` | DATETIME | Detection item creation timestamp |
-
-**Relationships**:
-- Many-to-one with `detections` table
-
-### 6. `bench_candidates` Table
-**Purpose**: Stores potential bench locations found during search phase.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique candidate identifier |
-| `search_id` | INTEGER NOT NULL | Foreign key to `searches.id` |
-| `provider_id` | TEXT | Unified ID from OSM or Mapillary |
-| `lat` | REAL NOT NULL | Candidate latitude |
-| `lng` | REAL NOT NULL | Candidate longitude |
-| `tags` | JSON | Source-specific metadata |
-| `source` | TEXT | Data source: `OSM` or `MAPILLARY` |
-| `external_id` | TEXT | External system ID |
-| `confidence` | REAL | Confidence score if available |
-| `status` | TEXT | Processing status: `pending`, `image_download_done`, `detection_done` |
-| `created_at` | DATETIME | Candidate creation timestamp |
-
-**Relationships**:
-- Many-to-one with `searches` table
-
-### 7. `bench_reports` Table
-**Purpose**: Stores user reports of bad bench detections.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique report identifier |
-| `bench_id` | INTEGER NOT NULL | Foreign key to `benches.id` |
-| `image_id` | INTEGER | Foreign key to `images.id` (specific image being reported) |
-| `report_type` | TEXT | Report type: `bad_detection`, `incorrect_location`, `poor_image_quality` |
-| `description` | TEXT | User description of the issue |
-| `user_agent` | TEXT | Browser/app information |
-| `ip_address` | TEXT | User IP address for spam prevention |
-| `user_location_lat` | REAL | User's GPS latitude when reporting |
-| `user_location_lng` | REAL | User's GPS longitude when reporting |
-| `reported_image_filename` | TEXT | Filename of the reported image |
-| `extra_metadata` | JSON | Additional metadata (device info, etc.) |
-| `status` | TEXT | Report status: `pending`, `reviewed`, `resolved`, `dismissed` |
-| `admin_notes` | TEXT | Admin notes for review |
-| `created_at` | DATETIME | Report creation timestamp |
-| `reviewed_at` | DATETIME | Report review timestamp |
-
-**Relationships**:
-- Many-to-one with `benches` table
-- Many-to-one with `images` table
-
-### 8. `missing_bench_reports` Table
-**Purpose**: Stores user reports of missing benches.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | INTEGER PRIMARY KEY | Unique report identifier |
-| `lat` | REAL NOT NULL | Reported bench latitude |
-| `lng` | REAL NOT NULL | Reported bench longitude |
-| `description` | TEXT | User description of the bench |
-| `user_agent` | TEXT | Browser/app information |
-| `ip_address` | TEXT | User IP address for spam prevention |
-| `user_location_lat` | REAL | User's GPS latitude when reporting |
-| `user_location_lng` | REAL | User's GPS longitude when reporting |
-| `location_method` | TEXT | Location method: `gps` or `map_click` |
-| `uploaded_image_filename` | TEXT | User-uploaded photo filename |
-| `accuracy_meters` | REAL | GPS accuracy if available |
-| `extra_metadata` | JSON | Additional metadata |
-| `status` | TEXT | Report status: `pending`, `verified`, `added`, `dismissed` |
-| `admin_notes` | TEXT | Admin notes for review |
-| `created_at` | DATETIME | Report creation timestamp |
-| `reviewed_at` | DATETIME | Report review timestamp |
-
-## Data Flow
-
-### 1. Search Process
-1. User initiates search → `searches` table entry created
-2. System finds potential bench locations → `bench_candidates` table entries created
-3. For each candidate:
-   - Street view images captured → `images` table entries created
-   - AI detection performed → `detections` and `detection_items` table entries created
-   - Confirmed benches → `benches` table entries created
-
-### 2. Detection Pipeline
-1. Image captured → `images` record with `capture_success` status
-2. Detection model runs → `detections` record with results
-3. Individual objects detected → `detection_items` records with bounding boxes/polygons
-4. Bench confirmed if confidence exceeds threshold
-
-### 3. User Reporting
-1. User reports bad detection → `bench_reports` table entry
-2. User reports missing bench → `missing_bench_reports` table entry
-3. Admin reviews and updates status
-
-## Key Design Decisions
-
-### 1. Unified Data Sources
-- Single `benches` table handles both OSM and Mapillary data
-- `source` field distinguishes between data providers
-- `provider_id` provides unified identification across sources
-
-### 2. Flexible Detection System
-- Supports multiple detection backends (Roboflow, Ultralytics, Mapillary)
-- `detection_items` table stores individual detection objects
-- JSON fields for bounding boxes and polygons support various formats
-
-### 3. Comprehensive Metadata
-- JSON fields store source-specific tags and metadata
-- Timestamps track creation and processing times
-- Error handling with dedicated error message fields
-
-### 4. User Feedback Integration
-- Separate tables for different types of user reports
-- Admin workflow with status tracking
-- Location and device metadata for context
-
-## Database Configuration
-
-- **Engine**: SQLite (file-based)
-- **ORM**: SQLModel (built on SQLAlchemy)
-- **Location**: Configurable via `DATABASE_PATH` setting
-- **Auto-creation**: Tables created automatically on first run
-- **JSON Support**: Native JSON column support for flexible metadata storage
-
-## Relationships Summary
+## Relationships
 
 ```
-searches (1) ──→ (many) benches
-searches (1) ──→ (many) bench_candidates
-benches (1) ──→ (many) images
-benches (1) ──→ (1) images (representative_image)
-images (1) ──→ (many) detections
-detections (1) ──→ (many) detection_items
-benches (1) ──→ (many) bench_reports
-images (1) ──→ (many) bench_reports
+searches
+  └── bench_candidates (status: pending → image_download_done → detection_done)
+        ├── images (kind: aimed | pano | legacy)
+        │     ├── detections (one per model run)
+        │     │     └── detection_items (one per bounding box / polygon)
+        │     └── image_annotations (label from a model or a human)
+        ├── processed_benches (1:1; best_image_id, best_detection_id)
+        ├── reverse_geocodes (1:1, street address)
+        ├── bench_attributes (1:1; hero_image_id → images)
+        ├── bench_ratings / bench_user_status / bench_comments (user feedback)
+        └── bench_reports (user reports of bad detections, optional candidate link)
+
+missing_bench_reports        (standalone; no candidate FK)
+rtree_bench_candidates       (R-tree mirror of bench_candidates lat/lng, kept by triggers)
 ```
 
-This database model provides a robust foundation for the bench detection system, supporting multiple data sources, flexible detection backends, comprehensive user feedback, and detailed analytics capabilities.
+## Tables
+
+Foreign keys are noted inline. "Indexed" lists the indexes beyond primary keys.
+
+### searches
+
+A location search (geocoded query plus radius). Root of the pipeline.
+
+Columns: `id`, `query`, `start_lat`, `start_lng`, `search_radius`, `status` (pending, completed, failed), `created_at`, `completed_at`.
+
+### bench_candidates
+
+A potential bench found during the search phase. The central table: most other tables hang off it.
+
+Columns: `id`, `search_id` → searches, `provider_id` (unique, nullable; the upstream id, e.g. OSM), `lat`, `lng`, `tags` (JSON), `source` (`OSM`), `external_id`, `confidence`, `status` (pending, image_download_done, detection_done; default `pending`), `created_at`.
+
+Indexed: `search_id`, `(lat, lng)`, `source`, `external_id`, `status`, `provider_id` (unique).
+
+### images
+
+One street view image per candidate and heading, or a raw panorama. Stores file location and capture provenance.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates, `heading`, `kind` (aimed, pano, legacy), `image_source` (see `ImageSource` in enums.py), `filepath`, `filename`, `firebase_url`, `file_size`, `capture_success`, `capture_error`, `panorama_lat`, `panorama_lng`, `panorama_heading`, `panorama_metadata` (TEXT), `pano_id`, `pano_date`, `camera_bearing_deg`, `camera_distance_m`, `fov_deg`, `pitch_deg`, `created_at`.
+
+Indexed: `bench_candidate_id`, `capture_success`, unique `(bench_candidate_id, pano_id, kind)`. Legacy rows have a NULL `pano_id`, and NULLs never collide in a unique index.
+
+### detections
+
+One detection run of one model on one image.
+
+Columns: `id`, `image_id` → images, `model_id`, `model_url`, `source` (ROBOFLOW, ULTRALYTICS, MULTI_MODEL, NONE), `external_detection_id`, `has_bench`, `bench_count`, `max_confidence`, `detections` (JSON, raw), `detection_success`, `detection_error`, `confidence_threshold`, `iou_threshold`, `image_size`, `inference_time`, `preprocess_time`, `postprocess_time`, `created_at`.
+
+Indexed: `image_id`, `has_bench`, `max_confidence`, `source`, `external_detection_id`.
+
+### detection_items
+
+One bounding box or polygon inside a detection.
+
+Columns: `id`, `detection_id` → detections, `class_name`, `confidence`, `bbox` (JSON), `polygon` (JSON), `is_target`, `center_offset_deg`, `created_at`.
+
+Indexed: `detection_id`.
+
+### processed_benches
+
+The outcome for one candidate after detection. Exactly one row per candidate. `best_image_id` and `best_detection_id` are set only when `detection_status = 'detected'`.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates (unique), `detection_status` (`detected`, `no_bench`), `best_image_id` → images, `best_detection_id` → detections, `created_at`.
+
+### reverse_geocodes
+
+Cached reverse-geocoded street address for a candidate. One row per candidate.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates (unique), `formatted_address`, `street_number`, `street_name`, `city`, `state`, `postal_code`, `country`, `raw_response` (TEXT), `created_at`, `updated_at`.
+
+### bench_attributes
+
+Derived attributes for a candidate: facing direction, bench type, and hero image. One row per candidate.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates (unique), `facing_deg`, `facing_confidence`, `facing_method` (osm_tag, vlm, geometry, human), `axis_only` (backless bench: axis, not facing), `bench_type`, `backrest`, `faces_category`, `faces_text`, `hero_image_id` → images, `hero_reason`, `embed_pano_id`, `embed_heading_deg`, `updated_at`.
+
+Indexed: `hero_image_id`.
+
+### image_annotations
+
+A label attached to an image, from a model or a human. Both sources sit side by side.
+
+Columns: `id`, `image_id` → images, `annotator` (model id or `human:<uid>`), `label_type`, `value` (JSON), `confidence`, `created_at`.
+
+Indexed: `image_id`.
+
+### bench_reports
+
+User reports that a detection is wrong (bad detection, wrong location, poor image). May link to a candidate.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates (nullable), `image_id` (legacy, not a foreign key), `report_type` (bad_detection, incorrect_location, poor_image_quality), `reported_image_filename`, `description`, `status` (pending, reviewed, resolved, dismissed), `admin_notes`, `user_agent`, `ip_address`, `user_location_lat`, `user_location_lng`, `extra_metadata` (JSON), `created_at`, `reviewed_at`.
+
+Indexed: `bench_candidate_id`, `image_id`.
+
+### missing_bench_reports
+
+User reports of a bench that is not on the map. Not tied to a candidate.
+
+Columns: `id`, `lat`, `lng`, `location_method` (gps, map_click), `accuracy_meters`, `description`, `uploaded_image_filename`, `status` (pending, verified, added, dismissed), `admin_notes`, `user_agent`, `ip_address`, `user_location_lat`, `user_location_lng`, `extra_metadata` (JSON), `created_at`, `reviewed_at`.
+
+Indexed: `status`, `location_method`, `created_at`, `(lat, lng)`.
+
+### bench_ratings
+
+A user's rating of a bench.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates, `user_id`, `rating` (integer), `created_at`, `updated_at`.
+
+Indexed: `bench_candidate_id`, `user_id`. The schema has no unique constraint on `(bench_candidate_id, user_id)`.
+
+### bench_user_status
+
+A user's status marker on a bench: been, want_to_go, or favorite.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates, `user_id`, `status` (been, want_to_go, favorite), `created_at`, `updated_at`.
+
+Indexed: `bench_candidate_id`, `user_id`. As with ratings, the schema has no unique constraint on `(bench_candidate_id, user_id)`.
+
+### bench_comments
+
+A user's comment on a bench.
+
+Columns: `id`, `bench_candidate_id` → bench_candidates, `user_id`, `comment`, `created_at`, `updated_at`.
+
+Indexed: `bench_candidate_id`, `user_id`.
+
+### rtree_bench_candidates
+
+An SQLite R-tree virtual table over `bench_candidates` coordinates, used for bounding-box queries. Columns: `id`, `minLng`, `maxLng`, `minLat`, `maxLat`. Triggers on `bench_candidates` insert, update of `lat`/`lng`, and delete keep it in sync. The `_node`, `_parent` and `_rowid` shadow tables are internal. See `SPATIAL_INDEXING.md`.
+
+### schema_migrations
+
+Bookkeeping for `bench_finder.migrate`. Columns: `version` (primary key), `applied_at`.
+
+### sqlite_sequence
+
+Internal SQLite table that tracks `AUTOINCREMENT` counters. Not used by the application.

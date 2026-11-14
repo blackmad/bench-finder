@@ -15,7 +15,6 @@
     "check:fix": "biome check --write .",
     "preview": "vite preview",
     "generate-api": "npx openapi-typescript-codegen --input http://localhost:8866/openapi.json --output ./src/api --client axios --name BenchFinderApi --useOptions",
-    "generate-api:local": "npx openapi-typescript-codegen --input ../openapi.json --output ./src/api --client axios --name BenchFinderApi --useOptions",
     "dev:fast": "npm run dev",
     "dev:full": "concurrently \"cd .. && source venv/bin/activate && uvicorn fastapi_server:app --reload --port 8866\" \"npm run dev\"",
     "prepare": "cd .. && husky frontend/.husky || true"

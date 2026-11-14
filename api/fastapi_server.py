@@ -67,7 +67,6 @@ async def lifespan(_app: FastAPI) -> None:
     print("✅ Database connection pool initialized")
 
     # Ensure required directories exist
-    os.makedirs("templates", exist_ok=True)
     os.makedirs("static", exist_ok=True)
     os.makedirs(IMAGES_DIR, exist_ok=True)
 
