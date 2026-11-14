@@ -99,3 +99,40 @@ def test_add_image_twice_adds_no_rows(db):
     other.filename = "b.jpg"
     db.add_image(other, cand)
     assert _count(db, Image) == 2
+
+
+def test_add_image_with_pano_id_is_keyed_by_pano_and_kind(db):
+    cand = _add_candidate(db, _search(db))
+
+    def image(filename, kind="aimed", pano="P1"):
+        return ImageBase(
+            heading=0,
+            filename=filename,
+            capture_success=True,
+            pano_id=pano,
+            kind=kind,
+            camera_bearing_deg=10.0,
+        )
+
+    first = db.add_image(image("x.jpg"), cand)
+    # Same pano+kind, different file name: still the same row.
+    assert db.add_image(image("y.jpg"), cand) == first
+    assert _count(db, Image) == 1
+    # Different kind or pano is a new row.
+    db.add_image(image("p.jpg", kind="pano"), cand)
+    db.add_image(image("z.jpg", pano="P2"), cand)
+    assert _count(db, Image) == 3
+    with db.get_session() as session:
+        assert session.get(Image, first).kind == "aimed"
+
+
+def test_legacy_rows_with_null_pano_id_do_not_collide(db):
+    cand = _add_candidate(db, _search(db))
+    for heading in (0, 90, 180, 270):
+        db.add_image(
+            ImageBase(
+                heading=heading, filename=f"h{heading}.jpg", capture_success=True
+            ),
+            cand,
+        )
+    assert _count(db, Image) == 4

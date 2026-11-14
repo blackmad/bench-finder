@@ -185,19 +185,24 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
-                # Upsert: re-running a fetch rewrites the same file name for the
-                # same candidate/source, so that identifies the existing row.
-                image = (
-                    session.query(Image)
-                    .filter(
-                        Image.bench_candidate_id == bench_id,
+                # Upsert. With a pano_id the key is (candidate, pano_id, kind);
+                # without one (legacy-style rows) it is (candidate, source, filename),
+                # since re-running a fetch rewrites the same file name.
+                query = session.query(Image).filter(
+                    Image.bench_candidate_id == bench_id
+                )
+                if image_data.pano_id:
+                    image = query.filter(
+                        Image.pano_id == image_data.pano_id,
+                        Image.kind == image_data.kind,
+                    ).first()
+                elif image_data.filename:
+                    image = query.filter(
                         Image.image_source == image_data.image_source,
                         Image.filename == image_data.filename,
-                    )
-                    .first()
-                    if image_data.filename
-                    else None
-                )
+                    ).first()
+                else:
+                    image = None
                 created = image is None
                 if image is None:
                     image = Image(
@@ -214,6 +219,13 @@ class BenchDatabase:
                 image.panorama_lng = image_data.panorama_lng
                 image.panorama_metadata = image_data.panorama_metadata
                 image.panorama_heading = image_data.panorama_heading
+                image.pano_id = image_data.pano_id
+                image.pano_date = image_data.pano_date
+                image.camera_bearing_deg = image_data.camera_bearing_deg
+                image.camera_distance_m = image_data.camera_distance_m
+                image.fov_deg = image_data.fov_deg
+                image.pitch_deg = image_data.pitch_deg
+                image.kind = image_data.kind
                 session.add(image)
                 session.commit()
                 session.refresh(image)

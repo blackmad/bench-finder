@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
     from bench_finder.models.overpass_models import OSMBench
-from sqlalchemy import JSON, String
+from sqlalchemy import JSON, String, UniqueConstraint
 from sqlmodel import Column, Field, Relationship, Session, SQLModel, create_engine
 
 from .enums import (
@@ -24,6 +24,7 @@ from .enums import (
     BenchUserStatus,
     DataSource,
     DetectionSource,
+    ImageKind,
     ImageSource,
     LocationMethod,
     MissingBenchReportStatus,
@@ -108,6 +109,14 @@ class DetectionItem(SQLModel, table=True):
         default=None,
         description="Optional polygon for segmentation",
         sa_column=Column(JSON),
+    )
+    is_target: bool | None = Field(
+        default=None,
+        description="True if this is the detection of the bench the view was aimed at",
+    )
+    center_offset_deg: float | None = Field(
+        default=None,
+        description="Angular offset of the box centre from the image centre, in degrees",
     )
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -294,6 +303,15 @@ class Image(SQLModel, table=True):
     """Model for street view image metadata."""
 
     __tablename__ = "images"
+    # NULL pano_id (legacy rows) never collides: NULLs are distinct in a unique index.
+    __table_args__ = (
+        UniqueConstraint(
+            "bench_candidate_id",
+            "pano_id",
+            "kind",
+            name="uq_images_candidate_pano_kind",
+        ),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
@@ -328,6 +346,23 @@ class Image(SQLModel, table=True):
     panorama_heading: float | None = Field(
         default=None,
         description="Heading/orientation of the panorama itself (from streetlevel/lookaround API)",
+    )
+    # Aimed-view geometry (see docs/RESURRECTION_PLAN.md, Schema additions)
+    pano_id: str | None = Field(default=None, description="Source panorama id")
+    pano_date: str | None = Field(
+        default=None, description="Panorama capture date, e.g. 2023-05"
+    )
+    camera_bearing_deg: float | None = Field(
+        default=None, description="Bearing from the camera to the bench, degrees"
+    )
+    camera_distance_m: float | None = Field(
+        default=None, description="Distance from the camera to the bench, metres"
+    )
+    fov_deg: float | None = Field(default=None, description="Horizontal field of view")
+    pitch_deg: float | None = Field(default=None, description="Camera pitch")
+    kind: str = Field(
+        default=ImageKind.LEGACY.value,
+        description="aimed (view aimed at the bench), pano (raw panorama) or legacy",
     )
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -666,6 +701,48 @@ BenchDetected = ProcessedBench  # When detection_status="detected"
 NoBenchDetected = ProcessedBench  # When detection_status="no_bench"
 
 
+class ImageAnnotation(SQLModel, table=True):
+    """A label attached to an image by a model or a human; both live side by side."""
+
+    __tablename__ = "image_annotations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    image_id: int = Field(foreign_key="images.id", nullable=False, index=True)
+    annotator: str = Field(nullable=False, description="Model id or human:<uid>")
+    label_type: str = Field(nullable=False)
+    value: Any = Field(default=None, sa_column=Column(JSON))
+    confidence: float | None = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.now)
+
+
+class BenchAttributes(SQLModel, table=True):
+    """Derived per-bench attributes (facing, type, hero image); one row per candidate."""
+
+    __tablename__ = "bench_attributes"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, unique=True
+    )
+    facing_deg: float | None = Field(default=None)
+    facing_confidence: float | None = Field(default=None)
+    facing_method: str | None = Field(
+        default=None, description="osm_tag, vlm, geometry or human"
+    )
+    axis_only: bool = Field(
+        default=False, description="Backless bench: axis, not facing"
+    )
+    bench_type: str | None = Field(default=None)
+    backrest: bool | None = Field(default=None)
+    faces_category: str | None = Field(default=None)
+    faces_text: str | None = Field(default=None)
+    hero_image_id: int | None = Field(default=None, foreign_key="images.id", index=True)
+    hero_reason: str | None = Field(default=None)
+    embed_pano_id: str | None = Field(default=None)
+    embed_heading_deg: float | None = Field(default=None)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
 # ============================================================================
 # API Request/Response Models (SQLModel without table=True)
 # ============================================================================
@@ -694,6 +771,13 @@ class BenchBase(SQLModel):
 class ImageBase(SQLModel):
     """Base schema for image data."""
 
+    pano_id: str | None = None
+    pano_date: str | None = None
+    camera_bearing_deg: float | None = None
+    camera_distance_m: float | None = None
+    fov_deg: float | None = None
+    pitch_deg: float | None = None
+    kind: str = ImageKind.LEGACY.value
     heading: int
     filepath: str | None = None
     filename: str | None = None

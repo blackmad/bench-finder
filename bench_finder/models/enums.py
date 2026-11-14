@@ -55,6 +55,14 @@ class BenchUserStatus(StrEnum):
     FAVORITE = "favorite"
 
 
+class ImageKind(StrEnum):
+    """What an images row holds."""
+
+    AIMED = "aimed"  # perspective view aimed at the bench
+    PANO = "pano"  # raw panorama
+    LEGACY = "legacy"  # pre-resurrection rows
+
+
 class ImageSource(StrEnum):
     """Source of the street view image."""
 

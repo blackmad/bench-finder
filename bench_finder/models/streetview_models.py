@@ -70,8 +70,12 @@ class PanoramaMetadata(BaseModel):
             roll=pano.roll if hasattr(pano, "roll") else None,
             elevation=pano.elevation if hasattr(pano, "elevation") else None,
             build_id=pano.build_id if hasattr(pano, "build_id") else None,
-            coverage_type=pano.coverage_type if hasattr(pano, "coverage_type") else None,
-            face_filenames=pano.face_filenames if hasattr(pano, "face_filenames") else None,
+            coverage_type=pano.coverage_type
+            if hasattr(pano, "coverage_type")
+            else None,
+            face_filenames=pano.face_filenames
+            if hasattr(pano, "face_filenames")
+            else None,
         )
 
     @classmethod
@@ -142,7 +146,9 @@ class StreetViewImageCaptureSuccess(BaseModel):
     )
     filename: str = Field(..., description="Image filename")
     file_size: int = Field(..., description="File size in bytes")
-    cached: bool = Field(default=False, description="Whether the image was already cached")
+    cached: bool = Field(
+        default=False, description="Whether the image was already cached"
+    )
     width: int = Field(..., description="Width of the image")
     height: int = Field(..., description="Height of the image")
     error: None = Field(default=None, description="Always None for successful captures")
@@ -212,17 +218,26 @@ class StreetViewImageCaptureError(BaseModel):
         description="Longitude of the actual panorama location if available before error",
     )
     panorama_metadata: "PanoramaMetadata | None" = Field(
-        default=None, description="Additional panorama metadata if available before error"
+        default=None,
+        description="Additional panorama metadata if available before error",
     )
     panorama_heading: float | None = Field(
         default=None,
         description="Heading/orientation of the panorama if available before error",
     )
-    cached: bool = Field(default=False, description="Whether this was a cached operation")
+    cached: bool = Field(
+        default=False, description="Whether this was a cached operation"
+    )
     width: int = Field(default=0, description="Width placeholder (always 0 for errors)")
-    height: int = Field(default=0, description="Height placeholder (always 0 for errors)")
-    file_size: int = Field(default=0, description="File size placeholder (always 0 for errors)")
-    filepath: str | None = Field(default=None, description="Filepath placeholder (always None for errors)")
+    height: int = Field(
+        default=0, description="Height placeholder (always 0 for errors)"
+    )
+    file_size: int = Field(
+        default=0, description="File size placeholder (always 0 for errors)"
+    )
+    filepath: str | None = Field(
+        default=None, description="Filepath placeholder (always None for errors)"
+    )
 
     @property
     def success(self) -> bool:
@@ -283,8 +298,12 @@ class PanoramaCaptureResult(BaseModel):
         default=None,
         description="File paths to individual faces (for Apple Look Around) or None",
     )
-    cached: bool = Field(default=False, description="Whether the panorama was already cached")
-    error: str | None = Field(default=None, description="Error message if capture failed")
+    cached: bool = Field(
+        default=False, description="Whether the panorama was already cached"
+    )
+    error: str | None = Field(
+        default=None, description="Error message if capture failed"
+    )
 
     @property
     def success(self) -> bool:
