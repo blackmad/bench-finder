@@ -16,10 +16,6 @@
   background: var(--ink);
   color: var(--card);
 }
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 .btn.primary {
   background: var(--airmail);
   border-color: var(--airmail);
@@ -29,6 +25,15 @@
   background: var(--color-airmail-deep);
   border-color: var(--color-airmail-deep);
   color: #fff;
+}
+/* Disabled: ink-3 text and border on card (5.3:1) rather than a 50% fade,
+   which dropped the label to 3.4:1. */
+.btn:disabled,
+.btn.primary:disabled {
+  cursor: not-allowed;
+  background: var(--card);
+  border-color: var(--ink-3);
+  color: var(--ink-3);
 }
 .linkbtn {
   background: none;

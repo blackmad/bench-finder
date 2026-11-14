@@ -167,6 +167,11 @@ export default function BenchMap({
       attributionControl: { compact: true },
       dragRotate: false,
       maxPitch: 0,
+      // The canvas is the focusable element (arrow keys pan, +/- zoom).
+      locale: {
+        "Map.Title":
+          "Map of benches. Arrow keys pan, plus and minus zoom. Every bench in view is also listed as a postcard after the map.",
+      },
     })
     mapRef.current = map
     // Test hook for the perf script: `/?debug=1` exposes the map instance.
@@ -468,12 +473,5 @@ export default function BenchMap({
     }
   }, [flyTo])
 
-  return (
-    <div
-      ref={container}
-      className="map-canvas"
-      role="application"
-      aria-label="Map of benches. The postcards beside it list the same benches."
-    />
-  )
+  return <div ref={container} className="map-canvas" />
 }

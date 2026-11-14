@@ -210,10 +210,33 @@ export default function HomePage() {
     )
   }, [flyToPlace])
 
+  const filterCount =
+    filters.types.size + filters.faces.size + filters.sectors.size
+
+  // DOM order is the keyboard path: filters, then the map, then the rack of
+  // postcards (the only keyboard route to each bench; markers are GL-drawn).
   return (
     <>
       <TopBar onPlace={flyToPlace} />
       <main className="atlas" data-filters={filtersOpen ? "" : undefined}>
+        <h1 className="sr">Benches by what they look at</h1>
+        <button
+          className="sheet-toggle"
+          type="button"
+          aria-expanded={filtersOpen}
+          aria-controls="filters"
+          onClick={() => setFiltersOpen((o) => !o)}
+        >
+          <SlidersIcon />
+          {filtersOpen ? "Close" : "Filters"}
+          {filterCount > 0 ? (
+            <span className="count num">
+              {filterCount}
+              <span className="sr"> active</span>
+            </span>
+          ) : null}
+        </button>
+        <FiltersPanel filters={filters} onChange={setFilters} />
         <div className="mapwrap">
           <Suspense fallback={null}>
             {data ? (
@@ -259,9 +282,8 @@ export default function HomePage() {
           ) : null}
         </div>
         <aside className="rack" aria-label="Benches in view">
-          <FiltersPanel filters={filters} onChange={setFilters} />
           <div className="rackhead">
-            <span>
+            <span role="status">
               <strong className="num">{total.toLocaleString("en")}</strong>{" "}
               benches in view
             </span>
@@ -276,7 +298,7 @@ export default function HomePage() {
               </span>
             </span>
           </div>
-          <div className="cards" ref={cardsRef} aria-live="polite">
+          <div className="cards" ref={cardsRef}>
             {isPending ? (
               <p className="sectionnote">Loading benches...</p>
             ) : error ? (
@@ -313,28 +335,6 @@ export default function HomePage() {
             ) : null}
           </div>
         </aside>
-        <button
-          className="sheet-toggle"
-          type="button"
-          aria-expanded={filtersOpen}
-          aria-controls="filters"
-          onClick={() => setFiltersOpen((o) => !o)}
-        >
-          <SlidersIcon />
-          {filtersOpen ? "Close" : "Filters"}
-          {filters.types.size +
-            filters.faces.size +
-            filters.sectors.size +
-            (filters.backrest ? 1 : 0) >
-          0 ? (
-            <span className="count num">
-              {filters.types.size +
-                filters.faces.size +
-                filters.sectors.size +
-                (filters.backrest ? 1 : 0)}
-            </span>
-          ) : null}
-        </button>
       </main>
     </>
   )

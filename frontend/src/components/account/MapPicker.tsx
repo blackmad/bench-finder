@@ -39,6 +39,10 @@ export default function MapPicker({
       zoom: 17,
       attributionControl: { compact: true },
       dragRotate: false,
+      locale: {
+        "Map.Title":
+          "Map: click or drag the pin to where the bench is. With the keyboard, arrow keys move the map and the pin moves to its centre.",
+      },
     })
     map.addControl(new NavigationControl({ showCompass: false }), "top-right")
     const marker = new Marker({ color: "#e23b1e", draggable: true })
@@ -47,6 +51,13 @@ export default function MapPicker({
     marker.on("dragend", () => {
       const p = marker.getLngLat()
       cb.current({ lat: p.lat, lng: p.lng })
+    })
+    // Keyboard path: after an arrow-key pan the pin follows the map centre.
+    map.on("moveend", (e) => {
+      if (!(e.originalEvent instanceof KeyboardEvent)) return
+      const c = map.getCenter()
+      marker.setLngLat(c)
+      cb.current({ lat: c.lat, lng: c.lng })
     })
     map.on("click", (e) => {
       marker.setLngLat(e.lngLat)
@@ -67,12 +78,5 @@ export default function MapPicker({
     mapRef.current?.easeTo({ center: [point.lng, point.lat], duration: 250 })
   }, [point.lat, point.lng])
 
-  return (
-    <div
-      ref={container}
-      className="pickmap"
-      role="application"
-      aria-label="Map: click or drag the pin to where the bench is"
-    />
-  )
+  return <div ref={container} className="pickmap" />
 }

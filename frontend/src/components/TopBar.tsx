@@ -18,7 +18,6 @@ export function TopBar({ onPlace }: TopBarProps) {
     <header className="bar">
       <Link className="wordmark" to="/">
         <b className="caps">Bench Finder</b>
-        <span className="serial">Amsterdam</span>
       </Link>
       {onPlace ? <PlaceSearch onPick={onPlace} /> : null}
       <span className="spacer" />
@@ -28,14 +27,19 @@ export function TopBar({ onPlace }: TopBarProps) {
         </Link>
       ) : null}
       {user ? (
-        <Link className="textbtn" to="/me">
+        <Link className="textbtn" to="/me" aria-label="Your benches">
           <UserIcon />
           <span className="signin-label">
             {user.name?.split(" ")[0] ?? "You"}
           </span>
         </Link>
       ) : (
-        <button type="button" className="textbtn" onClick={openSignIn}>
+        <button
+          type="button"
+          className="textbtn"
+          onClick={openSignIn}
+          aria-label="Sign in"
+        >
           <UserIcon />
           <span className="signin-label">Sign in</span>
         </button>

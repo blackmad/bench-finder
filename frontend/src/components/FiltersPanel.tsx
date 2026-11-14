@@ -84,19 +84,6 @@ export function FiltersPanel({ filters, onChange }: Props) {
               {label}
             </label>
           ))}
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={filters.backrest}
-              onChange={(e) =>
-                onChange({ ...filters, backrest: e.target.checked })
-              }
-            />
-            <span className="box">
-              <CheckTick />
-            </span>
-            Has a backrest
-          </label>
         </div>
       </div>
       <div className="dialwrap">

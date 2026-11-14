@@ -165,7 +165,13 @@ export function Stamp({
           fontVariationSettings: "'wdth' 118",
           fontVariantNumeric: "tabular-nums",
         }}
-        fill={known || selected ? accent : "var(--color-ink)"}
+        fill={
+          selected
+            ? "var(--color-vermilion-ink)"
+            : known
+              ? accent
+              : "var(--color-ink)"
+        }
       >
         {label}
       </text>

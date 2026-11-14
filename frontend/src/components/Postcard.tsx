@@ -26,6 +26,7 @@ export function Postcard({ bench, selected, onSelect }: Props) {
       data-id={bench.id}
       aria-current={selected ? "true" : undefined}
       onPointerEnter={() => onSelect(bench.id)}
+      onFocus={() => onSelect(bench.id)}
     >
       <div className="photo">
         <Photo

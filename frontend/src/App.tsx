@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { lazy, Suspense } from "react"
-import { BrowserRouter, Route, Routes } from "react-router-dom"
+import { lazy, Suspense, useEffect, useRef } from "react"
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 import { AuthProvider } from "./lib/auth"
 import "./styles/account.css"
@@ -15,12 +15,47 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 })
 
+/**
+ * After a client-side navigation, move focus to the new page's h1 so keyboard
+ * and screen-reader users land on the content, not on <body>. Pages load
+ * lazily and the bench page renders its h1 after data arrives, so wait for it.
+ */
+function RouteFocus() {
+  const { pathname } = useLocation()
+  // The path focus was last handled for; the first load keeps the browser's
+  // default focus (and StrictMode's effect re-run sees the same path).
+  const handled = useRef(pathname)
+  useEffect(() => {
+    if (handled.current === pathname) return
+    handled.current = pathname
+    const focusH1 = () => {
+      const h1 = document.querySelector<HTMLElement>("main h1")
+      if (!h1) return false
+      h1.tabIndex = -1
+      h1.focus({ preventScroll: true })
+      return true
+    }
+    if (focusH1()) return
+    const obs = new MutationObserver(() => {
+      if (focusH1()) obs.disconnect()
+    })
+    obs.observe(document.body, { childList: true, subtree: true })
+    const t = setTimeout(() => obs.disconnect(), 4000)
+    return () => {
+      obs.disconnect()
+      clearTimeout(t)
+    }
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <BrowserRouter>
+            <RouteFocus />
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<HomePage />} />

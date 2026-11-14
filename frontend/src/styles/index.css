@@ -8,12 +8,14 @@
   --color-stamp-paper: #fbfbf7;
   --color-ink: #141414;
   --color-ink-2: #4a4a46;
-  --color-ink-3: #6b6b66;
+  --color-ink-3: #64645f;
   --color-rule: #d6d6cc;
   --color-airmail: #1e4fa3;
   --color-airmail-deep: #163d80;
   --color-airmail-wash: #dfe6f2;
   --color-vermilion: #e23b1e;
+  /* Vermilion for small text (stamp labels): 5.0:1 on stamp paper. */
+  --color-vermilion-ink: #cc3217;
   --color-map-water: #cfdbee;
   --color-map-park: #e6eadc;
   --color-photo-empty: #c9c9bf;
@@ -107,6 +109,10 @@ a {
 }
 .num {
   font-variant-numeric: tabular-nums;
+}
+/* Headings focused after a route change (App RouteFocus) need no ring. */
+h1[tabindex="-1"]:focus {
+  outline: none;
 }
 .sr {
   position: absolute;
@@ -207,9 +213,21 @@ a {
 .atlas {
   display: grid;
   grid-template-columns: 1fr minmax(440px, 40vw);
+  grid-template-rows: auto 1fr;
   height: calc(100vh - 60px);
 }
+/* DOM order is filters, map, rack (the keyboard path); the grid puts the
+   filters on top of the rack column. */
+.atlas > .filters {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  border-left: 1px solid var(--color-rule);
+}
 .mapwrap {
+  grid-column: 1;
+  grid-row: 1 / -1;
   position: relative;
   min-height: 0;
   background: var(--color-card);
@@ -217,6 +235,8 @@ a {
   isolation: isolate;
 }
 .rack {
+  grid-column: 2;
+  grid-row: 2;
   position: relative;
   z-index: 1;
   display: flex;
@@ -712,6 +732,15 @@ a {
   .maplibregl-ctrl-top-right {
     display: none;
   }
+  /* Clear of the attribution control, which sits top-right under the bar. */
+  .nearme {
+    top: 12px;
+    right: 14px;
+  }
+  .nearme-note {
+    top: 56px;
+    right: 14px;
+  }
   .sheet-toggle {
     display: inline-flex;
     position: absolute;
@@ -739,12 +768,6 @@ a {
     pointer-events: auto;
     box-shadow: var(--shadow-card);
     padding: 64px 16px 16px;
-  }
-  .atlas[data-filters] .rack {
-    top: 0;
-  }
-  .atlas[data-filters] .cards {
-    margin-top: auto;
   }
   .sheetnote {
     display: block;

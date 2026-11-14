@@ -7,12 +7,13 @@ colors:
   stamp-paper: "#fbfbf7"
   ink: "#141414"
   ink-2: "#4a4a46"
-  ink-3: "#6b6b66"
+  ink-3: "#64645f"
   rule: "#d6d6cc"
   airmail: "#1e4fa3"
   airmail-deep: "#163d80"
   airmail-wash: "#dfe6f2"
   vermilion: "#e23b1e"
+  vermilion-ink: "#cc3217"
   map-water: "#cfdbee"
   map-park: "#e6eadc"
   photo-empty: "#c9c9bf"
@@ -181,7 +182,7 @@ Ink on white card stock, one airmail blue for interaction and estimates, one ver
 - **Airmail Wash** (`airmail-wash`): hover fill of a facing-dial sector.
 
 ### Secondary
-- **Postmark Vermilion** (`vermilion`): the one selected bench. Its 2px ring around the selected postcard and map thumbnail, the selected stamp's arrow, label and postmark, the selected map needle and stem, and the selected map marker.
+- **Postmark Vermilion** (`vermilion`): the one selected bench. Its 2px ring around the selected postcard and map thumbnail, the selected stamp's arrow, label and postmark, the selected map needle and stem, and the selected map marker. Small vermilion text (the selected stamp's facing label) uses the deeper `vermilion-ink` (5.0:1 on stamp paper); plain vermilion is 4.15:1 there, fine for marks but not for 8px text.
 
 ### Neutral
 - **Card Stock** (`card`): every card face, the top bar, filters panel, map key, map background, buttons at rest.
@@ -189,7 +190,7 @@ Ink on white card stock, one airmail blue for interaction and estimates, one ver
 - **Stamp Paper** (`stamp-paper`): the slightly brighter paper of stamps, cluster roses, marker hubs and mini compasses, so postal marks sit visibly on top of the card.
 - **Ink** (`ink`): primary text, known-facing marks, 1.5px rules, button borders, checkbox boxes, all rose and marker strokes.
 - **Ink 2** (`ink-2`): secondary text on card stock (8.6:1): meta lines, serials, field labels, block subtitles.
-- **Ink 3** (`ink-3`): tertiary text and placeholders (at least 4.5:1 on card), address lines, idle stars, plain-row hover border.
+- **Ink 3** (`ink-3`): tertiary text and placeholders (5.5:1 on card, 5.0:1 on rack), address lines, idle stars, plain-row hover border.
 - **Rule** (`rule`): 1px hairline dividers between bar, filters, rack and card back panels; dial sector outlines; meter track.
 - **Map Water / Map Park** (`map-water`, `map-park`): the basemap re-ink. Basemap background becomes card stock, water fills become map-water, park/landuse fills become map-park, and label text is muted to a warm grey.
 - **Empty Photo** (`photo-empty`): the photo well behind an image that has not loaded.
@@ -213,7 +214,7 @@ Ink on white card stock, one airmail blue for interaction and estimates, one ver
 - **Lede** (400, 16.5px, ink-2, max 34ch): the one-sentence description under the display line.
 - **Body** (400, 15px, line-height 1.45, wdth 100): all reading text, form labels, buttons (buttons and text buttons at 600).
 - **Caption caps** (700, wdth 125, uppercase, 0.04em): street-name captions on postcards (12.5px rack, 11.5px phone and plain rows, 15px large front), field labels and filter group labels (11px), the wordmark (17px desktop, 15px phone), the address line "Bench No.".
-- **Serial** (500, 12px, wdth 112, tabular numerals, 0.02em, ink-2): "No. 1472" serials, the place name beside the wordmark.
+- **Serial** (500, 12px, wdth 112, tabular numerals, 0.02em, ink-2): "No. 1472" serials.
 - **Meta** (400, 12–12.5px, ink-2): card meta lines, map key, dial hint, gallery captions, coordinates.
 
 ### Named Rules
@@ -278,6 +279,7 @@ A 92px eight-sector ring (N, NE … NW) around a small ink compass hub. Sectors 
 - **Shape:** square (0px), 1.5px border, 600 weight, 9px 14px, inline icon gap 8px.
 - **Default:** card stock with ink border and ink text; hover inverts to ink fill with card text.
 - **Primary:** airmail fill and border with white text; hover goes to deep airmail. Used for the single main action ("Look around").
+- **Disabled:** card fill with ink-3 border and text (5.5:1), for both default and primary; no opacity fade.
 - **Text button:** no border or fill, 600 weight, ink; hover turns airmail. Used for sign-in, back crumb.
 - **Inline link action:** airmail, 1px underline offset 3px ("Report this card", "Open in OpenStreetMap").
 
@@ -290,7 +292,7 @@ A 92px eight-sector ring (N, NE … NW) around a small ink compass hub. Sectors 
 A compact bordered row on card stock (1px rule border, ink-3 on hover): a 40px facing glyph (rule ring with an ink or dashed-airmail needle), street name in caption caps with "Faces / Probably faces ENE · no photo yet" beneath, serial right. Honest about the missing photo rather than faking one.
 
 ### Navigation
-The top bar is card stock with a 1px rule underneath: wordmark in caption caps with the city as a serial, search, then a sign-in text button with a stroked user icon. On phone the "Sign in" label and city drop away, leaving icons.
+The top bar is card stock with a 1px rule underneath: wordmark in caption caps (no city: the data spans several), search, then a sign-in text button with a stroked user icon. On phone the "Sign in" label drops away, leaving icons (the button keeps an aria-label).
 
 ### Detail back
 - **Definition list:** caption-caps 11px terms in ink-2, 14.5px values; the facing value names its source beneath (OSM tag, or "Estimated from street views" with a 64×4 airmail confidence meter and percentage).

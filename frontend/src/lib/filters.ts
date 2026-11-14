@@ -4,7 +4,6 @@ import type { BenchProps, BenchType, FacesCategory } from "../data/types"
 export interface Filters {
   types: ReadonlySet<BenchType>
   faces: ReadonlySet<FacesCategory>
-  backrest: boolean
   /** Selected 45-degree facing sectors, 0 = N. */
   sectors: ReadonlySet<number>
 }
@@ -12,7 +11,6 @@ export interface Filters {
 export const NO_FILTERS: Filters = {
   types: new Set(),
   faces: new Set(),
-  backrest: false,
   sectors: new Set(),
 }
 
@@ -23,7 +21,6 @@ export function passes(p: BenchProps, f: Filters): boolean {
   if (f.faces.size && !(p.faces_category && f.faces.has(p.faces_category))) {
     return false
   }
-  if (f.backrest && p.backrest !== true) return false
   if (f.sectors.size) {
     if (p.facing === null || !f.sectors.has(sectorOf(p.facing))) return false
   }
@@ -54,7 +51,6 @@ export function filtersFromParams(sp: URLSearchParams): Filters {
   return {
     types: new Set(TYPES.filter((t) => list("type").includes(t))),
     faces: new Set(FACES.filter((t) => list("faces").includes(t))),
-    backrest: sp.get("back") === "1",
     sectors: new Set(
       list("dir")
         .map(Number)
@@ -70,7 +66,8 @@ export function filtersToParams(f: Filters, sp: URLSearchParams) {
   }
   set("type", [...f.types].sort().join(","))
   set("faces", [...f.faces].sort().join(","))
-  set("back", f.backrest ? "1" : "")
+  // "back" was a separate "Has a backrest" box, now covered by type=backrest.
+  sp.delete("back")
   set("dir", [...f.sectors].sort((a, b) => a - b).join(","))
 }
 

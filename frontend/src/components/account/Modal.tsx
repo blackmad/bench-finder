@@ -1,4 +1,10 @@
-import { type ReactNode, useEffect, useId, useRef } from "react"
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useRef,
+} from "react"
 
 interface ModalProps {
   title: string
@@ -6,9 +12,33 @@ interface ModalProps {
   children: ReactNode
 }
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])'
+
 /**
- * Native modal <dialog>: showModal() gives a focus trap, Esc to close and an
- * inert page behind it. Focus goes back to whatever opened it on close.
+ * showModal() makes the page inert, but Tab still leaves for the browser's own
+ * UI after the last control. Wrap it so focus stays in the dialog.
+ */
+function trapTab(e: KeyboardEvent<HTMLDialogElement>) {
+  if (e.key !== "Tab") return
+  const items = [
+    ...e.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE),
+  ].filter((el) => el.offsetParent !== null || el === document.activeElement)
+  if (!items.length) return
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
+/**
+ * Native modal <dialog>: showModal() gives an inert page behind it and Esc to
+ * close; trapTab keeps Tab inside. Focus goes back to the opener on close.
  */
 export function Modal({ title, onClose, children }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -42,6 +72,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
       className="modal"
       aria-labelledby={titleId}
       onClose={() => closeRef.current()}
+      onKeyDown={trapTab}
     >
       <div className="modal-head">
         <h2 id={titleId}>{title}</h2>
