@@ -25,13 +25,27 @@ Each phase updates the `status` field on `bench_candidates`.
 ## Phase 2: Fetch Images (`bench-finder fetch-images`)
 
 1. Query candidates with status=PENDING (or specified status)
-2. For each candidate, try image sources in order:
-   - Google Street View via streetlevel library (free, panorama-based)
-   - Apple Look Around via streetlevel (free, panorama-based)
-   - Google Street View Static API (paid, direct image)
-3. Extract perspective views at multiple headings from panoramas
-4. Store `Image` records with file paths and metadata
-5. Update candidate status → IMAGE_DOWNLOAD_DONE
+2. All candidates of the run are processed in one event loop
+   (`ImageDownloadService.process_candidates`), at most 4 at a time, with
+   `backoff` retries on pano/tile requests and Overpass. Nothing sleeps blocking.
+3. For each bench (`StreetViewClient.capture_bench_views_async`):
+   - List every Google panorama within 30 m (zoom-17 coverage tiles, then
+     per-pano metadata for date and tilt) via the `streetlevel` library (free)
+   - Drop <4 m, third-party, indoor (building-level metadata, and a Places365
+     indoor check on the rendered view), and pre-2016 when newer exists
+   - Keep up to 6, spread over six 60-degree sectors of camera-to-bench bearing,
+     newest first
+   - For each, fetch only the panorama zoom level the output needs, cut a
+     1024 px view aimed at the bench (FOV = clamp(2 atan(3 m / d), 40, 90) deg,
+     pano pitch/roll applied), save it, and discard the panorama
+   - If Google gave fewer than 3 views, add up to 3 Apple Look Around views
+     (faces stitched to an equirect, then the same extraction)
+4. Store `Image` rows with `kind='aimed'`, `pano_id`, `pano_date`,
+   `camera_bearing_deg`, `camera_distance_m`, `fov_deg`; upsert key is
+   (candidate, pano_id, kind), so re-running adds no rows
+5. Update candidate status -> IMAGE_DOWNLOAD_DONE
+
+The paid Google Street View Static image API is not used.
 
 **Tables written:** `images`
 

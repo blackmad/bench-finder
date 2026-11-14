@@ -917,6 +917,10 @@ def fetch_images(
             candidates_skipped = 0  # No images and none downloaded
             candidates_downloaded = 0  # Downloaded new images
 
+            # First pass: pair each candidate with its search_id and note which
+            # already had images (so the summary can tell cached from new).
+            work_items = []
+            had_images_flags = []
             for bench_candidate in bench_candidates:
                 search_id = candidate_search_ids.get(bench_candidate.provider_id)
                 if search_id is None:
@@ -924,9 +928,9 @@ def fetch_images(
                         f"No search_id found for candidate {bench_candidate.provider_id}, skipping"
                     )
                     candidates_skipped += 1
+                    progress.update(task, advance=1)
                     continue
 
-                # Check if candidate already has images (before processing)
                 had_existing_images = False
                 if not cached_only:
                     with database.get_session() as session:
@@ -953,7 +957,21 @@ def fetch_images(
                             ).one()
                             had_existing_images = existing_count > 0
 
-                result = image_service._process_single_bench(search_id, bench_candidate)
+                work_items.append((search_id, bench_candidate))
+                had_images_flags.append(had_existing_images)
+
+            # One event loop for the whole batch; candidates run concurrently.
+            batch_results = image_service.process_candidates(
+                work_items,
+                on_done=lambda _i: progress.update(task, advance=1),
+            )
+
+            for result, had_existing_images in zip(
+                batch_results, had_images_flags, strict=True
+            ):
+                if result is None:
+                    candidates_skipped += 1
+                    continue
                 stats.benches_processed += 1
 
                 if cached_only:
@@ -978,7 +996,6 @@ def fetch_images(
                     stats.benches_added += 1
                 stats.images_captured += result.images_captured
                 stats.images_successful += result.images_successful
-                progress.update(task, advance=1)
 
             results = stats
             summary_stats = {
@@ -2081,7 +2098,7 @@ def stitch_lookaround(
         "--dry-run",
         help="Show what would be done without creating stitched images",
     ),
-    stitch_method: str = typer.Option(
+    stitch_method: str = typer.Option(  # noqa: ARG001
         "net",
         "--method",
         help="Stitching method: net (cube net) or row (horizontal row) - DEPRECATED, now uses to_equirectangular",
@@ -2187,7 +2204,7 @@ def stitch_lookaround(
 
     if dry_run:
         console.print("\n[yellow]🔍 DRY RUN - Would stitch the following:[/yellow]")
-        for bench_id, faces, stitched_path in benches_to_stitch[:20]:
+        for bench_id, _faces, stitched_path in benches_to_stitch[:20]:
             console.print(f"  • {bench_id} -> {stitched_path.name}")
         if len(benches_to_stitch) > 20:
             console.print(f"  ... and {len(benches_to_stitch) - 20} more")
@@ -2256,23 +2273,21 @@ def stitch_lookaround(
                             )
                             # Find image with matching bench_id in metadata or filename
                             for img in images:
-                                if img.panorama_metadata and img.panorama_metadata.get(
-                                    "pano_id"
+                                # We'll use the first one we find with panorama metadata
+                                if (
+                                    img.panorama_metadata
+                                    and img.panorama_metadata.get("pano_id")
+                                    and not metadata
                                 ):
-                                    # Check if this image's bench_candidate might match
-                                    # We'll use the first one we find with panorama metadata
-                                    if not metadata:
-                                        metadata = {
-                                            "pano_id": img.panorama_metadata.get(
-                                                "pano_id"
-                                            ),
-                                            "panorama_lat": img.panorama_lat,
-                                            "panorama_lng": img.panorama_lng,
-                                        }
-                                        logger.debug(
-                                            f"Found metadata for bench {bench_id} from database"
-                                        )
-                                        break
+                                    metadata = {
+                                        "pano_id": img.panorama_metadata.get("pano_id"),
+                                        "panorama_lat": img.panorama_lat,
+                                        "panorama_lng": img.panorama_lng,
+                                    }
+                                    logger.debug(
+                                        f"Found metadata for bench {bench_id} from database"
+                                    )
+                                    break
                     except Exception as e:
                         logger.debug(f"Could not get metadata from database: {e}")
 
@@ -2448,7 +2463,7 @@ def backfill_panorama_heading(
                         ImageSource.APPLE_STREETLEVEL.value,
                     ]
                 ),
-                Image.panorama_heading == None,
+                Image.panorama_heading.is_(None),
             )
 
             if limit:
@@ -2581,8 +2596,8 @@ def backfill_panorama_heading(
                     error_count += 1
                     return False
 
-            except Exception as e:
-                logger.exception(f"Error processing image {image.id}: {e}")
+            except Exception:
+                logger.exception(f"Error processing image {image.id}")
                 error_count += 1
                 return False
 

@@ -5,7 +5,11 @@ This service handles only the image capture and database storage
 for bench candidates without any detection logic.
 """
 
+import asyncio
 import logging
+from collections.abc import Callable
+
+import aiohttp
 
 from bench_finder.core.streetview import StreetViewClient
 from bench_finder.generators.bench_generator import CandidateResult
@@ -22,11 +26,18 @@ from bench_finder.utils import ProgressTracker
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CONCURRENCY = 4
+
 
 class ImageDownloadService:
     """Service for downloading and caching images for bench candidates."""
 
-    def __init__(self, cached_only: bool = False, force: bool = False):
+    def __init__(
+        self,
+        cached_only: bool = False,
+        force: bool = False,
+        concurrency: int = DEFAULT_CONCURRENCY,
+    ):
         """
         Initialize the image download service.
 
@@ -35,7 +46,9 @@ class ImageDownloadService:
                         in the database, skipping any new downloads.
             force: If True, force re-processing even if candidate already has images
                    or is in a "done" status.
+            concurrency: How many benches are fetched at the same time.
         """
+        self.concurrency = max(1, concurrency)
         self.cached_only = cached_only
         self.force = force
         self.streetview_client = StreetViewClient()
@@ -47,21 +60,61 @@ class ImageDownloadService:
             f"ImageDownloadService initialized for image downloading and caching ({mode_str}{force_str})"
         )
 
-    def process_benches(
-        self, search_id: int, benches: list[CandidateResult]
-    ) -> ProcessingStats:
+    def process_candidates(
+        self,
+        items: list[tuple[int, CandidateResult]],
+        on_done: Callable[[int], None] | None = None,
+    ) -> list[BenchProcessingResult | None]:
         """
-        Process each bench: capture images and store in database.
+        Fetch aimed views for many candidates in a single event loop.
+
+        This is the one place that starts an event loop for a batch: candidates are
+        processed concurrently (bounded by ``self.concurrency``) and nothing in the
+        path blocks the loop with ``time.sleep``.
 
         Args:
-            search_id: Database search ID
-            benches: List of bench candidates from various sources (OSM, Mapillary, etc.)
+            items: (search_id, candidate) pairs
+            on_done: Optional callback invoked with the item index as each finishes
 
         Returns:
-            ProcessingStats with processing results summary
+            One BenchProcessingResult per item, in order (None if that item raised)
         """
-        progress = ProgressTracker(len(benches), "Downloading images")
+        warm_up = getattr(self.streetview_client, "warm_up", None)
+        if warm_up is not None:
+            warm_up()
+        return asyncio.run(self.process_candidates_async(items, on_done))
 
+    async def process_candidates_async(
+        self,
+        items: list[tuple[int, CandidateResult]],
+        on_done: Callable[[int], None] | None = None,
+    ) -> list[BenchProcessingResult | None]:
+        semaphore = asyncio.Semaphore(self.concurrency)
+        timeout = aiohttp.ClientTimeout(total=120, connect=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+
+            async def worker(index: int, search_id: int, bench: CandidateResult):
+                async with semaphore:
+                    try:
+                        return await self._process_bench_async(
+                            search_id, bench, session
+                        )
+                    except Exception:
+                        logger.exception(f"Failed to process bench {bench.provider_id}")
+                        return None
+                    finally:
+                        if on_done is not None:
+                            on_done(index)
+
+            return list(
+                await asyncio.gather(
+                    *[worker(i, sid, bench) for i, (sid, bench) in enumerate(items)]
+                )
+            )
+
+    def _summarize(
+        self, results: list[BenchProcessingResult | None]
+    ) -> ProcessingStats:
         stats = ProcessingStats(
             benches_processed=0,
             benches_added=0,
@@ -71,107 +124,54 @@ class ImageDownloadService:
             benches_detected=0,
             best_confidence=0.0,
         )
-
-        for bench in benches:
-            try:
-                result = self._process_single_bench(search_id, bench)
-
-                stats.benches_processed += 1
-                if result.bench_added:
-                    stats.benches_added += 1
-
-                stats.images_captured += result.images_captured
-                stats.images_successful += result.images_successful
-
-                progress.update()
-
-            except Exception:
-                bench_id = bench.provider_id
-                logger.exception(f"Failed to process bench {bench_id}")
-                import traceback
-
-                logger.debug(
-                    f"Full traceback for bench {bench_id}:\n{traceback.format_exc()}"
-                )
-                logger.debug(f"Bench data that caused the error: {bench}")
-                progress.update()
+        for result in results:
+            if result is None:
                 continue
-
-        progress.finish()
-
+            stats.benches_processed += 1
+            if result.bench_added:
+                stats.benches_added += 1
+            stats.images_captured += result.images_captured
+            stats.images_successful += result.images_successful
         logger.info(
             f"Image download complete - {stats.benches_added}/{stats.benches_processed} "
             f"benches processed with {stats.images_successful}/{stats.images_captured} images captured"
         )
-
         return stats
+
+    def process_benches(
+        self, search_id: int, benches: list[CandidateResult]
+    ) -> ProcessingStats:
+        """Process benches for one search: capture aimed views and store them."""
+        progress = ProgressTracker(len(benches), "Downloading images")
+        results = self.process_candidates(
+            [(search_id, b) for b in benches], on_done=lambda _i: progress.update()
+        )
+        progress.finish()
+        return self._summarize(results)
 
     def process_benches_with_progress(
         self, search_id: int, benches: list[CandidateResult], progress, task
     ) -> ProcessingStats:
-        """
-        Process each bench: capture images and store in database with progress bar.
-
-        Args:
-            search_id: Database search ID
-            benches: List of bench candidates from various sources (OSM, Mapillary, etc.)
-            progress: Rich Progress object
-            task: Rich Progress task ID
-
-        Returns:
-            ProcessingStats with processing results summary
-        """
-        stats = ProcessingStats(
-            benches_processed=0,
-            benches_added=0,
-            images_captured=0,
-            images_successful=0,
-            detections_performed=0,
-            benches_detected=0,
-            best_confidence=0.0,
+        """Like :meth:`process_benches`, advancing a Rich progress bar."""
+        results = self.process_candidates(
+            [(search_id, b) for b in benches],
+            on_done=lambda _i: progress.update(task, advance=1),
         )
+        return self._summarize(results)
 
-        for bench in benches:
-            try:
-                result = self._process_single_bench(search_id, bench)
-
-                stats.benches_processed += 1
-                if result.bench_added:
-                    stats.benches_added += 1
-
-                stats.images_captured += result.images_captured
-                stats.images_successful += result.images_successful
-
-                progress.update(task, advance=1)
-
-            except Exception:
-                bench_id = bench.provider_id
-                logger.exception(f"Failed to process bench {bench_id}")
-                import traceback
-
-                logger.debug(
-                    f"Full traceback for bench {bench_id}:\n{traceback.format_exc()}"
-                )
-                logger.debug(f"Bench data that caused the error: {bench}")
-                progress.update(task, advance=1)
-                continue
-
-        logger.info(
-            f"Image download complete - {stats.benches_added}/{stats.benches_processed} "
-            f"benches processed with {stats.images_successful}/{stats.images_captured} images captured"
-        )
-
-        return stats
-
-    def _process_single_bench(
-        self, search_id: int, bench: CandidateResult
+    async def _process_bench_async(
+        self,
+        search_id: int,
+        bench: CandidateResult,
+        http_session: aiohttp.ClientSession,
     ) -> BenchProcessingResult:
         """
-        Process a single bench: add to DB and capture images.
+        Process a single bench: add to DB and capture aimed views.
 
         Args:
             search_id: Database search ID
             bench: Bench candidate from any source (OSM, Mapillary, etc.)
+            http_session: Shared aiohttp session
 
         Returns:
             BenchProcessingResult for this bench
@@ -281,10 +281,8 @@ class ImageDownloadService:
 
             # Capture street view images
             try:
-                image_results = self.streetview_client.capture_bench_images(
-                    lat,
-                    lng,
-                    bench_identifier,  # Use validated coordinates
+                image_results = await self.streetview_client.capture_bench_views_async(
+                    lat, lng, bench_identifier, session=http_session
                 )
             except Exception as e:
                 raise RuntimeError(
@@ -322,8 +320,21 @@ class ImageDownloadService:
                             image_source=image_source,
                             panorama_lat=image_capture.panorama_lat,
                             panorama_lng=image_capture.panorama_lng,
-                            panorama_metadata=image_capture.panorama_metadata,
+                            panorama_metadata=(
+                                image_capture.panorama_metadata.model_dump(
+                                    mode="json", exclude_none=True
+                                )
+                                if image_capture.panorama_metadata
+                                else None
+                            ),
                             panorama_heading=image_capture.panorama_heading,
+                            pano_id=image_capture.pano_id,
+                            pano_date=image_capture.pano_date,
+                            camera_bearing_deg=image_capture.camera_bearing_deg,
+                            camera_distance_m=image_capture.camera_distance_m,
+                            fov_deg=image_capture.fov_deg,
+                            pitch_deg=image_capture.pitch_deg,
+                            kind=image_capture.kind,
                         ),
                         bench_id=bench_id,
                     )

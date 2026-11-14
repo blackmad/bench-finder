@@ -516,6 +516,15 @@ class StreetViewClient:
 
     # --------------------------------------------------------------- public API
 
+    def warm_up(self) -> None:
+        """Load the indoor classifier now, outside any event loop.
+
+        Importing torch and loading the weights holds the GIL for several seconds, which
+        would otherwise stall every in-flight request the first time a view is checked.
+        """
+        if self.indoor_filter is not None:
+            self.indoor_filter._ensure_loaded()
+
     def capture_bench_images(
         self, lat: float, lng: float, bench_id: str
     ) -> StreetViewBatchCaptureResult:

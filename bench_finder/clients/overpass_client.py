@@ -5,6 +5,7 @@ OpenStreetMap Overpass API integration for finding benches.
 import json
 import logging
 
+import backoff
 import requests
 
 from bench_finder.clients.base_location_client import (
@@ -22,6 +23,28 @@ from bench_finder.models.unified_models import UnifiedBench, UnifiedSearchResult
 
 
 logger = logging.getLogger(__name__)
+
+
+def _give_up(exc: Exception) -> bool:
+    """Retry network errors, 429 and 5xx; give up on other 4xx responses."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    return status is not None and 400 <= status < 500 and status != 429
+
+
+@backoff.on_exception(
+    backoff.expo,
+    (requests.exceptions.RequestException, json.JSONDecodeError),
+    max_tries=4,
+    max_time=120,
+    giveup=_give_up,
+    logger=logger,
+)
+def post_overpass_query(url: str, query: str, timeout: float) -> dict:
+    """POST an Overpass QL query and return the decoded JSON, retrying transient failures."""
+    response = requests.post(url, data={"data": query}, timeout=timeout)
+    response.raise_for_status()
+    return response.json()
 
 
 class OverpassClient(BaseLocationClient):
@@ -120,13 +143,9 @@ class OverpassClient(BaseLocationClient):
             """
 
             # Make request to Overpass API
-            response = requests.post(
-                self.base_url, data={"data": query}, timeout=self.timeout
-            )
-            response.raise_for_status()
+            raw_data = post_overpass_query(self.base_url, query, self.timeout)
 
             # Parse response using Pydantic
-            raw_data = response.json()
             overpass_response = OverpassResponse(**raw_data)
 
             # Convert elements to benches
@@ -199,13 +218,9 @@ class OverpassClient(BaseLocationClient):
             out geom;
             """
 
-            response = requests.post(
-                self.base_url, data={"data": query}, timeout=self.timeout
-            )
-            response.raise_for_status()
+            raw_data = post_overpass_query(self.base_url, query, self.timeout)
 
             # Parse response using Pydantic
-            raw_data = response.json()
             overpass_response = OverpassResponse(**raw_data)
 
             if not overpass_response.elements:
