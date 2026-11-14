@@ -48,7 +48,7 @@ class ImageDownloadService:
         )
 
     def process_benches(
-        self, search_id: int, benches: list[BenchCandidate]
+        self, search_id: int, benches: list[CandidateResult]
     ) -> ProcessingStats:
         """
         Process each bench: capture images and store in database.
@@ -107,7 +107,7 @@ class ImageDownloadService:
         return stats
 
     def process_benches_with_progress(
-        self, search_id: int, benches: list[BenchCandidate], progress, task
+        self, search_id: int, benches: list[CandidateResult], progress, task
     ) -> ProcessingStats:
         """
         Process each bench: capture images and store in database with progress bar.
@@ -164,7 +164,7 @@ class ImageDownloadService:
         return stats
 
     def _process_single_bench(
-        self, search_id: int, bench: BenchCandidate
+        self, search_id: int, bench: CandidateResult
     ) -> BenchProcessingResult:
         """
         Process a single bench: add to DB and capture images.
@@ -199,18 +199,16 @@ class ImageDownloadService:
             try:
                 with self.database.get_session() as session:
                     from bench_finder.models.unified_models import (
-                        BenchCandidate as DBBenchCandidate,
-                    )
-                    from bench_finder.models.unified_models import (
+                        BenchCandidate,
                         Image,
                     )
 
                     # Find the bench candidate in the database
                     db_candidate = (
-                        session.query(DBBenchCandidate)
+                        session.query(BenchCandidate)
                         .filter(
-                            DBBenchCandidate.provider_id == bench.provider_id,
-                            DBBenchCandidate.search_id == search_id,
+                            BenchCandidate.provider_id == bench.provider_id,
+                            BenchCandidate.search_id == search_id,
                         )
                         .first()
                     )

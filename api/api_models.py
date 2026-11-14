@@ -228,6 +228,18 @@ class BenchListResponse(SQLModel):
     pagination: PaginationInfo
 
 
+class BboxBenchResponse(SQLModel):
+    """Response model for bounding box bench queries."""
+
+    benches: list[WebBenchData] = Field(
+        ..., description="List of benches within the bounding box"
+    )
+    total_count: int = Field(..., ge=0, description="Total number of benches returned")
+    bbox: dict[str, float] = Field(
+        ..., description="The requested bounding box coordinates"
+    )
+
+
 class ImageListResponse(SQLModel):
     """Schema for image list response."""
 

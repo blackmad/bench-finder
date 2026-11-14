@@ -39,7 +39,7 @@ from api.api_models import (
     SegmentationData,
     WebBenchData,
 )
-from api.fastapi_server import BboxBenchResponse
+from api.api_models import BboxBenchResponse
 from bench_finder.display import create_combined_image_display, render_detections
 from bench_finder.models.enums import DataSource, DetectionSource
 from bench_finder.models.unified_models import (

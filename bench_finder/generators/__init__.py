@@ -1,10 +1,10 @@
 """Generators package for bench discovery sources."""
 
-from .bench_generator import CandidateResult, BenchGenerator, GeneratorStats
+from .bench_generator import BenchGenerator, CandidateResult, GeneratorStats
 
 
 __all__ = [
-    "CandidateResult",
     "BenchGenerator",
+    "CandidateResult",
     "GeneratorStats",
 ]

@@ -8,7 +8,7 @@ from bench_finder.clients.overpass_client import OverpassClient
 from bench_finder.models.enums import DataSource
 from bench_finder.models.overpass_models import OSMBench
 
-from .bench_generator import CandidateResult, BenchGenerator
+from .bench_generator import BenchGenerator, CandidateResult
 
 
 logger = logging.getLogger(__name__)

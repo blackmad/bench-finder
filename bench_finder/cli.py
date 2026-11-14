@@ -21,7 +21,7 @@ from rich.table import Table
 
 from bench_finder.config import SEARCH_RADIUS_METERS
 from bench_finder.core.geocoder import Geocoder
-from bench_finder.generators.bench_generator import CandidateResult, BenchGenerator
+from bench_finder.generators.bench_generator import BenchGenerator, CandidateResult
 from bench_finder.generators.overpass import OverpassBenchGenerator
 
 # Import enums and models separately to avoid double-loading unified_models
@@ -265,6 +265,86 @@ def generate_candidates(
     console.print(
         f"\n[dim]📊 Stored {len(stored_candidates)} candidates in database (search_id: {search_id})[/dim]"
     )
+
+
+@app.command("update-all")
+def update_all(
+    query: str = typer.Argument(
+        ..., help="Search query (address, location name, etc.)"
+    ),
+    radius: int = typer.Option(
+        SEARCH_RADIUS_METERS,
+        "--radius",
+        "-r",
+        help=f"Search radius in meters (default: {SEARCH_RADIUS_METERS})",
+    ),
+    backend: str = typer.Option(
+        "multi", "--backend", help="Detection backend: roboflow, ultralytics, or multi"
+    ),
+    log_level: str = typer.Option(
+        "INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    ),
+):
+    """
+    Run the full pipeline: generate candidates, fetch images, run detections.
+
+    This chains generate-candidates, fetch-images, and run-detections in sequence
+    for a single search query.
+    """
+    setup_logging(level=log_level)
+
+    # Phase 1: Generate candidates
+    console.print("\n[bold]Phase 1/3: Generating candidates...[/bold]")
+    generate_candidates(
+        query=query,
+        radius=radius,
+        log_level=log_level,
+        source=None,
+        show_table=False,
+        output_format="table",
+    )
+
+    # Find the search_id for the search we just created
+    database = BenchDatabase()
+    with database.get_session() as session:
+        from bench_finder.models.unified_models import Search
+
+        latest_search = (
+            session.query(Search)
+            .filter(Search.query == query)
+            .order_by(Search.created_at.desc())
+            .first()
+        )
+        if not latest_search:
+            console.print("[bold red]❌ Failed to find search record[/bold red]")
+            raise typer.Exit(1)
+        search_id = latest_search.id
+
+    console.print(f"[dim]Using search_id: {search_id}[/dim]")
+
+    # Phase 2: Fetch images
+    console.print("\n[bold]Phase 2/3: Fetching images...[/bold]")
+    fetch_images(
+        log_level=log_level,
+        max_candidates=None,
+        limit=None,
+        status=BenchCandidateStatus.PENDING,
+        cached_only=False,
+        force=False,
+    )
+
+    # Phase 3: Run detections
+    console.print("\n[bold]Phase 3/3: Running detections...[/bold]")
+    run_detections(
+        search_id=search_id,
+        log_level=log_level,
+        max_candidates=None,
+        backend=backend,
+        disable_fallback=False,
+        no_copy_bench_images=False,
+    )
+
+    console.print("\n[bold green]✅ Full pipeline complete![/bold green]")
 
 
 @app.command("list-candidates")
@@ -858,8 +938,6 @@ def fetch_images(
 
                         from bench_finder.models.unified_models import (
                             BenchCandidate,
-                        )
-                        from bench_finder.models.unified_models import (
                             Image,
                         )
 
@@ -2695,14 +2773,14 @@ def backfill_metadata_cache_heading(
                         # Apple pano_id typically contains encoded location info
                         # Try to fetch the pano directly if the API supports it
                         # Otherwise, we'd need the coordinates from the filename or stored metadata
-                        
+
                         # Extract lat/lng from filename as fallback
                         filename = os.path.basename(filepath)
                         parts = filename.replace(".json", "").split("_")
                         if len(parts) >= 3:
                             lat = float(parts[0])
                             lng = float(parts[1])
-                            
+
                             tile = await lookaround.get_coverage_tile_by_latlon_async(
                                 lat, lng, session=session_aio
                             )
@@ -2713,7 +2791,7 @@ def backfill_metadata_cache_heading(
                                     if hasattr(p, "id") and p.id == pano_id:
                                         pano = p
                                         break
-                                
+
                                 if pano:
                                     # Convert to PanoramaMetadata with new format
                                     new_pano_meta = PanoramaMetadata.from_lookaround_pano(
