@@ -114,7 +114,7 @@ SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
 if USE_SUPABASE and SUPABASE_DB_URL:
     DATABASE_URL = SUPABASE_DB_URL
 
-IMAGES_DIR = "images"
+IMAGES_DIR = os.getenv("IMAGES_DIR", "images")
 
 # Image storage settings
 IMAGE_STORAGE_BACKEND = os.getenv(
