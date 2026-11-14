@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bench Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet" />
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<link href="styles.css" rel="stylesheet" />
+</head>
+<body>
+<header class="bar">
+  <a class="wordmark" href="index.html"><b class="caps">Bench Finder</b><span class="serial">Amsterdam</span></a>
+  <form class="search" role="search" id="search">
+    <label for="q" class="searchicon"><span id="i-search"></span><span class="sr">Search</span></label>
+    <input id="q" type="search" placeholder="Search a place" aria-label="Search places" autocomplete="off" />
+  </form>
+  <span class="spacer"></span>
+  <button class="textbtn" type="button"><span id="i-user"></span><span class="signin-label">Sign in</span></button>
+</header>
+
+<main class="atlas">
+  <div id="map" aria-label="Map of benches"></div>
+  <aside class="rack" aria-label="Benches in view">
+    <section class="filters" id="filters" aria-label="Filters">
+      <div>
+        <div class="label caps">Looks at</div>
+        <div class="checks" id="faces"></div>
+        <div class="label caps" style="margin-top:14px">Seat</div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="backrest" /><span class="box" data-check></span>Has a backrest</label>
+        </div>
+      </div>
+      <div class="dialwrap">
+        <div class="label caps">Facing</div>
+        <svg class="dial" id="dial" viewBox="-50 -50 100 100" role="group" aria-label="Filter by facing direction"></svg>
+        <div class="dialhint" id="dialhint">Any direction</div>
+      </div>
+      <p class="sheetnote"><span class="key"><span><i></i>Mapped facing</span><span><i class="est"></i>Estimated (≈)</span></span>Facings marked ≈ are sample data in this design reference.</p>
+    </section>
+    <div class="rackhead">
+      <span><strong class="num" id="count">0</strong> benches in view</span>
+      <span class="key"><span><i></i>Mapped facing</span><span><i class="est"></i>Estimated</span></span>
+    </div>
+    <div class="cards" id="cards" aria-live="polite"></div>
+  </aside>
+  <button class="sheet-toggle" type="button" id="filtersbtn" aria-expanded="false" aria-controls="filters"><span id="i-sliders"></span>Filters</button>
+</main>
+
+<script src="data.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script type="module">
+import { stampSVG, markerImage, windName, facesText, isKnown, ICONS } from "./postmark.js";
+
+const $ = (s) => document.querySelector(s);
+$("#i-search").outerHTML = ICONS.search; $("#i-user").outerHTML = ICONS.user; $("#i-sliders").outerHTML = ICONS.sliders;
+document.querySelectorAll("[data-check]").forEach((b) => (b.innerHTML = ICONS.check));
+
+const all = window.BENCHES;
+const byId = new Map(all.map((b) => [b.id, b]));
+const state = { faces: new Set(), backrest: false, sectors: new Set(), selected: null };
+
+// Faces filter
+const FACE_OPTS = [["water", "Water"], ["park", "Park"], ["square", "Square"], ["street", "Street"]];
+$("#faces").innerHTML = FACE_OPTS.map(([v, l]) => `<label class="check"><input type="checkbox" value="${v}" /><span class="box">${ICONS.check}</span>${l}</label>`).join("");
+$("#faces").addEventListener("change", (e) => { e.target.checked ? state.faces.add(e.target.value) : state.faces.delete(e.target.value); refresh(); });
+$("#backrest").addEventListener("change", (e) => { state.backrest = e.target.checked; refresh(); });
+
+// Facing dial: 8 sectors
+const SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const arc = (a0, a1, r0, r1) => {
+  const p = (a, r) => [Math.sin((a * Math.PI) / 180) * r, -Math.cos((a * Math.PI) / 180) * r];
+  const [x0, y0] = p(a0, r1), [x1, y1] = p(a1, r1), [x2, y2] = p(a1, r0), [x3, y3] = p(a0, r0);
+  return `M${x0} ${y0}A${r1} ${r1} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${r0} ${r0} 0 0 0 ${x3} ${y3}Z`;
+};
+$("#dial").innerHTML = SECT.map((s, i) => {
+  const a = i * 45, [lx, ly] = [Math.sin((a * Math.PI) / 180) * 33, -Math.cos((a * Math.PI) / 180) * 33];
+  return `<path class="sector" tabindex="0" role="button" aria-pressed="false" aria-label="Facing ${s}" data-s="${i}" d="${arc(a - 22.5, a + 22.5, 18, 47)}"/><text class="lab" x="${lx}" y="${ly}">${s}</text>`;
+}).join("") + `<circle r="14" fill="var(--card)" stroke="var(--ink)" stroke-width="1"/><path d="M0 -9 l-3.4 6 h6.8z" fill="var(--ink)"/><line x1="0" y1="-3" x2="0" y2="8" stroke="var(--ink)" stroke-width="1.6"/>`;
+const toggleSector = (el) => {
+  const s = +el.dataset.s; state.sectors.has(s) ? state.sectors.delete(s) : state.sectors.add(s);
+  el.setAttribute("aria-pressed", state.sectors.has(s));
+  $("#dialhint").textContent = state.sectors.size ? "Facing " + [...state.sectors].sort().map((i) => SECT[i]).join(", ") : "Any direction";
+  refresh();
+};
+$("#dial").addEventListener("click", (e) => e.target.dataset.s && toggleSector(e.target));
+$("#dial").addEventListener("keydown", (e) => (e.key === "Enter" || e.key === " ") && e.target.dataset.s && (e.preventDefault(), toggleSector(e.target)));
+
+const passes = (b) =>
+  (!state.faces.size || state.faces.has(b.faces)) &&
+  (!state.backrest || b.type === "backrest") &&
+  (!state.sectors.size || state.sectors.has(Math.round(b.facing / 45) % 8));
+
+// Map
+const map = new maplibregl.Map({
+  container: "map", style: "https://tiles.openfreemap.org/styles/positron",
+  center: [4.893, 52.3715], zoom: 13.1, attributionControl: { compact: true }, dragRotate: false,
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+map.on("load", () => {
+  // Re-ink the basemap as card stock + airmail water
+  for (const l of map.getStyle().layers) {
+    if (l.type === "background") map.setPaintProperty(l.id, "background-color", "#f6f6f1");
+    if (/water/.test(l.id) && l.type === "fill") map.setPaintProperty(l.id, "fill-color", "#cfdbee");
+    if (/park|landuse|landcover|wood|grass/.test(l.id) && l.type === "fill") map.setPaintProperty(l.id, "fill-color", "#e6eadc");
+    if (l.type === "symbol" && l.paint && l.layout?.["text-field"]) map.setPaintProperty(l.id, "text-color", "#5c5c57");
+  }
+  for (const k of ["known", "est", "sel"]) map.addImage("m-" + k, markerImage(k), { pixelRatio: 2 });
+  const secProps = Object.fromEntries([0,1,2,3,4,5,6,7].map((i) => ["s" + i, ["+", ["case", ["==", ["get", "sec"], i], 1, 0]]]));
+  map.addSource("benches", { type: "geojson", data: fc(), cluster: true, clusterRadius: 52, clusterMaxZoom: 13, clusterProperties: secProps });
+  // Invisible layer so cluster features are queryable; clusters are drawn as HTML postmark roses
+  map.addLayer({ id: "clusters", type: "circle", source: "benches", filter: ["has", "point_count"], paint: { "circle-opacity": 0, "circle-radius": 1 } });
+  map.addLayer({ id: "bench", type: "symbol", source: "benches", filter: ["!", ["has", "point_count"]],
+    layout: { "icon-image": ["case", ["get", "known"], "m-known", "m-est"], "icon-rotate": ["get", "facing"],
+      "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-size": ["case", ["get", "photo"], 1.08, 0.86] } });
+  map.addSource("sel", { type: "geojson", data: selFC() });
+  map.addLayer({ id: "sel", type: "symbol", source: "sel",
+    layout: { "icon-image": "m-sel", "icon-rotate": ["get", "facing"], "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-size": 1.2 } });
+  map.on("click", "bench", (e) => select(e.features[0].properties.id, { scroll: true }));
+  for (const l of ["bench"]) {
+    map.on("mouseenter", l, () => (map.getCanvas().style.cursor = "pointer"));
+    map.on("mouseleave", l, () => (map.getCanvas().style.cursor = ""));
+  }
+  map.on("moveend", renderRack);
+  map.on("render", drawClusters);
+  placeThumbs();
+  renderRack();
+});
+
+function fc() {
+  return { type: "FeatureCollection", features: all.filter((b) => passes(b) && !b.img).map((b) => ({ type: "Feature",
+    geometry: { type: "Point", coordinates: [b.lng, b.lat] },
+    properties: { id: b.id, facing: b.facing, sec: Math.round(b.facing / 45) % 8, known: isKnown(b), photo: !!b.img } })) };
+}
+// Cluster = a postmark rose: ring + count in Archivo + one tick per facing sector, length by share of members
+const clusterEls = new Map();
+function roseSVG(p) {
+  const n = p.point_count, R = n >= 100 ? 19 : n >= 20 ? 16 : 13;
+  const ticks = [0,1,2,3,4,5,6,7].map((i) => {
+    const share = p["s" + i] / n; if (!share) return "";
+    const a = (i * 45 * Math.PI) / 180, l = 3 + share * 14;
+    return `<line x1="${Math.sin(a) * R}" y1="${-Math.cos(a) * R}" x2="${Math.sin(a) * (R + l)}" y2="${-Math.cos(a) * (R + l)}"/>`;
+  }).join("");
+  const S = R + 18;
+  return `<svg viewBox="${-S} ${-S} ${2 * S} ${2 * S}" width="${2 * S}" height="${2 * S}" aria-hidden="true">
+    <g stroke="#141414" stroke-width="2" stroke-linecap="round">${ticks}</g>
+    <circle r="${R}" fill="#fbfbf7" stroke="#141414" stroke-width="1.5"/><circle r="${R - 3.2}" fill="none" stroke="#141414" stroke-width=".7"/>
+    <text text-anchor="middle" dominant-baseline="central" font-family="Archivo" font-weight="700" font-size="${R >= 16 ? 11 : 10}" style="font-variation-settings:'wdth' 112;font-variant-numeric:tabular-nums" fill="#141414">${p.point_count_abbreviated}</text></svg>`;
+}
+function drawClusters() {
+  if (!map.getSource("benches") || !map.isSourceLoaded("benches")) return;
+  const seen = new Set();
+  for (const f of map.querySourceFeatures("benches", { filter: ["has", "point_count"] })) {
+    const id = f.properties.cluster_id; if (seen.has(id)) continue; seen.add(id);
+    let m = clusterEls.get(id);
+    if (!m) {
+      const el = document.createElement("button");
+      el.type = "button"; el.className = "rose";
+      el.setAttribute("aria-label", `${f.properties.point_count} benches here; zoom in`);
+      el.innerHTML = roseSVG(f.properties);
+      el.addEventListener("click", () => map.easeTo({ center: f.geometry.coordinates, zoom: map.getZoom() + 2 }));
+      m = new maplibregl.Marker({ element: el }).setLngLat(f.geometry.coordinates);
+      clusterEls.set(id, m);
+    }
+    m.addTo(map);
+  }
+  for (const [id, m] of clusterEls) if (!seen.has(id)) { m.remove(); clusterEls.delete(id); }
+}
+function selFC() {
+  const b = byId.get(state.selected);
+  return { type: "FeatureCollection", features: b && !b.img ? [{ type: "Feature", geometry: { type: "Point", coordinates: [b.lng, b.lat] }, properties: { facing: b.facing } }] : [] };
+}
+const thumbs = new Map();
+function placeThumbs() {
+  for (const b of all.filter((x) => x.img)) {
+    let m = thumbs.get(b.id);
+    if (!m) {
+      const el = document.createElement("button");
+      el.className = "thumb"; el.type = "button"; el.dataset.id = b.id;
+      el.setAttribute("aria-label", `Bench No. ${b.id} on ${b.street}`);
+      el.innerHTML = `<img src="${b.img}" alt="" width="58" height="42"/><span class="needle" style="--f:${b.facing}deg"><i></i></span>`;
+      el.addEventListener("click", () => select(b.id, { scroll: true }));
+      m = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([b.lng, b.lat]).addTo(map);
+      thumbs.set(b.id, m);
+    }
+    m.getElement().hidden = !passes(b);
+    m.getElement().toggleAttribute("data-sel", b.id === state.selected);
+  }
+}
+function refresh() { map.getSource("benches")?.setData(fc()); placeThumbs(); renderRack(); }
+
+const titleCase = (s) => s || "Unnamed path";
+function postcard(b) {
+  const sel = b.id === state.selected;
+  return `<a class="postcard" href="bench.html?id=${b.id}" data-id="${b.id}" ${sel ? 'aria-current="true"' : ""}>
+    <div class="photo"><img src="${b.img}" alt="Bench on ${titleCase(b.street)}, looking toward ${facesText(b.faces)}" width="960" height="640" loading="lazy" /></div>
+    <div class="stampslot">${stampSVG(b, { selected: sel })}</div>
+    <div class="caption"><span class="caps">${titleCase(b.street)}</span><span class="serial">No.&nbsp;${b.id}</span></div>
+    <div class="meta"><span>Looks at ${facesText(b.faces)}</span><span>${b.type === "backrest" ? "Backrest" : b.type === "backless" ? "No backrest" : "Seat type unknown"}</span></div>
+  </a>`;
+}
+function plain(b) {
+  return `<a class="plain" href="bench.html?id=${b.id}" data-id="${b.id}">
+    <svg viewBox="-20 -20 40 40" width="40" height="40" aria-hidden="true"><circle r="15" fill="none" stroke="var(--rule)"/><g transform="rotate(${b.facing})" stroke="${isKnown(b) ? "var(--ink)" : "var(--airmail)"}" ${isKnown(b) ? "" : 'stroke-dasharray="2 2"'} stroke-width="${isKnown(b) ? 2 : 1.2}" fill="none"><line y1="4" y2="-12"/><path d="M0 -15 l-3 5 h6z"/></g></svg>
+    <span><span class="caps">${titleCase(b.street)}</span><br/><small>${isKnown(b) ? "Faces" : "Probably faces"} ${windName(b.facing)} · no photo yet</small></span>
+    <span class="serial">No.&nbsp;${b.id}</span>
+  </a>`;
+}
+
+function renderRack() {
+  if (!map.getSource("benches")) return;
+  const bounds = map.getBounds(), c = map.getCenter();
+  const vis = all.filter((b) => passes(b) && bounds.contains([b.lng, b.lat]));
+  const d = (b) => (b.lng - c.lng) ** 2 * 0.37 + (b.lat - c.lat) ** 2;
+  const photos = vis.filter((b) => b.img).sort((a, b) => d(a) - d(b));
+  const rest = vis.filter((b) => !b.img).sort((a, b) => d(a) - d(b)).slice(0, 24);
+  $("#count").textContent = vis.length.toLocaleString("en");
+  $("#cards").innerHTML =
+    (photos.length ? photos.map(postcard).join("") : `<p class="sectionnote">No photographed benches in this view yet. Zoom out, or loosen the filters.</p>`) +
+    (rest.length ? `<p class="sectionnote caps" style="font-size:11px;margin:6px 0 -10px">Not yet photographed</p>` + rest.map(plain).join("") : "") +
+    `<p class="samplenote">Design reference. Bench locations and photos are real; facings marked ≈ are sample data until the facing pipeline runs.</p>`;
+  if (!photos.some((b) => b.id === state.selected) && photos[0]) select(photos[0].id);
+  else select(state.selected);
+}
+
+function select(id, { scroll = false } = {}) {
+  if (id == null) return;
+  state.selected = +id;
+  map.getSource("sel")?.setData(selFC());
+  placeThumbs();
+  document.querySelectorAll(".postcard").forEach((el) => {
+    const on = +el.dataset.id === state.selected;
+    el.toggleAttribute("aria-current", on);
+    if (on || el.querySelector(".stamp")?.classList.contains("stamping")) el.querySelector(".stampslot").innerHTML = stampSVG(byId.get(+el.dataset.id), { selected: on });
+  });
+  const el = document.querySelector(`.postcard[data-id="${id}"]`);
+  if (scroll && el) el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+}
+$("#cards").addEventListener("pointerover", (e) => {
+  const c = e.target.closest(".postcard"); if (c && +c.dataset.id !== state.selected) select(c.dataset.id);
+});
+// Phone: the card snapped to centre is the selected one
+const io = new IntersectionObserver((es) => es.forEach((x) => x.isIntersecting && x.intersectionRatio > 0.75 && select(x.target.dataset.id)), { threshold: [0.75] });
+new MutationObserver(() => { if (matchMedia("(max-width: 760px)").matches) document.querySelectorAll(".postcard").forEach((el) => io.observe(el)); }).observe($("#cards"), { childList: true });
+
+$("#filtersbtn").addEventListener("click", () => {
+  const open = document.body.toggleAttribute("data-filters");
+  $("#filtersbtn").setAttribute("aria-expanded", open);
+});
+// Phone: start the attribution collapsed (the "i" button)
+map.on("load", () => document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show"));
+
+// Place search (Photon)
+$("#search").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("#q").value.trim(); if (!q) return;
+  try {
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=52.37&lon=4.89&limit=1`);
+    const f = (await r.json()).features?.[0];
+    if (f) map.flyTo({ center: f.geometry.coordinates, zoom: 15.5 });
+  } catch { /* search is best-effort in the reference */ }
+});
+</script>
+</body>
+</html>

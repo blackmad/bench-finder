@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bench Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet" />
+<link href="styles.css" rel="stylesheet" />
+<style>
+  body { min-height: 100%; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 36px 32px 80px; }
+  .crumb { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); text-decoration: none; font-weight: 600; margin: 0 0 22px -4px; }
+  .crumb:hover { color: var(--airmail); }
+
+  .spread { display: grid; grid-template-columns: 1.08fr 1fr; gap: 28px; align-items: start; }
+  .front { background: var(--card); padding: 14px 14px 0; box-shadow: var(--shadow); position: relative; }
+  .front .photo { aspect-ratio: 4 / 3; overflow: hidden; background: #c9c9bf; }
+  .front .photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 60%; display: block; }
+  .front .caption { display: flex; justify-content: space-between; align-items: baseline; padding: 13px 4px 15px; }
+  .front .caption .caps { font-size: 15px; }
+  .front .stampslot { position: absolute; top: 4px; right: 4px; }
+  .front .tag { position: absolute; left: 26px; top: 26px; background: var(--card); padding: 5px 9px; font-size: 12px; font-weight: 600; box-shadow: var(--shadow); }
+
+  .back { background: var(--card); box-shadow: var(--shadow); display: grid; grid-template-columns: 1.25fr 1fr; min-height: 100%; }
+  .message { padding: 30px 28px 28px; border-right: 1px solid var(--rule); }
+  .address { padding: 22px 24px 28px; display: flex; flex-direction: column; }
+  h1 { font-size: clamp(30px, 3.1vw, 42px); line-height: 1.02; font-variation-settings: "wdth" 112; font-weight: 750; letter-spacing: -0.015em; margin: 0 0 12px; text-wrap: balance; }
+  .lede { font-size: 16.5px; color: var(--ink-2); margin: 0 0 26px; max-width: 34ch; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 10px 18px; margin: 0 0 28px; font-size: 14.5px; }
+  dt { color: var(--ink-2); font-size: 11px; padding-top: 3px; white-space: nowrap; }
+  dd { margin: 0; }
+  dd small { display: block; color: var(--ink-2); font-size: 12.5px; margin-top: 2px; }
+  .conf { display: inline-flex; align-items: center; gap: 8px; }
+  .meter { width: 64px; height: 4px; background: var(--rule); position: relative; }
+  .meter b { position: absolute; inset: 0 auto 0 0; background: var(--airmail); }
+
+  .acts { border-top: 1px solid var(--rule); padding-top: 18px; display: grid; gap: 14px; }
+  .stars { display: flex; gap: 2px; align-items: center; }
+  .stars button { background: none; border: 0; padding: 3px; cursor: pointer; color: var(--ink-3); }
+  .stars button:hover, .stars button:hover ~ button { color: var(--ink-3); }
+  .stars:hover button { color: var(--airmail); }
+  .stars button:hover ~ button { color: var(--ink-3); }
+  .stars .icon { width: 22px; height: 22px; }
+  .stars span { font-size: 13px; color: var(--ink-2); margin-left: 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; border: 1.5px solid var(--ink); background: var(--card); padding: 9px 14px; font-weight: 600; cursor: pointer; text-decoration: none; color: var(--ink); }
+  .btn:hover { background: var(--ink); color: var(--card); }
+  .btn.primary { background: var(--airmail); border-color: var(--airmail); color: #fff; }
+  .btn.primary:hover { background: #163d80; border-color: #163d80; }
+
+  .address .stampslot { align-self: flex-end; margin: -4px -6px 18px 0; }
+  .lines { margin-top: auto; display: grid; }
+  .lines div { border-bottom: 1px solid var(--ink-3); padding: 14px 2px 5px; font-size: 16px; min-height: 42px; }
+  .lines div.caps { font-size: 13px; }
+  .coords { font-size: 12px; color: var(--ink-2); margin-top: 12px; }
+
+  section.block { margin-top: 56px; }
+  .blockhead { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; border-bottom: 1.5px solid var(--ink); padding-bottom: 8px; margin-bottom: 18px; }
+  .blockhead h2 { margin: 0; font-size: 22px; font-variation-settings: "wdth" 112; font-weight: 700; letter-spacing: -0.01em; }
+  .blockhead p { margin: 0; color: var(--ink-2); font-size: 13.5px; }
+  .embed { position: relative; aspect-ratio: 21 / 9; background: #20201e; overflow: hidden; }
+  .embed img { width: 100%; height: 100%; object-fit: cover; opacity: .55; filter: saturate(.8); }
+  .embed .over { position: absolute; inset: auto 0 0 0; padding: 22px 24px; color: #fff; display: flex; justify-content: space-between; align-items: end; gap: 16px; background: linear-gradient(transparent, rgb(0 0 0 / .55)); }
+  .embed .over p { margin: 0; max-width: 46ch; font-size: 14px; }
+  .gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .gallery figure { margin: 0; background: var(--card); padding: 7px 7px 0; box-shadow: var(--shadow); position: relative; }
+  .minicompass { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; filter: drop-shadow(0 1px 1px rgb(20 20 20 / .3)); }
+  .gallery img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; display: block; }
+  .gallery figcaption { font-size: 12px; color: var(--ink-2); padding: 7px 2px 8px; }
+  .notes { background: var(--card); box-shadow: var(--shadow); padding: 28px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+  .notes p { margin: 0; color: var(--ink-2); }
+  .notes strong { display: block; color: var(--ink); font-size: 17px; margin-bottom: 3px; }
+  .report { margin-top: 40px; display: flex; gap: 10px; align-items: center; color: var(--ink-2); font-size: 14px; }
+  .report button { white-space: nowrap;  background: none; border: 0; padding: 0; color: var(--airmail); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+  .samplenote { margin-top: 28px; }
+
+  @media (max-width: 900px) {
+    .page { padding: 18px 16px 64px; }
+    .spread { grid-template-columns: 1fr; gap: 20px; }
+    .front { padding: 9px 9px 0; }
+    .front .tag { left: 18px; top: 18px; }
+    .back { grid-template-columns: 1fr; }
+    .message { border-right: 0; border-bottom: 1px dashed var(--rule); padding: 24px 20px 22px; }
+    .address { padding: 18px 20px 22px; display: grid; grid-template-columns: 1fr auto; gap: 0 16px; }
+    .address .stampslot { grid-column: 2; grid-row: 1 / span 2; margin: 0; align-self: start; }
+    .lines { grid-column: 1; grid-row: 1; margin-top: 0; }
+    .coords { grid-column: 1 / -1; }
+    .embed { aspect-ratio: 4 / 3; }
+    .embed .over { flex-direction: column; align-items: start; }
+    .gallery { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .notes { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .blockhead { flex-direction: column; align-items: start; gap: 4px; }
+    .report { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <a class="wordmark" href="index.html"><b class="caps">Bench Finder</b><span class="serial">Amsterdam</span></a>
+  <span class="spacer"></span>
+  <button class="textbtn" type="button" id="signin"></button>
+</header>
+<main class="page" id="page"></main>
+
+<script src="data.js"></script>
+<script type="module">
+import { stampSVG, windName, facesText, isKnown, ICONS } from "./postmark.js";
+const id = +(new URLSearchParams(location.search).get("id") || 394);
+const b = window.BENCHES.find((x) => x.id === id) || window.BENCHES.find((x) => x.id === 394);
+const gal = (window.GALLERY || {})[b.id] || [];
+document.getElementById("signin").innerHTML = ICONS.user + '<span class="signin-label">Sign in</span>';
+const WIND_LONG = { N: "north", NNE: "north-north-east", NE: "north-east", ENE: "east-north-east", E: "east", ESE: "east-south-east", SE: "south-east", SSE: "south-south-east", S: "south", SSW: "south-south-west", SW: "south-west", WSW: "west-south-west", W: "west", WNW: "west-north-west", NW: "north-west", NNW: "north-north-west" };
+const w = windName(b.facing), known = isKnown(b);
+const seat = b.type === "backrest" ? "backrest bench" : b.type === "backless" ? "backless bench" : "bench";
+const headline = { water: "Looks out over the water", park: "Looks into the park", square: "Looks across the square", street: "Watches the street" }[b.faces] || "A bench";
+const street = b.street || "Unnamed path";
+document.title = `${street}: bench No. ${b.id}, Bench Finder`;
+
+document.getElementById("page").innerHTML = `
+<a class="crumb" href="index.html">${ICONS.back}Back to the map</a>
+<div class="spread">
+  <figure class="front" style="margin:0">
+    <div class="photo">${b.img ? `<img src="${b.img}" alt="The bench on ${street}, seen from behind, looking toward ${facesText(b.faces)}" width="960" height="720" />` : ""}</div>
+    <div class="stampslot">${stampSVG(b, { large: true })}</div>
+    <figcaption class="caption"><span class="caps">${street}</span><span class="serial">No.&nbsp;${b.id}</span></figcaption>
+  </figure>
+
+  <article class="back" aria-label="About this bench">
+    <div class="message">
+      <h1>${headline}</h1>
+      <p class="lede">A ${seat} on ${street.replace(/\s\d.*$/, "")}, ${known ? "facing" : "probably facing"} ${WIND_LONG[w]}${b.material ? `, made of ${b.material}` : ""}.</p>
+      <dl>
+        <dt class="caps">Facing</dt>
+        <dd><span class="num">${w} · ${b.facing}°</span>
+          <small>${known ? "From the OpenStreetMap direction tag" : `<span class="conf">Estimated from street views <span class="meter"><b style="width:${Math.round(b.conf * 100)}%"></b></span>${Math.round(b.conf * 100)}%</span>`}</small></dd>
+        <dt class="caps">Seat</dt><dd>${b.type === "backrest" ? "Backrest" : b.type === "backless" ? "No backrest" : "Not recorded"}</dd>
+        <dt class="caps">Looks at</dt><dd>${facesText(b.faces).replace(/^the /, "").replace(/^\w/, (c) => c.toUpperCase())}</dd>
+        ${b.material ? `<dt class="caps">Material</dt><dd>${b.material.replace(/^\w/, (c) => c.toUpperCase())}</dd>` : ""}
+      </dl>
+      <div class="acts">
+        <div class="stars" role="group" aria-label="Rate this bench">${[1, 2, 3, 4, 5].map((n) => `<button type="button" aria-label="${n} of 5">${ICONS.star}</button>`).join("")}<span>No ratings yet</span></div>
+        <div class="row">
+          <label class="check"><input type="checkbox" /><span class="box">${ICONS.check}</span>I've sat here</label>
+          <label class="check"><input type="checkbox" /><span class="box">${ICONS.check}</span>Favourite</label>
+        </div>
+      </div>
+    </div>
+    <div class="address">
+      <div class="stampslot" aria-hidden="true">${stampSVG(b)}</div>
+      <div class="lines">
+        <div class="caps">Bench No. ${b.id}</div>
+        <div>${street}${b.num ? " " + b.num : ""}</div>
+        <div>${b.pc ? b.pc + " " : ""}Amsterdam</div>
+        <div>Netherlands</div>
+      </div>
+      <p class="coords num">${b.lat.toFixed(5)}° N, ${b.lng.toFixed(5)}° E · <a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lng}#map=19/${b.lat}/${b.lng}">Open in OpenStreetMap</a></p>
+    </div>
+  </article>
+</div>
+
+<section class="block" aria-labelledby="h-view">
+  <div class="blockhead"><h2 id="h-view">The view from this bench</h2><p>Street View, turned to face ${WIND_LONG[w]}</p></div>
+  <div class="embed">
+    ${b.img ? `<img src="${b.img}" alt="" width="960" height="411" />` : ""}
+    <div class="over"><p>The interactive Google Maps Embed loads here, aimed at ${b.facing}° so you see what you would see sitting down. It is a placeholder in this reference.</p>
+    <button class="btn primary" type="button">${ICONS.eye}Look around</button></div>
+  </div>
+</section>
+
+${gal.length ? `<section class="block" aria-labelledby="h-more">
+  <div class="blockhead"><h2 id="h-more">More views</h2><p>${gal.length} other street views of this spot</p></div>
+  <div class="gallery">${gal.map((g) => {
+    const h = g.heading, look = h == null ? "Heading not recorded" : `Looking ${windName(h)} · ${h}°`;
+    return `<figure><img src="${g.src}" alt="Street view near the bench on ${street}, ${look.toLowerCase()}" width="640" height="640" loading="lazy" />
+      ${h == null ? "" : `<svg class="minicompass" viewBox="-12 -12 24 24" aria-hidden="true"><circle r="10.5" fill="#fbfbf7" stroke="var(--ink)" stroke-width="1"/><g transform="rotate(${h})"><line y1="3" y2="-6" stroke="var(--ink)" stroke-width="1.6"/><path d="M0 -9 l-2.6 4 h5.2z" fill="var(--ink)"/></g></svg>`}
+      <figcaption>${look}</figcaption></figure>`;
+  }).join("")}</div>
+</section>` : ""}
+
+<section class="block" aria-labelledby="h-notes">
+  <div class="blockhead"><h2 id="h-notes">Notes</h2><p>Public notes from people who sat here</p></div>
+  <div class="notes"><p><strong>No notes yet.</strong>Sat here? Say what the light is like, or when it's quiet.</p><button class="btn" type="button">Sign in to write a note</button></div>
+</section>
+
+<div class="report">${ICONS.flag}<span>Wrong bench, wrong facing, or no bench at all?</span><button type="button">Report this card</button></div>
+<p class="samplenote">Design reference. The location, address, tags and photos are real. ${known ? "The facing comes from OpenStreetMap." : "The facing, its confidence and 'looks at' are sample data until the facing pipeline runs."}</p>`;
+</script>
+</body>
+</html>

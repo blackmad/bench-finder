@@ -1,0 +1,116 @@
+{
+  "title": "Bench Finder: choose the visual world",
+  "question": "Every bench becomes a picture postcard: the front shows the view from behind the bench, and the postmark is its facing. Keep it, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "The Postcard Rack",
+      "kicker": "THE ROLL",
+      "lineage": "picture postcards on a spinning rack; Dutch PTT postal graphics",
+      "thesis": "Each bench is a picture postcard of its own view, postmarked with the direction it faces.",
+      "palette": ["#F6F6F1", "#141414", "#E23B1E", "#1E4FA3"],
+      "materials": ["full-bleed halftone photo", "postmark cancel rings", "perforated stamp edge", "white card stock"],
+      "viewport": "Map on the left with markers drawn as small postmarks (a ring plus a facing tick). A vertical rack of postcards on the right: photo fronts with a postmark compass in the corner. On a phone the rack becomes a swipeable stack over the map.",
+      "risk": "Can tip into kitsch souvenir-shop nostalgia if the postal marks are decorative rather than carrying the facing data.",
+      "raised": [
+        {"from": "challenger-provenance-ribbon", "raise": "Known facings are postmarked in solid ink. Inferred ones are struck in hairline with their confidence, so uncertainty is visible at a glance."},
+        {"from": "challenger-raku", "raise": "Vermilion is reserved for the one selected bench. Everything else on the map stays ink and blue."},
+        {"from": "challenger-teletext", "raise": "Every bench carries a printed serial (No. 2196 · Amsterdam) that doubles as its deep-link address."}
+      ],
+      "wireframe": {"cols": 12, "rows": 10, "regions": [
+        {"label": "wordmark + place search", "x": 0, "y": 0, "w": 12, "h": 1},
+        {"label": "map: postmark markers", "x": 0, "y": 1, "w": 7, "h": 9},
+        {"label": "filter strip", "x": 7, "y": 1, "w": 5, "h": 1},
+        {"label": "postcard (selected)", "x": 7, "y": 2, "w": 5, "h": 4, "accent": true},
+        {"label": "postcard", "x": 7, "y": 6, "w": 5, "h": 4}
+      ]}
+    },
+    {
+      "id": "model-pick",
+      "label": "Topographic Survey Sheet",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Dutch Topografische Dienst 1:25,000 sheets",
+      "thesis": "The city as a survey sheet: every bench is a surveyed symbol with a bearing tick and a legend entry.",
+      "palette": ["#EEF1E4", "#1A1A1A", "#7FB2D9", "#B4693A", "#9BBF7A"],
+      "materials": ["map-sheet paper", "contour hairlines", "symbol legend", "sheet margin graticule"],
+      "viewport": "A full-bleed map with a sheet-margin frame and graticule ticks. A legend panel lists benches as numbered symbols, and the detail opens as an inset sheet with the photo and a bearing diagram.",
+      "risk": "The most familiar choice: it sits close to every map app, and photography takes second place to the map."
+    },
+    {
+      "id": "challenger-streaming-wall",
+      "label": "Title-Card Wall",
+      "verdict": "competitive",
+      "lineage": "streaming catalogue rows",
+      "thesis": "Rows of bench photos by what they face (water, street, park), with the focused bench expanding to show its facing.",
+      "palette": ["#121417", "#F2F2F2", "#E23B1E"],
+      "materials": ["full-bleed photo tiles", "row headings", "focus lift"],
+      "viewport": "Horizontal rows titled 'Facing water', 'Evening sun' and 'Quiet squares', with the map behind a toggle.",
+      "case": "Strong on photo-led browsing and 'what it faces', but the map loses its place and people don't recognise benches as a streaming catalogue.",
+      "risk": "Reads like a generic media app, and location becomes secondary."
+    },
+    {
+      "id": "challenger-provenance-ribbon",
+      "label": "Provenance Ribbon",
+      "verdict": "declined",
+      "lineage": "museum provenance displays",
+      "thesis": "One bench's history as a ribbon of evidence.",
+      "palette": ["#E9E1CF", "#A3201B", "#8A8A8A"],
+      "materials": ["silk ribbon", "ledger serif", "hairline inference"],
+      "viewport": "A single bench's evidence trail down one column.",
+      "case": "Benches have no custody story; people come for places, not provenance.",
+      "kept": "Solid ink for known facings, hairline for inferred ones.",
+      "risk": "Bureaucratic for a leisure product."
+    },
+    {
+      "id": "challenger-raku",
+      "label": "Raku Smoke Flash",
+      "verdict": "declined",
+      "lineage": "raku-fired ceramics",
+      "thesis": "Soot-black ground with one ember-hot active object.",
+      "palette": ["#141210", "#D9D6CF", "#E86A1F"],
+      "materials": ["carbonized clay", "crackle glaze"],
+      "viewport": "A dark field with the selected bench glowing ember.",
+      "case": "No link to sitting outdoors, and a dark field fights the photography.",
+      "kept": "Exactly one hot accent, reserved for the active bench.",
+      "risk": "Moody to the point of hiding the photos."
+    },
+    {
+      "id": "challenger-teletext",
+      "label": "Teletext Service",
+      "verdict": "declined",
+      "lineage": "broadcast teletext",
+      "thesis": "Benches as numbered pages keyed by digits.",
+      "palette": ["#000000", "#FFFF00", "#00FFFF", "#FFFFFF"],
+      "materials": ["block mosaic", "40×24 grid"],
+      "viewport": "P100 index of benches by district.",
+      "case": "A bitmap grid can't carry photography, and it's a novelty for this audience.",
+      "kept": "Every bench gets a short address number.",
+      "risk": "Retro gimmick."
+    },
+    {
+      "id": "challenger-hypercard",
+      "label": "HyperCard Stack",
+      "verdict": "declined",
+      "lineage": "HyperCard stacks",
+      "thesis": "Benches as linked one-bit cards.",
+      "palette": ["#FFFFFF", "#000000"],
+      "materials": ["one-bit dither", "painted buttons"],
+      "viewport": "One card per bench, with dithered photos.",
+      "case": "One-bit dither destroys the photographs, which are the product.",
+      "kept": "Back retraces your exact trail through benches.",
+      "risk": "Unreadable photos."
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code"},
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A clean modern map app with pins and photo cards, executed impeccably.",
+    "palette": ["#FFFFFF", "#111827", "#2563EB"],
+    "materials": ["vector basemap", "rounded cards", "product photography"],
+    "viewport": "Full-screen map, a search bar on top, and a bottom sheet of bench cards.",
+    "risk": "Indistinguishable from any places app by design."
+  },
+  "steer": true
+}

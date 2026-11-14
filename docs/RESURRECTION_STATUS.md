@@ -11,6 +11,17 @@ States: `todo` · `in-progress` · `blocked (owner)` · `done`
 | 0.3 | done | (this commit) | See findings below. |
 | 0.4 | done | n/a | `pg_dump` saved to `~/bench_finder_backups/supabase_2026-11-14.dump` (1.6 MB, 13 tables). Production has no user rows that SQLite lacks. See the diff below. |
 | 0.5 | done | 35ccdee | `--cov` moved out of pytest addopts and `pytest-cov` added to the uv dev group. `uv run pytest`: 1 passed. |
+| 1.1 | done | b970ccb | `migrations/NNN_*.sql` plus `bench_finder/migrate.py` (`make db-migrate`). Applied to the real DB; a second run applies 0. |
+| 1.2 | done | 26312cd | `make db-quarantine` (bench_finder/quarantine.py). Real DB: images 37,889 → 20,383 (7,251 mislinked legacy Mapillary rows and 699 panos >50 m quarantined to `data/archive.db`; 9,556 duplicate images and 65 duplicate detections deleted). `processed_benches` cleared; legacy tables archived. Independent check: 0 of 14,648 images with coordinates are >50 m from their candidate. 94 candidates now have 0 images. Pre-run backup: `~/bench_finder_backups/benches_2026-11-14_pre_phase1.db`. |
+| 1.3 | done | 3b90cb7 | Unique `provider_id`, FK indexes, upserts in `add_bench_candidate` and `add_image`. Idempotency tests. |
+| 1.4 | done | c8c4a09 | Images: aimed-view columns plus `kind` (existing rows = `legacy`). `detection_items.is_target` and `center_offset_deg`. New `image_annotations` and `bench_attributes`. |
+| 1.5 | done | 538e8b1 | Six fixes plus one extra (detections could never be saved: a pydantic error on `detection_items`). Tests in `tests/test_task_1_5_fixes.py`. |
+| 1.6 | done | 1926ff5 | 43 dead files and stale docs removed; DATABASE_MODEL.md rewritten; CLAUDE.md updated. Ruff count unchanged (26 existing errors). |
+| 2.1–2.4 | in-progress | | Running in a worktree. |
+| 2.5 | done | ae978c5 | `uv run python -m bench_finder.labeling --db data/benches.db --images-root images/ --port 8877`. Verified in a headless browser against a DB copy, with real images rendering. Gold labelling (2.6) should wait for the 2.1–2.4 aimed views; today's images are mostly not aimed at the bench. |
+| 4.3 | done | 3cf3025 | `worker/`: Hono + D1 + Firebase JWT via jose. 35 vitest tests and tsc verified locally. Owner TODOs are in `worker/wrangler.jsonc` and `worker/README.md`. |
+| 4.4 | done (nothing to import) | n/a | See 0.4: production has no user rows. |
+| 5.1 | built, awaiting owner approval (GATE) | (this commit) | The decision page closed unanswered, so the assigned direction was built: "The Postcard Rack" (seed fc8012af). Reference pages are in `frontend/design-reference/`; serve them with `cd frontend/design-reference && python3 -m http.server 8890`, then open `/index.html` and `/bench.html?id=394`. Screenshots are in `.impeccable/review/`. DESIGN.md is written from the build. Finish review: two rounds; the last verdict was **fix**, with these open items: cluster density in the default view, the postmark ring illegible at rack size, the phone filter sheet and sample note not visually verified, no card-flip motion. The Street View crops in `img/` are gitignored. |
 
 ## Findings log
 

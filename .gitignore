@@ -240,3 +240,9 @@ base64_creds.txt
 
 # Agent worktrees / design tooling state
 .claude/worktrees/
+
+# Street View crops used in design reference (Google imagery; not committed)
+frontend/design-reference/img/
+.impeccable/review/
+.impeccable/config.local.json
+.impeccable/questions/

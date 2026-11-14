@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-14T11:29:53.431267+00:00",
+  "title": "Design System: Bench Finder",
+  "extensions": {
+    "colorMeta": {
+      "card": {
+        "role": "neutral",
+        "displayName": "Card Stock",
+        "canonical": "#f6f6f1",
+        "tonalRamp": [
+          "oklch(15% 0.007 107)",
+          "oklch(26% 0.007 107)",
+          "oklch(38% 0.007 107)",
+          "oklch(49% 0.007 107)",
+          "oklch(61% 0.007 107)",
+          "oklch(72% 0.007 107)",
+          "oklch(84% 0.007 107)",
+          "oklch(95% 0.007 107)"
+        ]
+      },
+      "card-rack": {
+        "role": "neutral",
+        "displayName": "Rack",
+        "canonical": "#ecece4",
+        "tonalRamp": [
+          "oklch(15% 0.011 107)",
+          "oklch(26% 0.011 107)",
+          "oklch(38% 0.011 107)",
+          "oklch(49% 0.011 107)",
+          "oklch(61% 0.011 107)",
+          "oklch(72% 0.011 107)",
+          "oklch(84% 0.011 107)",
+          "oklch(95% 0.011 107)"
+        ]
+      },
+      "stamp-paper": {
+        "role": "neutral",
+        "displayName": "Stamp Paper",
+        "canonical": "#fbfbf7",
+        "tonalRamp": [
+          "oklch(15% 0.005 106)",
+          "oklch(26% 0.005 106)",
+          "oklch(38% 0.005 106)",
+          "oklch(49% 0.005 106)",
+          "oklch(61% 0.005 106)",
+          "oklch(72% 0.005 106)",
+          "oklch(84% 0.005 106)",
+          "oklch(95% 0.005 106)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#141414",
+        "tonalRamp": [
+          "oklch(15% 0.000 90)",
+          "oklch(26% 0.000 90)",
+          "oklch(38% 0.000 90)",
+          "oklch(49% 0.000 90)",
+          "oklch(61% 0.000 90)",
+          "oklch(72% 0.000 90)",
+          "oklch(84% 0.000 90)",
+          "oklch(95% 0.000 90)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "#4a4a46",
+        "tonalRamp": [
+          "oklch(15% 0.007 107)",
+          "oklch(26% 0.007 107)",
+          "oklch(38% 0.007 107)",
+          "oklch(49% 0.007 107)",
+          "oklch(61% 0.007 107)",
+          "oklch(72% 0.007 107)",
+          "oklch(84% 0.007 107)",
+          "oklch(95% 0.007 107)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "#6b6b66",
+        "tonalRamp": [
+          "oklch(15% 0.008 107)",
+          "oklch(26% 0.008 107)",
+          "oklch(38% 0.008 107)",
+          "oklch(49% 0.008 107)",
+          "oklch(61% 0.008 107)",
+          "oklch(72% 0.008 107)",
+          "oklch(84% 0.008 107)",
+          "oklch(95% 0.008 107)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#d6d6cc",
+        "tonalRamp": [
+          "oklch(15% 0.014 107)",
+          "oklch(26% 0.014 107)",
+          "oklch(38% 0.014 107)",
+          "oklch(49% 0.014 107)",
+          "oklch(61% 0.014 107)",
+          "oklch(72% 0.014 107)",
+          "oklch(84% 0.014 107)",
+          "oklch(95% 0.014 107)"
+        ]
+      },
+      "airmail": {
+        "role": "primary",
+        "displayName": "Airmail Blue",
+        "canonical": "#1e4fa3",
+        "tonalRamp": [
+          "oklch(15% 0.146 260)",
+          "oklch(26% 0.146 260)",
+          "oklch(38% 0.146 260)",
+          "oklch(49% 0.146 260)",
+          "oklch(61% 0.146 260)",
+          "oklch(72% 0.146 260)",
+          "oklch(84% 0.146 260)",
+          "oklch(95% 0.146 260)"
+        ]
+      },
+      "airmail-deep": {
+        "role": "primary",
+        "displayName": "Deep Airmail",
+        "canonical": "#163d80",
+        "tonalRamp": [
+          "oklch(15% 0.122 261)",
+          "oklch(26% 0.122 261)",
+          "oklch(38% 0.122 261)",
+          "oklch(49% 0.122 261)",
+          "oklch(61% 0.122 261)",
+          "oklch(72% 0.122 261)",
+          "oklch(84% 0.122 261)",
+          "oklch(95% 0.122 261)"
+        ]
+      },
+      "airmail-wash": {
+        "role": "primary",
+        "displayName": "Airmail Wash",
+        "canonical": "#dfe6f2",
+        "tonalRamp": [
+          "oklch(15% 0.018 261)",
+          "oklch(26% 0.018 261)",
+          "oklch(38% 0.018 261)",
+          "oklch(49% 0.018 261)",
+          "oklch(61% 0.018 261)",
+          "oklch(72% 0.018 261)",
+          "oklch(84% 0.018 261)",
+          "oklch(95% 0.018 261)"
+        ]
+      },
+      "vermilion": {
+        "role": "secondary",
+        "displayName": "Postmark Vermilion",
+        "canonical": "#e23b1e",
+        "tonalRamp": [
+          "oklch(15% 0.200 32)",
+          "oklch(26% 0.200 32)",
+          "oklch(38% 0.200 32)",
+          "oklch(49% 0.200 32)",
+          "oklch(61% 0.200 32)",
+          "oklch(72% 0.200 32)",
+          "oklch(84% 0.200 32)",
+          "oklch(95% 0.200 32)"
+        ]
+      },
+      "map-water": {
+        "role": "neutral",
+        "displayName": "Map Water",
+        "canonical": "#cfdbee",
+        "tonalRamp": [
+          "oklch(15% 0.029 260)",
+          "oklch(26% 0.029 260)",
+          "oklch(38% 0.029 260)",
+          "oklch(49% 0.029 260)",
+          "oklch(61% 0.029 260)",
+          "oklch(72% 0.029 260)",
+          "oklch(84% 0.029 260)",
+          "oklch(95% 0.029 260)"
+        ]
+      },
+      "map-park": {
+        "role": "neutral",
+        "displayName": "Map Park",
+        "canonical": "#e6eadc",
+        "tonalRamp": [
+          "oklch(15% 0.019 120)",
+          "oklch(26% 0.019 120)",
+          "oklch(38% 0.019 120)",
+          "oklch(49% 0.019 120)",
+          "oklch(61% 0.019 120)",
+          "oklch(72% 0.019 120)",
+          "oklch(84% 0.019 120)",
+          "oklch(95% 0.019 120)"
+        ]
+      },
+      "photo-empty": {
+        "role": "neutral",
+        "displayName": "Empty Photo",
+        "canonical": "#c9c9bf",
+        "tonalRamp": [
+          "oklch(15% 0.014 107)",
+          "oklch(26% 0.014 107)",
+          "oklch(38% 0.014 107)",
+          "oklch(49% 0.014 107)",
+          "oklch(61% 0.014 107)",
+          "oklch(72% 0.014 107)",
+          "oklch(84% 0.014 107)",
+          "oklch(95% 0.014 107)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Detail-page headline naming what the bench looks at; wdth 112, balanced wrap."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Detail block headings on a 1.5px ink rule."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All reading text, labels and buttons (600 for buttons)."
+      },
+      "lede": {
+        "displayName": "Lede",
+        "purpose": "One-sentence description under the display line, ink-2, max 34ch."
+      },
+      "label-caps": {
+        "displayName": "Caption Caps",
+        "purpose": "Expanded bold caps: postcard street captions (12.5 rack / 11.5 phone / 15 large), field labels (11px), wordmark (17px)."
+      },
+      "serial": {
+        "displayName": "Serial",
+        "purpose": "Bench serials 'No. 1472' and the city beside the wordmark; tabular."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Card meta lines, map key, dial hint, gallery captions, coordinates."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 1px 1px rgb(20 20 20 / 0.06), 0 6px 18px -6px rgb(20 20 20 / 0.22)",
+        "purpose": "Every resting card and floating panel, including map control groups."
+      },
+      {
+        "name": "card-lifted",
+        "value": "0 1px 1px rgb(20 20 20 / .06), 0 14px 30px -10px rgb(20 20 20 / .3)",
+        "purpose": "Postcard hover with translateY(-2px)."
+      },
+      {
+        "name": "map-thumb",
+        "value": "0 1px 1px rgb(20 20 20 / .2), 0 4px 10px -3px rgb(20 20 20 / .35)",
+        "purpose": "Tiny postcards on the basemap."
+      },
+      {
+        "name": "stamp",
+        "value": "drop-shadow(0 1px 1.5px rgb(20 20 20 / .28))",
+        "purpose": "filter on perforated stamps."
+      },
+      {
+        "name": "rose",
+        "value": "drop-shadow(0 1px 1px rgb(20 20 20 / .18))",
+        "purpose": "filter on cluster roses."
+      },
+      {
+        "name": "selection-ring",
+        "value": "0 0 0 2px #e23b1e",
+        "purpose": "The one selected bench, layered over the card or thumb shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The only easing; all lifts and the stamp strike."
+      },
+      {
+        "name": "stamp-in",
+        "value": "0.55s ease-out: scale(1.35) rotate(-10deg) opacity 0 -> 60% scale(.96) rotate(1deg) -> none",
+        "purpose": "Plays only when a stamp becomes the selected stamp. Off under reduced motion."
+      },
+      {
+        "name": "postcard-lift",
+        "value": "transform/box-shadow .45s ease-out",
+        "purpose": "Postcard hover."
+      },
+      {
+        "name": "thumb-lift",
+        "value": "transform .35s ease-out, translateY(-3px)",
+        "purpose": "Map thumb hover."
+      },
+      {
+        "name": "rose-hover",
+        "value": "transform .3s ease-out, scale(1.08)",
+        "purpose": "Cluster rose hover."
+      },
+      {
+        "name": "check-tick",
+        "value": "opacity .15s, transform .25s ease-out from scale(.6)",
+        "purpose": "Checkbox tick."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "760px"
+      },
+      {
+        "name": "detail-stack",
+        "value": "900px"
+      },
+      {
+        "name": "detail-narrow",
+        "value": "520px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Postcard",
+      "kind": "card",
+      "refersTo": "postcard",
+      "description": "The rack unit: photo in a printed white border, caps caption and serial, stamp overlapping the top-right corner.",
+      "html": "<a class=\"ds-postcard\" href=\"#\"><div class=\"ds-photo\"></div><div class=\"ds-slot\"><svg class=\"ds-stamp\" viewBox=\"0 0 74 88\"><rect width=\"74\" height=\"88\" fill=\"#fbfbf7\"/><rect x=\"5.5\" y=\"5.5\" width=\"63\" height=\"77\" fill=\"none\" stroke=\"#141414\" stroke-width=\".7\"/><circle cx=\"37\" cy=\"37\" r=\"21\" fill=\"none\" stroke=\"#141414\" stroke-width=\".8\"/><text x=\"37\" y=\"12.6\" text-anchor=\"middle\" font-size=\"6.2\" font-weight=\"800\" font-family=\"Archivo\" fill=\"#141414\">N</text><g transform=\"rotate(70 37 37)\" stroke=\"#141414\" fill=\"#141414\"><line x1=\"37\" y1=\"46\" x2=\"37\" y2=\"25\" stroke-width=\"2.2\"/><path d=\"M37 19 l-5 8 h10z\" stroke=\"none\"/><circle cx=\"37\" cy=\"37\" r=\"2.4\" stroke=\"none\"/></g><text x=\"37\" y=\"76\" text-anchor=\"middle\" font-size=\"8.6\" font-weight=\"700\" font-family=\"Archivo\" fill=\"#141414\">ENE 70°</text></svg></div><div class=\"ds-cap\"><span class=\"ds-caps\">Groenburgwal 30-F</span><span class=\"ds-serial\">No.&nbsp;1472</span></div><div class=\"ds-meta\"><span>Looks at the water</span><span>Backrest</span></div></a>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-postcard{position:relative;display:block;width:320px;background:var(--card);padding:9px 9px 0;box-shadow:var(--shadow);color:var(--ink);text-decoration:none;font:400 15px/1.45 var(--font);transition:transform .45s var(--ease-out),box-shadow .45s var(--ease-out);} .ds-postcard:hover{transform:translateY(-2px);box-shadow:0 1px 1px rgb(20 20 20 / .06),0 14px 30px -10px rgb(20 20 20 / .3);} .ds-postcard:focus-visible{outline:2px solid var(--airmail);outline-offset:2px;} .ds-photo{aspect-ratio:3/2;background:#c9c9bf;} .ds-slot{position:absolute;top:2px;right:2px;} .ds-stamp{width:74px;height:88px;display:block;filter:drop-shadow(0 1px 1.5px rgb(20 20 20 / .28));} .ds-cap{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 2px 10px;} .ds-caps{font-size:12.5px;font-weight:700;font-variation-settings:'wdth' 125;text-transform:uppercase;letter-spacing:.04em;} .ds-serial{font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;font-variation-settings:'wdth' 112;letter-spacing:.02em;color:var(--ink-2);} .ds-meta{display:flex;gap:12px;font-size:12.5px;color:var(--ink-2);padding:0 2px 11px;margin-top:-4px;}"
+    },
+    {
+      "name": "Postcard (selected)",
+      "kind": "card",
+      "refersTo": "postcard",
+      "description": "The one selected bench: a 2px vermilion ring over the card shadow.",
+      "html": "<a class=\"ds-postcard ds-sel\" href=\"#\"><div class=\"ds-photo\"></div><div class=\"ds-cap\"><span class=\"ds-caps\">Javakade 622</span><span class=\"ds-serial\">No.&nbsp;394</span></div></a>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-postcard{display:block;width:320px;background:var(--card);padding:9px 9px 0;color:var(--ink);text-decoration:none;font:400 15px/1.45 var(--font);} .ds-sel{box-shadow:0 0 0 2px var(--vermilion),var(--shadow);} .ds-photo{aspect-ratio:3/2;background:#c9c9bf;} .ds-cap{display:flex;justify-content:space-between;padding:9px 2px 10px;} .ds-caps{font-size:12.5px;font-weight:700;font-variation-settings:'wdth' 125;text-transform:uppercase;letter-spacing:.04em;} .ds-serial{font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink-2);}"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Square bordered button; hover inverts to ink.",
+      "html": "<button class=\"ds-btn\" type=\"button\">Sign in to write a note</button>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--ink);background:var(--card);color:var(--ink);padding:9px 14px;font:600 15px/1.45 var(--font);border-radius:0;cursor:pointer;} .ds-btn:hover{background:var(--ink);color:var(--card);} .ds-btn:focus-visible{outline:2px solid var(--airmail);outline-offset:2px;}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single main action on a surface, in airmail.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg>Look around</button>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-btn-primary{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--airmail);background:var(--airmail);color:#fff;padding:9px 14px;font:600 15px/1.45 var(--font);border-radius:0;cursor:pointer;} .ds-btn-primary:hover{background:#163d80;border-color:#163d80;} .ds-btn-primary:focus-visible{outline:2px solid var(--airmail);outline-offset:2px;}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Boxless place search on a 1.5px ink underline that turns airmail on focus.",
+      "html": "<form class=\"ds-search\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"m20 20-4.2-4.2\"/></svg><input type=\"search\" placeholder=\"Search a place\" aria-label=\"Search places\"/></form>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-search{display:flex;align-items:center;gap:8px;max-width:420px;border-bottom:1.5px solid var(--ink);padding:6px 2px;color:var(--ink);font:400 15px/1.45 var(--font);} .ds-search:focus-within{border-color:var(--airmail);} .ds-search input{border:0;background:transparent;font:inherit;flex:1;color:var(--ink);} .ds-search input::placeholder{color:var(--ink-3);} .ds-search input:focus{outline:none;}"
+    },
+    {
+      "name": "Checkbox",
+      "kind": "chip",
+      "refersTo": "checkbox",
+      "description": "Square ink box; an airmail tick scales in when checked.",
+      "html": "<label class=\"ds-check\"><input type=\"checkbox\" checked/><span class=\"ds-box\"><svg viewBox=\"0 0 12 12\" fill=\"none\" stroke-linecap=\"round\"><path d=\"M2 6.5 4.8 9 10 3\"/></svg></span>Water</label>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-check{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font:500 15px/1.45 var(--font);color:var(--ink);} .ds-check input{position:absolute;opacity:0;} .ds-box{width:15px;height:15px;border:1.5px solid var(--ink);background:var(--card);display:grid;place-items:center;} .ds-box svg{width:11px;height:11px;stroke:var(--airmail);stroke-width:2.4;opacity:0;transform:scale(.6);transition:opacity .15s,transform .25s var(--ease-out);} .ds-check input:checked + .ds-box svg{opacity:1;transform:none;} .ds-check input:focus-visible + .ds-box{outline:2px solid var(--airmail);outline-offset:2px;}"
+    },
+    {
+      "name": "Top Bar",
+      "kind": "nav",
+      "refersTo": "top-bar",
+      "description": "Card-stock bar: caps wordmark with city serial, search, sign-in text button.",
+      "html": "<header class=\"ds-bar\"><a class=\"ds-word\" href=\"#\"><b>Bench Finder</b><span>Amsterdam</span></a><span style=\"flex:1\"></span><button class=\"ds-textbtn\" type=\"button\">Sign in</button></header>",
+      "css": ":host{--card:#f6f6f1;--card-2:#ecece4;--ink:#141414;--ink-2:#4a4a46;--ink-3:#6b6b66;--rule:#d6d6cc;--airmail:#1e4fa3;--airmail-wash:#dfe6f2;--vermilion:#e23b1e;--shadow:0 1px 1px rgb(20 20 20 / .06),0 6px 18px -6px rgb(20 20 20 / .22);--font:'Archivo',ui-sans-serif,system-ui,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1);} .ds-bar{height:60px;display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--card);border-bottom:1px solid var(--rule);font:400 15px/1.45 var(--font);} .ds-word{display:flex;align-items:baseline;gap:10px;text-decoration:none;color:var(--ink);} .ds-word b{font-size:17px;font-weight:700;font-variation-settings:'wdth' 125;text-transform:uppercase;letter-spacing:.04em;} .ds-word span{font-size:12px;font-weight:500;font-variation-settings:'wdth' 112;color:var(--ink-2);} .ds-textbtn{background:none;border:0;padding:8px 4px;font:600 15px var(--font);color:var(--ink);cursor:pointer;} .ds-textbtn:hover{color:var(--airmail);} .ds-textbtn:focus-visible{outline:2px solid var(--airmail);outline-offset:2px;}"
+    },
+    {
+      "name": "Stamp (known vs estimated)",
+      "kind": "custom",
+      "refersTo": "stamp",
+      "description": "Perforated compass stamp. Known: solid ink arrow and degrees. Estimated: dashed airmail hairline and an approximate wind.",
+      "html": "<div class=\"ds-row\"><svg class=\"ds-stamp\" viewBox=\"0 0 74 88\"><rect width=\"74\" height=\"88\" fill=\"#fbfbf7\"/><rect x=\"5.5\" y=\"5.5\" width=\"63\" height=\"77\" fill=\"none\" stroke=\"#141414\" stroke-width=\".7\"/><circle cx=\"37\" cy=\"37\" r=\"21\" fill=\"none\" stroke=\"#141414\" stroke-width=\".8\"/><text x=\"37\" y=\"12.6\" text-anchor=\"middle\" font-size=\"6.2\" font-weight=\"800\" font-family=\"Archivo\" fill=\"#141414\">N</text><g transform=\"rotate(70 37 37)\" stroke=\"#141414\" fill=\"#141414\"><line x1=\"37\" y1=\"46\" x2=\"37\" y2=\"25\" stroke-width=\"2.2\"/><path d=\"M37 19 l-5 8 h10z\" stroke=\"none\"/><circle cx=\"37\" cy=\"37\" r=\"2.4\" stroke=\"none\"/></g><text x=\"37\" y=\"76\" text-anchor=\"middle\" font-size=\"8.6\" font-weight=\"700\" font-family=\"Archivo\" fill=\"#141414\">ENE 70°</text></svg><svg class=\"ds-stamp\" viewBox=\"0 0 74 88\"><rect width=\"74\" height=\"88\" fill=\"#fbfbf7\"/><rect x=\"5.5\" y=\"5.5\" width=\"63\" height=\"77\" fill=\"none\" stroke=\"#141414\" stroke-width=\".7\"/><circle cx=\"37\" cy=\"37\" r=\"21\" fill=\"none\" stroke=\"#141414\" stroke-width=\".8\"/><g transform=\"rotate(70 37 37)\" stroke=\"#1e4fa3\" fill=\"none\"><line x1=\"37\" y1=\"46\" x2=\"37\" y2=\"26\" stroke-width=\"1.1\" stroke-dasharray=\"2.4 2\"/><path d=\"M37 19 l-4.5 7.5 h9z\" stroke-width=\"1.1\"/><circle cx=\"37\" cy=\"37\" r=\"2\" stroke-width=\"1.1\"/></g><text x=\"37\" y=\"76\" text-anchor=\"middle\" font-size=\"8.6\" font-weight=\"700\" font-family=\"Archivo\" fill=\"#141414\">≈ ENE</text></svg></div>",
+      "css": ".ds-row{display:flex;gap:16px;} .ds-stamp{width:74px;height:88px;display:block;filter:drop-shadow(0 1px 1.5px rgb(20 20 20 / .28));animation:ds-stampin .55s cubic-bezier(0.16,1,0.3,1) both;} @keyframes ds-stampin{0%{transform:scale(1.35) rotate(-10deg);opacity:0}60%{transform:scale(.96) rotate(1deg);opacity:1}100%{transform:none}} @media (prefers-reduced-motion: reduce){.ds-stamp{animation:none}}"
+    },
+    {
+      "name": "Cluster Postmark Rose",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "Map cluster: double ring with tabular count and one ink tick per facing sector, length by share.",
+      "html": "<button class=\"ds-rose\" type=\"button\" aria-label=\"22 benches here; zoom in\"><svg viewBox=\"-34 -34 68 68\" width=\"68\" height=\"68\"><g stroke=\"#141414\" stroke-width=\"2\" stroke-linecap=\"round\"><line x1=\"0\" y1=\"-16\" x2=\"0\" y2=\"-26\"/><line x1=\"16\" y1=\"0\" x2=\"29\" y2=\"0\"/><line x1=\"0\" y1=\"16\" x2=\"0\" y2=\"22\"/><line x1=\"-11.3\" y1=\"11.3\" x2=\"-16\" y2=\"16\"/></g><circle r=\"16\" fill=\"#fbfbf7\" stroke=\"#141414\" stroke-width=\"1.5\"/><circle r=\"12.8\" fill=\"none\" stroke=\"#141414\" stroke-width=\".7\"/><text text-anchor=\"middle\" dominant-baseline=\"central\" font-family=\"Archivo\" font-weight=\"700\" font-size=\"11\" fill=\"#141414\">22</text></svg></button>",
+      "css": ".ds-rose{background:none;border:0;padding:0;cursor:pointer;display:block;transition:transform .3s cubic-bezier(0.16,1,0.3,1);} .ds-rose:hover{transform:scale(1.08);} .ds-rose:focus-visible{outline:2px solid #1e4fa3;outline-offset:2px;} .ds-rose svg{display:block;filter:drop-shadow(0 1px 1px rgb(20 20 20 / .18));}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Postcard Rack",
+    "overview": "Every bench is a picture postcard of its own view, postmarked with the direction it faces. The interface is a spinning rack of white card stock beside a map: photos sit inside a printed white border, a perforated postage stamp in the corner prints a compass, and a postmark ring cancels the stamp along the bench's heading. The postal marks are never decoration. Each one carries the facing, and the stroke weight of that mark says whether the facing is known or estimated.\n\nThe world is light, matte and printed. Surfaces are flat paper on a slightly darker rack; depth comes only from the soft shadow of a card lifted off that rack. Colour is ink on card with one working blue (airmail) for interaction and estimated data, and one vermilion that belongs to exactly one bench at a time. Type is a single family, Archivo, used on its width axis: expanded bold caps are the printed caption and serial voice; normal-width text does the reading.\n\nDensity is calm on the rack (one postcard column, generous gaps) and dense on the map. The map is a basemap re-inked into the same card stock and airmail water, so the markers read as print on the same paper.",
+    "keyCharacteristics": [
+      "White card stock (#f6f6f1) cards on a warmer rack ground (#ecece4); square corners everywhere.",
+      "Facing is the data every postal mark encodes: stamp compass, postmark cancel bars, map needle, cluster rose.",
+      "Known facing = solid ink stroke; estimated facing = hairline dashed stroke, airmail blue, prefixed with \"≈\".",
+      "Vermilion is reserved for the single selected bench.",
+      "One typeface, Archivo, with the width axis (wdth 100 / 112 / 125) as the hierarchy device.",
+      "One signature motion: the stamp \"strikes\" onto the selected card."
+    ],
+    "rules": [
+      {
+        "name": "The One Vermilion Rule",
+        "body": "Vermilion marks exactly one bench at a time: the selected one, everywhere it appears (card, stamp, thumbnail, map marker). It is never used for errors, badges, hover, or emphasis.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Inks Rule",
+        "body": "Known facings are drawn in ink; estimated facings are drawn in airmail blue. Blue therefore means either \"you can press this\" or \"this is our estimate\"; it never decorates.",
+        "section": "colors"
+      },
+      {
+        "name": "The Width-Axis Rule",
+        "body": "Hierarchy is set by Archivo's width axis before size: wdth 125 caps for printed captions and labels, wdth 112 for headlines and serials, wdth 100 for reading. Do not introduce a second family.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Numbers Rule",
+        "body": "Serials, counts, degrees, coordinates and cluster counts always use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper-On-Paper Rule",
+        "body": "Depth means a sheet lying on another sheet: one soft card shadow, square edges, nothing floats higher than a lifted postcard.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** make every postal mark carry the facing: stamp arrow, postmark cancel bars, map needle, rose ticks. A mark without data is decoration and does not belong.",
+      "**Do** draw known facings in solid ink and estimated ones in dashed airmail hairline with \"≈\", in every place a facing appears.",
+      "**Do** keep vermilion for the one selected bench, synced across card, stamp, thumb and marker.",
+      "**Do** set hierarchy with Archivo's width axis: wdth 125 caps for captions and labels, 112 for headlines and serials, 100 for text.",
+      "**Do** keep corners square and depth to the single card shadow (0 1px 1px rgb(20 20 20 / 0.06), 0 6px 18px -6px rgb(20 20 20 / 0.22)).",
+      "**Do** re-ink the basemap into card stock, map-water and map-park so markers print on the same paper.",
+      "**Do** give every bench its \"No.\" serial in tabular numerals."
+    ],
+    "donts": [
+      "**Don't** use vermilion for errors, alerts, badges or hover.",
+      "**Don't** round corners on cards, buttons, inputs or map controls; circles are reserved for compass and postmark forms.",
+      "**Don't** add a second typeface or a system display face.",
+      "**Don't** use emoji, glass or blur, or gradient buttons (owner-pinned).",
+      "**Don't** show debug or pipeline data on bench surfaces; confidence appears only as the estimated-facing meter.",
+      "**Don't** fake a photo for an unphotographed bench; use the plain row."
+    ]
+  }
+}
