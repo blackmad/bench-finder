@@ -233,3 +233,7 @@ streetlevel_panorama_viewer.ipynb
 .env.firebase
 
 *.ipynb
+
+# Service-account secrets (resurrection 0.2)
+base64_creds.txt
+*service-account*.json
