@@ -221,7 +221,9 @@ export default function BenchMap({
     const pump = () => {
       while (inflight < 6 && queue.length) {
         const id = queue.shift() as number
-        const urls = byIdRef.current.get(id)?.properties.hero_urls
+        // WebP decodes everywhere canvas does; fall back to AVIF in the dev fixture.
+        const p = byIdRef.current.get(id)?.properties
+        const urls = p?.hero_urls_webp ?? p?.hero_urls
         if (!urls) continue
         inflight++
         const img = new Image()

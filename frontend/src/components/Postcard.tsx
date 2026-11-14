@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
-import { bestUrl, srcSet } from "../data/api"
 import { facesText, isKnown, windName } from "../data/facing"
 import type { BenchProps } from "../data/types"
+import { Photo } from "./Photo"
 import { Stamp } from "./postmark/Stamp"
 
 const seatLabel = (p: BenchProps) =>
@@ -28,13 +28,13 @@ export function Postcard({ bench, selected, onSelect }: Props) {
       onPointerEnter={() => onSelect(bench.id)}
     >
       <div className="photo">
-        <img
-          src={bestUrl(bench.hero_urls)}
-          srcSet={srcSet(bench.hero_urls)}
+        <Photo
+          urls={bench.hero_urls}
+          webp={bench.hero_urls_webp}
           sizes="(max-width: 760px) 76vw, 40vw"
           alt={`Bench on ${street}, looking toward ${facesText(bench.faces_category)}`}
-          width={960}
-          height={640}
+          width={bench.hero_width ?? 960}
+          height={bench.hero_height ?? 640}
           loading="lazy"
           decoding="async"
         />

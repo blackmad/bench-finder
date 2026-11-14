@@ -762,3 +762,8 @@ a {
   position: absolute;
   inset: 0;
 }
+
+/* <Photo> wraps the img in <picture>; keep existing img rules applying as before. */
+picture {
+  display: contents;
+}

@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_PROJECT_ID?: string
   /** Cloudflare Turnstile site key for anonymous reports. */
   readonly VITE_TURNSTILE_SITE_KEY?: string
+  /** Maps Embed API key (free, referrer-restricted) for the bench Street View. */
+  readonly VITE_GOOGLE_MAPS_EMBED_KEY?: string
 }
 
 interface ImportMeta {

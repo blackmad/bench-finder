@@ -32,6 +32,11 @@ export interface BenchProps {
   faces_category: FacesCategory | null
   hero_key: string | null
   hero_urls: ImageUrls | null
+  /** WebP fallbacks for `hero_urls`, same widths. */
+  hero_urls_webp?: ImageUrls | null
+  /** Pixel size of the hero source, for explicit width/height. */
+  hero_width?: number | null
+  hero_height?: number | null
   /** Short street address, e.g. "Javakade 622". */
   address: string | null
 }
@@ -55,18 +60,30 @@ export interface Manifest {
   benches: string
   /** Directory of per-bench JSON files, relative to the data base. */
   bench_dir: string
+  /** Prefix for `benches` and `bench_dir` (publish writes "data"); absent in the dev fixture. */
+  data_base?: string
+  /** Where image renditions live; image URLs already include it. */
+  image_base?: string
+  counts?: { benches: number; with_hero: number; images: number }
 }
 
 export interface GalleryImage {
   urls: ImageUrls
+  urls_webp?: ImageUrls
   width: number
   height: number
   /** Camera heading in degrees; null when not recorded. */
   heading: number | null
+  camera_bearing_deg?: number | null
+  kind?: string | null
+  /** "YYYY-MM" when the panorama date is known. */
+  pano_date?: string | null
 }
 
 export interface BenchDetail extends BenchProps {
   material: string | null
+  /** Raw OpenStreetMap tags, when the bench came from OSM. */
+  tags?: Record<string, string>
   address_full: {
     street: string | null
     number: string | null

@@ -28,11 +28,21 @@ export const manifestQuery = queryOptions({
   staleTime: 5 * 60_000,
 })
 
+/** Path of a data file named in the manifest, honouring `data_base`. */
+function manifestPath(m: Manifest, ...parts: string[]): string {
+  return [m.data_base, ...parts]
+    .filter((x): x is string => Boolean(x))
+    .map((x) => x.replace(/^\/+|\/+$/g, ""))
+    .join("/")
+}
+
 export const benchesQuery = (manifest: Manifest | undefined) =>
   queryOptions({
     queryKey: ["benches", manifest?.benches],
     queryFn: async () => {
-      const fc = await getJson<BenchCollection>(manifest?.benches ?? "")
+      const fc = await getJson<BenchCollection>(
+        manifest ? manifestPath(manifest, manifest.benches) : ""
+      )
       return fc.features
     },
     enabled: Boolean(manifest),
@@ -42,7 +52,10 @@ export const benchesQuery = (manifest: Manifest | undefined) =>
 export const benchDetailQuery = (manifest: Manifest | undefined, id: number) =>
   queryOptions({
     queryKey: ["bench", manifest?.generated_at, id],
-    queryFn: () => getJson<BenchDetail>(`${manifest?.bench_dir}${id}.json`),
+    queryFn: () =>
+      getJson<BenchDetail>(
+        manifest ? manifestPath(manifest, manifest.bench_dir, `${id}.json`) : ""
+      ),
     enabled: Boolean(manifest) && Number.isFinite(id),
     staleTime: Number.POSITIVE_INFINITY,
   })
