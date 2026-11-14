@@ -118,6 +118,15 @@ def _tiles_around(
     return sorted(tiles)  # type: ignore[arg-type]
 
 
+def _to_rgb_array(img: PILImage.Image) -> np.ndarray:
+    return np.asarray(img.convert("RGB"))
+
+
+def _decode_faces(blobs: list[bytes]) -> list[PILImage.Image]:
+    """Decode HEIC faces (slow: run in a worker thread, not on the event loop)."""
+    return [PILImage.open(io.BytesIO(b)).convert("RGB") for b in blobs]
+
+
 def _safe_name(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in str(value))
 
@@ -348,7 +357,7 @@ class StreetViewClient:
             state = self._get_state()
             async with state.pano_images:
                 equirect = await self._download_google_pano(pano, zoom, session)
-                arr = np.asarray(equirect.convert("RGB"))
+                arr = await asyncio.to_thread(_to_rgb_array, equirect)
                 view = await asyncio.to_thread(
                     render_aimed_view,
                     arr,
@@ -428,12 +437,12 @@ class StreetViewClient:
                 blobs = await asyncio.gather(
                     *[self._fetch_apple_face(pano, i, zoom) for i in range(6)]
                 )
-                faces = [PILImage.open(io.BytesIO(b)).convert("RGB") for b in blobs]
+                faces = await asyncio.to_thread(_decode_faces, blobs)
                 async with state.apple_stitch:
                     equirect = await asyncio.to_thread(
                         lookaround.to_equirectangular, faces, pano.camera_metadata
                     )
-                arr = np.asarray(equirect.convert("RGB"))
+                arr = await asyncio.to_thread(_to_rgb_array, equirect)
                 view = await asyncio.to_thread(
                     render_aimed_view,
                     arr,
