@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useSearchParams } from "react-router-dom"
 import { FiltersPanel } from "../components/FiltersPanel"
 import { SlidersIcon } from "../components/Icons"
 import { PlainRow, Postcard } from "../components/Postcard"
@@ -14,27 +15,22 @@ import { TopBar } from "../components/TopBar"
 import { hasPhoto } from "../data/api"
 import { useBenches } from "../data/hooks"
 import type { BenchFeature } from "../data/types"
-import { type Filters, NO_FILTERS, passes } from "../lib/filters"
-import type { MapView } from "../map/BenchMap"
+import {
+  type Filters,
+  filtersFromParams,
+  filtersToParams,
+  passes,
+  type Viewport,
+  viewportFromParams,
+  viewportToParams,
+} from "../lib/filters"
+import { type MapView, START_VIEW } from "../map/BenchMap"
 
 const BenchMap = lazy(() => import("../map/BenchMap"))
 
-const START_CENTER: [number, number] = [4.893, 52.3715]
+const MAX_PHOTOS = 60
 const MAX_PLAIN = 24
 const PHONE = "(max-width: 760px)"
-
-interface PlaceResult {
-  features?: { geometry: { coordinates: [number, number] } }[]
-}
-
-async function findPlace(q: string): Promise<[number, number] | null> {
-  const res = await fetch(
-    `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=52.37&lon=4.89&limit=1`
-  )
-  if (!res.ok) return null
-  const data = (await res.json()) as PlaceResult
-  return data.features?.[0]?.geometry.coordinates ?? null
-}
 
 const inBounds = (b: BenchFeature, v: MapView) => {
   const [w, s, e, n] = v.bounds
@@ -42,9 +38,27 @@ const inBounds = (b: BenchFeature, v: MapView) => {
   return lng >= w && lng <= e && lat >= s && lat <= n
 }
 
+const sameViewport = (a: Viewport, b: Viewport) =>
+  Math.abs(a.lat - b.lat) < 5e-5 &&
+  Math.abs(a.lng - b.lng) < 5e-5 &&
+  Math.abs(a.z - b.z) < 0.02
+
 export default function HomePage() {
   const { data, isPending, error } = useBenches()
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS)
+  const [sp, setSp] = useSearchParams()
+  const spKey = sp.toString()
+  const filters = useMemo(
+    () => filtersFromParams(new URLSearchParams(spKey)),
+    [spKey]
+  )
+  const urlViewport = useMemo(
+    () => viewportFromParams(new URLSearchParams(spKey)),
+    [spKey]
+  )
+  const urlViewportRef = useRef(urlViewport)
+  urlViewportRef.current = urlViewport
+  const initialView = useRef(urlViewport ?? START_VIEW).current
+
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [view, setView] = useState<MapView | null>(null)
@@ -52,7 +66,9 @@ export default function HomePage() {
     center: [number, number]
     key: number
   } | null>(null)
+  const [locating, setLocating] = useState<"idle" | "busy" | "denied">("idle")
   const cardsRef = useRef<HTMLDivElement>(null)
+  const programmaticScroll = useRef(0)
 
   const benches = useMemo(() => data ?? [], [data])
   const visible = useMemo(
@@ -65,8 +81,43 @@ export default function HomePage() {
     [benches, filters]
   )
 
-  const { photos, plain, total } = useMemo(() => {
-    const [cx, cy] = view?.center ?? START_CENTER
+  const setFilters = useCallback(
+    (f: Filters) =>
+      setSp((prev) => {
+        const next = new URLSearchParams(prev)
+        filtersToParams(f, next)
+        return next
+      }),
+    [setSp]
+  )
+
+  // The viewport goes in the URL once a move ends. The first report, and any
+  // report that already matches the URL (back/forward), do not add history.
+  const onView = useCallback(
+    (v: MapView) => {
+      setView(v)
+      const here: Viewport = {
+        lat: v.center[1],
+        lng: v.center[0],
+        z: v.zoom,
+      }
+      const known = urlViewportRef.current
+      if (known && sameViewport(known, here)) return
+      setSp(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          viewportToParams(here, next)
+          return next
+        },
+        { replace: !known }
+      )
+    },
+    [setSp]
+  )
+
+  const { photos, plain, total, inView } = useMemo(() => {
+    const cx = view?.center[0] ?? START_VIEW.lng
+    const cy = view?.center[1] ?? START_VIEW.lat
     const d = (b: BenchFeature) =>
       (b.geometry.coordinates[0] - cx) ** 2 * 0.37 +
       (b.geometry.coordinates[1] - cy) ** 2
@@ -75,30 +126,29 @@ export default function HomePage() {
     )
     const byDistance = (a: BenchFeature, b: BenchFeature) => d(a) - d(b)
     return {
-      photos: vis.filter(hasPhoto).sort(byDistance),
+      photos: vis.filter(hasPhoto).sort(byDistance).slice(0, MAX_PHOTOS),
       plain: vis
         .filter((b) => !hasPhoto(b))
         .sort(byDistance)
         .slice(0, MAX_PLAIN),
       total: vis.length,
+      inView: new Set(vis.map((b) => b.properties.id)),
     }
   }, [benches, visible, view])
 
-  // Keep a selection that is on the rack.
+  // Keep a selection that is in view; default to the nearest postcard.
   useEffect(() => {
-    if (!photos.some((b) => b.properties.id === selectedId) && photos[0]) {
-      setSelectedId(photos[0].properties.id)
-    }
-  }, [photos, selectedId])
+    if (selectedId !== null && inView.has(selectedId)) return
+    if (photos[0]) setSelectedId(photos[0].properties.id)
+  }, [photos, inView, selectedId])
 
   const scrollToCard = useCallback((id: number) => {
-    cardsRef.current
-      ?.querySelector(`.postcard[data-id="${id}"]`)
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      })
+    programmaticScroll.current = Date.now()
+    cardsRef.current?.querySelector(`[data-id="${id}"]`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    })
   }, [])
 
   const selectFromMap = useCallback(
@@ -109,13 +159,15 @@ export default function HomePage() {
     [scrollToCard]
   )
 
-  // Phone: the card snapped to the centre is the selected bench.
+  // Phone: the card snapped to the centre is the selected bench. Ignore the
+  // cards that sweep past while the stack scrolls to a map selection.
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-observe when the card list changes
   useEffect(() => {
     const root = cardsRef.current
     if (!root || !window.matchMedia(PHONE).matches) return
     const io = new IntersectionObserver(
       (entries) => {
+        if (Date.now() - programmaticScroll.current < 900) return
         for (const e of entries) {
           if (e.isIntersecting && e.intersectionRatio > 0.75) {
             setSelectedId(Number((e.target as HTMLElement).dataset.id))
@@ -128,18 +180,39 @@ export default function HomePage() {
     return () => io.disconnect()
   }, [photos])
 
-  const search = useCallback(async (q: string) => {
-    try {
-      const center = await findPlace(q)
-      if (center) setFlyTo({ center, key: Date.now() })
-    } catch {
-      // Search is best effort; the map stays where it was.
+  useEffect(() => {
+    if (!filtersOpen) return
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFiltersOpen(false)
     }
+    document.addEventListener("keydown", esc)
+    return () => document.removeEventListener("keydown", esc)
+  }, [filtersOpen])
+
+  const flyToPlace = useCallback((center: [number, number]) => {
+    setFlyTo({ center, key: Date.now() })
   }, [])
+
+  // Location is only requested when the button is pressed.
+  const nearMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocating("denied")
+      return
+    }
+    setLocating("busy")
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating("idle")
+        flyToPlace([pos.coords.longitude, pos.coords.latitude])
+      },
+      () => setLocating("denied"),
+      { timeout: 10_000, maximumAge: 60_000 }
+    )
+  }, [flyToPlace])
 
   return (
     <>
-      <TopBar onSearch={search} />
+      <TopBar onPlace={flyToPlace} />
       <main className="atlas" data-filters={filtersOpen ? "" : undefined}>
         <div className="mapwrap">
           <Suspense fallback={null}>
@@ -149,11 +222,41 @@ export default function HomePage() {
                 visible={visible}
                 selectedId={selectedId}
                 onSelect={selectFromMap}
-                onView={setView}
+                onView={onView}
+                initialView={initialView}
+                viewport={urlViewport}
                 flyTo={flyTo}
               />
             ) : null}
           </Suspense>
+          <button
+            className="nearme"
+            type="button"
+            onClick={nearMe}
+            disabled={locating === "busy"}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="3.2" />
+              <circle cx="12" cy="12" r="7.5" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+            {locating === "busy" ? "Locating…" : "Near me"}
+          </button>
+          {locating === "denied" ? (
+            <p className="nearme-note" role="status">
+              Location is unavailable. Search for a place instead.
+            </p>
+          ) : null}
         </div>
         <aside className="rack" aria-label="Benches in view">
           <FiltersPanel filters={filters} onChange={setFilters} />
@@ -218,7 +321,19 @@ export default function HomePage() {
           onClick={() => setFiltersOpen((o) => !o)}
         >
           <SlidersIcon />
-          Filters
+          {filtersOpen ? "Close" : "Filters"}
+          {filters.types.size +
+            filters.faces.size +
+            filters.sectors.size +
+            (filters.backrest ? 1 : 0) >
+          0 ? (
+            <span className="count num">
+              {filters.types.size +
+                filters.faces.size +
+                filters.sectors.size +
+                (filters.backrest ? 1 : 0)}
+            </span>
+          ) : null}
         </button>
       </main>
     </>

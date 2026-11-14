@@ -1,31 +1,30 @@
 import "maplibre-gl/dist/maplibre-gl.css"
 import {
+  type ExpressionSpecification,
   type GeoJSONSource,
   Map as MapLibreMap,
-  Marker,
   NavigationControl,
   setWorkerUrl,
 } from "maplibre-gl"
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { createPortal } from "react-dom"
-import { markerImage } from "../components/postmark/markerImage"
-import { Rose } from "../components/postmark/Rose"
-import { bestUrl, hasPhoto } from "../data/api"
+import { dataUrl, hasPhoto } from "../data/api"
 import { isKnown, sectorOf } from "../data/facing"
-import type { BenchFeature } from "../data/types"
+import type { BenchFeature, ImageUrls } from "../data/types"
+import type { Viewport } from "../lib/filters"
+import { dotSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
 
 // maplibre-gl 6 locates its worker next to its own module; once bundled that
 // path no longer exists, so point it at the bundled worker explicitly.
 setWorkerUrl(workerUrl)
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
-const START_CENTER: [number, number] = [4.893, 52.3715]
-const START_ZOOM = 13.1
+export const START_VIEW: Viewport = { lat: 52.3715, lng: 4.893, z: 12.6 }
 
 export interface MapView {
   bounds: [number, number, number, number]
   center: [number, number]
+  zoom: number
 }
 
 interface Props {
@@ -34,27 +33,39 @@ interface Props {
   selectedId: number | null
   onSelect: (id: number) => void
   onView: (view: MapView) => void
+  /** Where the map starts (from the URL, else the Amsterdam default). */
+  initialView: Viewport
+  /** The URL's viewport; the map jumps there when it differs (back/forward). */
+  viewport: Viewport | null
   flyTo: { center: [number, number]; key: number } | null
 }
 
-interface MarkerHost {
-  key: string
-  el: HTMLElement
-}
-interface RoseHost extends MarkerHost {
-  count: number
-  label: string
-  sectors: number[]
-}
-
+const sectorExpr = (i: number): ExpressionSpecification => [
+  "+",
+  ["case", ["==", ["get", "sec"], i], 1, 0],
+]
 const SECTOR_PROPS = Object.fromEntries(
-  [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [
-    `s${i}`,
-    ["+", ["case", ["==", ["get", "sec"], i], 1, 0]],
-  ])
+  [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [`s${i}`, sectorExpr(i)])
 )
 
-function unphotographed(benches: BenchFeature[], visible: ReadonlySet<number>) {
+// Share of each facing sector in tenths, rounded up so any member shows a tick.
+const levelExpr = (i: number): ExpressionSpecification => [
+  "to-string",
+  ["ceil", ["*", ["/", ["get", `s${i}`], ["get", "point_count"]], 10]],
+]
+const ROSE_IMAGE: ExpressionSpecification = [
+  "concat",
+  "rose:",
+  ["step", ["get", "point_count"], "0", 20, "1", 100, "2"],
+  ":",
+  ["get", "point_count_abbreviated"],
+  ":",
+  ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [levelExpr(i), i < 7 ? "," : ""]),
+]
+
+const empty = { type: "FeatureCollection" as const, features: [] }
+
+function dots(benches: BenchFeature[], visible: ReadonlySet<number>) {
   return {
     type: "FeatureCollection" as const,
     features: benches
@@ -68,6 +79,19 @@ function unphotographed(benches: BenchFeature[], visible: ReadonlySet<number>) {
           sec: sectorOf(b.properties.facing ?? 0),
           known: isKnown(b.properties),
         },
+      })),
+  }
+}
+
+function photos(benches: BenchFeature[], visible: ReadonlySet<number>) {
+  return {
+    type: "FeatureCollection" as const,
+    features: benches
+      .filter((b) => hasPhoto(b) && visible.has(b.properties.id))
+      .map((b) => ({
+        type: "Feature" as const,
+        geometry: b.geometry,
+        properties: { id: b.properties.id },
       })),
   }
 }
@@ -89,22 +113,33 @@ function restyle(map: MapLibreMap) {
   }
 }
 
+/** Smallest rendition that still covers a 2x thumbnail, else the widest. */
+function thumbUrl(urls: ImageUrls): string {
+  const widths = Object.keys(urls)
+    .map(Number)
+    .sort((a, b) => a - b)
+  const w = widths.find((x) => x >= 116) ?? widths[widths.length - 1]
+  return dataUrl(urls[String(w)])
+}
+
+const sameView = (a: Viewport, b: Viewport) =>
+  Math.abs(a.lat - b.lat) < 5e-5 &&
+  Math.abs(a.lng - b.lng) < 5e-5 &&
+  Math.abs(a.z - b.z) < 0.02
+
 export default function BenchMap({
   benches,
   visible,
   selectedId,
   onSelect,
   onView,
+  initialView,
+  viewport,
   flyTo,
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const [ready, setReady] = useState(false)
-  const [roses, setRoses] = useState<RoseHost[]>([])
-  const roseMarkers = useRef(new Map<number, Marker>())
-  const roseKey = useRef("")
-  const thumbMarkers = useRef(new Map<number, Marker>())
-  const [thumbHosts, setThumbHosts] = useState<MarkerHost[]>([])
 
   const cb = useRef({ onSelect, onView })
   cb.current = { onSelect, onView }
@@ -112,77 +147,130 @@ export default function BenchMap({
   benchesRef.current = benches
   const visibleRef = useRef(visible)
   visibleRef.current = visible
-
-  const photographed = useMemo(() => benches.filter(hasPhoto), [benches])
+  const initialRef = useRef(initialView)
+  const byId = useMemo(
+    () => new Map(benches.map((b) => [b.properties.id, b])),
+    [benches]
+  )
+  const byIdRef = useRef(byId)
+  byIdRef.current = byId
 
   // Create the map once.
   useEffect(() => {
     if (!container.current) return
+    const start = initialRef.current
     const map = new MapLibreMap({
       container: container.current,
       style: STYLE_URL,
-      center: START_CENTER,
-      zoom: START_ZOOM,
+      center: [start.lng, start.lat],
+      zoom: start.z,
       attributionControl: { compact: true },
       dragRotate: false,
+      maxPitch: 0,
     })
     mapRef.current = map
+    // Test hook for the perf script: `/?debug=1` exposes the map instance.
+    if (new URLSearchParams(location.search).has("debug")) {
+      ;(window as unknown as { __map?: MapLibreMap }).__map = map
+    }
+    map.touchZoomRotate.disableRotation()
     map.addControl(new NavigationControl({ showCompass: false }), "top-right")
 
-    const reportView = () => {
-      const b = map.getBounds()
-      const c = map.getCenter()
-      cb.current.onView({
-        bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
-        center: [c.lng, c.lat],
-      })
+    // Sprites are drawn on demand: one cluster rose per (size, count, sector
+    // pattern), one thumbnail per photographed bench.
+    const made = new Set<string>()
+    const photoCache = new Map<number, HTMLImageElement>()
+    const queue: number[] = []
+    let inflight = 0
+    const add = (id: string, s: Sprite) => {
+      if (map.hasImage(id)) map.updateImage(id, s.data)
+      else map.addImage(id, s.data, { pixelRatio: s.pixelRatio })
+    }
+    const thumbArgs = (id: number, selected: boolean) => {
+      const p = byIdRef.current.get(id)?.properties
+      return {
+        photo: photoCache.get(id) ?? null,
+        facing: p?.facing ?? null,
+        known: p ? isKnown(p) : false,
+        selected,
+      }
+    }
+    const drawThumb = (id: number) => {
+      add(`thumb:${id}`, thumbSprite(thumbArgs(id, false)))
+      const sel = `thumbsel:${id}`
+      if (map.hasImage(sel)) add(sel, thumbSprite(thumbArgs(id, true)))
+    }
+    // Warm the thumbnails of the photographed benches nearest the start view
+    // once, so panning around the city does not fetch images.
+    const prefetch = () => {
+      const cx = start.lng
+      const cy = start.lat
+      const near = benchesRef.current
+        .filter(hasPhoto)
+        .sort(
+          (a, b) =>
+            (a.geometry.coordinates[0] - cx) ** 2 * 0.37 +
+            (a.geometry.coordinates[1] - cy) ** 2 -
+            ((b.geometry.coordinates[0] - cx) ** 2 * 0.37 +
+              (b.geometry.coordinates[1] - cy) ** 2)
+        )
+        .slice(0, 300)
+      for (const b of near) queue.push(b.properties.id)
+      pump()
+    }
+    const pump = () => {
+      while (inflight < 6 && queue.length) {
+        const id = queue.shift() as number
+        const urls = byIdRef.current.get(id)?.properties.hero_urls
+        if (!urls) continue
+        inflight++
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.decoding = "async"
+        const done = () => {
+          inflight--
+          pump()
+        }
+        img.onload = () => {
+          photoCache.set(id, img)
+          drawThumb(id)
+          done()
+        }
+        img.onerror = done
+        img.src = thumbUrl(urls)
+      }
     }
 
-    const syncRoses = () => {
-      if (!map.getSource("benches") || !map.isSourceLoaded("benches")) return
-      const seen = new Map<
-        number,
-        ReturnType<typeof map.querySourceFeatures>[number]
-      >()
-      for (const f of map.querySourceFeatures("benches", {
-        filter: ["has", "point_count"],
-      })) {
-        const id = f.properties.cluster_id as number
-        if (!seen.has(id)) seen.set(id, f)
-      }
-      const key = [...seen.keys()].sort((a, b) => a - b).join(",")
-      if (key === roseKey.current) return
-      roseKey.current = key
-      for (const [id, m] of roseMarkers.current) {
-        if (!seen.has(id)) {
-          m.remove()
-          roseMarkers.current.delete(id)
+    map.setMissingStyleImageResolver((id) => {
+      const [kind, a, b, c] = id.split(":")
+      if (kind === "rose") {
+        if (made.size > 600) {
+          // Keep memory bounded on very long sessions.
+          for (const old of [...made].slice(0, 300)) {
+            if (map.hasImage(old)) map.removeImage(old)
+            made.delete(old)
+          }
+        }
+        made.add(id)
+        add(id, roseSprite(Number(a), b, c.split(",").map(Number)))
+      } else if (kind === "thumb" || kind === "thumbsel") {
+        const bid = Number(a)
+        add(id, thumbSprite(thumbArgs(bid, kind === "thumbsel")))
+        if (!photoCache.has(bid) && !queue.includes(bid)) {
+          queue.push(bid)
+          pump()
         }
       }
-      for (const [id, f] of seen) {
-        if (roseMarkers.current.has(id)) continue
-        const el = document.createElement("div")
-        el.className = "rose-wrap"
-        const coords = (
-          f.geometry as unknown as { coordinates: [number, number] }
-        ).coordinates
-        roseMarkers.current.set(
-          id,
-          new Marker({ element: el }).setLngLat(coords).addTo(map)
-        )
-      }
-      setRoses(
-        [...seen].map(([id, f]) => {
-          const p = f.properties
-          return {
-            key: String(id),
-            el: roseMarkers.current.get(id)?.getElement() as HTMLElement,
-            count: p.point_count as number,
-            label: String(p.point_count_abbreviated),
-            sectors: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => Number(p[`s${i}`])),
-          }
-        })
-      )
+    })
+
+    const reportView = () => {
+      const bd = map.getBounds()
+      const c = map.getCenter()
+      cb.current.onView({
+        bounds: [bd.getWest(), bd.getSouth(), bd.getEast(), bd.getNorth()],
+        center: [c.lng, c.lat],
+        zoom: map.getZoom(),
+      })
     }
 
     map.on("load", () => {
@@ -193,23 +281,44 @@ export default function BenchMap({
         .querySelector(".maplibregl-ctrl-attrib")
         ?.classList.remove("maplibregl-compact-show")
       for (const k of ["known", "est", "sel"] as const) {
-        map.addImage(`m-${k}`, markerImage(k), { pixelRatio: 2 })
+        map.addImage(`m-${k}`, dotSprite(k).data, { pixelRatio: 2 })
       }
       map.addSource("benches", {
         type: "geojson",
-        data: unphotographed(benchesRef.current, visibleRef.current),
+        data: dots(benchesRef.current, visibleRef.current),
         cluster: true,
-        clusterRadius: 52,
-        clusterMaxZoom: 13,
+        // A wide radius and an early max zoom keep the city view to a handful
+        // of roses so the photographed benches lead.
+        clusterRadius: 96,
+        clusterMaxZoom: 14,
         clusterProperties: SECTOR_PROPS,
       })
-      // Invisible so cluster features are queryable; drawn as postmark roses.
+      map.addSource("photos", {
+        type: "geojson",
+        data: photos(benchesRef.current, visibleRef.current),
+      })
+      map.addSource("sel", { type: "geojson", data: empty })
       map.addLayer({
-        id: "clusters",
-        type: "circle",
+        id: "roses",
+        type: "symbol",
         source: "benches",
         filter: ["has", "point_count"],
-        paint: { "circle-opacity": 0, "circle-radius": 1 },
+        layout: {
+          "icon-image": ROSE_IMAGE,
+          "icon-allow-overlap": true,
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.72, 14, 1],
+        },
+        paint: {
+          "icon-opacity": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            11,
+            0.85,
+            14,
+            1,
+          ],
+        },
       })
       map.addLayer({
         id: "bench",
@@ -224,14 +333,25 @@ export default function BenchMap({
           "icon-size": 0.86,
         },
       })
-      map.addSource("sel", {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] },
+      // Photographed benches: postcard sprites, decluttered by collision so the
+      // sharpest-placed ones win at low zoom and the rest appear as you zoom in.
+      map.addLayer({
+        id: "thumbs",
+        type: "symbol",
+        source: "photos",
+        layout: {
+          "icon-image": ["concat", "thumb:", ["to-string", ["get", "id"]]],
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": false,
+          "icon-padding": 3,
+          "symbol-sort-key": ["get", "id"],
+        },
       })
       map.addLayer({
-        id: "sel",
+        id: "sel-dot",
         type: "symbol",
         source: "sel",
+        filter: ["!", ["get", "photo"]],
         layout: {
           "icon-image": "m-sel",
           "icon-rotate": ["get", "facing"],
@@ -240,152 +360,118 @@ export default function BenchMap({
           "icon-size": 1.2,
         },
       })
-      map.on("click", "bench", (e) => {
-        const id = e.features?.[0]?.properties?.id
-        if (typeof id === "number") cb.current.onSelect(id)
+      map.addLayer({
+        id: "sel-thumb",
+        type: "symbol",
+        source: "sel",
+        filter: ["get", "photo"],
+        layout: {
+          "icon-image": ["concat", "thumbsel:", ["to-string", ["get", "id"]]],
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
       })
-      map.on("mouseenter", "bench", () => {
-        map.getCanvas().style.cursor = "pointer"
+
+      const pick = (layer: string) => {
+        map.on("click", layer, (e) => {
+          const id = e.features?.[0]?.properties?.id
+          if (typeof id === "number") cb.current.onSelect(id)
+        })
+      }
+      pick("bench")
+      pick("thumbs")
+      pick("sel-thumb")
+      map.on("click", "roses", (e) => {
+        const f = e.features?.[0]
+        if (!f) return
+        map.easeTo({
+          center: (f.geometry as unknown as { coordinates: [number, number] })
+            .coordinates,
+          zoom: map.getZoom() + 2,
+        })
       })
-      map.on("mouseleave", "bench", () => {
-        map.getCanvas().style.cursor = ""
-      })
+      for (const layer of ["bench", "thumbs", "roses", "sel-thumb"]) {
+        map.on("mouseenter", layer, () => {
+          map.getCanvas().style.cursor = "pointer"
+        })
+        map.on("mouseleave", layer, () => {
+          map.getCanvas().style.cursor = ""
+        })
+      }
       map.on("moveend", reportView)
-      map.on("render", syncRoses)
+      prefetch()
       reportView()
       setReady(true)
     })
 
-    const roseRef = roseMarkers.current
-    const thumbRef = thumbMarkers.current
     return () => {
-      for (const m of roseRef.values()) m.remove()
-      for (const m of thumbRef.values()) m.remove()
-      roseRef.clear()
-      thumbRef.clear()
-      roseKey.current = ""
       map.remove()
       mapRef.current = null
       setReady(false)
     }
   }, [])
 
-  // Unphotographed benches follow the filters.
+  // Filters change which benches are on the map.
   useEffect(() => {
     if (!ready) return
-    const src = mapRef.current?.getSource("benches") as
-      | GeoJSONSource
-      | undefined
-    src?.setData(unphotographed(benches, visible))
+    const map = mapRef.current
+    ;(map?.getSource("benches") as GeoJSONSource | undefined)?.setData(
+      dots(benches, visible)
+    )
+    ;(map?.getSource("photos") as GeoJSONSource | undefined)?.setData(
+      photos(benches, visible)
+    )
   }, [ready, benches, visible])
 
-  // Selected unphotographed bench.
+  // The one vermilion bench.
   useEffect(() => {
     if (!ready) return
     const src = mapRef.current?.getSource("sel") as GeoJSONSource | undefined
-    const b = benches.find((x) => x.properties.id === selectedId)
-    src?.setData({
-      type: "FeatureCollection",
-      features:
-        b && !hasPhoto(b)
-          ? [
+    const b = selectedId === null ? undefined : byId.get(selectedId)
+    src?.setData(
+      b
+        ? {
+            type: "FeatureCollection",
+            features: [
               {
                 type: "Feature",
                 geometry: b.geometry,
-                properties: { facing: b.properties.facing ?? 0 },
+                properties: {
+                  id: b.properties.id,
+                  facing: b.properties.facing ?? 0,
+                  photo: hasPhoto(b),
+                },
               },
-            ]
-          : [],
-    })
-  }, [ready, benches, selectedId])
+            ],
+          }
+        : empty
+    )
+  }, [ready, byId, selectedId])
 
-  // Photographed benches are tiny postcards (HTML markers rendered by React).
+  // Back/forward: follow the URL when it names a different viewport.
   useEffect(() => {
     const map = mapRef.current
-    if (!ready || !map) return
-    const hosts: MarkerHost[] = []
-    for (const b of photographed) {
-      const id = b.properties.id
-      let m = thumbMarkers.current.get(id)
-      if (!m) {
-        const el = document.createElement("div")
-        el.className = "thumb-wrap"
-        m = new Marker({ element: el, anchor: "bottom" })
-          .setLngLat(b.geometry.coordinates)
-          .addTo(map)
-        thumbMarkers.current.set(id, m)
-      }
-      hosts.push({ key: String(id), el: m.getElement() })
+    if (!ready || !map || !viewport) return
+    const c = map.getCenter()
+    if (!sameView(viewport, { lat: c.lat, lng: c.lng, z: map.getZoom() })) {
+      map.jumpTo({ center: [viewport.lng, viewport.lat], zoom: viewport.z })
     }
-    setThumbHosts(hosts)
-  }, [ready, photographed])
+  }, [ready, viewport])
 
   useEffect(() => {
-    if (flyTo) {
-      mapRef.current?.flyTo({ center: flyTo.center, zoom: 15.5 })
+    const map = mapRef.current
+    if (flyTo && map) {
+      map.flyTo({ center: flyTo.center, zoom: Math.max(map.getZoom(), 15) })
     }
   }, [flyTo])
 
-  const byKey = useMemo(
-    () => new Map(photographed.map((b) => [String(b.properties.id), b])),
-    [photographed]
-  )
-
   return (
-    <>
-      <div
-        ref={container}
-        className="map-canvas"
-        role="application"
-        aria-label="Map of benches"
-      />
-      {thumbHosts.map(({ key, el }) => {
-        const b = byKey.get(key)
-        if (!b) return null
-        const p = b.properties
-        return createPortal(
-          <button
-            type="button"
-            className="thumb"
-            hidden={!visible.has(p.id)}
-            data-sel={p.id === selectedId ? "" : undefined}
-            aria-label={`Bench No. ${p.id} on ${p.address ?? "an unnamed path"}`}
-            onClick={() => onSelect(p.id)}
-          >
-            <img src={bestUrl(p.hero_urls)} alt="" width={58} height={42} />
-            <span
-              className="needle"
-              style={{ "--f": `${p.facing ?? 0}deg` } as React.CSSProperties}
-            >
-              <i />
-            </span>
-          </button>,
-          el,
-          key
-        )
-      })}
-      {roses.map(({ key, el, count, label, sectors }) =>
-        el
-          ? createPortal(
-              <button
-                type="button"
-                className="rose"
-                aria-label={`${count} benches here; zoom in`}
-                onClick={() => {
-                  const m = mapRef.current
-                  const ll = roseMarkers.current.get(Number(key))?.getLngLat()
-                  if (m && ll) {
-                    m.easeTo({ center: ll, zoom: m.getZoom() + 2 })
-                  }
-                }}
-              >
-                <Rose count={count} label={label} sectors={sectors} />
-              </button>,
-              el,
-              key
-            )
-          : null
-      )}
-    </>
+    <div
+      ref={container}
+      className="map-canvas"
+      role="application"
+      aria-label="Map of benches. The postcards beside it list the same benches."
+    />
   )
 }

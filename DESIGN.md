@@ -325,7 +325,6 @@ Inline SVG line icons on a 24 grid, 18px, 1.6px stroke, round caps and joins, cu
 - **Don't** fake a photo for an unphotographed bench; use the plain row.
 
 ### Open items from the finish review
-- The postmark ring on the rack-size stamp (74×88) is illegible: its 3.7px arc text and cancel bars do not read at that size. Resolve before rebuilding; candidates are dropping the arc text below the large stamp size or enlarging the postmark.
-- The default map view is still cluster-dense at the city zoom; the cluster radius and default zoom are not settled.
-- The phone filter sheet and the phone sample-note card were not visually verified.
+- Resolved in 5.3: the rack-size stamp's postmark drops its arc text below the large stamp and draws heavier cancel bars and needle; the default map view uses a wide cluster radius (96px, max zoom 14, start zoom 12.6) so photographed benches lead; the phone filter sheet (key and the estimated-facing note) was verified at 390x844.
+- The phone sample-note card on the detail page is still unverified.
 - The card flip (front to back for address and details) promised by the direction is not built; the detail page shows front and back side by side instead.

@@ -1,4 +1,4 @@
-import type { FacesCategory } from "../data/types"
+import type { BenchType, FacesCategory } from "../data/types"
 import { type Filters, toggled } from "../lib/filters"
 import { CheckTick } from "./Icons"
 
@@ -7,6 +7,11 @@ const FACE_OPTS: [FacesCategory, string][] = [
   ["park", "Park"],
   ["square", "Square"],
   ["street", "Street"],
+]
+const TYPE_OPTS: [BenchType, string][] = [
+  ["backrest", "Backrest"],
+  ["backless", "Backless"],
+  ["picnic", "Picnic table"],
 ]
 const SECT = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
@@ -64,6 +69,21 @@ export function FiltersPanel({ filters, onChange }: Props) {
           Seat
         </div>
         <div className="checks">
+          {TYPE_OPTS.map(([v, label]) => (
+            <label className="check" key={v}>
+              <input
+                type="checkbox"
+                checked={filters.types.has(v)}
+                onChange={() =>
+                  onChange({ ...filters, types: toggled(filters.types, v) })
+                }
+              />
+              <span className="box">
+                <CheckTick />
+              </span>
+              {label}
+            </label>
+          ))}
           <label className="check">
             <input
               type="checkbox"
@@ -143,6 +163,8 @@ export function FiltersPanel({ filters, onChange }: Props) {
             <i className="est" /> Estimated (≈)
           </span>
         </span>
+        Facings marked ≈ are estimated from street-level photos; the others come
+        from the map data.
       </p>
     </section>
   )
