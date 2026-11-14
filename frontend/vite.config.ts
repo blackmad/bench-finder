@@ -12,7 +12,8 @@ function dropDevFixture(mode: string): Plugin {
     name: "drop-dev-fixture",
     apply: "build",
     closeBundle() {
-      if (env.VITE_DATA_BASE_URL) rmSync(resolve("dist/data"), { recursive: true, force: true })
+      if (env.VITE_DATA_BASE_URL)
+        rmSync(resolve("dist/data"), { recursive: true, force: true })
     },
   }
 }

@@ -524,7 +524,10 @@ detect-extra = [
     { name = "transformers" },
 ]
 dev = [
+    { name = "pytest-asyncio" },
     { name = "pytest-cov" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
 ]
 roboflow-local = [
     { name = "inference" },
@@ -761,7 +764,12 @@ detect-extra = [
     { name = "openai-clip", specifier = ">=1.0.1" },
     { name = "transformers", specifier = ">=4.57" },
 ]
-dev = [{ name = "pytest-cov", specifier = ">=7.0.0" }]
+dev = [
+    { name = "pytest-asyncio", specifier = ">=0.24.0" },
+    { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "pytest-mock", specifier = ">=3.14.0" },
+    { name = "ruff", specifier = ">=0.14.2" },
+]
 roboflow-local = [{ name = "inference", specifier = ">=0.58.0" }]
 vlm = [
     { name = "anthropic", specifier = ">=0.75" },

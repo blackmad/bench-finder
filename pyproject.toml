@@ -262,6 +262,9 @@ api = [
 ]
 dev = [
     "pytest-cov>=7.0.0",
+    "ruff>=0.14.2",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
 ]
 # View-classifier backends (Claude, Gemini Decisions). Installed by default.
 vlm = [

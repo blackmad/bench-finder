@@ -38,7 +38,8 @@ def content_hash(src: Path) -> str:
 
 def target_widths(source_width: int) -> tuple[int, ...]:
     """Standard widths <= source; just the native width if smaller than all. Never upscales."""
-    return tuple(w for w in WIDTHS if w <= source_width) or (source_width,)
+    widths = tuple(w for w in WIDTHS if w <= source_width)
+    return widths if widths else (source_width,)
 
 
 def derivative_name(digest: str, width: int, fmt: str) -> str:
