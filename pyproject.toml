@@ -38,7 +38,6 @@ dependencies = [
     "aiosignal>=1.4.0",
     "aiosqlite>=0.21.0",
     "annotated-types>=0.7.0",
-    "anthropic>=0.49.0",
     "anyio>=4.11.0",
     "APScheduler>=3.11.0",
     "asyncua>=1.1.8",
@@ -190,7 +189,6 @@ dependencies = [
     "tzdata>=2025.2",
     "tzlocal>=5.3.1",
     "ultralytics>=8.3.204",
-    "inference>=0.58.0",
     "ultralytics-thop>=2.0.17",
     "urllib3>=2.5.0",
     "uvicorn>=0.34.0",
@@ -209,7 +207,6 @@ dependencies = [
     "pyequilib>=0.5.8",
     "google-api-python-client>=2.100.0",
     "google-auth>=2.25.0",
-    "google-genai>=1.55.0",
 ]
 
 [project.optional-dependencies]
@@ -268,6 +265,17 @@ api = [
 dev = [
     "pytest-cov>=7.0.0",
 ]
+# View-classifier backends (Claude, Gemini Decisions). Installed by default.
+vlm = [
+    "anthropic>=0.75",
+    "google-genai>=3.3",
+]
+# Local Roboflow inference. It pins old anthropic/google-genai, so it cannot share an
+# environment with `vlm`:  uv sync --group roboflow-local --no-group vlm
+# Without it, RoboflowClient falls back to the hosted API.
+roboflow-local = [
+    "inference>=0.58.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/your-org/bench-finder"
@@ -281,6 +289,8 @@ bench-detection = "bench_finder.tools.bench_detection_cli:main"
 
 # Dependency overrides to force specific versions
 [tool.uv]
+default-groups = ["dev", "vlm"]
+conflicts = [[{ group = "vlm" }, { group = "roboflow-local" }]]
 override-dependencies = [
     "pillow>=9.11",
 ]

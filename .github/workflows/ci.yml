@@ -18,7 +18,8 @@ jobs:
         with:
           python-version: "3.12"
           enable-cache: true
-      - run: uv sync --dev
+      # av (pulled in by aiortc) has no wheel for py3.12 and will not build against current ffmpeg; nothing tested needs it.
+      - run: uv sync --no-install-package av
       - run: uv run ruff check bench_finder/migrate.py bench_finder/quarantine.py bench_finder/facing.py bench_finder/publish bench_finder/labeling bench_finder/clients/view_classifier.py tests
       - run: uv run pytest -q
 
