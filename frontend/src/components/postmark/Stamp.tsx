@@ -170,7 +170,13 @@ export function Stamp({
         {label}
       </text>
       {facing === null ? null : (
-        <Postmark facing={facing} known={known} selected={selected} uid={uid} />
+        <Postmark
+          facing={facing}
+          known={known}
+          selected={selected}
+          uid={uid}
+          large={large}
+        />
       )}
     </svg>
   )
@@ -217,17 +223,21 @@ function Postmark({
   known,
   selected,
   uid,
+  large,
 }: {
   facing: number
   known: boolean
   selected: boolean
   uid: string
+  large: boolean
 }) {
   const ink = selected ? "var(--color-vermilion)" : "var(--color-ink)"
   const x = 4
   const y = 78
   const r = 15
-  const sw = known ? 0.95 : 0.6
+  // Below the large stamp the 3.7px arc text cannot be read: drop it and let
+  // the cancel bars and needle carry the facing, drawn a little heavier.
+  const sw = large ? (known ? 0.95 : 0.6) : known ? 1.25 : 0.85
   const pathId = `${uid}t`
   const arcText = `${known ? "" : "≈ "}${windName(facing)} · ${facing}°`
   const rot = `rotate(${facing} ${x} ${y})`
@@ -249,30 +259,37 @@ function Postmark({
       </g>
       <circle cx={x} cy={y} r={r} fill="rgb(251 251 247 / .55)" />
       <circle cx={x} cy={y} r={r - 4.6} />
-      <path
-        id={pathId}
-        d={`M${x - r + 2.3} ${y} a ${r - 2.3} ${r - 2.3} 0 0 1 ${2 * (r - 2.3)} 0`}
-        stroke="none"
-      />
-      <text
-        fontSize={3.7}
-        fontWeight={700}
-        fontFamily="Archivo Variable, sans-serif"
-        style={{ fontVariationSettings: "'wdth' 118", letterSpacing: ".2px" }}
-        fill={ink}
-        stroke="none"
-      >
-        <textPath href={`#${pathId}`} startOffset="50%" textAnchor="middle">
-          {arcText}
-        </textPath>
-      </text>
+      {large ? (
+        <>
+          <path
+            id={pathId}
+            d={`M${x - r + 2.3} ${y} a ${r - 2.3} ${r - 2.3} 0 0 1 ${2 * (r - 2.3)} 0`}
+            stroke="none"
+          />
+          <text
+            fontSize={3.7}
+            fontWeight={700}
+            fontFamily="Archivo Variable, sans-serif"
+            style={{
+              fontVariationSettings: "'wdth' 118",
+              letterSpacing: ".2px",
+            }}
+            fill={ink}
+            stroke="none"
+          >
+            <textPath href={`#${pathId}`} startOffset="50%" textAnchor="middle">
+              {arcText}
+            </textPath>
+          </text>
+        </>
+      ) : null}
       <g transform={rot} strokeDasharray="none">
         <line
           x1={x}
           y1={y + 4}
           x2={x}
           y2={y - 6}
-          strokeWidth={known ? 1.3 : 0.8}
+          strokeWidth={large ? (known ? 1.3 : 0.8) : known ? 1.7 : 1.1}
         />
         <path
           d={`M${x} ${y - 8.5} l-2.2 3.4 h4.4z`}
