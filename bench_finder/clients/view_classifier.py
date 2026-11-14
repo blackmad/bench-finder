@@ -1,4 +1,4 @@
-"""Per-view bench classification (Phase 3.1): one interface, three backends.
+"""Per-view bench classification (Phase 3.1): one interface, five backends.
 
 Every backend answers the same closed-set questions about one image and returns a
 :class:`ViewLabels`:
@@ -10,6 +10,10 @@ Every backend answers the same closed-set questions about one image and returns 
 * ``typesafe``  - TypeSafe Jev (``jev-1.14.0``) over REST with the
                   ``TypeSafe-Danger-Zone-Images`` header; images are resized to the
                   documented limits first.
+* ``google``    - plain Gemini ``generate_content`` (any model id) with the Claude prompt
+                  and JSON schema as structured output; token usage tracked for spend caps.
+* ``local``     - a local vision model (e.g. ``qwen3-vl:8b``) through Ollama's HTTP API,
+                  structured output via ``format`` = the Claude JSON schema.
 
 Documentation status (checked 2026-11-14):
 
@@ -31,6 +35,7 @@ import base64
 import io
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -247,6 +252,16 @@ PRICES: dict[str, tuple[float, float]] = {
     "claude-opus-5-5": (4.00, 20.00),
     GEMINI_MODEL: (0.10, 0.0),  # TODO(gemini): confirm at /docs/pricing#gemini-decision
     TYPESAFE_MODEL: (0.084, 0.0),  # TODO(typesafe): confirm price in the models docs
+    # generate_content models: aistudio.google.com/docs/pricing (checked 2026-11-14; output
+    # includes thinking). 3.8/3.6 Flash double on 2027-01-01, Gemini 4 Argon/Carbon on 2026-12-01.
+    "gemini-3.1-flash-lite": (0.25, 1.50),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
+    "gemini-3.6-flash": (0.75, 3.75),
+    "gemini-3.8-flash": (0.75, 3.75),
+    "gemini-4-hydrogen": (1.50, 7.50),
+    "gemini-4-argon": (2.00, 10.00),
+    "gemini-4-carbon": (2.00, 10.00),
+    "gemini-2.5-pro": (1.25, 10.00),
 }
 
 
@@ -866,18 +881,241 @@ class TypeSafeViewClassifier(_BaseClassifier):
         )
 
 
+# --------------------------------------------------------------------------- Google (generate_content)
+
+DEFAULT_GOOGLE_MODEL = "gemini-3.1-flash-lite"
+
+
+class Usage:
+    """Thread-safe token tally (input, output incl. thinking) for spend tracking."""
+
+    def __init__(self):
+        import threading
+
+        self._lock = threading.Lock()
+        self.calls = self.input_tokens = self.output_tokens = 0
+
+    def add(self, tin: int, tout: int) -> None:
+        with self._lock:
+            self.calls += 1
+            self.input_tokens += tin
+            self.output_tokens += tout
+
+    def usd(self, model: str) -> float:
+        pin, pout = PRICES.get(model, (0.0, 0.0))
+        return (self.input_tokens * pin + self.output_tokens * pout) / 1e6
+
+
+class GoogleViewClassifier(_BaseClassifier):
+    """Plain Gemini ``models.generate_content`` with the Claude prompt and JSON schema.
+
+    Structured output via ``response_mime_type="application/json"`` +
+    ``response_json_schema`` (google-genai >= 1.x accepts a raw JSON schema there,
+    including ``["string", "null"]`` types). Thinking is pinned to ``thinking_level`` (low by
+    default) because thinking tokens are billed as output. Token usage from
+    ``usage_metadata`` is accumulated in ``self.usage`` (shared when passed in) so callers
+    can enforce a spend cap.
+    """
+
+    def __init__(
+        self,
+        model: str | None = None,
+        client: Any = None,
+        api_key: str | None = None,
+        thinking_level: str | None = "low",
+        max_side: int = 1568,
+        usage: Usage | None = None,
+        max_retries: int = 8,
+        sleep=time.sleep,
+    ):
+        self.model = model or os.environ.get(
+            "VIEW_CLASSIFIER_GOOGLE_MODEL", DEFAULT_GOOGLE_MODEL
+        )
+        self.max_retries = max_retries
+        self._sleep = sleep
+        self._client = client
+        self._api_key = api_key
+        self.thinking_level = thinking_level
+        self.max_side = max_side
+        self.usage = usage or Usage()
+
+    @property
+    def client(self):
+        if self._client is None:
+            from google import genai
+
+            self._client = genai.Client(
+                api_key=require_key("GEMINI_API_KEY", self._api_key)
+            )
+        return self._client
+
+    def _config(self) -> dict:
+        cfg: dict[str, Any] = {
+            "system_instruction": CLAUDE_SYSTEM,
+            "response_mime_type": "application/json",
+            "response_json_schema": CLAUDE_SCHEMA,
+            "temperature": 0.0,
+        }
+        if self.thinking_level:
+            cfg["thinking_config"] = {"thinking_level": self.thinking_level}
+        return cfg
+
+    def build_request(self, image_path, context=None) -> dict:
+        data, mime, _ = prepare_image(image_path, max_side=self.max_side)
+        ctx = context or ViewContext()
+        return {
+            "model": self.model,
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {"inline_data": {"mime_type": mime, "data": data}},
+                        {"text": ctx.prompt() + " Classify this view."},
+                    ],
+                }
+            ],
+            "config": self._config(),
+        }
+
+    def classify(self, image_path, context=None) -> ViewLabels:
+        req = self.build_request(image_path, context)
+        for attempt in range(self.max_retries + 1):
+            try:
+                resp = self.client.models.generate_content(**req)
+                break
+            except Exception as e:
+                msg = str(e)
+                code = getattr(e, "code", None)
+                # per-minute 429s and 503 "high demand" are transient; daily quotas are not
+                transient = (code == 429 and "PerDay" not in msg) or code == 503
+                if not transient or attempt == self.max_retries:
+                    raise
+                m = re.search(r"retry in ([0-9.]+)s", msg)
+                self._sleep(float(m.group(1)) + 1 if m else 15.0)
+        um = getattr(resp, "usage_metadata", None)
+        if um is not None:
+            self.usage.add(
+                int(getattr(um, "prompt_token_count", 0) or 0),
+                int(getattr(um, "candidates_token_count", 0) or 0)
+                + int(getattr(um, "thoughts_token_count", 0) or 0),
+            )
+        text = getattr(resp, "text", None)
+        if not text:
+            raise ValueError("Gemini response has no text")
+        return claude_labels_from_json(json.loads(text), self.model)
+
+    def estimate_cost(self, image_paths) -> CostEstimate:
+        n = len(list(image_paths))
+        return _estimate(
+            self.model,
+            [(0, 0)] * n,
+            1700,
+            300,
+            lambda w, h: 0,
+            "~1700 input tokens/image (measured order of magnitude) and ~300 output "
+            "incl. low thinking; see usage_metadata for actuals.",
+        )
+
+
+# --------------------------------------------------------------------------- local (Ollama)
+
+OLLAMA_URL = "http://localhost:11434"
+DEFAULT_LOCAL_MODEL = "qwen3-vl:8b"
+
+
+class LocalViewClassifier(_BaseClassifier):
+    """Local vision model via Ollama's ``/api/chat`` with ``format`` = the Claude JSON schema.
+
+    ``think`` is sent as false (thinking models otherwise spend minutes per image); if the
+    model rejects the parameter the request is retried without it.
+    """
+
+    def __init__(
+        self,
+        model: str | None = None,
+        url: str | None = None,
+        session: Any = None,
+        max_side: int = 1568,
+        think: bool | None = False,
+        timeout: float = 600,
+    ):
+        self.model = model or os.environ.get(
+            "VIEW_CLASSIFIER_LOCAL_MODEL", DEFAULT_LOCAL_MODEL
+        )
+        self.url = (url or os.environ.get("OLLAMA_HOST") or OLLAMA_URL).rstrip("/")
+        if not self.url.startswith("http"):
+            self.url = "http://" + self.url
+        self._session = session
+        self.max_side = max_side
+        self.think = think
+        self.timeout = timeout
+
+    @property
+    def session(self):
+        if self._session is None:
+            import requests
+
+            self._session = requests.Session()
+        return self._session
+
+    def build_request(self, image_path, context=None) -> dict:
+        data, _, _ = prepare_image(image_path, max_side=self.max_side)
+        ctx = context or ViewContext()
+        body: dict[str, Any] = {
+            "model": self.model,
+            "stream": False,
+            "format": CLAUDE_SCHEMA,
+            "options": {"temperature": 0},
+            "messages": [
+                {"role": "system", "content": CLAUDE_SYSTEM},
+                {
+                    "role": "user",
+                    "content": ctx.prompt() + " Classify this view. Answer in JSON.",
+                    "images": [base64.b64encode(data).decode()],
+                },
+            ],
+        }
+        if self.think is not None:
+            body["think"] = self.think
+        return body
+
+    def classify(self, image_path, context=None) -> ViewLabels:
+        body = self.build_request(image_path, context)
+        resp = self.session.post(
+            f"{self.url}/api/chat", json=body, timeout=self.timeout
+        )
+        if resp.status_code == 400 and "think" in body and "think" in resp.text:
+            body.pop("think")
+            resp = self.session.post(
+                f"{self.url}/api/chat", json=body, timeout=self.timeout
+            )
+        resp.raise_for_status()
+        msg = resp.json()["message"]
+        # With think=false some Ollama builds put the structured answer in "thinking".
+        content = msg.get("content") or msg.get("thinking") or ""
+        if not content.strip():
+            raise ValueError("Ollama response has no content")
+        return claude_labels_from_json(json.loads(content), self.model)
+
+    def estimate_cost(self, image_paths) -> CostEstimate:
+        n = len(list(image_paths))
+        return CostEstimate(self.model, n, 0, 0, 0.0, None, "Local model: no API cost.")
+
+
 BACKENDS = {
     "claude": ClaudeViewClassifier,
     "gemini": GeminiViewClassifier,
     "typesafe": TypeSafeViewClassifier,
+    "google": GoogleViewClassifier,
+    "local": LocalViewClassifier,
 }
 
 
 def make_classifier(backend: str, model: str | None = None, **kw) -> ViewClassifier:
     if backend not in BACKENDS:
         raise ValueError(f"unknown backend {backend!r}; choose from {sorted(BACKENDS)}")
-    if backend == "claude":
-        return ClaudeViewClassifier(model=model, **kw)
+    if backend in ("claude", "google", "local"):
+        return BACKENDS[backend](model=model, **kw)
     if backend == "typesafe" and model:
         return TypeSafeViewClassifier(model=model, **kw)
     return BACKENDS[backend](**kw)

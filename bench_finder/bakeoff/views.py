@@ -2,6 +2,9 @@
 
     uv run python -m bench_finder.bakeoff.views run --backend gemini --resolution medium
     uv run python -m bench_finder.bakeoff.views run --backend typesafe
+    uv run python -m bench_finder.bakeoff.views run --backend google --model gemini-3.8-flash \
+        --ids-from anthropic/claude-opus-5.5 --max-usd 0.5
+    uv run python -m bench_finder.bakeoff.views run --backend local --model qwen3-vl:8b --workers 1
     uv run python -m bench_finder.bakeoff.views score
 
 ``run`` classifies every gold image (annotator ``oracle:*``) that the variant has not
@@ -28,6 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from bench_finder.clients.view_classifier import (
+    Usage,
     ViewContext,
     make_classifier,
     save_view_labels,
@@ -49,6 +53,10 @@ RING = [
     "left",
     "front-left",
 ]
+
+
+class BudgetExceededError(RuntimeError):
+    """Raised (and counted as skipped) once the run's estimated spend reaches --max-usd."""
 
 
 def ring_steps(a: str, b: str) -> int | None:
@@ -87,11 +95,16 @@ def run(
     workers: int,
     images_root: Path,
     model: str | None = None,
+    ids_from: str | None = None,
+    max_usd: float | None = None,
 ) -> dict:
     conn = store.connect(db)
-    kw = {"resolution": resolution} if backend == "gemini" and resolution else {}
+    kw: dict = {"resolution": resolution} if backend == "gemini" and resolution else {}
     if model:
         kw["model"] = model
+    usage = Usage()
+    if backend == "google":
+        kw["usage"] = usage  # shared across the per-thread clients
     clf = make_classifier(backend, **kw)
     local = (
         threading.local()
@@ -100,12 +113,20 @@ def run(
         f"@{resolution}" if backend == "gemini" and resolution else ""
     )
     done = set(predictions(conn, variant))
-    todo = [i for i in sorted(gold(conn)) if i not in done][:limit]
+    pool_ids = sorted(gold(conn))
+    if (
+        ids_from
+    ):  # restrict to images another variant labelled (same-subset comparisons)
+        have = set(predictions(conn, ids_from))
+        pool_ids = [i for i in pool_ids if i in have]
+    todo = [i for i in pool_ids if i not in done][:limit]
     paths = {i: store.image_path(conn, i, images_root) for i in todo}
-    ok = err = 0
+    ok = err = skipped = 0
     t0 = time.time()
 
     def one(iid: int):
+        if max_usd is not None and usage.usd(clf.model) >= max_usd:
+            raise BudgetExceededError(f"spend cap ${max_usd} reached")
         if not hasattr(local, "clf"):
             local.clf = make_classifier(backend, **kw)
         lab = local.clf.classify(paths[iid], ViewContext(image_id=iid))
@@ -119,16 +140,28 @@ def run(
                 iid, lab = f.result()
                 save_view_labels(conn, iid, lab)
                 ok += 1
+            except BudgetExceededError:
+                skipped += 1
             except Exception as e:
                 err += 1
                 if err <= 5:
                     print(f"error: {e!r}"[:300])
-    return {
+    secs = time.time() - t0
+    out = {
         "variant": variant,
         "classified": ok,
         "errors": err,
-        "seconds": round(time.time() - t0, 1),
+        "seconds": round(secs, 1),
+        "sec_per_image": round(secs / ok, 2) if ok else None,
     }
+    if backend == "google":
+        out |= {
+            "skipped_budget": skipped,
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "usd": round(usage.usd(clf.model), 4),
+        }
+    return out
 
 
 def score_variant(g: dict[int, dict[str, str]], p: dict[int, dict]) -> dict:
@@ -186,12 +219,24 @@ def main() -> None:
     ap.add_argument("--db", default="data/benches.db")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
-    r.add_argument("--backend", required=True, choices=["gemini", "typesafe", "claude"])
+    r.add_argument(
+        "--backend",
+        required=True,
+        choices=["gemini", "typesafe", "claude", "google", "local"],
+    )
     r.add_argument("--resolution", choices=["low", "medium", "high", "ultra_high"])
     r.add_argument("--limit", type=int)
     r.add_argument(
         "--model",
-        help="claude backend: e.g. anthropic/claude-sonnet-5.5 via OpenRouter",
+        help="claude: e.g. anthropic/claude-sonnet-5.5 (OpenRouter); "
+        "google: e.g. gemini-3.8-flash; local: an Ollama model, e.g. qwen3-vl:8b",
+    )
+    r.add_argument(
+        "--ids-from",
+        help="only images this variant has labelled (e.g. anthropic/claude-opus-5.5)",
+    )
+    r.add_argument(
+        "--max-usd", type=float, help="google: stop once estimated spend reaches this"
     )
     r.add_argument("--workers", type=int, default=8)
     r.add_argument("--images-root", type=Path, default=Path("images"))
@@ -207,6 +252,8 @@ def main() -> None:
                 a.workers,
                 a.images_root,
                 a.model,
+                a.ids_from,
+                a.max_usd,
             )
         )
     else:

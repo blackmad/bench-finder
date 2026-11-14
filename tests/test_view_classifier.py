@@ -252,3 +252,103 @@ def test_persist_upserts_one_row_per_label(tmp_path, img):
     conn.row_factory = sqlite3.Row
     assert vc.select_images(conn, "claude-haiku-5-5", None, Path(".")) == []
     assert len(vc.select_images(conn, "other-model", None, Path("."))) == 1
+
+
+def test_google_generate_content_structured_output_and_usage(img):
+    seen, sleeps = [], []
+
+    class RateLimitError(Exception):
+        code = 429
+
+    class Models:
+        def generate_content(self, **kw):
+            seen.append(kw)
+            if len(seen) == 1:
+                raise RateLimitError("per minute. Please retry in 2.5s.")
+            um = SimpleNamespace(
+                prompt_token_count=1700,
+                candidates_token_count=200,
+                thoughts_token_count=100,
+            )
+            return SimpleNamespace(text=json.dumps(CLAUDE_JSON), usage_metadata=um)
+
+    usage = vc.Usage()
+    clf = vc.GoogleViewClassifier(
+        model="gemini-3.8-flash",
+        client=SimpleNamespace(models=Models()),
+        usage=usage,
+        sleep=sleeps.append,
+    )
+    out = clf.classify(img)
+    assert out.view_relation == "back-left" and out.model == "gemini-3.8-flash"
+    assert sleeps == [3.5]  # retried after the server's retryDelay
+    kw = seen[-1]
+    assert kw["model"] == "gemini-3.8-flash"
+    assert kw["config"]["response_mime_type"] == "application/json"
+    assert kw["config"]["response_json_schema"] is vc.CLAUDE_SCHEMA
+    assert kw["config"]["system_instruction"] == vc.CLAUDE_SYSTEM
+    part = kw["contents"][0]["parts"][0]["inline_data"]
+    assert part["mime_type"] == "image/jpeg" and isinstance(part["data"], bytes)
+    assert (usage.calls, usage.input_tokens, usage.output_tokens) == (1, 1700, 300)
+    assert usage.usd("gemini-3.8-flash") == pytest.approx(
+        (1700 * 0.75 + 300 * 3.75) / 1e6
+    )
+
+
+def test_google_daily_quota_not_retried(img):
+    class DailyQuotaError(Exception):
+        code = 429
+
+    class Models:
+        def generate_content(self, **kw):
+            raise DailyQuotaError("GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+
+    clf = vc.GoogleViewClassifier(
+        client=SimpleNamespace(models=Models()), sleep=pytest.fail
+    )
+    with pytest.raises(DailyQuotaError):
+        clf.classify(img)
+
+
+def test_local_ollama_format_schema(img):
+    posted = []
+
+    class Resp:
+        def __init__(self, status, body):
+            self.status_code, self._body, self.text = status, body, json.dumps(body)
+
+        def raise_for_status(self):
+            assert self.status_code == 200
+
+        def json(self):
+            return self._body
+
+    class Session:
+        def post(self, url, json, timeout):
+            posted.append((url, dict(json)))
+            if "think" in json:
+                return Resp(400, {"error": "model does not support think"})
+            # some Ollama builds put the structured answer in "thinking"
+            return Resp(
+                200, {"message": {"content": "", "thinking": _dumps(CLAUDE_JSON)}}
+            )
+
+    _dumps = json.dumps
+    clf = vc.LocalViewClassifier(model="qwen3-vl:8b", session=Session())
+    out = clf.classify(img)
+    assert out.model == "qwen3-vl:8b" and out.faces_category == "water"
+    url, body = posted[0]
+    assert url == "http://localhost:11434/api/chat"
+    assert body["format"] is vc.CLAUDE_SCHEMA and body["stream"] is False
+    assert body["messages"][0]["content"] == vc.CLAUDE_SYSTEM
+    assert len(body["messages"][1]["images"]) == 1
+    assert "think" not in posted[1][1]  # retried without the unsupported parameter
+
+
+def test_make_classifier_new_backends():
+    assert (
+        vc.make_classifier("google", model="gemini-4-hydrogen").model
+        == "gemini-4-hydrogen"
+    )
+    assert vc.make_classifier("local", model="qwen3-vl:30b").model == "qwen3-vl:30b"
+    assert vc.make_classifier("local").estimate_cost(["x"]).usd == 0.0
