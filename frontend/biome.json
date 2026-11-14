@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.5/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.7/schema.json",
   "assist": {
     "actions": {
       "source": {
@@ -10,39 +10,38 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "a11y": {
-        "recommended": true
+        "preset": "recommended"
       },
       "complexity": {
-        "recommended": true,
+        "preset": "recommended",
         "noExcessiveCognitiveComplexity": "warn"
       },
       "correctness": {
-        "recommended": true,
+        "preset": "recommended",
         "useExhaustiveDependencies": "error",
         "useHookAtTopLevel": "error",
         "noUnusedImports": "error"
       },
       "performance": {
-        "recommended": true
+        "preset": "recommended"
       },
       "security": {
-        "recommended": true
+        "preset": "recommended"
       },
       "style": {
-        "recommended": true,
+        "preset": "recommended",
         "useConst": "error",
-        "useTemplate": "warn"
+        "useTemplate": "warn",
+        "useReactFunctionComponents": "warn"
       },
       "suspicious": {
-        "recommended": true,
+        "preset": "recommended",
         "noExplicitAny": "warn",
         "noArrayIndexKey": "warn"
       },
-      "nursery": {
-        "useReactFunctionComponents": "warn"
-      }
+      "nursery": {}
     }
   },
   "formatter": {
@@ -68,7 +67,13 @@
     }
   },
   "files": {
-    "includes": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx"],
+    "includes": [
+      "src/**/*.ts",
+      "src/**/*.tsx",
+      "scripts/**/*.mjs",
+      "vite.config.ts",
+      "!src/**/*.d.ts"
+    ],
     "ignoreUnknown": true
   },
   "overrides": [
@@ -80,12 +85,6 @@
             "noUndeclaredVariables": "off"
           }
         }
-      }
-    },
-    {
-      "includes": ["src/api/**"],
-      "linter": {
-        "enabled": false
       }
     }
   ]

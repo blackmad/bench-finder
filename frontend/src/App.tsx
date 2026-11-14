@@ -1,79 +1,34 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useMemo } from "react"
-import {
-  Navigate,
-  Route,
-  BrowserRouter as Router,
-  Routes,
-} from "react-router-dom"
-import { ThemeProvider } from "styled-components"
-import ApiExample from "./components/ApiExample"
-import ErrorToast from "./components/ErrorToast/ErrorToast"
-import { AppProvider, useApp } from "./contexts/AppContext"
-import { AuthProvider } from "./contexts/AuthContext"
-import BenchDetailPage from "./pages/BenchDetailPage"
-import CardsPage from "./pages/CardsPage"
-import MapPage from "./pages/MapPage"
-import MobileMapPage from "./pages/MobileMapPage"
-import ReportMissingBenchPage from "./pages/ReportMissingBenchPage"
-import GlobalStyles from "./styles/GlobalStyles"
-import { theme } from "./styles/theme"
-import { isMobileDevice } from "./utils/deviceDetection"
+import { lazy, Suspense } from "react"
+import { BrowserRouter, Route, Routes } from "react-router-dom"
+import { ErrorBoundary } from "./components/ErrorBoundary"
 
-// Create a client
+const HomePage = lazy(() => import("./pages/HomePage"))
+const BenchPage = lazy(() => import("./pages/BenchPage"))
+const MePage = lazy(() => import("./pages/MePage"))
+const AdminPage = lazy(() => import("./pages/AdminPage"))
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"))
+
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 2,
-    },
-  },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 })
 
-// Component to handle error display
-const AppWithErrorHandling = () => {
-  const { state, clearError } = useApp()
-  const isMobile = useMemo(() => isMobileDevice(), [])
-
+export default function App() {
   return (
-    <>
-      <Router>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Navigate to={isMobile ? "/mobile-map" : "/cards"} replace />
-            }
-          />
-          <Route path="/mobile-map" element={<MobileMapPage />} />
-          <Route path="/cards" element={<CardsPage />} />
-          <Route path="/map" element={<MapPage />} />
-          <Route path="/bench/:id" element={<BenchDetailPage />} />
-          <Route
-            path="/report-missing-bench"
-            element={<ReportMissingBenchPage />}
-          />
-          <Route path="/api-demo" element={<ApiExample />} />
-        </Routes>
-      </Router>
-      {state.error && <ErrorToast error={state.error} onClose={clearError} />}
-    </>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/bench/:id" element={<BenchPage />} />
+              <Route path="/me" element={<MePage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
-
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <GlobalStyles />
-        <AuthProvider>
-          <AppProvider>
-            <AppWithErrorHandling />
-          </AppProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  )
-}
-
-export default App
