@@ -204,23 +204,21 @@ export default function BenchMap({
       add(`thumb:${id}`, thumbSprite(thumbArgs(id, false)))
       const sel = `thumbsel:${id}`
       if (map.hasImage(sel)) add(sel, thumbSprite(thumbArgs(id, true)))
+      // updateImage alone does not repaint an idle map.
+      map.triggerRepaint()
     }
-    // Warm the thumbnails of the photographed benches nearest the start view
-    // once, so panning around the city does not fetch images.
-    const prefetch = () => {
-      const cx = start.lng
-      const cy = start.lat
-      const near = benchesRef.current
-        .filter(hasPhoto)
-        .sort(
-          (a, b) =>
-            (a.geometry.coordinates[0] - cx) ** 2 * 0.37 +
-            (a.geometry.coordinates[1] - cy) ** 2 -
-            ((b.geometry.coordinates[0] - cx) ** 2 * 0.37 +
-              (b.geometry.coordinates[1] - cy) ** 2)
-        )
-        .slice(0, 300)
-      for (const b of near) queue.push(b.properties.id)
+    // Fetch photos only for thumbnails MapLibre actually placed. The missing-
+    // image resolver fires for every feature in a tile before collision, so
+    // queueing there would fetch every photographed bench in the city at once.
+    const fetchPlaced = () => {
+      if (!map.getLayer("thumbs")) return
+      const placed = map.queryRenderedFeatures({
+        layers: ["thumbs", "sel-thumb"],
+      })
+      for (const f of placed) {
+        const id = Number(f.properties?.id)
+        if (!photoCache.has(id) && !queue.includes(id)) queue.push(id)
+      }
       pump()
     }
     const pump = () => {
@@ -263,10 +261,6 @@ export default function BenchMap({
       } else if (kind === "thumb" || kind === "thumbsel") {
         const bid = Number(a)
         add(id, thumbSprite(thumbArgs(bid, kind === "thumbsel")))
-        if (!photoCache.has(bid) && !queue.includes(bid)) {
-          queue.push(bid)
-          pump()
-        }
       }
     })
 
@@ -407,7 +401,7 @@ export default function BenchMap({
         })
       }
       map.on("moveend", reportView)
-      prefetch()
+      map.on("idle", fetchPlaced)
       reportView()
       setReady(true)
     })
