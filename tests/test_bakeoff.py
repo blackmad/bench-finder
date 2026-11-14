@@ -1,15 +1,22 @@
 import json
 import sqlite3
+import sys
+import types
+from typing import ClassVar
 
 import pytest
+from PIL import Image
 
 from bench_finder.bakeoff.detectors import (
+    MODELS,
     Det,
+    Sam3Detector,
     best_threshold,
     collect_image_ids,
     is_hit,
     load_gold,
     prf,
+    run_model,
     score_model,
     target_score,
 )
@@ -104,3 +111,58 @@ def test_horizontal_mode_ignores_vertical_offset():
     assert not is_hit(d, W, H, 0.15, "radial")
     assert is_hit(d, W, H, 0.15, "horizontal")
     assert not is_hit(Det(800, 380, 900, 420, 0.7), W, H, 0.15, "horizontal")
+
+
+class _FakeBoxes:
+    def __init__(self, xyxy, conf):
+        self.xyxy = types.SimpleNamespace(tolist=lambda: xyxy)
+        self.conf = types.SimpleNamespace(tolist=lambda: conf)
+
+
+class _FakeSam3Predictor:
+    instances: ClassVar[list] = []
+
+    def __init__(self, overrides):
+        self.overrides = overrides
+        self.images: list[str] = []
+        self.texts: list = []
+        _FakeSam3Predictor.instances.append(self)
+
+    def set_image(self, path):
+        self.images.append(path)
+
+    def __call__(self, text):
+        self.texts.append(text)
+        boxes = _FakeBoxes(
+            [[450.0, 650.0, 550.0, 750.0], [0.0, 0.0, 40.0, 40.0]], [0.9, 0.3]
+        )
+        return [types.SimpleNamespace(boxes=boxes)]
+
+
+def test_sam3_detector_with_fake_predictor(tmp_path, monkeypatch):
+    sam = types.ModuleType("ultralytics.models.sam")
+    sam.SAM3SemanticPredictor = _FakeSam3Predictor
+    monkeypatch.setitem(sys.modules, "ultralytics", types.ModuleType("ultralytics"))
+    monkeypatch.setitem(
+        sys.modules, "ultralytics.models", types.ModuleType("ultralytics.models")
+    )
+    monkeypatch.setitem(sys.modules, "ultralytics.models.sam", sam)
+    _FakeSam3Predictor.instances.clear()
+    img = tmp_path / "a.jpg"
+    Image.new("RGB", (W, H)).save(img)
+
+    assert isinstance(MODELS["sam3"], Sam3Detector)
+    det = Sam3Detector("sam3", "sam3.pt")
+    run_model(det, {7: img}, tmp_path / "cache", tmp_path / "w", "mps")
+
+    (pred,) = _FakeSam3Predictor.instances
+    assert pred.overrides["model"] == str(tmp_path / "w" / "sam3.pt")
+    assert pred.overrides["device"] == "mps"
+    assert pred.overrides["quantize"] == 16
+    assert pred.images == [str(img)] and pred.texts == [["bench"]]
+    rec = json.loads((tmp_path / "cache" / "sam3" / "7.json").read_text())
+    assert (rec["width"], rec["height"]) == (W, H)
+    assert [d["conf"] for d in rec["dets"]] == [0.9, 0.3]
+    rows = score_model(tmp_path / "cache", "sam3", {7: True}, (0.3,), ("horizontal",))
+    best = next(r for r in rows if r["mode"] == "best")
+    assert best["tp"] == 1 and best["threshold"] == 0.9

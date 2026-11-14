@@ -11,7 +11,7 @@ re-scoring with new gold labels, radii or thresholds needs no inference:
 
     uv run --group detect-extra python -m bench_finder.bakeoff.detectors \\
         --gold oracle --db /path/to/benches.db --images-root /path/to/repo \\
-        --models yolo11n-seg,yolo11x-seg,yoloe,yolo-world,gdino,owlv2 \\
+        --models yolo11n-seg,yolo11x-seg,yoloe,yolo-world,gdino,owlv2,sam3 \\
         --out results.json
 
 Models that are not in the cache are run; pass ``--score-only`` to never run models.
@@ -309,6 +309,42 @@ class HFDetector(Detector):
         ]
 
 
+class Sam3Detector(Detector):
+    """SAM 3 with the text prompt "bench" (Ultralytics ``SAM3SemanticPredictor``).
+
+    The weights are gated on Hugging Face (facebook/sam3); put ``sam3.pt`` in the
+    weights dir. Needs Ultralytics' CLIP fork, which ``detect-extra`` installs.
+    """
+
+    def __init__(self, name: str, weights: str, imgsz: int = 1008) -> None:
+        self.name, self.weights, self.imgsz = name, weights, imgsz
+
+    def load(self, weights_dir: Path, device: str) -> None:
+        from ultralytics.models.sam import SAM3SemanticPredictor
+
+        self.predictor = SAM3SemanticPredictor(
+            overrides={
+                "conf": CONF_FLOOR,
+                "task": "segment",
+                "mode": "predict",
+                "model": str(weights_dir / self.weights),
+                "imgsz": self.imgsz,
+                "quantize": 16 if device != "cpu" else 32,
+                "save": False,
+                "verbose": False,
+                "device": device,
+            }
+        )
+
+    def detect(self, path: Path) -> list[Det]:
+        self.predictor.set_image(str(path))
+        boxes = self.predictor(text=["bench"])[0].boxes
+        return [
+            Det(*map(float, xyxy), conf=float(c))
+            for xyxy, c in zip(boxes.xyxy.tolist(), boxes.conf.tolist(), strict=True)
+        ]
+
+
 MODELS: dict[str, Detector] = {
     "yolo11n-seg": UltralyticsDetector("yolo11n-seg", "yolo11n-seg.pt"),
     "yolo11x-seg": UltralyticsDetector("yolo11x-seg", "yolo11x-seg.pt"),
@@ -319,6 +355,7 @@ MODELS: dict[str, Detector] = {
         "gdino-tiny", "IDEA-Research/grounding-dino-tiny", kind="gdino"
     ),
     "owlv2": HFDetector("owlv2", "google/owlv2-base-patch16-ensemble", kind="owlv2"),
+    "sam3": Sam3Detector("sam3", "sam3.pt"),
 }
 
 

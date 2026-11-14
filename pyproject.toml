@@ -186,7 +186,7 @@ dependencies = [
     "typing_extensions>=4.12.2",
     "tzdata>=2025.2",
     "tzlocal>=5.3.1",
-    "ultralytics>=8.3.204",
+    "ultralytics>=8.4.0",  # 8.3.237+ ships SAM 3 (SAM3SemanticPredictor)
     "ultralytics-thop>=2.0.17",
     "urllib3>=2.5.0",
     "uvicorn>=0.34.0",
@@ -277,12 +277,16 @@ vlm = [
 roboflow-local = [
     "inference>=0.58.0",
 ]
-# Extra local detectors for the bake-off (task 2.7): Grounding DINO, OWLv2.
+# Extra local detectors for the bake-off (task 2.7): Grounding DINO, OWLv2, SAM 3.
 #   uv sync --group detect-extra
 detect-extra = [
     "transformers>=4.57",
-    # PyPI build of OpenAI CLIP (module `clip`): text encoder for YOLOE / YOLO-World.
-    "openai-clip>=1.0.1",
+    # Ultralytics' fork of OpenAI CLIP (module `clip`): text encoder for YOLOE /
+    # YOLO-World / SAM 3. SAM 3 needs this fork; the PyPI `openai-clip` build fails
+    # with "'SimpleTokenizer' object is not callable".
+    "clip @ git+https://github.com/ultralytics/CLIP.git",
+    # SAM 3's ViT backbone (Ultralytics would otherwise pip-install it at runtime).
+    "timm>=1.0",
 ]
 
 [project.urls]
