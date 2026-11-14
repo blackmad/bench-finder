@@ -45,6 +45,7 @@ os.environ.setdefault("CORE_MODEL_GROUNDINGDINO_ENABLED", "False")
 os.environ.setdefault("CORE_MODEL_YOLO_WORLD_ENABLED", "False")
 
 from PIL import Image as PILImage
+from sqlmodel import Field
 
 
 PILImage.MAX_IMAGE_PIXELS = 300_000_000
@@ -71,6 +72,13 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+class _DetectionWithItems(DetectionBase):
+    """DetectionBase carrying its items; DetectionBase itself has no such field,
+    so assigning ``detection_items`` on it raised a pydantic ValueError."""
+
+    detection_items: list[DetectionItem] = Field(default_factory=list)
 
 
 class BenchDetector:
@@ -445,13 +453,13 @@ class BenchDetector:
                 continue
 
             # Store successful detection result using unified DetectionBase
-            detection_data = DetectionBase(
+            detection_data = _DetectionWithItems(
                 image_id=image_id,
                 has_bench=detection_result.has_bench,
                 bench_count=detection_result.bench_count,
                 max_confidence=detection_result.max_confidence,
-                detection_success=True,
-                detection_error=None,
+                detection_success=detection_result.success,
+                detection_error=detection_result.error,
                 model_id=detection_result.model_id or "unknown",
                 confidence_threshold=self.detection_client.confidence_threshold,
                 source=detection_result.source,
@@ -530,7 +538,12 @@ class BenchDetector:
 
         # Persist the single best detected image per bench
         try:
-            if detection_results and representative_detection:
+            # Only record a ProcessedBench when a bench was actually detected
+            if (
+                detection_results
+                and representative_detection
+                and representative_detection.has_bench
+            ):
                 best_index = self._find_best_detection_index(
                     detection_results, pixel_coverage_results
                 )
@@ -574,7 +587,15 @@ class BenchDetector:
                 "You can manually review these images to check for benches or detection issues.\n"
             )
 
-        # Update candidate status to detection_done
+        # Update candidate status to detection_done, but only if at least one
+        # image was actually analysed successfully; otherwise leave it for retry.
+        if not any(r.success for r in detection_results):
+            logger.warning(
+                f"No successful detections for bench {bench.provider_id}; "
+                "leaving candidate status unchanged"
+            )
+            return result
+
         try:
             with self.database.get_session() as session:
                 candidate = (

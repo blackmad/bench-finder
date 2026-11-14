@@ -432,7 +432,7 @@ def run_detections(
         )
 
         # Initialize detection service
-        from detection import BenchDetector
+        from bench_finder.detection import BenchDetector
 
         enable_fallback = not disable_fallback
         copy_bench_images = not no_copy_bench_images
@@ -786,6 +786,11 @@ def fetch_images(
         "--force",
         help="Force fetch for all candidates regardless of their current status",
     ),
+    search_id: int | None = typer.Option(
+        None,
+        "--search-id",
+        help="Only process candidates belonging to this search ID",
+    ),
 ):
     """
     Download and cache images for bench candidates from the database.
@@ -805,7 +810,8 @@ def fetch_images(
     With --force: Process all candidates regardless of their current status, forcing
     re-fetch even if they already have images or are marked as done.
 
-    This command ignores search_id and processes all candidates with the specified status (or all if --force).
+    With --search-id: Only process candidates belonging to that search. Otherwise all
+    candidates with the specified status (or all if --force) are processed.
     """
     # Setup logging first
     setup_logging(level=log_level)
@@ -817,25 +823,16 @@ def fetch_images(
 
         # Query all candidates with the specified status using SQLAlchemy ORM
         with database.get_session() as session:
-            from sqlmodel import select
-
-            from bench_finder.models.unified_models import BenchCandidate
-
             # Build query - if force is used, ignore status filter
-            statement = select(BenchCandidate)
-
-            if not force:
-                # Parse status string to enum
-                try:
-                    status_enum = BenchCandidateStatus(status)
-                except ValueError as err:
-                    console.print(
-                        f"[red]Invalid status: {status}. Valid values: pending, image_download_done, detection_done[/red]"
-                    )
-                    raise typer.Exit(1) from err
-
-                # Query all candidates with the specified status (ignoring search_id)
-                statement = statement.where(BenchCandidate.status == status_enum)
+            try:
+                statement = _build_fetch_images_statement(
+                    status=status, force=force, search_id=search_id
+                )
+            except ValueError as err:
+                console.print(
+                    f"[red]Invalid status: {status}. Valid values: pending, image_download_done, detection_done[/red]"
+                )
+                raise typer.Exit(1) from err
 
             # Apply limit: use --limit if provided, otherwise use --max-candidates
             limit_value = limit if limit is not None else max_candidates
@@ -1041,39 +1038,68 @@ def fetch_images(
         raise typer.Exit(1) from e
 
 
+def _build_fetch_images_statement(
+    status: str, force: bool = False, search_id: int | None = None
+):
+    """Build the candidate query for ``fetch-images``.
+
+    Filters by ``search_id`` when given, and by ``status`` unless ``force`` is set.
+    Raises ValueError for an invalid status string.
+    """
+    from sqlmodel import select
+
+    from bench_finder.models.unified_models import BenchCandidate
+
+    statement = select(BenchCandidate)
+    if search_id is not None:
+        statement = statement.where(BenchCandidate.search_id == search_id)
+    if not force:
+        statement = statement.where(BenchCandidate.status == BenchCandidateStatus(status))
+    return statement
+
+
 def _deduplicate_bench_candidates(candidates: list) -> list:
     """
-    Remove duplicate bench candidates based on proximity.
+    Remove duplicate bench candidates.
 
-    Two benches are considered duplicates if they are within 10 meters of each other.
+    Candidates are first deduplicated by ``provider_id`` (the same underlying
+    object returned twice). Then candidates closer than 1.5 meters to each other
+    are merged, since those are effectively the same physical bench. Benches that
+    are merely near each other (e.g. a row of benches) are kept distinct.
     When duplicates are found, prefers the one with higher confidence or from OSM.
     """
     if not candidates:
         return candidates
 
-    # Distance threshold for considering two benches as duplicates (meters)
-    DUPLICATE_THRESHOLD_METERS = 10
+    # Distance below which two distinct candidates are merged (meters)
+    MERGE_THRESHOLD_METERS = 1.5
 
-    unique_candidates: list = []
-
+    # Pass 1: dedupe by provider_id
+    by_provider: dict = {}
+    order: list = []
     for candidate in candidates:
-        is_duplicate = False
+        key = getattr(candidate, "provider_id", None)
+        if key is None:
+            order.append(candidate)
+            continue
+        if key not in by_provider:
+            by_provider[key] = len(order)
+            order.append(candidate)
+        elif _is_better_candidate(candidate, order[by_provider[key]]):
+            order[by_provider[key]] = candidate
 
-        # Check if this candidate is close to any existing unique candidate
+    # Pass 2: merge candidates that are essentially at the same spot
+    unique_candidates: list = []
+    for candidate in order:
         for i, existing in enumerate(unique_candidates):
             distance = _haversine_distance(
                 candidate.lat, candidate.lng, existing.lat, existing.lng
             )
-
-            if distance <= DUPLICATE_THRESHOLD_METERS:
-                is_duplicate = True
-
-                # Replace existing if current candidate is "better"
+            if distance < MERGE_THRESHOLD_METERS:
                 if _is_better_candidate(candidate, existing):
                     unique_candidates[i] = candidate
                 break
-
-        if not is_duplicate:
+        else:
             unique_candidates.append(candidate)
 
     return unique_candidates
@@ -1093,13 +1119,7 @@ def _is_better_candidate(candidate1, candidate2) -> bool:
     if candidate1.confidence is not None and candidate2.confidence is not None:
         return candidate1.confidence > candidate2.confidence
 
-    # If neither has confidence, prefer OSM (more reliable positioning)
-    if candidate1.source == "osm" and candidate2.source != "osm":
-        return True
-    if candidate1.source != "osm" and candidate2.source == "osm":
-        return False
-
-    # If same source type, prefer the first one (arbitrary)
+    # Otherwise keep the first one (arbitrary)
     return False
 
 

@@ -52,6 +52,7 @@ class UltralyticsClient(DetectionClient):
         else:
             self.use_local = ULTRALYTICS_USE_LOCAL
 
+        self._local_model = None
         self.iou_threshold = ULTRALYTICS_IOU_THRESHOLD
         self.image_size = ULTRALYTICS_IMAGE_SIZE
 
@@ -129,6 +130,12 @@ class UltralyticsClient(DetectionClient):
         else:
             return self._detect_benches_api(image_path)
 
+    def _get_local_model(self):
+        """Return the cached local YOLO model, loading it on first use."""
+        if self._local_model is None:
+            self._local_model = self.YOLO(self.local_model_path)
+        return self._local_model
+
     def _detect_benches_local(self, image_path: str) -> DetectionResult:
         """
         Detect benches using local YOLO11-seg model.
@@ -142,8 +149,8 @@ class UltralyticsClient(DetectionClient):
         try:
             logger.debug(f"Analyzing image for benches with local YOLO: {image_path}")
 
-            # Load the model
-            model = self.YOLO(self.local_model_path)
+            # Load the model once and reuse it for subsequent images
+            model = self._get_local_model()
 
             # Run inference
             results = model(
