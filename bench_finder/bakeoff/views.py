@@ -86,9 +86,12 @@ def run(
     limit: int | None,
     workers: int,
     images_root: Path,
+    model: str | None = None,
 ) -> dict:
     conn = store.connect(db)
     kw = {"resolution": resolution} if backend == "gemini" and resolution else {}
+    if model:
+        kw["model"] = model
     clf = make_classifier(backend, **kw)
     local = (
         threading.local()
@@ -186,12 +189,26 @@ def main() -> None:
     r.add_argument("--backend", required=True, choices=["gemini", "typesafe", "claude"])
     r.add_argument("--resolution", choices=["low", "medium", "high", "ultra_high"])
     r.add_argument("--limit", type=int)
+    r.add_argument(
+        "--model",
+        help="claude backend: e.g. anthropic/claude-sonnet-5.5 via OpenRouter",
+    )
     r.add_argument("--workers", type=int, default=8)
     r.add_argument("--images-root", type=Path, default=Path("images"))
     sub.add_parser("score")
     a = ap.parse_args()
     if a.cmd == "run":
-        print(run(a.db, a.backend, a.resolution, a.limit, a.workers, a.images_root))
+        print(
+            run(
+                a.db,
+                a.backend,
+                a.resolution,
+                a.limit,
+                a.workers,
+                a.images_root,
+                a.model,
+            )
+        )
     else:
         for row in score(a.db):
             print(json.dumps(row))
