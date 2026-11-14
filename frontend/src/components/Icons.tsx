@@ -37,3 +37,15 @@ export const CheckTick = () => (
     <path d="M2 6.5 4.8 9 10 3" />
   </svg>
 )
+export const PinIcon = () => (
+  <Icon>
+    <path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z" />
+    <circle cx="12" cy="10" r="2.3" />
+  </Icon>
+)
+export const EyeIcon = () => (
+  <Icon>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icon>
+)

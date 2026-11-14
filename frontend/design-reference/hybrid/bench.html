@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bench Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet" />
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<link href="rail.css" rel="stylesheet" />
+</head>
+<body>
+<div id="hdr"></div>
+<main id="page"></main>
+<script src="mock-benches.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script type="module">
+import { B, byId, tile, header, inkMap, windName, windLong, HEAD, LOOKS, ICON } from "./rail.js";
+import { stampSVG, markerImage } from "../postmark.js";
+const $ = (s) => document.querySelector(s);
+$("#hdr").outerHTML = header();
+
+const id = Number(new URLSearchParams(location.search).get("id") || 1877);
+const b = byId.get(id) || byId.get(1877);
+const full = [395, 1877].includes(b.id) ? `img/${b.id}-full.jpg` : b.img;
+const more = B.filter((x) => x.cat === b.cat && x.id !== b.id).slice(0, 8);
+const stars = (r) => `<span class="stars" aria-label="${r} out of 5">${[1, 2, 3, 4, 5].map((i) => ICON.star.replace("<svg", `<svg class="${i <= Math.round(r) ? "" : "off"}"`)).join("")}</span>`;
+const where = { water: "water views", park: "park benches", street: "street benches" }[b.cat];
+
+$("#page").innerHTML = `
+  <section class="dhero">
+    <div class="ph"><img src="${full}" alt="The view from the bench on ${b.addr}, looking toward ${LOOKS[b.cat]}" /></div>
+    <div class="dtitle">
+      <div class="eyebrow caps">Bench No. ${b.id} · Amsterdam</div>
+      <h1>${HEAD[b.cat]}.</h1>
+      <p>${b.addr}. ${b.known ? "Faces" : "Probably faces"} ${windLong(b.facing)}. Photographed ${b.dist} m behind the seat${b.date ? `, ${new Date(b.date + "-01").toLocaleString("en", { month: "long", year: "numeric" })}` : ""}.</p>
+      <div class="ctas"><a class="btn solid" href="#">${ICON.pin}Take me there</a><a class="btn" href="#">${ICON.eye}Look around</a><a class="btn" href="#">Rate this bench</a></div>
+    </div>
+  </section>
+  <section class="back">
+    <div class="postback">
+      ${stampSVG(b, { large: true })}
+      <dl>
+        <dt class="caps">Facing</dt><dd>${windName(b.facing)} · ${b.facing}° <span style="font-weight:400;color:var(--ink-2)">${b.known ? "mapped in OpenStreetMap" : `estimated from street views, ${Math.round(b.conf * 100)}%`}</span></dd>
+        <dt class="caps">Looks at</dt><dd>${b.cat[0].toUpperCase() + b.cat.slice(1)}</dd>
+        <dt class="caps">Seat</dt><dd>${b.backrest === "yes" ? "Backrest" : b.backrest === "no" ? "No backrest" : "Not recorded"}</dd>
+        <dt class="caps">Rating</dt><dd>${stars(4.3)} <span class="num">4.3</span> <span style="font-weight:400;color:var(--ink-2)">from 9</span></dd>
+        <dt class="caps">Sat here</dt><dd class="num">27 people</dd>
+      </dl>
+    </div>
+    <div class="minimap"><div id="mini" aria-label="Where the bench is"></div></div>
+  </section>
+  <section class="drow row">
+    <h3 class="caps">More ${where} nearby <small>within 1 km</small><a class="more" href="#">See all</a></h3>
+    <div class="strip">${more.map((m) => tile(m)).join("")}</div>
+  </section>`;
+document.title = `${b.addr} · Bench Finder`;
+
+const map = new maplibregl.Map({ container: "mini", style: "https://tiles.openfreemap.org/styles/positron", center: [b.lng, b.lat], zoom: 16.4, attributionControl: { compact: true }, dragRotate: false, interactive: true });
+map.on("load", () => {
+  inkMap(map);
+  map.addImage("m-sel", markerImage("sel"), { pixelRatio: 2 });
+  map.addSource("s", { type: "geojson", data: { type: "Feature", geometry: { type: "Point", coordinates: [b.lng, b.lat] }, properties: { f: b.facing } } });
+  map.addLayer({ id: "s", type: "symbol", source: "s", layout: { "icon-image": "m-sel", "icon-rotate": ["get", "f"], "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-size": 1.5 } });
+  document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+});
+</script>
+</body>
+</html>

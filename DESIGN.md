@@ -1,6 +1,6 @@
 ---
 name: Bench Finder
-description: Every bench is a picture postcard of its own view, postmarked with the direction it faces.
+description: A picture rail of benches beside the map; every photo carries a compass seal, and only where the facing is really known.
 colors:
   card: "#f6f6f1"
   card-rack: "#ecece4"
@@ -20,9 +20,16 @@ colors:
 typography:
   display:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(30px, 3.1vw, 42px)"
-    fontWeight: 750
-    lineHeight: 1.02
+    fontSize: "clamp(40px, 4.4vw, 64px)"
+    fontWeight: 800
+    lineHeight: 0.98
+    letterSpacing: "-0.015em"
+    fontVariation: "'wdth' 112"
+  hero-title:
+    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "40px"
+    fontWeight: 800
+    lineHeight: 0.98
     letterSpacing: "-0.015em"
     fontVariation: "'wdth' 112"
   headline:
@@ -39,22 +46,15 @@ typography:
     fontVariation: "'wdth' 100"
   lede:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "16.5px"
+    fontSize: "17px"
     fontWeight: 400
     lineHeight: 1.45
   label-caps:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "12.5px"
+    fontSize: "13px"
     fontWeight: 700
     letterSpacing: "0.04em"
     fontVariation: "'wdth' 125"
-  serial:
-    fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "12px"
-    fontWeight: 500
-    letterSpacing: "0.02em"
-    fontFeature: "'tnum' 1"
-    fontVariation: "'wdth' 112"
   meta:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
     fontSize: "12.5px"
@@ -62,89 +62,55 @@ typography:
 rounded:
   none: "0px"
   focus: "2px"
-  pin: "50%"
+  seal: "50%"
 spacing:
-  card-border-phone: "6px"
-  card-border: "9px"
-  card-border-lg: "14px"
-  gutter: "20px"
-  rack-gap: "22px"
-  panel: "28px"
+  gutter: "32px"
+  gutter-phone: "16px"
+  tile-gap: "14px"
+  row-gap: "34px"
+  row-gap-phone: "28px"
+  panel: "22px"
   section: "56px"
 components:
-  postcard:
+  tile:
     backgroundColor: "{colors.card}"
     textColor: "{colors.ink}"
     rounded: "{rounded.none}"
-    padding: "9px 9px 0"
-  postcard-phone:
+    padding: "7px 7px 10px"
+    width: "236px"
+  tile-phone:
+    width: "68vw"
+  title-card:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.none}"
+    padding: "18px 22px"
+  bench-title-card:
     backgroundColor: "{colors.card}"
     rounded: "{rounded.none}"
-    padding: "6px 6px 0"
-    width: "76vw"
-  postcard-front-lg:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.none}"
-    padding: "14px 14px 0"
-  stamp:
+    padding: "22px 26px 24px"
+  seal:
     backgroundColor: "{colors.stamp-paper}"
-    width: "74px"
-    height: "88px"
-  stamp-lg:
-    backgroundColor: "{colors.stamp-paper}"
+    rounded: "{rounded.seal}"
+    size: "38px"
+  seal-hero:
+    size: "64px"
+  stamp-large:
     width: "118px"
     height: "140px"
-  stamp-phone:
-    width: "50px"
-    height: "60px"
-  plain-row:
-    backgroundColor: "{colors.card}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "10px 12px"
   button:
-    backgroundColor: "{colors.card}"
+    backgroundColor: "transparent"
     textColor: "{colors.ink}"
     rounded: "{rounded.none}"
-    padding: "9px 14px"
-  button-hover:
+    padding: "11px 16px"
+  button-solid:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.card}"
-  button-primary:
-    backgroundColor: "{colors.airmail}"
-    textColor: "#ffffff"
-    rounded: "{rounded.none}"
-    padding: "9px 14px"
-  button-primary-hover:
-    backgroundColor: "{colors.airmail-deep}"
-  text-button:
-    textColor: "{colors.ink}"
-    padding: "8px 4px"
-  text-button-hover:
-    textColor: "{colors.airmail}"
-  search-field:
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "6px 2px"
-  checkbox:
-    backgroundColor: "{colors.card}"
-    rounded: "{rounded.none}"
-    size: "15px"
-  facing-dial:
-    size: "92px"
-  facing-dial-sector-on:
-    backgroundColor: "{colors.airmail}"
-    textColor: "{colors.card}"
-  facing-dial-sector-hover:
-    backgroundColor: "{colors.airmail-wash}"
   top-bar:
     backgroundColor: "{colors.card}"
-    textColor: "{colors.ink}"
     height: "60px"
-    padding: "0 20px"
   top-bar-phone:
     height: "56px"
-    padding: "0 14px"
   map-thumb:
     backgroundColor: "{colors.card}"
     padding: "3px"
@@ -156,177 +122,122 @@ components:
 
 ## Overview
 
-**Creative North Star: "The Postcard Rack"**
+**Creative North Star: "The Picture Rail"**
 
-Every bench is a picture postcard of its own view, postmarked with the direction it faces. The interface is a spinning rack of white card stock beside a map: photos sit inside a printed white border, a perforated postage stamp in the corner prints a compass, and a postmark ring cancels the stamp along the bench's heading. The postal marks are never decoration. Each one carries the facing, and the stroke weight of that mark says whether the facing is known or estimated.
+A gallery's picture rail beside a map. The map stays on screen; next to it hang rows of photographs, each grouped by something true about the benches in view, and each photo is pinned with a small round compass seal when (and only when) the bench's facing is known. A single "Bench of the day" leads the rail as a big photograph with a paper title card laid over its bottom edge. A bench page is the same move at full bleed: the photo across the whole width, the title card over it, then the back of the postcard (stamp, facts, rating) beside a small map.
 
-The world is light, matte and printed. Surfaces are flat paper on a slightly darker rack; depth comes only from the soft shadow of a card lifted off that rack. Colour is ink on card with one working blue (airmail) for interaction and estimated data, and one vermilion that belongs to exactly one bench at a time. Type is a single family, Archivo, used on its width axis: expanded bold caps are the printed caption and serial voice; normal-width text does the reading.
+It is the earlier Postcard Rack direction (paper, Archivo, the always-on re-inked map, needle markers, vermilion only for selection, the perforated compass stamp) crossed with the Title-Card Wall (hero with a headline on a paper card over the photo, horizontally scrolling rows by category, full-bleed bench pages). The approved reference mock is `frontend/design-reference/hybrid/` (its photos are not committed).
 
-Density is calm on the rack (one postcard column, generous gaps) and dense on the map. The map is a basemap re-inked into the same card stock and airmail water, so the markers read as print on the same paper.
+**Key characteristics:**
+- Card stock (#f6f6f1) on a warmer rail ground (#ecece4); square corners everywhere except compass forms.
+- The facing is the signature datum and it is never faked. Mapped facing = solid ink needle; estimated = dashed airmail needle with "≈"; no facing = no needle and no seal.
+- Words come from data. Headlines are the street address (fallback "Bench No. N"); ledes are assembled from OSM tags, facing and photo date. No invented prose.
+- Vermilion belongs to the one selected bench (tile outline, map thumb or marker).
+- One typeface, Archivo, with the width axis as the hierarchy device.
 
-**Key Characteristics:**
-- White card stock (#f6f6f1) cards on a warmer rack ground (#ecece4); square corners everywhere.
-- Facing is the data every postal mark encodes: stamp compass, postmark cancel bars, map needle, cluster rose.
-- Known facing = solid ink stroke; estimated facing = hairline dashed stroke, airmail blue, prefixed with "≈".
-- Vermilion is reserved for the single selected bench.
-- One typeface, Archivo, with the width axis (wdth 100 / 112 / 125) as the hierarchy device.
-- One signature motion: the stamp "strikes" onto the selected card.
+## Honest-data rules
+
+These are design rules, not just engineering ones; every surface follows them.
+
+- **Seal and needle only where the facing exists.** `facingKind()` returns `mapped` (OSM `direction` tag or a visitor), `estimated` (model output, `facing_method` vlm/geometry) or null. Null draws nothing: tiles carry no seal, map dots are a bare hub (`m-none`), cluster roses grow no ticks for those benches (sector -1), the selected marker is a vermilion hub with no needle.
+- **Rows must come from fields the published data has** (`frontend/src/data/rows.ts`). A row with fewer than 3 photographed benches in view is hidden. Current rows:
+  - *Near the middle of the map*: every photographed bench in view, nearest first (a bench picked on the map is moved to the front).
+  - *On a gracht or kade*: street name ends in -gracht, -burgwal, -kade or -haven.
+  - *In the parks*: street name ends in "park" (Science Park excluded: a business district).
+  - *Along {street}*: the two streets with the most photographed benches in view (at least 4).
+  - *Facing mapped* / *Facing estimated*: by `facing_method`.
+  - *No backrest*: `backrest === false`.
+  - Below the rows, *Not photographed yet*: a plain ruled list of the nearest 12 unphotographed benches.
+- **Bench of the day** is chosen deterministically per UTC day from photographed benches with a street address, preferring ones with a facing. Headline = address; lede from the bench JSON; facts = facing, seat, rating (only when the Worker reports at least one rating).
+- Not available in the data, so not built: "faces the water/park" (`faces_category` is empty), best-rated (ratings are per bench behind the Worker), most-photographed (gallery size is only in the per-bench files), neighbourhood names.
 
 ## Colors
 
-Ink on white card stock, one airmail blue for interaction and estimates, one vermilion reserved for selection.
+Ink on card stock, one airmail blue for interaction and estimates, one vermilion for selection.
 
-### Primary
-- **Airmail Blue** (`airmail`): every interactive affordance (links, focus ring, primary button, checked checkbox tick, pressed dial sector, search underline on focus, text-button hover, text selection) and the ink of estimated facings on stamps, plain rows and map markers. Also the confidence meter fill.
-- **Deep Airmail** (`airmail-deep`): hover state of the primary button only.
-- **Airmail Wash** (`airmail-wash`): hover fill of a facing-dial sector.
+- **Airmail** (`airmail`): links, "See all", focus rings, checked ticks, search underline on focus; and the ink of estimated facings. `airmail-deep` for hover on the solid button; `airmail-wash` for result hover.
+- **Vermilion** (`vermilion`): the selected bench only: tile outline, map thumb frame and stem, map marker. `vermilion-ink` for small text (kickers, selected list item).
+- **Card** (`card`): tiles, title cards, postback, top bar, map background. **Rail** (`card-rack`): page ground. **Stamp paper** (`stamp-paper`): seals, stamps, rose and marker hubs.
+- **Ink / Ink 2 / Ink 3**: text at 17:1, 8.6:1 and 5.5:1 on card. **Rule**: hairlines.
+- **Map water / park**: basemap re-ink (`frontend/src/map/style.ts`).
 
-### Secondary
-- **Postmark Vermilion** (`vermilion`): the one selected bench. Its 2px ring around the selected postcard and map thumbnail, the selected stamp's arrow, label and postmark, the selected map needle and stem, and the selected map marker. Small vermilion text (the selected stamp's facing label) uses the deeper `vermilion-ink` (5.0:1 on stamp paper); plain vermilion is 4.15:1 there, fine for marks but not for 8px text.
+**The One Vermilion Rule.** Vermilion marks exactly one bench at a time and is never used for errors, hover or emphasis. The kicker labels ("Bench of the day", "Bench No. 1278 · Amsterdam") use `vermilion-ink` as print colour, the one exception, matching the approved mock.
 
-### Neutral
-- **Card Stock** (`card`): every card face, the top bar, filters panel, map key, map background, buttons at rest.
-- **Rack** (`card-rack`): the page ground behind cards (body, the rack column, the detail page).
-- **Stamp Paper** (`stamp-paper`): the slightly brighter paper of stamps, cluster roses, marker hubs and mini compasses, so postal marks sit visibly on top of the card.
-- **Ink** (`ink`): primary text, known-facing marks, 1.5px rules, button borders, checkbox boxes, all rose and marker strokes.
-- **Ink 2** (`ink-2`): secondary text on card stock (8.6:1): meta lines, serials, field labels, block subtitles.
-- **Ink 3** (`ink-3`): tertiary text and placeholders (5.5:1 on card, 5.0:1 on rack), address lines, idle stars, plain-row hover border.
-- **Rule** (`rule`): 1px hairline dividers between bar, filters, rack and card back panels; dial sector outlines; meter track.
-- **Map Water / Map Park** (`map-water`, `map-park`): the basemap re-ink. Basemap background becomes card stock, water fills become map-water, park/landuse fills become map-park, and label text is muted to a warm grey.
-- **Empty Photo** (`photo-empty`): the photo well behind an image that has not loaded.
-
-### Named Rules
-**The One Vermilion Rule.** Vermilion marks exactly one bench at a time: the selected one, everywhere it appears (card, stamp, thumbnail, map marker). It is never used for errors, badges, hover, or emphasis.
-
-**The Two Inks Rule.** Known facings are drawn in ink; estimated facings are drawn in airmail blue. Blue therefore means either "you can press this" or "this is our estimate"; it never decorates.
+**The Two Inks Rule.** Mapped facings in ink, estimated facings in airmail; blue never decorates.
 
 ## Typography
 
-**Display Font:** Archivo (variable, wdth 62–125, wght 100–900), falling back to ui-sans-serif, system-ui, sans-serif
-**Body Font:** Archivo
-**Label/Mono Font:** Archivo at expanded width with tabular numerals (no separate mono)
+Archivo variable (wdth 62–125), self-hosted via `@fontsource-variable/archivo`.
 
-**Character:** One grotesque stretched and squeezed like postal print: expanded bold caps for the street name and labels read as a printed caption, slightly expanded semibold for headlines, normal width for reading.
+- **Display** (800, clamp(40px, 4.4vw, 64px), lh 0.98, wdth 112, -0.015em, balanced): bench-page h1 on the title card; 36px on phone.
+- **Hero title** (800, 40px; 30px phone): the Bench of the day address.
+- **Headline** (700, 22px, wdth 112): bench-page block heads over a 1.5px ink rule.
+- **Lede** (400, 17px bench page / 15px hero, ink-2, max ~58ch).
+- **Body** (400, 15px, lh 1.45, wdth 100).
+- **Label caps** (700, wdth 125, uppercase, 0.04–0.05em): row titles 13px, tile captions 12px, kickers 11.5px, definition terms 11px, wordmark.
+- **Meta** (12–13.5px, ink-2/ink-3): tile second line, row counts and notes, facts row.
 
-### Hierarchy
-- **Display** (750, clamp(30px, 3.1vw, 42px), line-height 1.02, wdth 112, -0.015em, balanced wrap): the detail page's headline, written as what the bench looks at ("Looks out over the water").
-- **Headline** (700, 22px, wdth 112, -0.01em): detail page block headings ("The view from this bench", "More views", "Notes"), sitting on a 1.5px ink rule with a right-aligned ink-2 subtitle.
-- **Lede** (400, 16.5px, ink-2, max 34ch): the one-sentence description under the display line.
-- **Body** (400, 15px, line-height 1.45, wdth 100): all reading text, form labels, buttons (buttons and text buttons at 600).
-- **Caption caps** (700, wdth 125, uppercase, 0.04em): street-name captions on postcards (12.5px rack, 11.5px phone and plain rows, 15px large front), field labels and filter group labels (11px), the wordmark (17px desktop, 15px phone), the address line "Bench No.".
-- **Serial** (500, 12px, wdth 112, tabular numerals, 0.02em, ink-2): "No. 1472" serials.
-- **Meta** (400, 12–12.5px, ink-2): card meta lines, map key, dial hint, gallery captions, coordinates.
-
-### Named Rules
-**The Width-Axis Rule.** Hierarchy is set by Archivo's width axis before size: wdth 125 caps for printed captions and labels, wdth 112 for headlines and serials, wdth 100 for reading. Do not introduce a second family.
-
-**The Tabular Numbers Rule.** Serials, counts, degrees, coordinates and cluster counts always use tabular numerals.
+**The Width-Axis Rule.** wdth 125 caps for printed labels, 112 for headlines, 100 for reading. **Tabular numerals** for counts, degrees, coordinates, ratings.
 
 ## Layout
 
-**Atlas (desktop, above 760px).** A 60px card-stock top bar (wordmark, place search with a 1.5px ink underline capped at 420px, sign-in text button), then a two-column grid: map on the left (1fr) and the rack on the right (minmax(440px, 40vw)), filling the viewport height. The rack stacks a filters panel on card stock (field groups left, the 92px facing dial right), a rack head (count plus the known/estimated key), and a scrolling single column of postcards with 22px gaps and 20px side gutters. Photographed benches come first, sorted by distance from map centre; unphotographed benches follow as compact plain rows (capped at 24) under a "Not yet photographed" caps label.
+**Atlas, desktop (above 760px).** 60px sticky top bar (wordmark, place search on an ink underline, sign-in). Below, a viewport-height grid: map 42fr | rail 58fr. The rail scrolls on its own (22px top, 32px gutters, 34px between blocks): hero, count line with the needle key, rows, the plain list.
 
-**Phone (760px and below).** The map fills the screen under a 56px bar. The rack becomes a horizontal, scroll-snapped stack of postcards docked at the bottom (each 76vw, centre-snapped, 12px gap, safe-area padding). The card snapped to centre is the selected bench. Filters, rack head and map key are hidden; a floating "Filters" chip (card stock, shadow) top-left opens the filters panel as a sheet from the top. The search collapses to its icon and expands across the bar on focus. Plain rows and card meta lines are dropped on phone; photo aspect tightens from 3:2 to 16:9.
+**Atlas, phone (760px and below).** The map sits on top at 40vh (min 260px) and the rail flows below it with the page. The hero photo goes edge to edge at 4:3.1 with the title card overlapping by 46px and inset 16px. Rows keep their sideways scroll with mandatory snap, tiles at 68vw, 16px gutters; row notes are hidden. Map zoom buttons are hidden (pinch), "Near me" stays.
 
-**Detail page.** Centred 1240px container (36px/32px padding; 18px/16px under 900px). The postcard is shown as a spread: front (4:3 photo, large stamp) at 1.08fr beside the back at 1fr, 28px gap. The back splits into a message side (headline, lede, definition list, rating and personal checkboxes) and an address side (small stamp top-right, ruled address lines, coordinates). Below, blocks are separated by 56px: Street View embed (21:9, 4:3 on phone), a 4-up gallery (2-up on phone), notes. Under 900px everything stacks to one column and the message/address divider turns into a dashed rule.
+**Bench page.** Full-bleed photo band (min(64vh, 600px); 54vh phone). Title card overlaps it by 150px (70px phone), max 720px wide: kicker, h1, lede, CTAs (Take me there = walking directions in Google Maps, Look around = jumps to the Street View block, Rate this bench = jumps to the rating). Then a 1280px sheet: postback (large stamp, definition list, rating and visited/favourite) beside a minimap (stacked under 900px); More views gallery (4-up, 2-up under 900px); Street View; Nearby benches row (photographed, within 1 km, nearest first); Map data tags; Notes; Report.
 
-**Spacing rhythm.** 20px gutters are the default edge; 9px is the printed card border (6px on phone, 14px on the large front); 22px between postcards; 28px inside panels; 56px between detail blocks.
+## Elevation and depth
 
-## Elevation & Depth
-
-Flat paper with one lift. Every card (postcard, card back, gallery figure, notes panel, map key, filters sheet, Filters chip) uses the same two-layer card shadow: a 1px contact line plus a soft drop. Hover lifts a postcard 2px and deepens the drop. Postal marks (stamps, roses, mini compasses) use a small drop-shadow filter so they read as paper laid on paper. There are no glows, no blur, no tinted shadows.
-
-### Shadow Vocabulary
-- **Card** (`box-shadow: 0 1px 1px rgb(20 20 20 / 0.06), 0 6px 18px -6px rgb(20 20 20 / 0.22)`): every resting card and floating panel, including MapLibre control groups.
-- **Card lifted** (`box-shadow: 0 1px 1px rgb(20 20 20 / .06), 0 14px 30px -10px rgb(20 20 20 / .3)`): postcard hover, paired with translateY(-2px).
-- **Map thumb** (`box-shadow: 0 1px 1px rgb(20 20 20 / .2), 0 4px 10px -3px rgb(20 20 20 / .35)`): tiny postcards on the map, darker to separate from the basemap.
-- **Stamp** (`filter: drop-shadow(0 1px 1.5px rgb(20 20 20 / .28))`): perforated stamps.
-- **Selection ring** (`box-shadow: 0 0 0 2px vermilion, <card>`): the selected postcard; the selected map thumb pairs the ring with a deeper drop.
-
-### Named Rules
-**The Paper-On-Paper Rule.** Depth means a sheet lying on another sheet: one soft card shadow, square edges, nothing floats higher than a lifted postcard.
-
-## Shapes
-
-Square corners throughout: cards, buttons, checkboxes, inputs, map control groups (forced to 0 radius), sheets. The only circles are compass and postmark forms: the stamp's compass ring, the postmark's double ring, the map needle hub, the cluster rose ring, the mini compass. The stamp's edge is perforated (a masked row of 2.4px holes at 7.4px pitch) with an inner 0.7px ink frame. Rules are 1px hairlines (rule colour) for structure and 1.5px ink for emphasis (search underline, block heading underline, button borders, checkbox boxes). Photo wells use fixed aspect ratios: 3:2 rack, 16:9 phone stack, 4:3 detail front, 1:1 gallery, 21:9 embed.
+Flat paper with one lift. `--shadow-card` (0 1px 1px / 0 6px 18px -6px) on resting tiles, postback, minimap, gallery figures; `--shadow-card-lifted` (0 1px 1px / 0 14px 30px -10px) on title cards and hovered tiles (with translateY(-2px)). Seals and stamps use a small drop-shadow filter so they read as paper on photo. No glows, no blur, no glass.
 
 ## Components
 
-### Postcard (signature)
-The rack's unit: a photo inside a printed white border, a caption beneath, a stamp overlapping the top-right corner.
-- **Shape:** square, card stock, 9px border on three sides with the caption closing the bottom (6px on phone).
-- **Photo:** 3:2 (16:9 on phone), cover-cropped low (object-position 50% 62%) so the bench and its view both show.
-- **Caption:** street name in caption caps left, serial "No. 1472" right, ellipsis on overflow; meta line below ("Looks at the water · Backrest") in ink-2, hidden on phone.
-- **States:** hover lifts 2px with the lifted shadow (0.45s ease-out); selected adds the 2px vermilion ring and re-strikes the stamp in vermilion. Hovering a postcard selects it; on phone the centre-snapped card is selected.
-- **Large front (detail):** 14px border, 4:3 photo, 15px caption caps, large stamp.
+### Tile (rail unit)
+Card stock, 7px border, 4:3 photo cover-cropped low (50% 60%), seal at bottom-right of the photo, caption caps address (ellipsis), second line: "Faces NE 52° · mapped · Backrest", "≈ Faces … · estimated" in airmail, or just the seat when the facing is unknown ("Seat not recorded" when neither). Hover or focus selects the bench (vermilion outline here and on the map) and lifts the tile.
 
-### Stamp and Postmark (signature)
-A perforated postage stamp (74×88; 118×140 large; 50×60 phone) on stamp paper, printed with a 16-tick compass ring, an N in expanded caps, and a facing arrow. Below the compass, the facing label: "ENE 70°" when known, "≈ ENE" when estimated. A postmark (double ring with arc text "≈ ENE · 70°", three wavy cancel bars and a small arrow, all rotated to the heading) overlaps the stamp's lower-left corner at 0.78 opacity.
-- **Known:** solid ink arrow (2.2px shaft, filled head and hub), postmark at 0.95px solid.
-- **Estimated:** airmail hairline arrow (1.1px, dashed shaft, open head), postmark at 0.6px dashed.
-- **Selected:** arrow, label and postmark switch to vermilion and the stamp plays the stamp-in strike.
-- **Accessibility:** each stamp is `role="img"` with a full sentence title ("Probably faces ENE (70°), estimated with 53% confidence").
+### Compass seal (signature)
+A 38px round postmark-compass (64px on the hero): stamp-paper disc, 0.8px ink ring with 8 ticks, an N, and the needle rotated to the facing. Mapped: solid 2px ink shaft, filled head. Estimated: dashed 1.3px airmail shaft, open head. Selected: vermilion. `role="img"` with a full sentence label. Rendered only when a facing exists (`components/Seal.tsx`).
 
-### Map markers
-- **Unphotographed bench:** a canvas-drawn hub with a facing needle, drawn north and rotated by the map to the heading. Known = ink, 2.2px solid needle, filled head, stamp-paper hub with 2px ink ring. Estimated = airmail, 1.4px dashed needle, open head. Selected = solid vermilion hub (larger) and needle, scaled 1.2.
-- **Photographed bench (map thumb):** a tiny postcard (58×42 photo in a 3px card border, map-thumb shadow) on a 9px ink stem, with a 20px round needle badge at its bottom-right corner pointing the facing. Hover lifts 3px. Selected turns the ring, stem and needle vermilion. Thumbs always stack above cluster roses.
-- **Cluster (postmark rose):** a stamp-paper ring (radius 13 / 16 / 19 by count tiers 20 and 100) with a 1.5px ink outer ring, a 0.7px inner ring, the count in Archivo 700 wdth 112 tabular, and up to eight 2px ink ticks radiating from the ring, one per facing sector, length proportional to that sector's share. Hover scales 1.08; click zooms in two levels.
+### Bench of the day (hero)
+16:7.4 photo (4:3.1 phone) with the 64px seal top-right; a paper title card overlaps the bottom edge by 64px, inset 22px, max 580px: vermilion-ink kicker, address as the title, data-built lede, facts row. The whole thing is one link to the bench page; hover zooms the photo 2% and underlines the title.
 
-### Facing dial (filter)
-A 92px eight-sector ring (N, NE … NW) around a small ink compass hub. Sectors are hairline rule outlines with 8px expanded-caps labels; hover fills airmail-wash; pressed fills airmail with card-colour labels (multi-select, `aria-pressed`). A hint line below names the selection ("Facing N, NE" or "Any direction").
+### Rows
+Caps title, ink-3 count ("266 in view") and note, "See all"/"See more" text button right (only when more than 12). The strip scrolls sideways with snap; "See all" turns it into a wrapping grid of up to 60.
+
+### Stamp and postmark (bench page)
+The Postcard Rack's perforated compass stamp (118×140, 96×114 on phone) in the postback; "No facing" when unknown, with no arrow and no postmark.
+
+### Map
+Re-inked positron basemap. Photographed benches are tiny postcards on stems (58×42 photo, 3px border) with a needle badge only when the facing is known; photos are fetched only for thumbnails MapLibre actually placed (`queryRenderedFeatures` on idle, then `triggerRepaint`), never in bulk. Unphotographed benches: a hub with a needle when the facing is known, a bare hub otherwise. Clusters: stamp-paper roses with a count and one tick per facing sector that the data really has. The minimap on the bench page shows one vermilion marker (needle only with a facing).
 
 ### Buttons
-- **Shape:** square (0px), 1.5px border, 600 weight, 9px 14px, inline icon gap 8px.
-- **Default:** card stock with ink border and ink text; hover inverts to ink fill with card text.
-- **Primary:** airmail fill and border with white text; hover goes to deep airmail. Used for the single main action ("Look around").
-- **Disabled:** card fill with ink-3 border and text (5.5:1), for both default and primary; no opacity fade.
-- **Text button:** no border or fill, 600 weight, ink; hover turns airmail. Used for sign-in, back crumb.
-- **Inline link action:** airmail, 1px underline offset 3px ("Report this card", "Open in OpenStreetMap").
+Square, 1.5px ink border, 700 weight. Default transparent with ink text, inverts on hover; solid = ink fill with card text, hover deep airmail. Text buttons (sign-in, "See all") have no border.
 
-### Inputs / Fields
-- **Search:** no box. Text on a 1.5px ink underline; the underline turns airmail on focus-within. Placeholder in ink-3. A 18px stroked search icon leads.
-- **Checkbox:** a 15px square with a 1.5px ink border on card stock; checked draws an airmail tick that scales in (0.25s ease-out). Focus-visible puts the airmail ring on the box.
-- **Focus (global):** 2px airmail outline, 2px offset.
-
-### Plain row (unphotographed bench)
-A compact bordered row on card stock (1px rule border, ink-3 on hover): a 40px facing glyph (rule ring with an ink or dashed-airmail needle), street name in caption caps with "Faces / Probably faces ENE · no photo yet" beneath, serial right. Honest about the missing photo rather than faking one.
-
-### Navigation
-The top bar is card stock with a 1px rule underneath: wordmark in caption caps (no city: the data spans several), search, then a sign-in text button with a stroked user icon. On phone the "Sign in" label drops away, leaving icons (the button keeps an aria-label).
-
-### Detail back
-- **Definition list:** caption-caps 11px terms in ink-2, 14.5px values; the facing value names its source beneath (OSM tag, or "Estimated from street views" with a 64×4 airmail confidence meter and percentage).
-- **Address side:** ruled lines (1px ink-3) reading Bench No. / street / postcode city / country, like the address half of a postcard.
-- **Gallery figures:** small postcards (7px border, 1:1) with a 26px mini compass pointing the image heading; caption "Looking NE · 34°".
+### Not photographed yet
+A ruled list (auto-fill 210px columns): caps address, "No photo yet" or the facing beneath. The selected one turns vermilion-ink. Honest about the missing photo; no placeholder images.
 
 ### Icons
-Inline SVG line icons on a 24 grid, 18px, 1.6px stroke, round caps and joins, currentColor (search, user, sliders, back, flag, eye, star, pin, turn).
+Inline SVG line icons, 24 grid, 18px, 1.6px stroke, round caps (search, user, pin, eye, star, flag, back).
 
 ### Motion
-- **Stamp-in** (0.55s, `cubic-bezier(0.16, 1, 0.3, 1)`): from scale 1.35, -10° and transparent, to 0.96 and 1° at 60%, then rest. Plays only when a stamp becomes the selected stamp.
-- **Lifts:** postcard 0.45s, map thumb 0.35s, rose 0.3s, all on the same ease-out.
-- **Reduced motion:** the stamp-in and postcard transition are switched off.
+Tile lift 0.25s and hero photo zoom 0.6s on `cubic-bezier(0.16, 1, 0.3, 1)`; the stamp strike-in when a stamp becomes selected. All switched off under `prefers-reduced-motion`.
 
-## Do's and Don'ts
+## Do's and don'ts
 
-### Do:
-- **Do** make every postal mark carry the facing: stamp arrow, postmark cancel bars, map needle, rose ticks. A mark without data is decoration and does not belong.
-- **Do** draw known facings in solid ink and estimated ones in dashed airmail hairline with "≈", in every place a facing appears.
-- **Do** keep vermilion for the one selected bench, synced across card, stamp, thumb and marker.
-- **Do** set hierarchy with Archivo's width axis: wdth 125 caps for captions and labels, 112 for headlines and serials, 100 for text.
-- **Do** keep corners square and depth to the single card shadow (0 1px 1px rgb(20 20 20 / 0.06), 0 6px 18px -6px rgb(20 20 20 / 0.22)).
-- **Do** re-ink the basemap into card stock, map-water and map-park so markers print on the same paper.
-- **Do** give every bench its "No." serial in tabular numerals.
+**Do**
+- Show a needle or seal only where `facing` exists; dashed airmail with "≈" when estimated.
+- Build headlines and row titles from real fields with sober fallbacks (the address, the bench number).
+- Hide a row with fewer than 3 benches rather than padding it.
+- Keep the map usable without location permission; "Near me" asks only on press.
+- Keep corners square; circles only for compass forms.
 
-### Don't:
-- **Don't** use vermilion for errors, alerts, badges or hover.
-- **Don't** round corners on cards, buttons, inputs or map controls; circles are reserved for compass and postmark forms.
-- **Don't** add a second typeface or a system display face.
-- **Don't** use emoji, glass or blur, or gradient buttons (owner-pinned).
-- **Don't** show debug or pipeline data on bench surfaces; confidence appears only as the estimated-facing meter.
-- **Don't** fake a photo for an unphotographed bench; use the plain row.
+**Don't**
+- Don't invent prose ("Looks out over the IJ") or categories the data lacks.
+- Don't use vermilion for anything but the selected bench (and the print-colour kickers).
+- Don't fetch map thumbnails for unplaced features (r2.dev rate-limits).
+- Don't use emoji as UI, glass, blur, gradient buttons, or show pipeline/debug data.
 
-### Open items from the finish review
-- Resolved in 5.3: the rack-size stamp's postmark drops its arc text below the large stamp and draws heavier cancel bars and needle; the default map view uses a wide cluster radius (96px, max zoom 14, start zoom 12.6) so photographed benches lead; the phone filter sheet (key and the estimated-facing note) was verified at 390x844.
-- The phone sample-note card on the detail page is still unverified.
-- The card flip (front to back for address and details) promised by the direction is not built; the detail page shows front and back side by side instead.
+### Known limits
+- Hero and bench-page photos are at most 800px wide in the published renditions, so the full-bleed bench-page band is upscaled on wide screens; a 1600w rendition would fix it.
+- The Street View block keeps its large striped placeholder until opened.

@@ -11,21 +11,13 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { dataUrl, hasPhoto } from "../data/api"
 import { isKnown, sectorOf } from "../data/facing"
 import type { BenchFeature, ImageUrls } from "../data/types"
-import type { Viewport } from "../lib/filters"
+import type { Viewport } from "../lib/viewport"
 import { dotSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
+import { type MapView, restyle, STYLE_URL } from "./style"
 
 // maplibre-gl 6 locates its worker next to its own module; once bundled that
 // path no longer exists, so point it at the bundled worker explicitly.
 setWorkerUrl(workerUrl)
-
-const STYLE_URL = "https://tiles.openfreemap.org/styles/positron"
-export const START_VIEW: Viewport = { lat: 52.3715, lng: 4.893, z: 12.6 }
-
-export interface MapView {
-  bounds: [number, number, number, number]
-  center: [number, number]
-  zoom: number
-}
 
 interface Props {
   benches: BenchFeature[]
@@ -76,8 +68,16 @@ function dots(benches: BenchFeature[], visible: ReadonlySet<number>) {
         properties: {
           id: b.properties.id,
           facing: b.properties.facing ?? 0,
-          sec: sectorOf(b.properties.facing ?? 0),
-          known: isKnown(b.properties),
+          // Benches without a facing count toward no sector (-1), so a
+          // cluster rose only grows ticks for facings the data really has.
+          sec:
+            b.properties.facing === null ? -1 : sectorOf(b.properties.facing),
+          kind:
+            b.properties.facing === null
+              ? "none"
+              : isKnown(b.properties)
+                ? "known"
+                : "est",
         },
       })),
   }
@@ -93,23 +93,6 @@ function photos(benches: BenchFeature[], visible: ReadonlySet<number>) {
         geometry: b.geometry,
         properties: { id: b.properties.id },
       })),
-  }
-}
-
-function restyle(map: MapLibreMap) {
-  for (const l of map.getStyle().layers) {
-    if (l.type === "background") {
-      map.setPaintProperty(l.id, "background-color", "#f6f6f1")
-    }
-    if (/water/.test(l.id) && l.type === "fill") {
-      map.setPaintProperty(l.id, "fill-color", "#cfdbee")
-    }
-    if (/park|landuse|landcover|wood|grass/.test(l.id) && l.type === "fill") {
-      map.setPaintProperty(l.id, "fill-color", "#e6eadc")
-    }
-    if (l.type === "symbol" && l.layout?.["text-field"]) {
-      map.setPaintProperty(l.id, "text-color", "#5c5c57")
-    }
   }
 }
 
@@ -170,7 +153,7 @@ export default function BenchMap({
       // The canvas is the focusable element (arrow keys pan, +/- zoom).
       locale: {
         "Map.Title":
-          "Map of benches. Arrow keys pan, plus and minus zoom. Every bench in view is also listed as a postcard after the map.",
+          "Map of benches. Arrow keys pan, plus and minus zoom. Photographed benches in view are also listed after the map.",
       },
     })
     mapRef.current = map
@@ -284,6 +267,10 @@ export default function BenchMap({
       for (const k of ["known", "est", "sel"] as const) {
         map.addImage(`m-${k}`, dotSprite(k).data, { pixelRatio: 2 })
       }
+      map.addImage("m-none", dotSprite("known", false).data, { pixelRatio: 2 })
+      map.addImage("m-selnone", dotSprite("sel", false).data, {
+        pixelRatio: 2,
+      })
       map.addSource("benches", {
         type: "geojson",
         data: dots(benchesRef.current, visibleRef.current),
@@ -327,7 +314,7 @@ export default function BenchMap({
         source: "benches",
         filter: ["!", ["has", "point_count"]],
         layout: {
-          "icon-image": ["case", ["get", "known"], "m-known", "m-est"],
+          "icon-image": ["concat", "m-", ["get", "kind"]],
           "icon-rotate": ["get", "facing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -354,7 +341,7 @@ export default function BenchMap({
         source: "sel",
         filter: ["!", ["get", "photo"]],
         layout: {
-          "icon-image": "m-sel",
+          "icon-image": ["case", ["get", "faced"], "m-sel", "m-selnone"],
           "icon-rotate": ["get", "facing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -441,6 +428,7 @@ export default function BenchMap({
                 properties: {
                   id: b.properties.id,
                   facing: b.properties.facing ?? 0,
+                  faced: b.properties.facing !== null,
                   photo: hasPhoto(b),
                 },
               },

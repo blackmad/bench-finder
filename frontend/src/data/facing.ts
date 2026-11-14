@@ -62,3 +62,24 @@ export const isKnown = (p: Pick<BenchProps, "facing_method">): boolean =>
 
 export const sectorOf = (deg: number): number =>
   Math.round((((deg % 360) + 360) % 360) / 45) % 8
+
+/**
+ * How much the facing can be trusted: "mapped" (OSM tag or a visitor),
+ * "estimated" (model output), or null when there is no facing at all.
+ * Nothing draws a needle for null; estimated needles are dashed and marked ≈.
+ */
+export type FacingKind = "mapped" | "estimated"
+export const facingKind = (
+  p: Pick<BenchProps, "facing" | "facing_method">
+): FacingKind | null =>
+  p.facing === null ? null : isKnown(p) ? "mapped" : "estimated"
+
+/** "NE 52°" for mapped facings, "≈ NE 52°" for estimated ones. */
+export const facingShort = (
+  p: Pick<BenchProps, "facing" | "facing_method">
+): string | null => {
+  const k = facingKind(p)
+  if (k === null || p.facing === null) return null
+  const deg = Math.round(p.facing)
+  return `${k === "estimated" ? "≈ " : ""}${windName(deg)} ${deg}°`
+}

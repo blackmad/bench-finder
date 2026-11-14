@@ -94,17 +94,9 @@ export function roseSprite(
 
 export type MarkerKind = "known" | "est" | "sel"
 
-/** Unphotographed bench: hub ring with a facing needle drawn pointing north. */
-export function dotSprite(kind: MarkerKind): Sprite {
-  const S = 44
-  const c = S / 2
-  const { cv, g } = canvas(S, S)
-  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
-  g.strokeStyle = col
-  g.fillStyle = col
-  g.lineCap = "round"
-  g.lineWidth = kind === "est" ? 1.4 : 2.2
-  if (kind === "est") g.setLineDash([2.5, 2.2])
+function drawNeedle(g: CanvasRenderingContext2D, c: number, est: boolean) {
+  g.lineWidth = est ? 1.4 : 2.2
+  if (est) g.setLineDash([2.5, 2.2])
   g.beginPath()
   g.moveTo(c, c - 6)
   g.lineTo(c, c - 17)
@@ -115,12 +107,28 @@ export function dotSprite(kind: MarkerKind): Sprite {
   g.lineTo(c - 3.6, c - 14.5)
   g.lineTo(c + 3.6, c - 14.5)
   g.closePath()
-  if (kind === "est") {
+  if (est) {
     g.lineWidth = 1.2
     g.stroke()
   } else {
     g.fill()
   }
+}
+
+/**
+ * Unphotographed bench: hub ring with a facing needle drawn pointing north
+ * (the layer rotates it). Without `needle` it is the hub alone, for benches
+ * whose facing is not known: nothing pretends to point anywhere.
+ */
+export function dotSprite(kind: MarkerKind, needle = true): Sprite {
+  const S = 44
+  const c = S / 2
+  const { cv, g } = canvas(S, S)
+  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
+  g.strokeStyle = col
+  g.fillStyle = col
+  g.lineCap = "round"
+  if (needle) drawNeedle(g, c, kind === "est")
   g.beginPath()
   g.arc(c, c, kind === "sel" ? 6.5 : 5, 0, Math.PI * 2)
   g.fillStyle = kind === "sel" ? VERMILION : PAPER

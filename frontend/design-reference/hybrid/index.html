@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bench Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet" />
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<link href="rail.css" rel="stylesheet" />
+</head>
+<body>
+<div id="hdr"></div>
+<main class="atlas">
+  <div id="map" aria-label="Map of benches"></div>
+  <section class="rail" id="rail" aria-label="Benches in view"></section>
+</main>
+<script src="../data.js"></script>
+<script src="mock-benches.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script type="module">
+import { B, byId, seal, tile, header, inkMap, windName, windLong, facingLine } from "./rail.js";
+import { markerImage } from "../postmark.js";
+const $ = (s) => document.querySelector(s);
+$("#hdr").outerHTML = header();
+
+const state = { selected: 1877 };
+const hero = byId.get(395);
+const ROWS = [
+  ["Faces the water", (b) => b.cat === "water", "Canals, the IJ and the harbour"],
+  ["Evening sun", (b) => b.facing >= 225 && b.facing <= 320, "Facing W to NW"],
+  ["Into the park", (b) => b.cat === "park", "Green in front of you"],
+  ["Watch the street", (b) => b.cat === "street", "For people-watching"],
+];
+
+function render() {
+  $("#rail").innerHTML = `
+    <a class="feature" href="bench.html?id=${hero.id}">
+      <div class="ph"><img src="img/${hero.id}-full.jpg" alt="Quay at ${hero.addr}: house boats in front, the Java-eiland skyline across the water" /><span class="seal">${seal(hero, { size: 64 })}</span></div>
+      <div class="titlecard">
+        <div class="eyebrow caps">Bench of the day · Eastern Docklands</div>
+        <h2>Looks out over the IJ.</h2>
+        <p>${hero.addr}, on the quay. House boats in front, the Java-eiland skyline across the water.</p>
+        <div class="facts"><span><b>${facingLine(hero)}</b> ${hero.known ? "mapped" : `estimated · ${Math.round(hero.conf * 100)}%`}</span><span><b>Backrest</b></span><span><b>4.6</b> from 12 ratings</span></div>
+      </div>
+    </a>
+    ${ROWS.map(([title, pred, note]) => {
+      const list = B.filter(pred).filter((b) => b.id !== hero.id).slice(0, 8);
+      return `<section class="row"><h3 class="caps">${title} <small class="num">${list.length} in view<span class="note"> · ${note}</span></small><a class="more" href="#">See all</a></h3>
+        <div class="strip">${list.map((b) => tile(b, { selected: b.id === state.selected })).join("")}</div></section>`;
+    }).join("")}
+    <p class="samplenote">Design mock. Bench locations, photos and addresses are real; facings marked ≈ and the categories are sample data until the facing pipeline runs.</p>`;
+}
+render();
+
+// Map: the Rack's map, with clusters for unphotographed benches and needles for photographed ones
+const map = new maplibregl.Map({ container: "map", style: "https://tiles.openfreemap.org/styles/positron", center: [4.893, 52.368], zoom: 12.2, attributionControl: { compact: true }, dragRotate: false });
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+const pt = (b, extra = {}) => ({ type: "Feature", geometry: { type: "Point", coordinates: [b.lng, b.lat] }, properties: { id: b.id, facing: b.facing, known: !!b.known || b.src === "osm", ...extra } });
+const selFC = () => ({ type: "FeatureCollection", features: [pt(byId.get(state.selected))] });
+map.on("load", () => {
+  inkMap(map);
+  for (const k of ["known", "est", "sel"]) map.addImage("m-" + k, markerImage(k), { pixelRatio: 2 });
+  map.addSource("all", { type: "geojson", data: { type: "FeatureCollection", features: window.BENCHES.map((b) => pt(b)) }, cluster: true, clusterRadius: 44, clusterMaxZoom: 14 });
+  map.addLayer({ id: "cl", type: "circle", source: "all", filter: ["has", "point_count"], paint: { "circle-color": "#fbfbf7", "circle-stroke-color": "#141414", "circle-stroke-width": 1.4, "circle-radius": ["step", ["get", "point_count"], 11, 30, 14, 120, 17] } });
+  map.addLayer({ id: "cln", type: "symbol", source: "all", filter: ["has", "point_count"], layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 11, "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": "#141414" } });
+  map.addLayer({ id: "dot", type: "circle", source: "all", filter: ["!", ["has", "point_count"]], paint: { "circle-color": "#141414", "circle-radius": 2.4 } });
+  map.addSource("ph", { type: "geojson", data: { type: "FeatureCollection", features: B.map((b) => pt(b)) } });
+  map.addLayer({ id: "ph", type: "symbol", source: "ph", layout: { "icon-image": ["case", ["get", "known"], "m-known", "m-est"], "icon-rotate": ["get", "facing"], "icon-rotation-alignment": "map", "icon-allow-overlap": true } });
+  map.addSource("sel", { type: "geojson", data: selFC() });
+  map.addLayer({ id: "sel", type: "symbol", source: "sel", layout: { "icon-image": "m-sel", "icon-rotate": ["get", "facing"], "icon-rotation-alignment": "map", "icon-allow-overlap": true, "icon-size": 1.25 } });
+  map.on("click", "ph", (e) => select(e.features[0].properties.id, true));
+  document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+});
+function select(id, scroll = false) {
+  state.selected = +id;
+  map.getSource("sel")?.setData(selFC());
+  document.querySelectorAll(".tile").forEach((t) => {
+    const on = +t.dataset.id === state.selected;
+    t.toggleAttribute("aria-current", on);
+    t.querySelector(".seal").innerHTML = seal(byId.get(+t.dataset.id), { size: 38, selected: on });
+  });
+  if (scroll) document.querySelector(`.tile[data-id="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+}
+$("#rail").addEventListener("pointerover", (e) => { const t = e.target.closest(".tile"); if (t && +t.dataset.id !== state.selected) select(t.dataset.id); });
+</script>
+</body>
+</html>
