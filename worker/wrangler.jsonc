@@ -9,7 +9,7 @@
   "vars": {
     "FIREBASE_PROJECT_ID": "bench-finder-a45db",
     // Deployed Pages origins, comma-separated. http://localhost:5173 is always allowed.
-    "ALLOWED_ORIGINS": "https://bench.blackmad.com,https://bench-finder.pages.dev",
+    "ALLOWED_ORIGINS": "https://bench.blackmad.com,https://bench-finder.bench-finder-worker.workers.dev",
     // TODO(owner): comma-separated Firebase uids of moderators (find yours via GET /api/me after signing in).
     "ADMIN_UIDS": ""
   },

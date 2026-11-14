@@ -73,7 +73,7 @@ jobs:
 
   # Every push deploys a Pages preview (branch alias URL); main is production.
   # Skipped until the owner adds CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID (task 4.1).
-  deploy-pages:
+  deploy-site:
     if: github.event_name == 'push'
     needs: [frontend, worker]
     runs-on: ubuntu-latest
@@ -81,13 +81,21 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      - uses: actions/checkout@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
       - uses: actions/download-artifact@v4
         if: env.CLOUDFLARE_API_TOKEN != ''
         with:
           name: frontend-dist
-          path: dist
-      - if: env.CLOUDFLARE_API_TOKEN != ''
-        run: npx --yes wrangler@4 pages deploy dist --project-name bench-finder --branch "${GITHUB_REF_NAME}"
+          path: frontend/dist
+      # Static-assets Worker (frontend/wrangler.jsonc). main goes live; other
+      # branches upload a version with its own preview URL without promoting it.
+      - if: env.CLOUDFLARE_API_TOKEN != '' && github.ref == 'refs/heads/main'
+        working-directory: frontend
+        run: npx --yes wrangler@4 deploy
+      - if: env.CLOUDFLARE_API_TOKEN != '' && github.ref != 'refs/heads/main'
+        working-directory: frontend
+        run: npx --yes wrangler@4 versions upload --preview-alias "$(echo "${GITHUB_REF_NAME}" | tr -c 'a-zA-Z0-9-' '-' | cut -c1-40)"
 
   deploy-worker:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
