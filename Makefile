@@ -125,6 +125,9 @@ db-migrate: ## Run database migrations
 	@echo "🗄️ Running database migrations..."
 	uv run python -m bench_finder.migrate
 
+db-quarantine: ## One-off: move bad/legacy data to data/archive.db (see bench_finder/quarantine.py)
+	uv run python -m bench_finder.quarantine
+
 # Type checking
 type-check: ## Run type checking with mypy
 	@echo "🔍 Running type checking..."
