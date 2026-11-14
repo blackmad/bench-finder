@@ -264,6 +264,9 @@ api = [
     "pillow>=9.11",  # Required by bench_finder.config
     "supabase>=2.10.0",  # Required for authentication
 ]
+dev = [
+    "pytest-cov>=7.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/your-org/bench-finder"
@@ -407,10 +410,6 @@ minversion = "6.0"
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=bench_finder",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
