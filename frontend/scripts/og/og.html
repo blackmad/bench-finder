@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face {
+  font-family: "Archivo Variable";
+  src: url("../../node_modules/@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+}
+:root {
+  --card: #f6f6f1; --rack: #ecece4; --stamp: #fbfbf7; --ink: #141414; --ink2: #4a4a46;
+  --ink3: #64645f; --rule: #d6d6cc; --airmail: #1e4fa3; --vermilion: #e23b1e;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  width: 1200px; height: 630px; overflow: hidden;
+  background: var(--rack);
+  font-family: "Archivo Variable", sans-serif; color: var(--ink);
+  display: grid; place-items: center;
+}
+.card {
+  width: 1100px; height: 530px; background: var(--card);
+  box-shadow: 0 1px 1px rgb(20 20 20 / .06), 0 14px 30px -10px rgb(20 20 20 / .3);
+  display: grid; grid-template-columns: 1.25fr 1fr; padding: 54px 56px;
+}
+.msg { padding-right: 48px; border-right: 1px solid var(--rule); display: flex; flex-direction: column; }
+.caps { font-weight: 700; font-variation-settings: "wdth" 125; text-transform: uppercase; letter-spacing: .04em; }
+.word { font-size: 26px; }
+h1 {
+  margin: auto 0 0; font-size: 66px; line-height: 1.02; font-weight: 750;
+  font-variation-settings: "wdth" 112; letter-spacing: -.015em;
+}
+p { margin: 22px 0 0; font-size: 25px; line-height: 1.4; color: var(--ink2); max-width: 26ch; }
+.addr { position: relative; padding-left: 48px; display: flex; flex-direction: column; justify-content: flex-end; }
+.stamp { position: absolute; top: -14px; right: -6px; width: 222px; height: 264px; filter: drop-shadow(0 2px 3px rgb(20 20 20 / .28)); }
+.lines div { border-bottom: 1.5px solid var(--ink3); padding: 0 2px 8px; margin-top: 22px; font-size: 22px; min-height: 40px; }
+.lines .caps { font-size: 17px; color: var(--ink2); }
+.num { font-variant-numeric: tabular-nums; font-variation-settings: "wdth" 112; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="msg">
+    <div class="caps word">Bench Finder</div>
+    <h1>Find a bench by what it looks at.</h1>
+    <p>Every bench is a postcard of its own view, postmarked with the direction it faces.</p>
+  </div>
+  <div class="addr">
+    <svg class="stamp" id="stamp" viewBox="0 0 74 88" overflow="visible"></svg>
+    <div class="lines">
+      <div class="caps">Bench No.</div>
+      <div>Faces the water</div>
+      <div class="num">≈ ENE · 70°</div>
+    </div>
+  </div>
+</div>
+<script>
+const W = 74, H = 88, STEP = 7.4, R = 2.4, CX = 37, CY = 37, RING = 21;
+const range = (a, b, s) => { const o = []; for (let v = a; v < b; v += s) o.push(v); return o; };
+const holes = [...range(STEP / 2, W, STEP).flatMap((x) => [[x, 0], [x, H]]), ...range(STEP / 2, H, STEP).flatMap((y) => [[0, y], [W, y]])];
+const ticks = Array.from({ length: 16 }, (_, i) => { const a = i * 22.5 * Math.PI / 180, l = i % 4 ? 2 : 4;
+  return `<line x1="${CX + Math.sin(a) * RING}" y1="${CY - Math.cos(a) * RING}" x2="${CX + Math.sin(a) * (RING - l)}" y2="${CY - Math.cos(a) * (RING - l)}"/>`; }).join('');
+const f = 70, x = 4, y = 78, r = 15, rot = `rotate(${f} ${x} ${y})`, ink = 'var(--vermilion)';
+document.getElementById('stamp').innerHTML = `
+<defs><mask id="m"><rect width="${W}" height="${H}" fill="#fff"/><g fill="#000">${holes.map(([a, b]) => `<circle cx="${a}" cy="${b}" r="${R}"/>`).join('')}</g></mask></defs>
+<rect width="${W}" height="${H}" fill="var(--stamp)" mask="url(#m)"/>
+<rect x="5.5" y="5.5" width="${W - 11}" height="${H - 11}" fill="none" stroke="var(--ink)" stroke-width=".7"/>
+<circle cx="${CX}" cy="${CY}" r="${RING}" fill="none" stroke="var(--ink)" stroke-width=".8"/>
+<g stroke="var(--ink)" stroke-width=".8">${ticks}</g>
+<text x="${CX}" y="12.8" text-anchor="middle" font-size="6.2" font-weight="800" style="font-variation-settings:'wdth' 125">N</text>
+<g transform="rotate(${f} ${CX} ${CY})" stroke="var(--vermilion)" fill="none">
+  <line x1="${CX}" y1="${CY + 9}" x2="${CX}" y2="${CY - 11}" stroke-width="1.1" stroke-dasharray="2.4 2"/>
+  <path d="M${CX} ${CY - 18} l-4.5 7.5 h9z" stroke-width="1.1"/><circle cx="${CX}" cy="${CY}" r="2" stroke-width="1.1"/>
+</g>
+<text x="${CX}" y="76" text-anchor="middle" font-size="8.6" font-weight="700" fill="#cc3217" style="font-variation-settings:'wdth' 118">≈ ENE</text>
+<g opacity=".8" stroke="${ink}" fill="none" stroke-width=".7" stroke-dasharray="1.6 1.4">
+  <g transform="${rot}">${[-4.5, 0, 4.5].map((o) => `<path d="M${x + o} ${y - r - 2} q -2 -3.5 0 -7 t 0 -7 t 0 -7"/>`).join('')}</g>
+  <circle cx="${x}" cy="${y}" r="${r}" fill="rgb(251 251 247 / .55)"/><circle cx="${x}" cy="${y}" r="${r - 4.6}"/>
+  <path id="arc" d="M${x - r + 2.3} ${y} a ${r - 2.3} ${r - 2.3} 0 0 1 ${2 * (r - 2.3)} 0" stroke="none"/>
+  <text font-size="3.7" font-weight="700" fill="${ink}" stroke="none" style="font-variation-settings:'wdth' 118;letter-spacing:.2px"><textPath href="#arc" startOffset="50%" text-anchor="middle">≈ ENE · 70°</textPath></text>
+  <g transform="${rot}" stroke-dasharray="none"><line x1="${x}" y1="${y + 4}" x2="${x}" y2="${y - 6}" stroke-width=".9"/><path d="M${x} ${y - 8.5} l-2.2 3.4 h4.4z" fill="${ink}" stroke="none"/></g>
+</g>`;
+</script>
+</body>
+</html>

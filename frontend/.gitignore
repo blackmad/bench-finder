@@ -25,3 +25,6 @@ dist-ssr
 public/data/
 !/src/data/
 !/src/lib/
+
+# App icons and the Open Graph image (rendered by scripts/og/render.mjs)
+!/public/*.png
