@@ -253,8 +253,11 @@ def render_aimed_view(
 
     The virtual camera looks horizontally at compass bearing ``aim_bearing_deg``
     (the horizon is at the vertical centre). ``pitch_rad`` / ``roll_rad`` are the
-    panorama's upright-correction angles; a panorama captured by a tilted camera is
-    levelled before sampling. Zero tilt is an exact no-op.
+    panorama's pose angles as streetlevel reports them (GPano PosePitch/PoseRoll):
+    the tilt of the capture rig. The view is levelled by applying the inverse, which
+    makes the horizon straight in the output. Verified on an Apple panorama with a
+    20 degree pose pitch (only the inverse levels it); Google uses the same fields.
+    Zero tilt is an exact no-op.
 
     Args:
         equirect: H x W x 3 uint8 image covering 360 x 180 degrees.
@@ -279,9 +282,9 @@ def render_aimed_view(
     )
 
     if pitch_rad or roll_rad:
-        # Level the panorama: rotate about the right axis (pitch), then forward axis (roll).
-        cp, sp = math.cos(pitch_rad), math.sin(pitch_rad)
-        cr, sr = math.cos(roll_rad), math.sin(roll_rad)
+        # Level the panorama: undo the rig pose (pitch about the right axis, roll about forward).
+        cp, sp = math.cos(-pitch_rad), math.sin(-pitch_rad)
+        cr, sr = math.cos(-roll_rad), math.sin(-roll_rad)
         rx = np.array([[1, 0, 0], [0, cp, -sp], [0, sp, cp]])
         ry = np.array([[cr, 0, sr], [0, 1, 0], [-sr, 0, cr]])
         rays = np.einsum("hwj,ij->hwi", rays, ry @ rx)

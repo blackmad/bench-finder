@@ -169,3 +169,54 @@ def test_center_compass_helpers():
     # Apple: CCW travel heading -> CW, then the stitched image looks backwards.
     assert apple_center_compass(math.radians(90)) == pytest.approx((270 + 180) % 360)
     assert apple_center_compass(0.0) == pytest.approx(180)
+
+
+def _leveling_matrix(pitch, roll):
+    cp, sp = math.cos(-pitch), math.sin(-pitch)
+    cr, sr = math.cos(-roll), math.sin(-roll)
+    rx = np.array([[1, 0, 0], [0, cp, -sp], [0, sp, cp]])
+    ry = np.array([[cr, 0, sr], [0, 1, 0], [-sr, 0, cr]])
+    return ry @ rx
+
+
+def _tilted_rig_pano(pitch, roll, w=2048, h=1024):
+    """Equirect of a world with a flat horizon, captured by a rig with the given pose."""
+    cols = (np.arange(w) + 0.5) / w
+    rows = (np.arange(h) + 0.5) / h
+    az = (cols - 0.5) * 2 * math.pi
+    lat = (0.5 - rows) * math.pi
+    laz, llat = np.meshgrid(az, lat)
+    d = np.stack(
+        [np.cos(llat) * np.sin(laz), np.cos(llat) * np.cos(laz), np.sin(llat)], axis=-1
+    )
+    world = d @ _leveling_matrix(pitch, roll)  # = L^-1 d for the orthogonal L
+    sky = world[..., 2] > 0
+    img = np.zeros((h, w, 3), dtype=np.uint8)
+    img[sky] = 220
+    return img
+
+
+def _horizon_rows(view):
+    # first dark row per column, for columns away from the very edge
+    return np.array(
+        [np.argmax(view[:, x, 0] < 110) for x in range(16, view.shape[1] - 16, 8)]
+    )
+
+
+@pytest.mark.parametrize("aim", [0.0, 90.0, 200.0])
+def test_pose_tilt_is_levelled(aim):
+    pitch, roll = math.radians(20.0), math.radians(4.0)
+    pano = _tilted_rig_pano(pitch, roll)
+    kw = {
+        "center_compass_deg": 0.0,
+        "aim_bearing_deg": aim,
+        "fov_deg": 60,
+        "out_size": 256,
+    }
+    levelled = _horizon_rows(
+        render_aimed_view(pano, pitch_rad=pitch, roll_rad=roll, **kw)
+    )
+    raw = _horizon_rows(render_aimed_view(pano, **kw))
+    assert levelled.max() - levelled.min() <= 3  # straight horizon across the frame
+    assert abs(levelled.mean() - 128) <= 3  # and at the vertical centre
+    assert raw.max() - raw.min() > 6 or abs(raw.mean() - 128) > 6  # uncorrected is not

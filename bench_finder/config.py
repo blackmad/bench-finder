@@ -21,7 +21,7 @@ try:
     )
 
     # Force iTerm2 image support for warp
-    if get_terminal_name_version()[0] in ["warp"]:
+    if get_terminal_name_version()[0] == "warp":
         ITerm2Image.is_supported = lambda *_: True
 
     print(get_terminal_name_version(), "to WHOLE")
