@@ -2950,6 +2950,73 @@ def backfill_metadata_cache_heading(
         raise typer.Exit(1) from e
 
 
+@app.command("classify-views")
+def classify_views(
+    backend: str = typer.Option("claude", help="claude, gemini or typesafe"),
+    model: str | None = typer.Option(None, help="Override the model id (claude/typesafe)"),
+    limit: int = typer.Option(20, help="Maximum images to classify"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Print the request payload and a cost estimate; send nothing"
+    ),
+    db: str = typer.Option("data/benches.db", help="SQLite database path"),
+    images_root: str = typer.Option("images/", help="Image directory root"),
+    batch: bool = typer.Option(
+        False, "--batch", help="Claude only: use Message Batches (50% cost, asynchronous)"
+    ),
+):
+    """Classify bench views (type, view relation, quality, ...) into image_annotations."""
+    from pathlib import Path
+
+    from bench_finder.clients import view_classifier as vc
+    from bench_finder.labeling import store
+
+    try:
+        clf = vc.make_classifier(backend, model)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(2) from e
+
+    conn = store.connect(db)
+    todo = vc.select_images(conn, clf.model, limit, Path(images_root))
+    if not todo:
+        console.print("[yellow]No unclassified images found.[/yellow]")
+        return
+    paths = [p for _, p, _ in todo]
+
+    if dry_run:
+        console.print(f"[bold]{len(todo)} image(s) selected, first request payload:[/bold]")
+        console.print_json(json.dumps(vc.redact_payload(clf.build_request(paths[0], todo[0][2]))))
+        console.print(f"[bold]Estimate:[/bold] {clf.estimate_cost(paths).line()}")
+        console.print("[dim]Dry run: nothing sent, nothing written.[/dim]")
+        return
+
+    try:
+        if batch and backend == "claude":
+            results = clf.classify_batch([(str(i), p, c) for i, p, c in todo])
+        else:
+            results = {}
+            for i, p, c in todo:
+                try:
+                    results[str(i)] = clf.classify(p, c)
+                except vc.MissingApiKeyError:
+                    raise
+                except Exception as e:
+                    results[str(i)] = e
+    except vc.MissingApiKeyError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+
+    ok = failed = 0
+    for key, res in results.items():
+        if isinstance(res, Exception):
+            failed += 1
+            console.print(f"[red]image {key}: {res}[/red]")
+        else:
+            vc.save_view_labels(conn, int(key), res)
+            ok += 1
+    console.print(f"[green]Saved {ok} image(s)[/green], {failed} failed.")
+
+
 def main():
     """Main entry point for the CLI."""
     app()
