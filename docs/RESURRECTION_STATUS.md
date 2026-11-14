@@ -58,3 +58,19 @@ States: `todo` · `in-progress` · `blocked (owner)` · `done`
 | ratings / comments / user_status / missing reports | 0 | 0 |
 
 Conclusion: no production-only user data, so task 4.4 (import user rows into D1) has nothing to import. The SQLite images table is a superset of Supabase's.
+
+### Owner-action session (2026-11-14, with owner approval)
+
+- **Leaked Firebase admin key `0ea27e87…` disabled** (gcloud; reversible). It was the only user-managed key and is still in git history. Delete it once the old FastAPI server is retired (4.7). The local `firebase_creds.json` uses the same key, so the old API cannot start locally any more.
+- **Firebase Auth:** email-link sign-in enabled (Google was already on). `bench.blackmad.com` added to authorised domains. Add the `*.pages.dev` preview host once it exists. There are 0 users, so `ADMIN_UIDS` waits until the owner signs in once.
+- **Maps Embed key** created in `bench-finder-a45db`, restricted to the Maps Embed API and to referrers on `bench.blackmad.com`, `bench-finder.pages.dev`, and localhost dev ports. It is in `frontend/.env.local` and the GitHub repo variable `VITE_GOOGLE_MAPS_EMBED_KEY`.
+- **GitHub repo variables set:** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_GOOGLE_MAPS_EMBED_KEY`.
+- **Supabase password: NOT rotated.** `ALTER ROLE postgres` was refused ("Only superusers can alter privileged roles"). Owner: Supabase dashboard → Project Settings → Database → Reset database password, then update `.env`/`.env.local`. Pre-attempt copies of both files: `~/bench_finder_backups/.env*.pre_pwrotate`. Nothing was changed.
+- **Dependencies:** Roboflow `inference` moved to the `roboflow-local` group, which is declared as conflicting with the new default `vlm` group. `vlm` holds `anthropic` 2.8 and `google-genai` 3.3, which has Decisions. `RoboflowClient` already falls back to the hosted API. The main `.venv` has **not** been re-synced while the image fetch runs; until it finishes, use `uv run --no-sync`. `av` has no wheel and won't build against Homebrew ffmpeg 9, so fresh environments and CI use `uv sync --no-install-package av`.
+- **Firebase Storage bucket** `bench-finder-a45db.firebasestorage.app`: 13,310 objects, 1.36 GB (old images; tear down at 4.7).
+- **Defaults adopted (reversible):**
+  - Keep the 699 >50 m panoramas quarantined.
+  - Decide the 20 m cap after gold labels.
+  - Keep picnic tables axis-only.
+  - No 640 px derivative (400/800 cover the layouts).
+  - Domain is `bench.blackmad.com`.
