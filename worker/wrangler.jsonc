@@ -1,0 +1,34 @@
+// Bench Finder write API. Local dev needs none of the TODOs below (miniflare simulates D1/R2).
+{
+  "name": "bench-finder-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "vars": {
+    "FIREBASE_PROJECT_ID": "bench-finder-a45db",
+    // TODO(owner): the deployed Pages origin(s), comma-separated. http://localhost:5173 is always allowed.
+    "ALLOWED_ORIGINS": "https://bench.blackmad.com",
+    // TODO(owner): comma-separated Firebase uids of moderators (find yours via GET /api/me after signing in).
+    "ADMIN_UIDS": ""
+  },
+  // Secret, not a var: `npx wrangler secret put TURNSTILE_SECRET` (see README).
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bench-finder",
+      // TODO(owner): replace with the id printed by `wrangler d1 create bench-finder`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      // TODO(owner): bucket for user report photos (private; create with `wrangler r2 bucket create`).
+      "bucket_name": "bench-finder-uploads"
+    }
+  ]
+}
