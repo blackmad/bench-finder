@@ -647,7 +647,7 @@ requires-dist = [
     { name = "sqlmodel", specifier = ">=0.0.27" },
     { name = "sqlmodel", marker = "extra == 'api'", specifier = ">=0.0.27" },
     { name = "starlette", specifier = ">=0.37.2" },
-    { name = "streetlevel", specifier = ">=0.12.4" },
+    { name = "streetlevel", specifier = ">=0.13.0" },
     { name = "strenum", specifier = ">=0.4.15" },
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "supabase", marker = "extra == 'api'", specifier = ">=2.10.0" },
@@ -3369,7 +3369,7 @@ wheels = [
 
 [[package]]
 name = "streetlevel"
-version = "0.12.4"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -3389,9 +3389,9 @@ dependencies = [
     { name = "requests" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9a/53/bde95b44fb85c7674dc48275ca5044755656e5102bd76ec848b4ee07904c/streetlevel-0.12.4.tar.gz", hash = "sha256:91a162152b4d9ac91889685b87faf5fccf760419eb749302a34d936d9d649834", size = 119553, upload-time = "2025-07-12T11:54:00.032Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/7e/545e4a0b8eed25e368bb9721138b2cb568cecfed7cf1bcd8866a048401d2/streetlevel-0.13.0.tar.gz", hash = "sha256:2e75fb2cca8c2a1800775e36510a92049e2f45c2cfe97c1271c5aed5ab4cd6b0", size = 126499, upload-time = "2026-11-12T15:39:28.697Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/df/96/d3f0e672dae4c0618ad8228ab948c464cc79e3aa7c2243beac886eeba97c/streetlevel-0.12.4-py3-none-any.whl", hash = "sha256:a827b04acc5fd8b60a8c8de61b8401ef76c700558a59ad4689892631c3ce419e", size = 94315, upload-time = "2025-07-12T11:53:58.628Z" },
+    { url = "https://files.pythonhosted.org/packages/47/71/c3d38053cdea7055179b5747306a216621f32ed3d77937ddc2e620676388/streetlevel-0.13.0-py3-none-any.whl", hash = "sha256:624c912a8522a47880cff2b5208d4ab4bd377810c86ca4d4850b57ec23a1192d", size = 95655, upload-time = "2026-11-12T15:39:27.573Z" },
 ]
 
 [[package]]
