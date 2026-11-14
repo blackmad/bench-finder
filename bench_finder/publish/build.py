@@ -312,7 +312,7 @@ def publish(
         street = r["street_name"]
         number = r["street_number"]
         short = (
-            f"{street} {number}".strip()
+            " ".join(str(x) for x in (street, number) if x).strip()
             if street
             else (r["formatted_address"] or "").split(",")[0] or None
         )
