@@ -3,7 +3,7 @@ Pydantic models for Google Street View Static API responses.
 """
 
 from datetime import datetime
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -172,6 +172,18 @@ class StreetViewImageCaptureSuccess(BaseModel):
         default=None,
         description="Heading/orientation of the panorama itself (from streetlevel/lookaround API)",
     )
+    # Aimed-view provenance (task 2.1/2.2)
+    pano_id: str | None = Field(default=None, description="Source panorama id")
+    pano_date: str | None = Field(default=None, description="Panorama capture date")
+    camera_bearing_deg: float | None = Field(
+        default=None, description="Compass bearing from the camera to the bench"
+    )
+    camera_distance_m: float | None = Field(
+        default=None, description="Distance from the camera to the bench in metres"
+    )
+    fov_deg: float | None = Field(default=None, description="Horizontal field of view")
+    pitch_deg: float | None = Field(default=None, description="View pitch in degrees")
+    kind: str = Field(default="aimed", description="images.kind value")
 
     @property
     def success(self) -> bool:
@@ -238,6 +250,18 @@ class StreetViewImageCaptureError(BaseModel):
     filepath: str | None = Field(
         default=None, description="Filepath placeholder (always None for errors)"
     )
+    # Aimed-view provenance (task 2.1/2.2)
+    pano_id: str | None = Field(default=None, description="Source panorama id")
+    pano_date: str | None = Field(default=None, description="Panorama capture date")
+    camera_bearing_deg: float | None = Field(
+        default=None, description="Compass bearing from the camera to the bench"
+    )
+    camera_distance_m: float | None = Field(
+        default=None, description="Distance from the camera to the bench in metres"
+    )
+    fov_deg: float | None = Field(default=None, description="Horizontal field of view")
+    pitch_deg: float | None = Field(default=None, description="View pitch in degrees")
+    kind: str = Field(default="aimed", description="images.kind value")
 
     @property
     def success(self) -> bool:
@@ -256,9 +280,7 @@ class StreetViewImageCaptureError(BaseModel):
 
 
 # Union type for image capture results
-StreetViewImageCapture = Union[
-    StreetViewImageCaptureSuccess, StreetViewImageCaptureError
-]
+StreetViewImageCapture = StreetViewImageCaptureSuccess | StreetViewImageCaptureError
 
 
 class PanoramaCaptureResult(BaseModel):
