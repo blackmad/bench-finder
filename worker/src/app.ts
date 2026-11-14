@@ -7,7 +7,7 @@ import { z } from "zod";
 import { type AuthUser, googleJwks, testJwksFromEnv, verifierFromEnv } from "./auth";
 import { csv, type Env } from "./env";
 import { hit, num } from "./rate-limit";
-import { type TurnstileVerifier, verifyTurnstile } from "./turnstile";
+import { TURNSTILE_ACTION, type TurnstileVerifier, verifyTurnstile } from "./turnstile";
 
 /** Injectable dependencies (tests replace these). */
 export interface Deps {
@@ -97,7 +97,7 @@ export function createApp(deps: Deps = {}) {
       throw new HTTPException(429, { message: "Too many requests, try again later" });
     }
     const user = await optionalUser(c);
-    if (!user && !(await checkTurnstile(token ?? "", ip, c.env))) {
+    if (!user && !(await checkTurnstile(token ?? "", ip, c.env, TURNSTILE_ACTION))) {
       throw new HTTPException(403, { message: "Turnstile verification failed" });
     }
     return user;

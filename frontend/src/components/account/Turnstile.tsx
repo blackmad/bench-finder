@@ -5,6 +5,7 @@ interface TurnstileApi {
     el: HTMLElement,
     opts: {
       sitekey: string
+      action?: string
       callback: (token: string) => void
       "expired-callback": () => void
       "error-callback": () => void
@@ -62,6 +63,8 @@ export function Turnstile({
         if (cancelled || !window.turnstile) return
         id = window.turnstile.render(el, {
           sitekey: turnstileSiteKey,
+          // Must match TURNSTILE_ACTION in worker/src/turnstile.ts.
+          action: "report",
           callback: (t) => cb.current(t),
           "expired-callback": () => cb.current(null),
           "error-callback": () => cb.current(null),

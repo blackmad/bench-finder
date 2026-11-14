@@ -2,7 +2,7 @@
 
 <!-- impeccable:product-schema 1 -->
 
-> Written 2026-11-14 without an interview: the owner asked for unattended work. Facts come from docs/RESURRECTION_PLAN.md and the owner's design brief there. Lines marked *(inferred)* still need owner confirmation.
+> Written 2026-11-14 without an interview: the owner asked for unattended work. Facts come from docs/RESURRECTION_PLAN.md and the owner's design brief there. The owner confirmed the audience, the Postcard Rack direction, Amsterdam-only coverage at launch, and post-moderated comments on 2026-11-14.
 
 ## Platform
 
@@ -10,7 +10,7 @@ web
 
 ## Users
 
-- People looking for a place to sit outdoors in a city: to read, eat lunch, watch water or a street, or catch the sun. They browse a map at home or open it on a phone nearby. *(inferred: primary audience and situation)*
+- People looking for a place to sit outdoors in a city: to read, eat lunch, watch water or a street, or catch the sun. They browse a map at home or open it on a phone nearby. *(confirmed by the owner 2026-11-14)*
 - Signed-in contributors who rate benches, mark them visited or favourite, comment, and report bad or missing benches.
 - The owner, who moderates reports, comments and low-confidence facings.
 
@@ -24,7 +24,7 @@ Every bench carries a facing direction and a view taken from behind it. No map o
 
 ## Operating Context
 
-- Coverage today: about 3,229 OSM benches, mostly Amsterdam plus a little NYC. More cities come through a repeatable pipeline.
+- Coverage today: about 3,229 OSM benches, mostly Amsterdam plus a little NYC. **Launch shows Amsterdam only**; NYC stays hidden until coverage is real. More cities come through a repeatable pipeline.
 - Reads are static files: one GeoJSON for the map plus a JSON file per bench. Writes (ratings, comments, reports) go to a small Worker.
 - Imagery: small hosted crops, plus Google's official Maps Embed for the interactive panorama ("view from this bench", aimed along the facing).
 
@@ -32,7 +32,7 @@ Every bench carries a facing direction and a view taken from behind it. No map o
 
 - Map with client-side filters: bench type, backrest, facing, and what it faces (water, street, park, square, wall, playground, other).
 - Bench detail: hero image, gallery, compass and facing, Maps Embed, tags, report action.
-- Accounts at launch (Firebase Auth): rating, visited/favourite, public comments, reports, and a `/me` list. Admin moderation queue.
+- Accounts at launch (Firebase Auth): rating, visited/favourite, public comments (post-moderated: notes appear at once, flagged ones go to the admin queue), reports, and a `/me` list. Admin moderation queue.
 - Must work without location permission. One responsive app, no user-agent sniffing.
 - Free-tier hosting (Cloudflare). Initial JS under 200 kB gzipped; Lighthouse phone performance ≥90 and accessibility ≥95.
 - Facing can be missing or low-confidence. Backless benches have an axis, not a facing. The UI must show these states honestly.

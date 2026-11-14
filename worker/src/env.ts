@@ -9,6 +9,8 @@ export interface Env {
   ADMIN_UIDS?: string;
   /** Turnstile secret key (wrangler secret). Unset means anonymous submissions are refused. */
   TURNSTILE_SECRET?: string;
+  /** Comma-separated hostnames Turnstile tokens may come from; defaults to ALLOWED_ORIGINS hosts. */
+  TURNSTILE_HOSTNAMES?: string;
   /** DEV ONLY: JSON JWKS that replaces Google's keys for ID-token verification. Leave unset in production. */
   AUTH_TEST_JWKS?: string;
   /** Per-IP limits per hour; defaults in app.ts. */

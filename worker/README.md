@@ -30,7 +30,9 @@ Frontend typed client: `import type { AppType } from "../../worker/src/index"; c
 ## Design notes
 
 - **Auth**: Firebase ID tokens verified with `jose` against Google's securetoken JWKS (cached by `createRemoteJWKSet`); checks issuer `https://securetoken.google.com/<project>`, audience, `exp`, `sub`, RS256 only. No service account. The JWKS source is injectable (`createApp({ jwks })`) so tests sign with a local key.
-- **Anonymous writes**: per-IP rate limit first (default 10/hour for reports and for uploads, bucketed separately), then Turnstile verification. Signed-in users skip Turnstile but are still rate limited. If `TURNSTILE_SECRET` is unset, anonymous writes are refused (fail closed). The token goes in the body (`turnstileToken`) or the `X-Turnstile-Token` header. Turnstile tokens are single use, so an anonymous photo report needs two widget runs (one for the upload, one for the report).
+- **Anonymous writes**: per-IP rate limit first (default 10/hour for reports and for uploads, bucketed separately), then Turnstile verification. Signed-in users skip Turnstile but are still rate limited. If `TURNSTILE_SECRET` is unset, anonymous writes are refused (fail closed). The token goes in the body (`turnstileToken`) or the `X-Turnstile-Token` header. Turnstile tokens are single use, so an anonymous photo report needs two widget runs (one for the upload, one for the report). Siteverify must return `success`, the action `report` (what the frontend widget renders with), and a hostname from `TURNSTILE_HOSTNAMES` (comma-separated), which defaults to the hosts in `ALLOWED_ORIGINS`. Production never lists `localhost`.
+
+Production widget: site key `0x4AAAAAAGAzFqSOBz--xfnc` (domains `bench.blackmad.com`, `localhost`, `127.0.0.1`). Store its secret with `npx wrangler secret put TURNSTILE_SECRET` once the Worker exists; never commit it.
 - **Rate limit**: a D1-backed fixed-window counter (`src/rate-limit.ts`), not the Workers Rate Limiting binding. Reason: deterministic in tests, nothing extra to configure. Cost is one D1 write per limited request; a fixed window can allow up to 2x the limit across a boundary. Keys contain the client IP and are purged after a day; IPs are not stored on reports.
 - **Comments** are published immediately; `state` is `visible`, `flagged` (still visible, in the admin queue) or `hidden` (moderator). Author deletion sets `deleted_at`.
 - **Uploads** are checked by declared type, magic bytes and size, stored under `reports/<uuid>.<ext>` in a private bucket, and only attachable to a report if the key exists.
@@ -53,6 +55,7 @@ Create `worker/.dev.vars` (git-ignored) for local secrets. Cloudflare's publishe
 
 ```
 TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+TURNSTILE_HOSTNAMES=localhost,127.0.0.1
 ADMIN_UIDS=<your firebase uid>
 ```
 

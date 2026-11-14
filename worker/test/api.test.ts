@@ -194,12 +194,29 @@ describe("reports", () => {
   });
 
   it("default verifier calls siteverify with the secret", async () => {
-    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ success: true }));
-    const ok = await verifyTurnstile("tok", "1.2.3.4", { TURNSTILE_SECRET: "s3cret" } as never);
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json({ success: true, action: "report", hostname: "bench.blackmad.com" }));
+    const env = { TURNSTILE_SECRET: "s3cret", ALLOWED_ORIGINS: "https://bench.blackmad.com" } as never;
+    const ok = await verifyTurnstile("tok", "1.2.3.4", env, "report");
     expect(ok).toBe(true);
     const [url, init] = spy.mock.calls[0];
     expect(String(url)).toContain("challenges.cloudflare.com/turnstile/v0/siteverify");
     expect(String((init as RequestInit).body)).toContain("secret=s3cret");
+    spy.mockRestore();
+  });
+
+  it("default verifier rejects a token for another action or hostname", async () => {
+    const env = { TURNSTILE_SECRET: "s", ALLOWED_ORIGINS: "https://bench.blackmad.com" } as never;
+    const reply = (body: object) => vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(body));
+    let spy = reply({ success: true, action: "login", hostname: "bench.blackmad.com" });
+    expect(await verifyTurnstile("tok", "", env, "report")).toBe(false);
+    spy.mockRestore();
+    spy = reply({ success: true, action: "report", hostname: "localhost" });
+    expect(await verifyTurnstile("tok", "", env, "report")).toBe(false);
+    spy.mockRestore();
+    spy = reply({ success: true, action: "report", hostname: "localhost" });
+    expect(await verifyTurnstile("tok", "", { ...(env as object), TURNSTILE_HOSTNAMES: "localhost" } as never, "report")).toBe(true);
     spy.mockRestore();
   });
 
