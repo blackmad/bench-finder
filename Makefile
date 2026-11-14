@@ -123,7 +123,7 @@ docs: ## Generate documentation (if applicable)
 # Database commands
 db-migrate: ## Run database migrations
 	@echo "🗄️ Running database migrations..."
-	uv run python tools/migrate_database.py
+	uv run python -m bench_finder.migrate
 
 # Type checking
 type-check: ## Run type checking with mypy
