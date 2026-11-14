@@ -50,10 +50,12 @@ export function BenchActions({ benchId }: { benchId: number }) {
           </label>
         ))}
         <span id="rating-summary" className="rating-summary">
-          {count > 0 && avg != null
-            ? `${avg.toFixed(1)} from ${count} ${count === 1 ? "rating" : "ratings"}`
-            : "No ratings yet"}
-          {mine ? ` · yours: ${mine}` : ""}
+          <span>
+            {count > 0 && avg != null
+              ? `${avg.toFixed(1)} · ${count} ${count === 1 ? "rating" : "ratings"}`
+              : "No ratings yet"}
+          </span>
+          {mine ? <span>Yours: {mine}</span> : null}
         </span>
       </fieldset>
       {rate.error ? (

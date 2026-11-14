@@ -77,9 +77,10 @@ export function Turnstile({
   if (!turnstileSiteKey) {
     return (
       <p className="form-note">
-        The spam check is not configured in this build (VITE_TURNSTILE_SITE_KEY
-        is unset), so anonymous reports will be refused. Signing in skips the
-        check.
+        {import.meta.env.DEV
+          ? "Turnstile is not configured (VITE_TURNSTILE_SITE_KEY is unset), so anonymous reports will be refused."
+          : "Reports from visitors who are not signed in are paused right now."}{" "}
+        Signing in lets you send one.
       </p>
     )
   }

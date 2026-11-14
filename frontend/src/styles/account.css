@@ -116,52 +116,14 @@
   outline-offset: 1px;
 }
 .rating-summary {
-  font-size: 13px;
-  color: var(--ink-2);
-  margin-left: 8px;
-}
-.check {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  position: relative;
-}
-.check input {
-  position: absolute;
-  opacity: 0;
-  width: 20px;
-  height: 20px;
-  margin: 0;
-  cursor: pointer;
-}
-.check .box {
-  width: 20px;
-  height: 20px;
-  border: 1.5px solid var(--ink);
-  background: var(--card);
   display: grid;
-  place-items: center;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink-2);
+  margin-left: 10px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.check .box svg {
-  width: 13px;
-  height: 13px;
-  stroke: #fff;
-  stroke-width: 2;
-  opacity: 0;
-}
-.check input:checked + .box {
-  background: var(--airmail);
-  border-color: var(--airmail);
-}
-.check input:checked + .box svg {
-  opacity: 1;
-}
-.check input:focus-visible + .box {
-  outline: 2px solid var(--airmail);
-  outline-offset: 2px;
-}
-
 /* Notes */
 .notes {
   background: var(--card);
