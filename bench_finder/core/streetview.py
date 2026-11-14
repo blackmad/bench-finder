@@ -78,7 +78,8 @@ APPLE_STITCH_CONCURRENCY = 1  # torch reprojection is CPU heavy
 MAX_METADATA_FETCHES_PER_BENCH = 24
 # Try Apple Look Around when Google gave fewer successful views than this.
 APPLE_FALLBACK_BELOW = 3
-APPLE_MAX_VIEWS = 3
+APPLE_MAX_VIEWS = 2
+APPLE_ZOOM = 2
 JPEG_QUALITY = 90
 
 RETRYABLE_ERRORS = (aiohttp.ClientError, asyncio.TimeoutError, ConnectionError, OSError)
@@ -419,8 +420,9 @@ class StreetViewClient:
             except ImportError:
                 pass
 
-            # Stitched width is 4096 at zoom 2 and 8192 at zoom 1.
-            zoom = 2 if fov >= 70 else 1
+            # Zoom 2 stitches to ~6400 px wide in ~20 s on CPU; zoom 1 would be 4x
+            # slower, zoom 3 too soft for narrow FOVs.
+            zoom = APPLE_ZOOM
             state = self._get_state()
             async with state.pano_images:
                 blobs = await asyncio.gather(

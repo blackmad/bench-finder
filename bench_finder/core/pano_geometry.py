@@ -230,6 +230,8 @@ def apple_center_compass(heading_rad: float | None) -> float:
 
     The streetlevel heading is CCW from north and is the direction of travel; the
     stitched image is centred on the inverse direction of travel (looking backwards).
+    Verified by rendering an Apple pano and the nearest Google pano at bearings
+    0/90/180/270: the four view pairs show the same scene.
     """
     if heading_rad is None:
         return 0.0
