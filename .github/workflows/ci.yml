@@ -95,7 +95,7 @@ jobs:
         run: npx --yes wrangler@4 deploy
       - if: env.CLOUDFLARE_API_TOKEN != '' && github.ref != 'refs/heads/main'
         working-directory: frontend
-        run: npx --yes wrangler@4 versions upload --preview-alias "$(echo "${GITHUB_REF_NAME}" | tr -c 'a-zA-Z0-9-' '-' | cut -c1-40)"
+        run: npx --yes wrangler@4 versions upload --preview-alias "$(printf '%s' "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | cut -c1-40 | sed 's/-*$//')"
 
   deploy-worker:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -159,8 +159,11 @@ def test_fetch_images_statement_invalid_status():
 def test_fetch_images_command_exposes_search_id_option():
     from typer.testing import CliRunner
 
+    import re
+
     out = CliRunner().invoke(cli.app, ["fetch-images", "--help"]).output
-    assert "--search-id" in out
+    # CI terminals get Rich styling: ANSI codes can split the option name.
+    assert "--search-id" in re.sub(r"\x1b\[[0-9;]*m", "", out)
 
 
 # ------------------------------------------------------------------- dedupe
