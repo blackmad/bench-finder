@@ -21,11 +21,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from bench_finder.clients.view_classifier import (
     ViewContext,
@@ -34,6 +34,9 @@ from bench_finder.clients.view_classifier import (
 )
 from bench_finder.labeling import store
 
+
+if TYPE_CHECKING:
+    import sqlite3
 
 GOLD_LIKE = "oracle:%"
 RING = [

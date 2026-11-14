@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync
-      - run: uv run ruff check bench_finder/migrate.py bench_finder/quarantine.py bench_finder/facing.py bench_finder/publish bench_finder/labeling bench_finder/clients/view_classifier.py tests
+      - run: uv run ruff check bench_finder/migrate.py bench_finder/quarantine.py bench_finder/facing.py bench_finder/publish bench_finder/labeling bench_finder/clients/view_classifier.py bench_finder/bakeoff tests
       - run: uv run pytest -q
 
   worker:
