@@ -459,7 +459,10 @@ class ClaudeViewClassifier(_BaseClassifier):
             else:  # OpenRouter's Anthropic-compatible endpoint, model ids "anthropic/..."
                 self._client = anthropic.Anthropic(
                     api_key=None,
-                    auth_token=require_key("OPENROUTER_API_KEY"),
+                    auth_token=require_key(
+                        "ANTHROPIC_API_KEY (or OPENROUTER_API_KEY)",
+                        os.environ.get("OPENROUTER_API_KEY"),
+                    ),
                     base_url="https://openrouter.ai/api",
                 )
         return self._client

@@ -81,7 +81,12 @@ def test_schema_validation():
 
 
 def test_missing_keys(monkeypatch, img):
-    for var in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "TYPESAFE_API_KEY"):
+    for var in (
+        "ANTHROPIC_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GEMINI_API_KEY",
+        "TYPESAFE_API_KEY",
+    ):
         monkeypatch.delenv(var, raising=False)
     with pytest.raises(vc.MissingApiKeyError, match="ANTHROPIC_API_KEY"):
         vc.ClaudeViewClassifier().classify(img)
