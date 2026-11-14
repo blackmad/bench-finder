@@ -243,3 +243,17 @@ def test_geojson_gz_size_reported(world):
     raw = (out / "data" / res.geojson_name).read_bytes()
     assert res.geojson_bytes == len(raw)
     assert res.geojson_gz_bytes <= len(gzip.compress(raw, 9)) + 1
+
+
+def test_bbox_limits_coverage(world):
+    db, images, out = world
+    # Fixture benches sit at lat 53.12.., 54.12.., 55.12..; keep only the first.
+    res = publish(
+        db,
+        images,
+        out,
+        include_unclassified=True,
+        bbox=(4.9, 53.0, 5.0, 53.5),
+        workers=1,
+    )
+    assert res.benches == 1

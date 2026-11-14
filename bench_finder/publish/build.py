@@ -110,11 +110,24 @@ def check_capacity(
 # --------------------------------------------------------------------------- selection
 
 
-def _load_rows(conn: sqlite3.Connection, include_unclassified: bool, limit: int | None):
+# Launch coverage (owner decision 2026-11-14): Amsterdam only. (west, south, east, north)
+AMSTERDAM_BBOX = (4.72, 52.27, 5.08, 52.44)
+
+
+def _load_rows(
+    conn: sqlite3.Connection,
+    include_unclassified: bool,
+    limit: int | None,
+    bbox: tuple[float, float, float, float] | None = None,
+):
     conn.row_factory = sqlite3.Row
     where = "a.id IS NOT NULL"
     if include_unclassified:
         where = "(a.id IS NOT NULL OR g.id IS NOT NULL)"
+    params: list[float] = []
+    if bbox is not None:
+        where += " AND c.lng BETWEEN ? AND ? AND c.lat BETWEEN ? AND ?"
+        params = [bbox[0], bbox[2], bbox[1], bbox[3]]
     sql = f"""
         SELECT c.id, c.lat, c.lng, c.tags,
                a.id AS attr_id, a.facing_deg, a.facing_confidence, a.facing_method,
@@ -128,7 +141,7 @@ def _load_rows(conn: sqlite3.Connection, include_unclassified: bool, limit: int 
         WHERE {where}
         ORDER BY c.id
     """
-    rows = conn.execute(sql).fetchall()
+    rows = conn.execute(sql, params).fetchall()
     eligible = len(rows)
     if limit is not None:
         rows = rows[:limit]
@@ -226,6 +239,7 @@ def publish(
     *,
     include_unclassified: bool = False,
     limit: int | None = None,
+    bbox: tuple[float, float, float, float] | None = None,
     gallery_size: int = 4,
     workers: int | None = None,
     budget_bytes: int = DEFAULT_BUDGET_BYTES,
@@ -237,7 +251,7 @@ def publish(
     out.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        rows, eligible = _load_rows(conn, include_unclassified, limit)
+        rows, eligible = _load_rows(conn, include_unclassified, limit, bbox)
         imgs_by_bench = _load_images(conn, [r["id"] for r in rows])
     finally:
         conn.close()

@@ -3049,6 +3049,11 @@ def publish_command(
     limit: int | None = typer.Option(
         None, "--limit", help="Publish only the first N benches"
     ),
+    bbox: str = typer.Option(
+        "amsterdam",
+        "--bbox",
+        help="Coverage: 'amsterdam' (launch default), 'all', or west,south,east,north",
+    ),
     gallery_size: int = typer.Option(4, "--gallery-size", help="Max images per bench"),
     workers: int | None = typer.Option(
         None, "--workers", help="Image process-pool size"
@@ -3064,6 +3069,15 @@ def publish_command(
     from rich.table import Table
 
     from bench_finder.publish import CapacityError, publish, upload_dir
+    from bench_finder.publish.build import AMSTERDAM_BBOX
+
+    if bbox == "amsterdam":
+        box: tuple[float, float, float, float] | None = AMSTERDAM_BBOX
+    elif bbox == "all":
+        box = None
+    else:
+        w, s, e, n = (float(x) for x in bbox.split(","))
+        box = (w, s, e, n)
 
     def fmt(n: float) -> str:
         return f"{n / 1e6:.2f} MB" if n >= 1e5 else f"{n / 1e3:.1f} kB"
@@ -3075,6 +3089,7 @@ def publish_command(
             out,
             include_unclassified=include_unclassified,
             limit=limit,
+            bbox=box,
             gallery_size=gallery_size,
             workers=workers,
             budget_bytes=int(budget_gb * 1e9),

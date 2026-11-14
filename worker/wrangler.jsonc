@@ -8,8 +8,8 @@
 
   "vars": {
     "FIREBASE_PROJECT_ID": "bench-finder-a45db",
-    // TODO(owner): the deployed Pages origin(s), comma-separated. http://localhost:5173 is always allowed.
-    "ALLOWED_ORIGINS": "https://bench.blackmad.com",
+    // Deployed Pages origins, comma-separated. http://localhost:5173 is always allowed.
+    "ALLOWED_ORIGINS": "https://bench.blackmad.com,https://bench-finder.pages.dev",
     // TODO(owner): comma-separated Firebase uids of moderators (find yours via GET /api/me after signing in).
     "ADMIN_UIDS": ""
   },
@@ -19,15 +19,14 @@
     {
       "binding": "DB",
       "database_name": "bench-finder",
-      // TODO(owner): replace with the id printed by `wrangler d1 create bench-finder`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "84e11cf2-9303-42ae-82d0-6b42c2cd82e8",
       "migrations_dir": "migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "UPLOADS",
-      // TODO(owner): bucket for user report photos (private; create with `wrangler r2 bucket create`).
+      // Private bucket for user report photos.
       "bucket_name": "bench-finder-uploads"
     }
   ]
