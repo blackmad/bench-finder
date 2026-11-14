@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bench labeling</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f1ea; --fg:#1d1b17; --muted:#6d675c; --panel:#fffdf8; --line:#d8d2c4; --accent:#1f6f50; --sel:#1f6f50; --selfg:#fff; --warn:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#181714; --fg:#ece8de; --muted:#9a9486; --panel:#23211d; --line:#3b382f; --accent:#4fb98c; --sel:#4fb98c; --selfg:#0b1a13; --warn:#ff8a80; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui, sans-serif; height:100vh; display:grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr; }
+  header { grid-column:1/3; display:flex; gap:18px; align-items:baseline; padding:8px 14px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+  header b { font-size:17px; } .muted { color:var(--muted); }
+  #bar { flex:1; min-width:120px; height:6px; background:var(--line); border-radius:3px; align-self:center; }
+  #bar i { display:block; height:100%; background:var(--accent); border-radius:3px; width:0; }
+  #stage { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:8px; min-height:0; }
+  #wrap { position:relative; display:inline-block; max-width:100%; max-height:100%; line-height:0; }
+  #wrap img { max-width:100%; max-height:calc(100vh - 70px); display:block; }
+  #wrap svg { position:absolute; inset:0; width:100%; height:100%; }
+  #msg { position:absolute; color:var(--warn); font-size:18px; }
+  aside { padding:10px 14px; border-left:1px solid var(--line); background:var(--panel); overflow:auto; }
+  h3 { margin:12px 0 4px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .row { display:flex; gap:6px; flex-wrap:wrap; }
+  button.opt { font:inherit; padding:6px 10px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:6px; cursor:pointer; }
+  button.opt kbd, .cell kbd { font:11px monospace; opacity:.7; margin-left:5px; border:1px solid currentColor; border-radius:3px; padding:0 3px; }
+  button.opt.sel, .cell.sel { background:var(--sel); color:var(--selfg); border-color:var(--sel); }
+  #ring { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; max-width:290px; }
+  .cell { font:inherit; font-size:13px; padding:10px 2px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:8px; cursor:pointer; text-align:center; }
+  .cell.center { cursor:default; border-style:dashed; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1; }
+  .cell.center svg { width:34px; height:34px; }
+  .meta { font-size:13px; } .meta div { margin:1px 0; }
+  .tag { display:inline-block; background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:0 5px; margin:1px 2px 1px 0; font-size:12px; }
+  .dir { color:var(--accent); font-weight:600; }
+  .help { font-size:12px; color:var(--muted); margin-top:14px; }
+  .saved { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <b id="title">Bench labeling</b>
+  <span id="progress" class="muted"></span>
+  <div id="bar"><i></i></div>
+  <span id="status" class="muted"></span>
+</header>
+<div id="stage">
+  <div id="wrap"><img id="img" alt=""><svg id="ov" preserveAspectRatio="none"></svg></div>
+  <div id="msg"></div>
+</div>
+<aside>
+  <div class="meta" id="meta"></div>
+  <h3>Bench present</h3>
+  <div class="row" id="f-bench_present"></div>
+  <h3>Target box correct</h3>
+  <div class="row" id="f-target_box"></div>
+  <h3>View relation (bench in centre faces up)</h3>
+  <div id="ring"></div>
+  <h3>Bench type</h3>
+  <div class="row" id="f-bench_type"></div>
+  <div class="help">
+    <b>Enter</b> save + next bench &middot; <b>Backspace</b> previous &middot; <b>S</b> skip &middot;
+    <b>Space</b> next view of same bench &middot; press a choice again to clear it
+  </div>
+</aside>
+<script>
+const FIELDS = {
+  bench_present: [["yes","Y","Yes"],["no","N","No"]],
+  target_box: [["yes","T","Correct"],["no","F","Wrong"],["no_box","B","No box"]],
+  bench_type: [["backrest","1","Backrest"],["backless","2","Backless"],["picnic","3","Picnic"],["other","4","Other"]],
+};
+// view_relation ring, laid out on the keyboard like the compass (bench faces up)
+const RING = [
+  ["front-left","Q"],["front","W"],["front-right","E"],
+  ["left","A"],null,["right","D"],
+  ["back-left","Z"],["back","X"],["back-right","C"],
+];
+const UNKNOWN_KEY = "V";
+const KEYMAP = {};
+for (const [f, opts] of Object.entries(FIELDS)) for (const [v,k] of opts) KEYMAP[k] = [f, v];
+for (const c of RING) if (c) KEYMAP[c[1]] = ["view_relation", c[0]];
+KEYMAP[UNKNOWN_KEY] = ["view_relation", "unknown"];
+
+const $ = (id) => document.getElementById(id);
+let order = [], pos = 0, total = 0, labeledBase = 0, savedThisSession = new Set();
+let bench = null, imgIdx = 0;
+const edits = {}, dirty = new Set(), cache = {};
+
+function render_fields() {
+  for (const [f, opts] of Object.entries(FIELDS)) {
+    $("f-" + f).innerHTML = "";
+    for (const [v,k,label] of opts) {
+      const b = document.createElement("button");
+      b.className = "opt"; b.dataset.f = f; b.dataset.v = v;
+      b.innerHTML = label + "<kbd>" + k + "</kbd>";
+      b.onclick = () => choose(f, v);
+      $("f-" + f).appendChild(b);
+    }
+  }
+  const ring = $("ring");
+  for (const c of RING) {
+    const d = document.createElement(c ? "button" : "div");
+    if (c) {
+      d.className = "cell"; d.dataset.f = "view_relation"; d.dataset.v = c[0];
+      d.innerHTML = c[0].replace("-", " ") + "<kbd>" + c[1] + "</kbd>";
+      d.onclick = () => choose("view_relation", c[0]);
+    } else {
+      d.className = "cell center";
+      d.innerHTML = '<svg viewBox="0 0 40 40"><rect x="6" y="14" width="28" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="6" y="8" width="28" height="5" rx="1" fill="currentColor"/><path d="M20 38 V30 M16 33 L20 29 L24 33" stroke="currentColor" stroke-width="2" fill="none"/></svg><span>bench</span>';
+    }
+    ring.appendChild(d);
+  }
+  const u = document.createElement("button");
+  u.className = "cell"; u.style.gridColumn = "1 / 4"; u.dataset.f = "view_relation"; u.dataset.v = "unknown";
+  u.innerHTML = "unknown<kbd>" + UNKNOWN_KEY + "</kbd>"; u.onclick = () => choose("view_relation", "unknown");
+  ring.appendChild(u);
+}
+
+const curImg = () => bench && bench.images[imgIdx];
+function labels() { const im = curImg(); return im ? (edits[im.image_id] ||= {...im.labels}) : {}; }
+
+function choose(f, v) {
+  const im = curImg(); if (!im) return;
+  const l = labels();
+  if (l[f] === v) delete l[f]; else l[f] = v;
+  dirty.add(im.image_id);
+  paint_labels();
+}
+
+function paint_labels() {
+  const l = labels();
+  document.querySelectorAll("[data-f]").forEach(el => el.classList.toggle("sel", l[el.dataset.f] === el.dataset.v));
+}
+
+function drawBoxes(im) {
+  const svg = $("ov"), img = $("img");
+  const W = img.naturalWidth, H = img.naturalHeight;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  let target = im.boxes.find(b => b.is_target);
+  if (!target) {
+    let best = 1e18;
+    for (const b of im.boxes) {
+      if (!b.bbox) continue;
+      const d = Math.hypot((b.bbox.x1+b.bbox.x2)/2 - W/2, (b.bbox.y1+b.bbox.y2)/2 - H/2);
+      if (d < best) { best = d; target = b; }
+    }
+  }
+  const sw = Math.max(2, W / 400);
+  let html = "";
+  for (const b of im.boxes) {
+    const isT = b === target, col = isT ? "#ffd400" : "#ff5a36";
+    const common = `fill="${isT ? 'rgba(255,212,0,.15)' : 'none'}" stroke="${col}" stroke-width="${isT ? sw*1.8 : sw}" ${isT ? '' : 'stroke-dasharray="' + sw*3 + '"'}`;
+    if (b.polygon && b.polygon.coordinates) html += `<polygon points="${b.polygon.coordinates.map(p => p.join(",")).join(" ")}" ${common}/>`;
+    else if (b.bbox) html += `<rect x="${b.bbox.x1}" y="${b.bbox.y1}" width="${b.bbox.x2-b.bbox.x1}" height="${b.bbox.y2-b.bbox.y1}" ${common}/>`;
+    if (b.bbox) html += `<text x="${b.bbox.x1}" y="${Math.max(sw*6, b.bbox.y1 - sw*2)}" fill="${col}" font-size="${sw*6}" font-family="sans-serif">${(b.confidence*100).toFixed(0)}%${isT ? ' target' : ''}</text>`;
+  }
+  html += `<line x1="${W/2-sw*4}" y1="${H/2}" x2="${W/2+sw*4}" y2="${H/2}" stroke="#0af" stroke-width="${sw/2}"/><line x1="${W/2}" y1="${H/2-sw*4}" x2="${W/2}" y2="${H/2+sw*4}" stroke="#0af" stroke-width="${sw/2}"/>`;
+  svg.innerHTML = html;
+}
+
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function showImage() {
+  const im = curImg(), msg = $("msg"); msg.textContent = "";
+  $("ov").innerHTML = "";
+  const img = $("img");
+  if (!im) { img.removeAttribute("src"); msg.textContent = "no images for this bench"; return; }
+  img.onload = () => drawBoxes(im);
+  img.onerror = () => { img.removeAttribute("src"); msg.textContent = "image file missing: " + im.image_id; };
+  img.src = "/api/image/" + im.image_id;
+  const tags = Object.entries(bench.tags).map(([k,v]) => `<span class="tag ${k==='direction'?'dir':''}">${esc(k)}=${esc(v)}</span>`).join("");
+  const fmt = (x, u) => x == null ? "&ndash;" : x.toFixed(1) + u;
+  $("meta").innerHTML =
+    `<div><b>Bench ${bench.bench_id}</b> <span class="muted">${esc(bench.source)}</span></div>` +
+    (bench.direction ? `<div class="dir">OSM direction: ${esc(bench.direction)}</div>` : "") +
+    `<div>${tags}</div>` +
+    `<div>View ${imgIdx+1}/${bench.images.length} &middot; ${esc(im.image_source||"")} &middot; heading ${im.heading}</div>` +
+    `<div>camera bearing ${fmt(im.camera_bearing_deg, "&deg;")} &middot; distance ${fmt(im.camera_distance_m ?? im.distance_m_est, " m")}${im.camera_distance_m == null && im.distance_m_est != null ? " (est.)" : ""}</div>` +
+    `<div class="muted">${im.boxes.length} detection box(es); image #${im.image_id}</div>`;
+  paint_labels();
+}
+
+async function getBench(id) { return cache[id] ||= fetch("/api/bench/" + id).then(r => r.json()); }
+
+function progress() {
+  const done = labeledBase + savedThisSession.size;
+  $("progress").textContent = `${done} labeled / ${total} benches · queue ${Math.min(pos+1, order.length)}/${order.length}`;
+  $("bar").firstElementChild.style.width = (total ? 100*done/total : 0) + "%";
+}
+
+async function go(p) {
+  if (p < 0 || p >= order.length) { $("status").textContent = p < 0 ? "at start" : "queue finished"; return; }
+  pos = p; imgIdx = 0;
+  bench = await getBench(order[pos]);
+  showImage(); progress();
+  if (order[pos+1]) getBench(order[pos+1]).then(b => { const im = b.images[0]; if (im) new Image().src = "/api/image/" + im.image_id; });
+}
+
+async function save() {
+  let n = 0;
+  for (const im of bench.images) {
+    if (!dirty.has(im.image_id)) continue;
+    const l = edits[im.image_id] || {};
+    const r = await fetch("/api/label", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({image_id: im.image_id, labels: l})});
+    if (!r.ok) { $("status").textContent = "SAVE FAILED: " + (await r.text()); return false; }
+    im.labels = {...l}; dirty.delete(im.image_id); n++;
+  }
+  if (bench.images.some(im => Object.keys(im.labels).length)) savedThisSession.add(bench.bench_id);
+  $("status").innerHTML = n ? '<span class="saved">saved</span>' : "";
+  return true;
+}
+
+document.addEventListener("keydown", async (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || !bench) return;
+  const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  if (k === "Enter") { e.preventDefault(); if (await save()) go(pos + 1); }
+  else if (k === "Backspace") { e.preventDefault(); go(pos - 1); }
+  else if (k === "S") go(pos + 1);
+  else if (k === " ") { e.preventDefault(); if (bench.images.length) { imgIdx = (imgIdx + 1) % bench.images.length; showImage(); } }
+  else if (KEYMAP[k]) { e.preventDefault(); choose(...KEYMAP[k]); }
+});
+
+(async () => {
+  render_fields();
+  const q = await (await fetch("/api/queue")).json();
+  order = q.order; total = q.total; labeledBase = q.labeled;
+  if (!order.length) { $("msg").textContent = "nothing left to label"; progress(); return; }
+  go(0);
+})();
+</script>
+</body>
+</html>
