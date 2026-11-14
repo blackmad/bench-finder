@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from "jose";
+import { createLocalJWKSet, createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from "jose";
 import { DEFAULT_FIREBASE_PROJECT_ID, type Env } from "./env";
 
 export const GOOGLE_JWKS_URL =
@@ -54,4 +54,13 @@ export function verifierFromEnv(env: Env, jwks: JWTVerifyGetKey = googleJwks()):
     projectId: env.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID,
     jwks,
   });
+}
+
+/**
+ * Local-development only: when `AUTH_TEST_JWKS` (a JSON JWKS string) is set, tokens are verified
+ * against it instead of Google's keys. Unset by default; never set it in production.
+ */
+export function testJwksFromEnv(env: Env): JWTVerifyGetKey | undefined {
+  if (!env.AUTH_TEST_JWKS) return undefined;
+  return createLocalJWKSet(JSON.parse(env.AUTH_TEST_JWKS));
 }

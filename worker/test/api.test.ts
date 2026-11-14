@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createVerifier } from "../src/auth";
 import { verifyTurnstile } from "../src/turnstile";
-import { ADMIN_UID, bearer, makeClient, makeToken, PNG, PROJECT, resetDb, testJwks } from "./helpers";
+import { ADMIN_UID, bearer, makeClient, makeToken, PNG, PROJECT, resetDb, testJwks, testJwksJson } from "./helpers";
 
 beforeEach(resetDb);
 
@@ -338,5 +338,22 @@ describe("misc", () => {
     const res = await makeClient().request("/api/nope");
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Not found" });
+  });
+});
+
+describe("AUTH_TEST_JWKS", () => {
+  it("is ignored unless set", async () => {
+    const c = makeClient({ jwks: undefined });
+    const res = await c.request("/api/me", { headers: await bearer() });
+    expect(res.status).toBe(401);
+  });
+
+  it("verifies tokens against the supplied keys when set", async () => {
+    const c = makeClient({ jwks: undefined }, { AUTH_TEST_JWKS: testJwksJson });
+    const res = await c.request("/api/me", { headers: await bearer({ uid: ADMIN_UID }) });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { isAdmin: boolean }).isAdmin).toBe(true);
+    const bad = await c.request("/api/me", { headers: await bearer({ signWithOtherKey: true }) });
+    expect(bad.status).toBe(401);
   });
 });

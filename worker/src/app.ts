@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import type { JWTVerifyGetKey } from "jose";
 import { z } from "zod";
-import { type AuthUser, googleJwks, verifierFromEnv } from "./auth";
+import { type AuthUser, googleJwks, testJwksFromEnv, verifierFromEnv } from "./auth";
 import { csv, type Env } from "./env";
 import { hit, num } from "./rate-limit";
 import { type TurnstileVerifier, verifyTurnstile } from "./turnstile";
@@ -63,7 +63,7 @@ export function createApp(deps: Deps = {}) {
     const m = /^Bearer (.+)$/i.exec(header);
     if (!m) throw new HTTPException(401, { message: "Malformed Authorization header" });
     try {
-      return await verifierFromEnv(c.env, deps.jwks ?? googleJwks())(m[1]);
+      return await verifierFromEnv(c.env, deps.jwks ?? testJwksFromEnv(c.env) ?? googleJwks())(m[1]);
     } catch {
       throw new HTTPException(401, { message: "Invalid or expired token" });
     }

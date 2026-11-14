@@ -56,6 +56,8 @@ TURNSTILE_SECRET=1x0000000000000000000000000000000AA
 ADMIN_UIDS=<your firebase uid>
 ```
 
+For local end-to-end tests you can also set `AUTH_TEST_JWKS` (a JSON JWKS string) in `.dev.vars`: tokens are then verified against those keys instead of Google's, so a script can mint its own tokens. It is unset by default and must never be set on a deployed worker.
+
 The frontend dev server (`localhost:5173`) is always an allowed CORS origin.
 
 ## Tests
