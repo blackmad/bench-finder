@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 
@@ -81,7 +82,7 @@ class BenchDatabase:
             database_url=self.db_url, database_path=self.db_path
         )
 
-        db_info = self.db_url if self.db_url else self.db_path
+        db_info = self.db_url or self.db_path
         logger.info(f"Database initialized: {db_info}")
 
     def get_session(self) -> Session:
@@ -139,10 +140,7 @@ class BenchDatabase:
                 if bench_data.provider_id:
                     existing_bench = (
                         session.query(BenchCandidate)
-                        .filter(
-                            BenchCandidate.provider_id == bench_data.provider_id,
-                            BenchCandidate.source == bench_data.source,
-                        )
+                        .filter(BenchCandidate.provider_id == bench_data.provider_id)
                         .first()
                     )
 
@@ -187,26 +185,41 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
-                image = Image(
-                    bench_candidate_id=bench_id,
-                    heading=image_data.heading,
-                    filepath=image_data.filepath,
-                    filename=image_data.filename,
-                    file_size=image_data.file_size,
-                    capture_success=image_data.capture_success,
-                    capture_error=image_data.capture_error,
-                    image_source=image_data.image_source,
-                    panorama_lat=image_data.panorama_lat,
-                    panorama_lng=image_data.panorama_lng,
-                    panorama_metadata=image_data.panorama_metadata,
-                    panorama_heading=image_data.panorama_heading,
+                # Upsert: re-running a fetch rewrites the same file name for the
+                # same candidate/source, so that identifies the existing row.
+                image = (
+                    session.query(Image)
+                    .filter(
+                        Image.bench_candidate_id == bench_id,
+                        Image.image_source == image_data.image_source,
+                        Image.filename == image_data.filename,
+                    )
+                    .first()
+                    if image_data.filename
+                    else None
                 )
+                created = image is None
+                if image is None:
+                    image = Image(
+                        bench_candidate_id=bench_id, heading=image_data.heading
+                    )
+                image.heading = image_data.heading
+                image.filepath = image_data.filepath
+                image.filename = image_data.filename
+                image.file_size = image_data.file_size
+                image.capture_success = image_data.capture_success
+                image.capture_error = image_data.capture_error
+                image.image_source = image_data.image_source
+                image.panorama_lat = image_data.panorama_lat
+                image.panorama_lng = image_data.panorama_lng
+                image.panorama_metadata = image_data.panorama_metadata
+                image.panorama_heading = image_data.panorama_heading
                 session.add(image)
                 session.commit()
                 session.refresh(image)
 
                 logger.debug(
-                    f"Added image record {image.id} for bench candidate {bench_id}, heading {image_data.heading}, source {image_data.image_source}"
+                    f"{'Added' if created else 'Updated'} image record {image.id} for bench candidate {bench_id}, heading {image_data.heading}, source {image_data.image_source}"
                 )
                 return image.id
 
@@ -337,6 +350,31 @@ class BenchDatabase:
         """
         try:
             with self.get_session() as session:
+
+                def _find() -> BenchCandidate | None:
+                    if not provider_id:
+                        return None
+                    return (
+                        session.query(BenchCandidate)
+                        .filter(BenchCandidate.provider_id == provider_id)
+                        .first()
+                    )
+
+                candidate = _find()
+                if candidate is not None:
+                    # Upsert: refresh mutable data, keep original search/status/id.
+                    candidate.lat = lat
+                    candidate.lng = lng
+                    candidate.tags = tags
+                    if confidence is not None:
+                        candidate.confidence = confidence
+                    if external_id is not None:
+                        candidate.external_id = external_id
+                    session.add(candidate)
+                    session.commit()
+                    logger.debug(f"Updated existing bench candidate: {provider_id}")
+                    return candidate.id
+
                 candidate = BenchCandidate(
                     search_id=search_id,
                     provider_id=provider_id,
@@ -348,7 +386,15 @@ class BenchDatabase:
                     confidence=confidence,
                 )
                 session.add(candidate)
-                session.commit()
+                try:
+                    session.commit()
+                except IntegrityError:
+                    # Lost a race with another writer; fall back to the winner.
+                    session.rollback()
+                    existing = _find()
+                    if existing is None:
+                        raise
+                    return existing.id
                 logger.debug(f"Added bench candidate: {provider_id} from {source}")
                 return candidate.id
 

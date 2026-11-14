@@ -93,7 +93,7 @@ class DetectionItem(SQLModel, table=True):
     __tablename__ = "detection_items"
 
     id: int | None = Field(default=None, primary_key=True)
-    detection_id: int = Field(foreign_key="detections.id", nullable=False)
+    detection_id: int = Field(foreign_key="detections.id", nullable=False, index=True)
     confidence: float = Field(
         ge=0.0, le=1.0, description="Confidence score between 0 and 1"
     )
@@ -394,9 +394,11 @@ class BenchReport(SQLModel, table=True):
     __tablename__ = "bench_reports"
 
     id: int | None = Field(default=None, primary_key=True)
-    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, index=True
+    )
     image_id: int | None = Field(
-        default=None, foreign_key="images.id"
+        default=None, foreign_key="images.id", index=True
     )  # The specific image being reported
     report_type: BenchReportType = Field(
         default=BenchReportType.BAD_DETECTION
@@ -508,7 +510,9 @@ class BenchCandidate(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     search_id: int = Field(foreign_key="searches.id", nullable=False)
-    provider_id: str | None = Field(default=None)  # Unified ID from OSM
+    provider_id: str | None = Field(
+        default=None, unique=True, index=True
+    )  # Unified ID from OSM; unique across all candidates
     lat: float = Field(nullable=False)
     lng: float = Field(nullable=False)
     tags: dict[str, Any] | None = Field(
@@ -566,10 +570,10 @@ class ProcessedBench(SQLModel, table=True):
     )
     # These fields are required when detection_status="detected", None when "no_bench"
     best_image_id: int | None = Field(
-        default=None, foreign_key="images.id", nullable=True
+        default=None, foreign_key="images.id", index=True, nullable=True
     )
     best_detection_id: int | None = Field(
-        default=None, foreign_key="detections.id", nullable=True
+        default=None, foreign_key="detections.id", index=True, nullable=True
     )
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -592,7 +596,9 @@ class BenchRating(SQLModel, table=True):
     __tablename__ = "bench_ratings"
 
     id: int | None = Field(default=None, primary_key=True)
-    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, index=True
+    )
     user_id: str = Field(
         nullable=False, index=True, description="Supabase user ID (UUID)"
     )
@@ -613,7 +619,9 @@ class BenchUserStatusRecord(SQLModel, table=True):
     __tablename__ = "bench_user_status"
 
     id: int | None = Field(default=None, primary_key=True)
-    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, index=True
+    )
     user_id: str = Field(
         nullable=False, index=True, description="Supabase user ID (UUID)"
     )
@@ -636,7 +644,9 @@ class BenchComment(SQLModel, table=True):
     __tablename__ = "bench_comments"
 
     id: int | None = Field(default=None, primary_key=True)
-    bench_candidate_id: int = Field(foreign_key="bench_candidates.id", nullable=False)
+    bench_candidate_id: int = Field(
+        foreign_key="bench_candidates.id", nullable=False, index=True
+    )
     user_id: str = Field(
         nullable=False, index=True, description="Supabase user ID (UUID)"
     )
