@@ -95,3 +95,9 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
 - SAM 3 hero run started: `detect_aimed --model sam3` (threshold 0.6), DB backup `data/benches.db.bak-pre-sam3`.
 - OSM refresh check: 8,556 benches in the Amsterdam bbox vs 3,070 in DB; ~2,700 missing inside the covered 5.5 km circle (493 newly mapped since 2025-11, ~2,200 missed by the original radius-patchwork search); 50 deleted from OSM. Not ingested yet.
 - Other sources: BGT `straatmeubilair` plus_type=bank (345–367 Amsterdam, ~90% Zuidoost; 0 in Vondelpark); Amsterdam's DSO has no bench dataset; Amsterdam panorama API (free, ~5 m spacing, 2026 imagery) is the best non-Google image source; Mapillary token expired.
+
+### 2026-11-15 (later)
+- SAM 3 over all aimed views done (last batch: 2,429/3,920 with the target). YOLO on the new OSM benches: 3,528/6,514 photos with the target.
+- Looks-at categories v2 (water, park, residential_street, busy_street, square, courtyard, playground, other). `bench_finder.label_views run` (Flash-Lite, detector-gated, whole benches, spend cap) labelled 3,628 photos for $2.81 before the $5 Gemini account ran out; ~3,700 gated photos remain (~$3) plus the new benches. `label_views fuse` wrote `bench_attributes` for 1,724 benches (1,709 with looks-at; park 736, water 488, playground 120, square 105, quiet street 97, busy street 42, courtyard 22).
+- `bench_finder.recut` re-renders hero views at 2048 px from the same panorama; publish cuts renditions from `images/hires/` when present. Full hero re-cut running (free, several hours).
+- Publish command: `uv run bench-finder publish --bbox amsterdam --include-unclassified --upload --out dist-data`.
