@@ -97,6 +97,8 @@ def run(
     model: str | None = None,
     ids_from: str | None = None,
     max_usd: float | None = None,
+    thinking: str | None = None,
+    max_side: int | None = None,
 ) -> dict:
     conn = store.connect(db)
     kw: dict = {"resolution": resolution} if backend == "gemini" and resolution else {}
@@ -105,6 +107,10 @@ def run(
     usage = Usage()
     if backend == "google":
         kw["usage"] = usage  # shared across the per-thread clients
+        if thinking:
+            kw["thinking_level"] = thinking
+        if max_side:
+            kw["max_side"] = max_side
     clf = make_classifier(backend, **kw)
     local = (
         threading.local()
@@ -112,6 +118,8 @@ def run(
     variant = clf.model + (
         f"@{resolution}" if backend == "gemini" and resolution else ""
     )
+    if backend == "google" and (thinking or max_side):
+        variant += f"@think-{thinking or 'low'}-{max_side or 1568}px"
     done = set(predictions(conn, variant))
     pool_ids = sorted(gold(conn))
     if (
@@ -238,6 +246,12 @@ def main() -> None:
     r.add_argument(
         "--max-usd", type=float, help="google: stop once estimated spend reaches this"
     )
+    r.add_argument(
+        "--thinking", help="google: thinking_level (minimal/low/medium/high)"
+    )
+    r.add_argument(
+        "--max-side", type=int, help="google: resize longest image side (default 1568)"
+    )
     r.add_argument("--workers", type=int, default=8)
     r.add_argument("--images-root", type=Path, default=Path("images"))
     sub.add_parser("score")
@@ -254,6 +268,8 @@ def main() -> None:
                 a.model,
                 a.ids_from,
                 a.max_usd,
+                a.thinking,
+                a.max_side,
             )
         )
     else:
