@@ -86,6 +86,19 @@ def _tri(value: Any) -> bool | None:
     return True if s == "yes" else False if s == "no" else None
 
 
+def _material(value: Any) -> str | None:
+    s = str(value).strip().lower() if value is not None else ""
+    return s or None
+
+
+def _seats(value: Any) -> int | None:
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if 0 < n < 100 else None
+
+
 def check_capacity(
     projected_total_bytes: int,
     projected_geojson_gz_bytes: int,
@@ -338,6 +351,10 @@ def publish(
             if r["backrest"] is not None
             else _tri(tags.get("backrest")),
             "faces_category": r["faces_category"],
+            # OSM tags the home-page filters use; the rest stay in the bench file.
+            "material": _material(tags.get("material")),
+            "seats": _seats(tags.get("seats")),
+            "lit": _tri(tags.get("lit")),
             "hero_key": hero_key,
             "hero_urls": hero["urls"] if hero else None,
             "hero_urls_webp": hero["urls_webp"] if hero else None,
@@ -361,7 +378,6 @@ def publish(
         details.append(
             {
                 **props,
-                "material": tags.get("material"),
                 "tags": {k: v for k, v in tags.items() if v is not None},
                 "address_full": {
                     "street": street,

@@ -37,9 +37,11 @@ const list = (names: string[]) =>
 
 /**
  * Rows for the photographed benches in view, nearest the map centre first.
- * `photos` must already be sorted by distance from the centre.
+ * `photos` must already be sorted by distance from the centre. With
+ * `keepNear` (filters are on), the first row is kept however short it is, so
+ * a filter that leaves one or two benches still shows them.
  */
-export function buildRows(photos: BenchFeature[]): Row[] {
+export function buildRows(photos: BenchFeature[], keepNear = false): Row[] {
   const rows: Row[] = []
   const street = (b: BenchFeature) => streetName(b.properties.address)
 
@@ -109,7 +111,11 @@ export function buildRows(photos: BenchFeature[]): Row[] {
     benches: photos.filter((b) => b.properties.backrest === false),
   })
 
-  return rows.filter((r) => r.benches.length >= MIN_ROW)
+  return rows.filter(
+    (r) =>
+      r.benches.length >= MIN_ROW ||
+      (keepNear && r.key === "near" && r.benches.length > 0)
+  )
 }
 
 const DAY = 86_400_000

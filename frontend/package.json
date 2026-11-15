@@ -13,7 +13,8 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "5.3.0",
@@ -35,6 +36,7 @@
     "axe-core": "^4.14.0",
     "tailwindcss": "^4.3.5",
     "typescript": "~5.9.3",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vitest": "^3.2.4"
   }
 }

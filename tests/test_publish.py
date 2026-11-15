@@ -44,7 +44,16 @@ def world(tmp_path):
         list(use.values()),
     )
     for cid, tags in [
-        (1, {"direction": "SSW", "backrest": "yes", "material": "wood"}),
+        (
+            1,
+            {
+                "direction": "SSW",
+                "backrest": "yes",
+                "material": "Wood",
+                "seats": "4",
+                "lit": "no",
+            },
+        ),
         (2, {}),
         (3, {}),
     ]:
@@ -141,6 +150,9 @@ def test_publish_outputs(world):
         and p1["facing_method"] == "osm_tag"
         and p1["backrest"] is True
     )
+    assert (p1["material"], p1["seats"], p1["lit"]) == ("wood", 4, False)
+    p2 = feats[2]["properties"]
+    assert (p2["material"], p2["seats"], p2["lit"]) == (None, None, None)
     assert p1["hero_key"] and set(p1["hero_urls"]) == {"400", "800"}
     assert p1["hero_urls"]["400"] == f"img/{p1['hero_key']}-400.avif"
     assert p1["address"] == "Main St 1"

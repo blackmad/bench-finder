@@ -695,6 +695,287 @@ h1[tabindex="-1"]:focus {
   color: var(--color-ink-2);
 }
 
+/* Filters: a button on the map; a popover beside it on desktop (non-modal,
+   so the map stays live), a bottom sheet on phones (modal). */
+.filterbtn {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  border: 0;
+  box-shadow: var(--shadow-card);
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filterbtn:hover,
+.filterbtn[aria-expanded="true"] {
+  background: var(--color-ink);
+  color: var(--color-card);
+}
+.filterbtn .badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: var(--color-airmail);
+  color: var(--color-card);
+}
+.filters {
+  position: absolute;
+  inset: 54px auto auto 10px;
+  z-index: 4;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 340px;
+  max-height: calc(100% - 64px);
+  box-sizing: border-box;
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-card-lifted);
+}
+.filters[open] {
+  display: flex;
+  flex-direction: column;
+}
+.filters::backdrop {
+  background: rgb(20 20 20 / 0.4);
+}
+.fhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 10px 18px;
+  border-bottom: 1.5px solid var(--color-ink);
+}
+.fhead h2 {
+  margin: 0;
+  font-size: 13px;
+}
+.fclose {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.fclose:hover {
+  color: var(--color-airmail);
+}
+.fbody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 18px;
+}
+.fgroup {
+  border: 0;
+  margin: 0;
+  padding: 14px 0;
+  min-width: 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+/* Floated so the legend sits inside the group's padding, not on its border. */
+.fgroup legend {
+  float: left;
+  width: 100%;
+  padding: 0 0 10px;
+  font-size: 11px;
+}
+.fgroup legend + * {
+  clear: both;
+}
+.fgroup:has(> .fcheck) {
+  padding: 10px 0;
+}
+.fhint {
+  margin: 4px 0 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-ink-2);
+}
+.fhint .linkbtn {
+  margin-left: 8px;
+  font-size: 12.5px;
+}
+.fnote {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--color-ink-3);
+}
+.fnote b {
+  color: var(--color-ink-2);
+  font-weight: 600;
+}
+.fmissing {
+  margin: 0;
+  padding: 14px 0 16px;
+}
+
+/* The compass picker */
+.compass {
+  position: relative;
+  width: 228px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+.compass svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.compass .wedge {
+  fill: transparent;
+  stroke: var(--color-rule);
+  stroke-width: 0.5;
+  cursor: pointer;
+  transition: fill 0.15s;
+}
+.compass .wedge.hover {
+  fill: var(--color-rack);
+}
+.compass .wedge.on {
+  fill: var(--color-airmail-wash);
+}
+.compass .dir {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink-2);
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variation-settings: "wdth" 125;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+.compass .dir:hover {
+  color: var(--color-ink);
+  background: var(--color-rack);
+}
+.compass .dir[aria-pressed="true"] {
+  background: var(--color-ink);
+  color: var(--color-card);
+}
+
+/* Any / yes / no: square radio cells in one ruled strip */
+.seg {
+  display: flex;
+  border: 1.5px solid var(--color-ink);
+}
+.seg label {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+.seg label + label {
+  border-left: 1px solid var(--color-rule);
+}
+.seg input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.seg span {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 5px;
+  padding: 7px 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg span:hover {
+  background: var(--color-rack);
+}
+.seg small,
+.fcheck small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--color-ink-3);
+}
+.seg input:checked + span {
+  background: var(--color-ink);
+  color: var(--color-card);
+}
+.seg input:checked + span small {
+  color: var(--color-photo-empty);
+}
+.seg input:focus-visible + span {
+  outline: 2px solid var(--color-airmail);
+  outline-offset: 2px;
+}
+.fchecks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 16px;
+}
+.fcheck {
+  gap: 8px;
+}
+.ffoot {
+  display: flex;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px 18px;
+  border-top: 1.5px solid var(--color-ink);
+}
+.fcount {
+  flex: 1;
+  margin: 0;
+  display: grid;
+  font-size: 13.5px;
+  color: var(--color-ink-2);
+}
+.fcount b {
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.fcount small {
+  font-size: 12px;
+  color: var(--color-ink-3);
+}
+.ffoot .textbtn:disabled {
+  color: var(--color-ink-3);
+  cursor: default;
+}
+.ffoot .btn.solid {
+  background: var(--color-ink);
+  color: var(--color-card);
+}
+.ffoot .btn.solid:hover {
+  background: var(--color-airmail-deep);
+  border-color: var(--color-airmail-deep);
+}
+.railcount .filtered b {
+  color: var(--color-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .compass .wedge {
+    transition: none;
+  }
+}
+
 /* Phone: the map on top, the rail flows below it with the page. */
 @media (max-width: 760px) {
   .bar {
@@ -804,6 +1085,28 @@ h1[tabindex="-1"]:focus {
   .nearme-note {
     top: 56px;
     right: 14px;
+  }
+  .filterbtn {
+    top: 12px;
+    left: 14px;
+  }
+  .filters:modal {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 88dvh;
+  }
+  .fbody,
+  .ffoot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .ffoot {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .compass {
+    width: 252px;
   }
 }
 

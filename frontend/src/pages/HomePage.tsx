@@ -1,11 +1,24 @@
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { BenchOfTheDay } from "../components/BenchOfTheDay"
+import { FiltersPanel } from "../components/FiltersPanel"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
 import { hasPhoto } from "../data/api"
 import { headline } from "../data/describe"
 import { facingKind, facingShort } from "../data/facing"
+import {
+  coverage as coverageOf,
+  type Filters,
+  filtersFromParams,
+  filtersToParams,
+  isFiltered,
+  NO_FILTERS,
+  offered as offeredBy,
+  optionCounts,
+  passes,
+  summary,
+} from "../data/filters"
 import { useBenches } from "../data/hooks"
 import { benchOfTheDay, buildRows } from "../data/rows"
 import type { BenchFeature } from "../data/types"
@@ -55,11 +68,43 @@ export default function HomePage() {
   const railRef = useRef<HTMLElement>(null)
 
   const benches = useMemo(() => data ?? [], [data])
-  const everyId = useMemo(
-    () => new Set(benches.map((b) => b.properties.id)),
-    [benches]
-  )
+  // The bench of the day ignores the filters: it is the same for everyone
+  // that day, a postcard rather than a search result.
   const hero = useMemo(() => benchOfTheDay(benches), [benches])
+
+  const filters = useMemo(
+    () => filtersFromParams(new URLSearchParams(spKey)),
+    [spKey]
+  )
+  const setFilters = useCallback(
+    (f: Filters) =>
+      setSp(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          filtersToParams(f, next)
+          return next
+        },
+        { replace: true }
+      ),
+    [setSp]
+  )
+  const coverage = useMemo(() => coverageOf(benches), [benches])
+  const offered = useMemo(() => offeredBy(coverage), [coverage])
+  const counts = useMemo(
+    () => optionCounts(benches, filters),
+    [benches, filters]
+  )
+  const filtered = useMemo(
+    () =>
+      isFiltered(filters)
+        ? benches.filter((b) => passes(b.properties, filters))
+        : benches,
+    [benches, filters]
+  )
+  const filteredIds = useMemo(
+    () => new Set(filtered.map((b) => b.properties.id)),
+    [filtered]
+  )
   const hasEstimated = useMemo(
     () => benches.some((b) => facingKind(b.properties) === "estimated"),
     [benches]
@@ -85,15 +130,14 @@ export default function HomePage() {
     [setSp]
   )
 
-  const { rows, plain, total } = useMemo(() => {
+  const { rows, plain, total, unfiltered } = useMemo(() => {
     const cx = view?.center[0] ?? START_VIEW.lng
     const cy = view?.center[1] ?? START_VIEW.lat
     const d = (b: BenchFeature) =>
       (b.geometry.coordinates[0] - cx) ** 2 * 0.37 +
       (b.geometry.coordinates[1] - cy) ** 2
-    const vis = benches
-      .filter((b) => !view || inBounds(b, view))
-      .sort((a, b) => d(a) - d(b))
+    const here = (b: BenchFeature) => !view || inBounds(b, view)
+    const vis = filtered.filter(here).sort((a, b) => d(a) - d(b))
     const photos = vis.filter(hasPhoto)
     const plain = vis.filter((b) => !hasPhoto(b))
     for (const list of [photos, plain]) {
@@ -101,11 +145,13 @@ export default function HomePage() {
       if (i > 0) list.unshift(...list.splice(i, 1))
     }
     return {
-      rows: buildRows(photos),
+      rows: buildRows(photos, filtered !== benches),
       plain,
       total: vis.length,
+      unfiltered:
+        filtered === benches ? vis.length : benches.filter(here).length,
     }
-  }, [benches, view, mapPick])
+  }, [benches, filtered, view, mapPick])
 
   const selectFromMap = useCallback((id: number) => {
     setSelectedId(id)
@@ -153,7 +199,7 @@ export default function HomePage() {
             {data ? (
               <BenchMap
                 benches={benches}
-                visible={everyId}
+                visible={filteredIds}
                 selectedId={selectedId}
                 onSelect={selectFromMap}
                 onView={onView}
@@ -163,6 +209,17 @@ export default function HomePage() {
               />
             ) : null}
           </Suspense>
+          {data ? (
+            <FiltersPanel
+              filters={filters}
+              onChange={setFilters}
+              coverage={coverage}
+              offered={offered}
+              counts={counts}
+              matching={filtered.length}
+              matchingInView={total}
+            />
+          ) : null}
           <button
             className="nearme"
             type="button"
@@ -197,12 +254,16 @@ export default function HomePage() {
           <RailCount
             state={isPending ? "loading" : error ? "error" : "ok"}
             total={total}
+            unfiltered={unfiltered}
+            filters={filters}
+            onClear={() => setFilters(NO_FILTERS)}
             hasEstimated={hasEstimated}
           />
           {data && !rows.length ? (
             <p className="railnote">
-              No photographed benches in this part of the map. Zoom out or move
-              the map.
+              {isFiltered(filters)
+                ? "No photographed benches here match the filters. Zoom out, move the map or loosen the filters."
+                : "No photographed benches in this part of the map. Zoom out or move the map."}
             </p>
           ) : null}
           {rows.map((r) => (
@@ -223,10 +284,16 @@ export default function HomePage() {
 function RailCount({
   state,
   total,
+  unfiltered,
+  filters,
+  onClear,
   hasEstimated,
 }: {
   state: "loading" | "error" | "ok"
   total: number
+  unfiltered: number
+  filters: Filters
+  onClear: () => void
   hasEstimated: boolean
 }) {
   if (state !== "ok") {
@@ -240,8 +307,21 @@ function RailCount({
   }
   return (
     <p className="railcount" role="status">
-      <b className="num">{total.toLocaleString("en")}</b>{" "}
-      {total === 1 ? "bench" : "benches"} in view on the map
+      {isFiltered(filters) ? (
+        <span className="filtered">
+          <b className="num">{total.toLocaleString("en")}</b> of{" "}
+          <span className="num">{unfiltered.toLocaleString("en")}</span> benches
+          in view: {summary(filters)}.{" "}
+          <button type="button" className="linkbtn" onClick={onClear}>
+            Clear filters
+          </button>
+        </span>
+      ) : (
+        <>
+          <b className="num">{total.toLocaleString("en")}</b>{" "}
+          {total === 1 ? "bench" : "benches"} in view on the map
+        </>
+      )}
       <span className="key">
         <span>
           <i />

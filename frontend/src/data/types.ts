@@ -30,6 +30,12 @@ export interface BenchProps {
   bench_type: BenchType | null
   backrest: boolean | null
   faces_category: FacesCategory | null
+  /** OSM `material`, lower-cased; may hold several values ("wood;steel"). */
+  material?: string | null
+  /** OSM `seats`. */
+  seats?: number | null
+  /** OSM `lit`. */
+  lit?: boolean | null
   hero_key: string | null
   hero_urls: ImageUrls | null
   /** WebP fallbacks for `hero_urls`, same widths. */
@@ -81,7 +87,6 @@ export interface GalleryImage {
 }
 
 export interface BenchDetail extends BenchProps {
-  material: string | null
   /** Raw OpenStreetMap tags, when the bench came from OSM. */
   tags?: Record<string, string>
   address_full: {
