@@ -57,11 +57,23 @@ const ROSE_IMAGE: ExpressionSpecification = [
 
 const empty = { type: "FeatureCollection" as const, features: [] }
 
-function dots(benches: BenchFeature[], visible: ReadonlySet<number>) {
+// The selected bench is drawn by its own "sel" layer, so it is left out of the
+// clustered sources: otherwise it shows twice (alone and inside a cluster count).
+const shown = (
+  b: BenchFeature,
+  visible: ReadonlySet<number>,
+  selected: number | null
+) => visible.has(b.properties.id) && b.properties.id !== selected
+
+function dots(
+  benches: BenchFeature[],
+  visible: ReadonlySet<number>,
+  selected: number | null = null
+) {
   return {
     type: "FeatureCollection" as const,
     features: benches
-      .filter((b) => !hasPhoto(b) && visible.has(b.properties.id))
+      .filter((b) => !hasPhoto(b) && shown(b, visible, selected))
       .map((b) => ({
         type: "Feature" as const,
         geometry: b.geometry,
@@ -83,11 +95,15 @@ function dots(benches: BenchFeature[], visible: ReadonlySet<number>) {
   }
 }
 
-function photos(benches: BenchFeature[], visible: ReadonlySet<number>) {
+function photos(
+  benches: BenchFeature[],
+  visible: ReadonlySet<number>,
+  selected: number | null = null
+) {
   return {
     type: "FeatureCollection" as const,
     features: benches
-      .filter((b) => hasPhoto(b) && visible.has(b.properties.id))
+      .filter((b) => hasPhoto(b) && shown(b, visible, selected))
       .map((b) => ({
         type: "Feature" as const,
         geometry: b.geometry,
@@ -130,6 +146,8 @@ export default function BenchMap({
   benchesRef.current = benches
   const visibleRef = useRef(visible)
   visibleRef.current = visible
+  const selectedRef = useRef(selectedId)
+  selectedRef.current = selectedId
   const initialRef = useRef(initialView)
   const byId = useMemo(
     () => new Map(benches.map((b) => [b.properties.id, b])),
@@ -284,7 +302,7 @@ export default function BenchMap({
       })
       map.addSource("benches", {
         type: "geojson",
-        data: dots(benchesRef.current, visibleRef.current),
+        data: dots(benchesRef.current, visibleRef.current, selectedRef.current),
         cluster: true,
         // A wide radius and an early max zoom keep the city view to a handful
         // of roses so the photographed benches lead.
@@ -296,7 +314,11 @@ export default function BenchMap({
       // collision: a collapsed marker carries the count of benches it holds.
       map.addSource("photos", {
         type: "geojson",
-        data: photos(benchesRef.current, visibleRef.current),
+        data: photos(
+          benchesRef.current,
+          visibleRef.current,
+          selectedRef.current
+        ),
         cluster: true,
         clusterRadius: 52,
         clusterMaxZoom: 19,
@@ -443,17 +465,18 @@ export default function BenchMap({
     }
   }, [])
 
-  // Filters change which benches are on the map.
+  // Filters (and the selection, drawn on its own layer) change which benches
+  // the clustered sources hold.
   useEffect(() => {
     if (!ready) return
     const map = mapRef.current
     ;(map?.getSource("benches") as GeoJSONSource | undefined)?.setData(
-      dots(benches, visible)
+      dots(benches, visible, selectedId)
     )
     ;(map?.getSource("photos") as GeoJSONSource | undefined)?.setData(
-      photos(benches, visible)
+      photos(benches, visible, selectedId)
     )
-  }, [ready, benches, visible])
+  }, [ready, benches, visible, selectedId])
 
   // The one vermilion bench.
   useEffect(() => {
