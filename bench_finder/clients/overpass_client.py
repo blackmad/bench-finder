@@ -42,7 +42,13 @@ def _give_up(exc: Exception) -> bool:
 )
 def post_overpass_query(url: str, query: str, timeout: float) -> dict:
     """POST an Overpass QL query and return the decoded JSON, retrying transient failures."""
-    response = requests.post(url, data={"data": query}, timeout=timeout)
+    # overpass-api.de answers 406 to requests without a User-Agent.
+    response = requests.post(
+        url,
+        data={"data": query},
+        timeout=timeout,
+        headers={"User-Agent": "bench-finder/0.1", "Accept": "*/*"},
+    )
     response.raise_for_status()
     return response.json()
 

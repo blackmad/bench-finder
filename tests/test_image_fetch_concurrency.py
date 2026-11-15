@@ -249,7 +249,7 @@ def test_overpass_retries_transient_errors(monkeypatch):
         def json(self):
             return {"elements": []}
 
-    def fake_post(url, data=None, timeout=None):
+    def fake_post(url, data=None, timeout=None, headers=None):
         calls["n"] += 1
         if calls["n"] < 3:
             raise requests.exceptions.ConnectionError("down")
@@ -265,7 +265,7 @@ def test_overpass_does_not_retry_client_errors(monkeypatch):
     monkeypatch.setattr("backoff._sync.time.sleep", lambda s: None)
     calls = {"n": 0}
 
-    def fake_post(url, data=None, timeout=None):
+    def fake_post(url, data=None, timeout=None, headers=None):
         calls["n"] += 1
         response = requests.Response()
         response.status_code = 400
@@ -281,7 +281,7 @@ def test_overpass_retries_rate_limit(monkeypatch):
     monkeypatch.setattr("backoff._sync.time.sleep", lambda s: None)
     calls = {"n": 0}
 
-    def fake_post(url, data=None, timeout=None):
+    def fake_post(url, data=None, timeout=None, headers=None):
         calls["n"] += 1
         response = requests.Response()
         response.status_code = 429

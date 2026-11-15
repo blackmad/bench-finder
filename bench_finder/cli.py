@@ -218,8 +218,11 @@ def generate_candidates(
                 confidence=candidate.confidence,
             )
 
-            # Reverse geocode the candidate (structured)
-            if bench_candidate_id:
+            # Reverse geocode the candidate (structured); skip ones already cached
+            # (the Geocoding API is billed per call).
+            if bench_candidate_id and not database.get_reverse_geocode(
+                bench_candidate_id
+            ):
                 try:
                     geocoder = Geocoder()
                     structured_address = geocoder.reverse_geocode_structured(

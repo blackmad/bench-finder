@@ -78,7 +78,7 @@ def main() -> None:
 
     model_id, threshold = a.model, THRESHOLDS[a.model]
     bbox = AMSTERDAM_BBOX if a.bbox == "amsterdam" else None
-    conn = sqlite3.connect(a.db)
+    conn = sqlite3.connect(a.db, timeout=120)  # other jobs write too
     rows = todo_images(conn, bbox, model_id)[: a.limit]
     if model_id == "sam3":
         from bench_finder.bakeoff.detectors import MODELS
