@@ -62,7 +62,14 @@ ViewRelation = Literal[
     "unknown",
 ]
 FacesCategory = Literal[
-    "water", "street", "park", "square", "wall", "playground", "other"
+    "water",
+    "park",
+    "residential_street",
+    "busy_street",
+    "square",
+    "courtyard",
+    "playground",
+    "other",
 ]
 
 BENCH_TYPES: tuple[str, ...] = ("backrest", "backless", "picnic", "other")
@@ -79,10 +86,11 @@ VIEW_RELATIONS: tuple[str, ...] = (
 )
 FACES_CATEGORIES: tuple[str, ...] = (
     "water",
-    "street",
     "park",
+    "residential_street",
+    "busy_street",
     "square",
-    "wall",
+    "courtyard",
     "playground",
     "other",
 )
@@ -117,13 +125,14 @@ BENCH_TYPE_DESCRIPTIONS: dict[str, str] = {
     "other": "Anything else (bench not visible, ledge, stool, etc.).",
 }
 FACES_DESCRIPTIONS: dict[str, str] = {
-    "water": "River, lake, sea, pond, canal or fountain.",
-    "street": "A road or street with traffic.",
-    "park": "Lawn, trees, garden or open green space.",
+    "water": "A canal, river, lake, pond, harbour or fountain.",
+    "park": "A park, lawn, trees, garden or other green space.",
+    "residential_street": "A quiet residential street: houses or flats, little traffic.",
+    "busy_street": "A busy road or shopping street: traffic, trams, shops.",
     "square": "A plaza, pedestrian square or paved open area.",
-    "wall": "A wall, building facade or fence close by.",
-    "playground": "A playground or sports area.",
-    "other": "None of the above.",
+    "courtyard": "An inner courtyard or the grounds of an apartment complex.",
+    "playground": "A playground or sports field.",
+    "other": "None of the above (a wall, car park, building entrance, ...).",
 }
 
 TASK_TEXT = (

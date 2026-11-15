@@ -252,6 +252,7 @@ YOLO_MIN = 0.25
 VIEW_ANNOTATORS = (
     "oracle:",
     "gemini-4-hydrogen",
+    "gemini-3.1-flash-lite@v2",  # bench_finder.label_views; best hero picker in the bake-off
     "anthropic/claude-opus",
     "anthropic/",
 )

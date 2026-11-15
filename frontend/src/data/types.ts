@@ -7,10 +7,11 @@ export type FacingMethod = "osm_tag" | "vlm" | "geometry" | "human"
 export type BenchType = "backrest" | "backless" | "picnic" | "other"
 export type FacesCategory =
   | "water"
-  | "street"
   | "park"
+  | "residential_street"
+  | "busy_street"
   | "square"
-  | "wall"
+  | "courtyard"
   | "playground"
   | "other"
 

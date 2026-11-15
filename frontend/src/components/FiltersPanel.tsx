@@ -47,9 +47,10 @@ const FACES_LABEL: Record<FacesCategory, string> = {
   water: "Water",
   park: "Park",
   square: "Square",
-  street: "Street",
+  residential_street: "Quiet street",
+  busy_street: "Busy street",
+  courtyard: "Courtyard",
   playground: "Playground",
-  wall: "A wall",
   other: "Something else",
 }
 const TYPE_LABEL: Record<(typeof TYPES)[number], string> = {

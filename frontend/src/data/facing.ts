@@ -46,9 +46,10 @@ export const WIND_LONG: Record<Wind, string> = {
 const FACES: Record<FacesCategory, string> = {
   water: "the water",
   park: "the park",
-  street: "the street",
+  residential_street: "a quiet street",
+  busy_street: "a busy street",
   square: "the square",
-  wall: "a wall",
+  courtyard: "a courtyard",
   playground: "a playground",
   other: "something",
 }
@@ -60,9 +61,10 @@ const LOOKS: Record<FacesCategory, string | null> = {
   water: "Looks out over the water",
   park: "Looks out over the park",
   square: "Looks out over the square",
-  street: "Looks onto the street",
+  residential_street: "Looks onto a quiet street",
+  busy_street: "Watches a busy street",
+  courtyard: "Looks into a courtyard",
   playground: "Looks onto a playground",
-  wall: "Faces a wall",
   other: null,
 }
 

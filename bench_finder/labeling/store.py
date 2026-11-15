@@ -30,10 +30,11 @@ CHOICES: dict[str, set[str]] = {
     "bench_type": {"backrest", "backless", "picnic", "other"},
     "faces_category": {
         "water",
-        "street",
         "park",
+        "residential_street",
+        "busy_street",
         "square",
-        "wall",
+        "courtyard",
         "playground",
         "other",
     },

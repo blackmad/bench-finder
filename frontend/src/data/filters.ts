@@ -77,9 +77,10 @@ export const FACES: FacesCategory[] = [
   "water",
   "park",
   "square",
-  "street",
+  "residential_street",
+  "busy_street",
+  "courtyard",
   "playground",
-  "wall",
   "other",
 ]
 export const TYPES: BenchType[] = ["backrest", "backless", "picnic", "other"]
