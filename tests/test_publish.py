@@ -8,7 +8,12 @@ from PIL import Image
 
 from bench_finder.migrate import migrate
 from bench_finder.publish import CapacityError, check_capacity, publish, upload_dir
-from bench_finder.publish.build import parse_direction
+from bench_finder.publish.build import (
+    image_rank,
+    parse_direction,
+    target_gate,
+    view_label,
+)
 from bench_finder.publish.images import process_image, target_widths
 
 
@@ -269,3 +274,107 @@ def test_bbox_limits_coverage(world):
         workers=1,
     )
     assert res.benches == 1
+
+
+# --------------------------------------------------------------------------- hero ranking
+
+
+def _img(iid, bearing, *, sam3=None, yolo=None, labels=None, box=None, date=None):
+    targets = {}
+    if sam3 is not None:
+        targets["sam3"] = (sam3, box)
+    if yolo is not None:
+        targets["yolo11x-seg"] = (yolo, box)
+    return {
+        "id": iid,
+        "kind": "aimed",
+        "heading": round(bearing),
+        "camera_bearing_deg": bearing,
+        "conf": max(sam3 or 0, yolo or 0),
+        "pano_date": date,
+        "targets": targets,
+        "view_labels": labels or {},
+    }
+
+
+def test_target_gate_prefers_sam3_verdict():
+    assert target_gate(_img(1, 0, sam3=0.7))[0] == 0
+    # sam3 ran and stayed under 0.6: yolo's hit does not lift it to the top tier
+    assert target_gate(_img(1, 0, sam3=0.5, yolo=0.9))[0] == 1
+    assert target_gate(_img(1, 0, yolo=0.3))[0] == 0
+    assert target_gate(_img(1, 0, yolo=0.1))[0] == 1  # legacy-style fallback
+    assert target_gate({"id": 1, "conf": None})[0] == 2
+
+
+def test_view_label_trusts_oracle_first():
+    img = _img(
+        1,
+        0,
+        labels={
+            "gemini-decision-1@low": "front",
+            "anthropic/claude-sonnet-5.5": "front-left",
+            "oracle:claude-opus-5-5": "back",
+        },
+    )
+    assert view_label(img) == "back"
+    img["view_labels"]["oracle:claude-opus-5-5"] = "unknown"
+    assert view_label(img) == "front-left"  # next trusted annotator
+    assert view_label(_img(1, 0, labels={"qwen3-vl:8b": "back"})) is None
+
+
+def test_rank_behind_the_bench_wins():
+    # Bench 1356 in miniature: faces S, two back-corner labels; the camera
+    # looking with the bench (213 deg) beats the one looking across it (88 deg).
+    side = _img(1, 88, sam3=0.74, labels={"oracle:x": "back-right"})
+    behind = _img(2, 213, sam3=0.73, labels={"oracle:x": "back-left"})
+    front = _img(3, 10, sam3=0.95, labels={"oracle:x": "front"})
+    ranked = sorted([front, side, behind], key=lambda i: image_rank(i, 180.0))
+    assert [i["id"] for i in ranked] == [2, 1, 3]
+
+
+def test_rank_geometry_without_labels():
+    behind = _img(1, 170, yolo=0.3)
+    beside = _img(2, 90, yolo=0.9)
+    facing_camera = _img(3, 0, yolo=0.9)
+    ranked = sorted([facing_camera, beside, behind], key=lambda i: image_rank(i, 180.0))
+    assert [i["id"] for i in ranked] == [1, 2, 3]
+    # No facing and no labels: box size and centrality, then confidence.
+    small = _img(4, 0, yolo=0.9, box={"x1": 0, "y1": 0, "x2": 50, "y2": 50})
+    big = _img(5, 0, yolo=0.5, box={"x1": 300, "y1": 300, "x2": 700, "y2": 700})
+    assert sorted([small, big], key=lambda i: image_rank(i, None))[0] is big
+
+
+def test_publish_picks_behind_view(world):
+    db, images, out = world
+    _make_image(images / "behind.jpg", (900, 500))
+    _make_image(images / "side.jpg", (900, 500))
+    c = sqlite3.connect(db)
+    # Bench 1 faces SSW (202.5). Image 6 looks 210 (behind it), image 7 looks 110.
+    for iid, fn, bearing in [(6, "behind.jpg", 210.0), (7, "side.jpg", 110.0)]:
+        c.execute(
+            "INSERT INTO images (id, bench_candidate_id, heading, filename, filepath, capture_success,"
+            " kind, pano_id, camera_bearing_deg, created_at)"
+            " VALUES (?,1,?,?,?,1,'aimed',?,?,'2024-01-01')",
+            (iid, round(bearing), fn, f"images/{fn}", f"P{iid}", bearing),
+        )
+        c.execute(
+            "INSERT INTO detections (id,image_id,has_bench,bench_count,max_confidence,"
+            "detection_success,model_id,confidence_threshold,source,created_at)"
+            " VALUES (?,?,1,1,0.8,1,'sam3',0.3,'LOCAL','2024-01-01')",
+            (iid * 10, iid),
+        )
+        c.execute(
+            "INSERT INTO detection_items (detection_id, confidence, bbox, class_name,"
+            " created_at, is_target) VALUES (?, 0.8, ?, 'bench', '2024-01-01', 1)",
+            (iid * 10, json.dumps({"x1": 300, "y1": 200, "x2": 600, "y2": 400})),
+        )
+    c.execute(
+        "INSERT INTO image_annotations (image_id, annotator, label_type, value, created_at)"
+        " VALUES (7, 'oracle:test', 'view_relation', '\"unknown\"', '2024-01-01')"
+    )
+    c.commit()
+    c.close()
+    publish(db, images, out, include_unclassified=True, workers=1)
+    d1 = json.loads((out / "data" / "bench" / "1.json").read_text())
+    assert [g["camera_bearing_deg"] for g in d1["gallery"][:2]] == [210.0, 110.0]
+    assert d1["gallery"][0]["urls"] == d1["hero_urls"]

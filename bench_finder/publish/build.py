@@ -22,6 +22,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from PIL import Image
+
 from bench_finder.publish.images import FORMATS, ImageResult, process_image
 
 
@@ -144,7 +146,7 @@ def _load_rows(
     sql = f"""
         SELECT c.id, c.lat, c.lng, c.tags,
                a.id AS attr_id, a.facing_deg, a.facing_confidence, a.facing_method,
-               a.axis_only, a.bench_type, a.backrest, a.faces_category,
+               a.axis_only, a.bench_type, a.backrest, a.faces_category, a.faces_text,
                a.hero_image_id, a.embed_pano_id, a.embed_heading_deg,
                g.formatted_address, g.street_name, g.street_number, g.postal_code,
                g.city, g.country
@@ -171,16 +173,65 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
     rows = conn.execute(
         """
         SELECT i.id, i.bench_candidate_id AS cid, i.filename, i.filepath, i.heading,
-               i.kind, i.pano_id, i.pano_date, i.camera_bearing_deg,
-               (SELECT MAX(d.max_confidence) FROM detections d
-                 WHERE d.image_id = i.id AND d.detection_success = 1 AND d.has_bench = 1) AS conf
+               i.kind, i.pano_id, i.pano_date, i.camera_bearing_deg, dc.conf
         FROM images i JOIN _pub_ids p ON p.id = i.bench_candidate_id
+        -- Aggregated once: a correlated MAX per image let SQLite pick the
+        -- has_bench index and scan half the detections table per image.
+        LEFT JOIN (
+            SELECT image_id, MAX(max_confidence) AS conf FROM detections
+            WHERE detection_success = 1 AND has_bench = 1 GROUP BY image_id
+        ) dc ON dc.image_id = i.id
         WHERE i.capture_success = 1
         ORDER BY i.id
         """
     ).fetchall()
+    by_id: dict[int, dict] = {}
     for r in rows:
-        by_bench.setdefault(r["cid"], []).append(dict(r))
+        img = dict(r)
+        img.update(targets={}, view_labels={})
+        by_id[img["id"]] = img
+        by_bench.setdefault(r["cid"], []).append(img)
+    if not by_id:
+        return by_bench
+
+    marks = ",".join("?" * len(TARGET_MODELS))
+    scope = (
+        "JOIN images i ON i.id = d.image_id "
+        "JOIN _pub_ids p ON p.id = i.bench_candidate_id"
+    )
+    # Which target models ran on each image: a sam3 miss is a verdict too.
+    for image_id, model in conn.execute(
+        f"SELECT d.image_id, d.model_id FROM detections d {scope} "
+        f"WHERE d.detection_success = 1 AND d.model_id IN ({marks})",
+        TARGET_MODELS,
+    ):
+        if image_id in by_id:
+            by_id[image_id]["targets"].setdefault(model, (0.0, None))
+    # Best target box per image and model (SQLite returns the bbox of the MAX row).
+    for image_id, model, conf, bbox in conn.execute(
+        f"SELECT d.image_id, d.model_id, MAX(di.confidence), di.bbox FROM detections d "
+        f"JOIN detection_items di ON di.detection_id = d.id {scope} "
+        f"WHERE d.detection_success = 1 AND di.is_target = 1 AND d.model_id IN ({marks}) "
+        "GROUP BY d.image_id, d.model_id",
+        TARGET_MODELS,
+    ):
+        if image_id in by_id:
+            by_id[image_id]["targets"][model] = (
+                conf or 0.0,
+                json.loads(bbox) if bbox else None,
+            )
+    for image_id, annotator, value in conn.execute(
+        "SELECT a.image_id, a.annotator, a.value FROM image_annotations a "
+        "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
+        "WHERE a.label_type = 'view_relation'"
+    ):
+        if image_id in by_id:
+            try:
+                v = json.loads(value) if value else None
+            except ValueError:
+                v = value
+            if isinstance(v, str):
+                by_id[image_id]["view_labels"][annotator] = v
     return by_bench
 
 
@@ -192,23 +243,177 @@ def _resolve(img: dict, images_root: Path) -> Path | None:
     return p if p.is_file() else None
 
 
+# --------------------------------------------------------------------------- hero ranking
+
+TARGET_MODELS = ("sam3", "yolo11x-seg")
+SAM3_MIN = 0.6
+YOLO_MIN = 0.25
+# Annotators trusted for view_relation, best first; the first real label wins.
+VIEW_ANNOTATORS = (
+    "oracle:",
+    "gemini-4-hydrogen",
+    "anthropic/claude-opus",
+    "anthropic/",
+)
+# Where the camera stands relative to the bench. 0 = behind it, seeing what the
+# sitter sees; higher is worse for a hero.
+VIEW_TIER = {
+    "back": 0.0,
+    "back-left": 1.0,
+    "back-right": 1.0,
+    "left": 2.0,
+    "right": 2.0,
+    "front-left": 3.0,
+    "front-right": 3.0,
+    "front": 4.0,
+}
+UNKNOWN_VIEW_TIER = 2.5
+BEHIND_DEG = 60.0
+
+
+def _angle(a: float, b: float) -> float:
+    d = abs(a - b) % 360
+    return 360 - d if d > 180 else d
+
+
+def _bearing(img: dict) -> float | None:
+    """Where the camera looks. Legacy rows carry a nominal heading, not a real one."""
+    if img.get("camera_bearing_deg") is not None:
+        return float(img["camera_bearing_deg"])
+    if img.get("kind") != "legacy" and img.get("heading") is not None:
+        return float(img["heading"])
+    return None
+
+
+def view_label(img: dict) -> str | None:
+    """The view_relation from the most trusted annotator that gave a real one."""
+    labels: dict[str, str] = img.get("view_labels") or {}
+    for prefix in VIEW_ANNOTATORS:
+        for annotator in sorted(labels):
+            if annotator.startswith(prefix) and labels[annotator] in VIEW_TIER:
+                return labels[annotator]
+    return None
+
+
+def target_gate(img: dict) -> tuple[int, float, dict | None]:
+    """(tier, confidence, bbox) for the bench the image was aimed at.
+
+    Tier 0: a target detection by sam3 >= 0.6 when sam3 has run on the image (it
+    is the stricter model, so its miss counts), else by yolo11x-seg >= 0.25.
+    Tier 1: no such target, but an older detector saw a bench (legacy images).
+    Tier 2: no bench seen; never a hero.
+    """
+    t = img.get("targets") or {}
+    if "sam3" in t:
+        conf, box = t["sam3"]
+        if conf >= SAM3_MIN:
+            return 0, conf, box
+    elif "yolo11x-seg" in t:
+        conf, box = t["yolo11x-seg"]
+        if conf >= YOLO_MIN:
+            return 0, conf, box
+    if (img.get("conf") or 0) > 0:
+        return 1, float(img["conf"]), None
+    return 2, 0.0, None
+
+
+def _box_score(box: dict | None, size: tuple[int, int] | None) -> float:
+    """0..1: a bigger, more central target box scores higher."""
+    if not box:
+        return 0.0
+    w, h = size or (1024, 1024)
+    x1, y1, x2, y2 = (float(box[k]) for k in ("x1", "y1", "x2", "y2"))
+    area = max(0.0, (x2 - x1) * (y2 - y1)) / float(w * h)
+    centre = 1 - min(1.0, abs((x1 + x2) / 2 / w - 0.5) * 2)
+    return 0.5 * min(1.0, area / 0.12) + 0.5 * centre
+
+
+def image_rank(
+    img: dict, facing: float | None, size: tuple[int, int] | None = None
+) -> tuple:
+    """Sort key for the hero and the "More views" order (smaller is better).
+
+    1. Target gate (``target_gate``): a confirmed detection of the aimed-at bench
+       first, then legacy detections, then images where no bench was seen.
+    2. View relation: the camera behind the bench (the sitter's view) beats the
+       back corners, then the sides, then the front. A trusted label decides
+       (``VIEW_ANNOTATORS``, oracle first). Without one, when the bench's facing
+       is known (attributes or the OSM ``direction`` tag), geometry decides: a
+       camera looking within 60 deg of the facing stands behind the bench,
+       within 120 deg beside it, otherwise in front. Unlabelled views of benches
+       with no facing rank between side and front views.
+    3. With a known facing, the angle between camera and facing breaks ties
+       (so of a "back-left" and a "back-right" view the more square one wins).
+    4. Size and centrality of the target box, then its confidence.
+    5. The newest panorama, then the image id (stable).
+    """
+    gate, conf, box = target_gate(img)
+    bearing = _bearing(img)
+    diff = (
+        _angle(bearing, facing) if bearing is not None and facing is not None else None
+    )
+    label = view_label(img)
+    if label is not None:
+        tier = VIEW_TIER[label]
+    elif diff is not None:
+        tier = 0.0 if diff <= BEHIND_DEG else 2.0 if diff <= 2 * BEHIND_DEG else 4.0
+    else:
+        tier = UNKNOWN_VIEW_TIER
+    digits = re.sub(r"\D", "", img.get("pano_date") or "")[:6]
+    return (
+        gate,
+        tier,
+        diff / 180 if diff is not None else 0.5,
+        -round(_box_score(box, size), 3),
+        -round(conf, 3),
+        -int(digits or 0),
+        img["id"],
+    )
+
+
+def _image_size(path: Path) -> tuple[int, int] | None:
+    try:
+        with Image.open(path) as im:
+            return im.size
+    except OSError:
+        return None
+
+
 def _order_images(
-    imgs: list[dict], hero_id: int | None, n: int, root: Path
+    imgs: list[dict],
+    hero_id: int | None,
+    n: int,
+    root: Path,
+    facing: float | None = None,
 ) -> tuple[list[dict], bool]:
-    """(images, has_hero): hero first, then aimed views, then the rest by confidence."""
-    usable = [i for i in imgs if _resolve(i, root)]
-    by_conf = sorted(usable, key=lambda i: -(i["conf"] or 0.0))
-    hero = next((i for i in usable if i["id"] == hero_id), None)
-    if hero is None:
-        # Prefer an aimed view whose target bench was detected (detect_aimed sets
-        # has_bench only for a hit on the centre column), then any detection.
-        hero = next(
-            (i for i in by_conf if i["kind"] == "aimed" and (i["conf"] or 0) > 0), None
-        ) or next((i for i in by_conf if (i["conf"] or 0) > 0), None)
-    rest = [i for i in by_conf if i is not hero]
-    rest.sort(key=lambda i: i["kind"] != "aimed")  # stable: aimed first
-    ordered = ([hero] if hero else []) + rest
-    return ordered[:n], hero is not None
+    """(images, has_hero): ranked by ``image_rank``; a manually chosen hero leads."""
+    usable = [(i, p) for i in imgs if (p := _resolve(i, root))]
+    ranked = [
+        i
+        for i, _ in sorted(
+            usable,
+            key=lambda ip: image_rank(
+                ip[0],
+                facing,
+                _image_size(ip[1]) if target_gate(ip[0])[2] else None,
+            ),
+        )
+    ]
+    hero = next((i for i in ranked if i["id"] == hero_id), None)
+    if hero is None and ranked and target_gate(ranked[0])[0] < 2:
+        hero = ranked[0]
+    rest = [i for i in ranked if i is not hero]
+    return (([hero] if hero else []) + rest)[:n], hero is not None
+
+
+def _rank_facing(r: sqlite3.Row) -> float | None:
+    """The facing the hero ranking trusts: a direction, not just an axis."""
+    if r["axis_only"]:
+        return None
+    if r["facing_deg"] is not None:
+        return float(r["facing_deg"])
+    tags = json.loads(r["tags"]) if r["tags"] else {}
+    return parse_direction(tags.get("direction"))
 
 
 # --------------------------------------------------------------------------- build
@@ -279,6 +484,7 @@ def publish(
             r["hero_image_id"],
             gallery_size,
             images_root,
+            _rank_facing(r),
         )
         for r in rows
     }
@@ -386,6 +592,7 @@ def publish(
                     "city": r["city"],
                     "country": r["country"],
                 },
+                "faces_text": r["faces_text"],
                 "gallery": [e for e, _, _ in entries],
                 "embed_pano_id": pano,
                 "embed_heading_deg": round(pano_heading, 1)

@@ -1,15 +1,15 @@
 /**
- * The rail's rows and the bench of the day, built from fields the published
- * GeoJSON actually carries: address, backrest, facing and facing_method, and
- * whether there is a photo. A row with fewer than MIN_ROW benches is hidden.
+ * The rail's rows, built from fields the published GeoJSON actually carries:
+ * address, backrest, facing and facing_method, what the bench looks at, and
+ * whether there is a photo. The first row holds every photographed bench in
+ * view, however few; a themed row with fewer than MIN_ROW benches is hidden.
  *
- * Not built, for lack of data: "faces the water / park" (faces_category is
- * empty), best-rated (ratings live behind the Worker, per bench), and
- * most-photographed (gallery sizes are only in the per-bench files).
+ * Not built, for lack of data: best-rated (ratings live behind the Worker,
+ * per bench) and most-photographed (gallery sizes are only in the per-bench
+ * files).
  */
-import { hasPhoto } from "./api"
-import { isStreetAddress, streetName } from "./describe"
-import { facingKind } from "./facing"
+import { streetName } from "./describe"
+import { facingKind, looksAt } from "./facing"
 import type { BenchFeature } from "./types"
 
 export const MIN_ROW = 3
@@ -37,20 +37,34 @@ const list = (names: string[]) =>
 
 /**
  * Rows for the photographed benches in view, nearest the map centre first.
- * `photos` must already be sorted by distance from the centre. With
- * `keepNear` (filters are on), the first row is kept however short it is, so
- * a filter that leaves one or two benches still shows them.
+ * `photos` must already be sorted by distance from the centre. The first row
+ * is every one of them, so whenever the map shows a photo the rail does too;
+ * it returns no rows only when there is no photographed bench in view.
  */
-export function buildRows(photos: BenchFeature[], keepNear = false): Row[] {
+export function buildRows(photos: BenchFeature[]): Row[] {
+  if (!photos.length) return []
   const rows: Row[] = []
   const street = (b: BenchFeature) => streetName(b.properties.address)
 
   rows.push({
     key: "near",
-    title: "Near the middle of the map",
-    note: "Closest first",
+    title:
+      photos.length < MIN_ROW
+        ? "In view on the map"
+        : "Near the middle of the map",
+    note: photos.length < MIN_ROW ? "" : "Closest first",
     benches: photos,
   })
+
+  // What the bench looks at, once the data has it (faces_category).
+  for (const cat of ["water", "park"] as const) {
+    rows.push({
+      key: `looks:${cat}`,
+      title: looksAt(cat) as string,
+      note: "What the bench looks at",
+      benches: photos.filter((b) => b.properties.faces_category === cat),
+    })
+  }
 
   const water = photos.filter((b) => WATER_STREET.test(street(b) ?? ""))
   rows.push({
@@ -111,28 +125,11 @@ export function buildRows(photos: BenchFeature[], keepNear = false): Row[] {
     benches: photos.filter((b) => b.properties.backrest === false),
   })
 
+  // Themed rows need MIN_ROW benches, and a row that repeats the first one
+  // exactly says nothing new.
   return rows.filter(
     (r) =>
-      r.benches.length >= MIN_ROW ||
-      (keepNear && r.key === "near" && r.benches.length > 0)
+      r.key === "near" ||
+      (r.benches.length >= MIN_ROW && r.benches.length < photos.length)
   )
-}
-
-const DAY = 86_400_000
-
-/**
- * One photographed bench per day, the same for everyone. Benches with a mapped
- * facing and a street address come first, so the hero can show its compass.
- */
-export function benchOfTheDay(
-  benches: BenchFeature[],
-  now = Date.now()
-): BenchFeature | null {
-  const named = benches
-    .filter((b) => hasPhoto(b) && isStreetAddress(b.properties.address))
-    .sort((a, b) => a.properties.id - b.properties.id)
-  const faced = named.filter((b) => facingKind(b.properties) !== null)
-  const pool = faced.length ? faced : named
-  if (!pool.length) return null
-  return pool[Math.floor(now / DAY) % pool.length]
 }

@@ -89,6 +89,8 @@ export interface GalleryImage {
 export interface BenchDetail extends BenchProps {
   /** Raw OpenStreetMap tags, when the bench came from OSM. */
   tags?: Record<string, string>
+  /** Free text on what the bench looks at, e.g. "canal and houseboats". */
+  faces_text?: string | null
   address_full: {
     street: string | null
     number: string | null

@@ -174,22 +174,27 @@ export default function BenchMap({
       if (map.hasImage(id)) map.updateImage(id, s.data)
       else map.addImage(id, s.data, { pixelRatio: s.pixelRatio })
     }
-    const thumbArgs = (id: number, selected: boolean) => {
-      const p = byIdRef.current.get(id)?.properties
-      return {
-        photo: photoCache.get(id) ?? null,
-        facing: p?.facing ?? null,
-        known: p ? isKnown(p) : false,
-        selected,
-      }
-    }
+    // Count-badged sprites drawn for each representative bench, so its photo
+    // can be painted into them once it arrives.
+    const groupSprites = new Map<number, Set<number>>()
+    const thumbArgs = (id: number, selected: boolean, count = 1) => ({
+      photo: photoCache.get(id) ?? null,
+      selected,
+      count,
+    })
     const drawThumb = (id: number) => {
       add(`thumb:${id}`, thumbSprite(thumbArgs(id, false)))
       const sel = `thumbsel:${id}`
       if (map.hasImage(sel)) add(sel, thumbSprite(thumbArgs(id, true)))
+      for (const n of groupSprites.get(id) ?? []) {
+        add(`thumbc:${id}:${n}`, thumbSprite(thumbArgs(id, false, n)))
+      }
       // updateImage alone does not repaint an idle map.
       map.triggerRepaint()
     }
+    // A collapsed photo marker shows its lowest-id member's photo.
+    const photoId = (props: Record<string, unknown> | null | undefined) =>
+      Number(props?.cluster ? props.rep : props?.id)
     // Fetch photos only for thumbnails MapLibre actually placed. The missing-
     // image resolver fires for every feature in a tile before collision, so
     // queueing there would fetch every photographed bench in the city at once.
@@ -199,7 +204,7 @@ export default function BenchMap({
         layers: ["thumbs", "sel-thumb"],
       })
       for (const f of placed) {
-        const id = Number(f.properties?.id)
+        const id = photoId(f.properties)
         if (!photoCache.has(id) && !queue.includes(id)) queue.push(id)
       }
       pump()
@@ -244,6 +249,12 @@ export default function BenchMap({
       } else if (kind === "thumb" || kind === "thumbsel") {
         const bid = Number(a)
         add(id, thumbSprite(thumbArgs(bid, kind === "thumbsel")))
+      } else if (kind === "thumbc") {
+        const bid = Number(a)
+        const n = Number(b)
+        if (!groupSprites.has(bid)) groupSprites.set(bid, new Set())
+        groupSprites.get(bid)?.add(n)
+        add(id, thumbSprite(thumbArgs(bid, false, n)))
       }
     })
 
@@ -281,9 +292,15 @@ export default function BenchMap({
         clusterMaxZoom: 14,
         clusterProperties: SECTOR_PROPS,
       })
+      // Photographed benches cluster like the dots do, never by silent
+      // collision: a collapsed marker carries the count of benches it holds.
       map.addSource("photos", {
         type: "geojson",
         data: photos(benchesRef.current, visibleRef.current),
+        cluster: true,
+        clusterRadius: 52,
+        clusterMaxZoom: 19,
+        clusterProperties: { rep: ["min", ["get", "id"]] },
       })
       map.addSource("sel", { type: "geojson", data: empty })
       map.addLayer({
@@ -321,18 +338,28 @@ export default function BenchMap({
           "icon-size": 0.86,
         },
       })
-      // Photographed benches: postcard sprites, decluttered by collision so the
-      // sharpest-placed ones win at low zoom and the rest appear as you zoom in.
+      // Photographed benches: postcard sprites. A cluster shows one member's
+      // photo with a count badge; every bench is on the map in some marker.
       map.addLayer({
         id: "thumbs",
         type: "symbol",
         source: "photos",
         layout: {
-          "icon-image": ["concat", "thumb:", ["to-string", ["get", "id"]]],
+          "icon-image": [
+            "case",
+            ["has", "point_count"],
+            [
+              "concat",
+              "thumbc:",
+              ["to-string", ["get", "rep"]],
+              ":",
+              ["to-string", ["get", "point_count"]],
+            ],
+            ["concat", "thumb:", ["to-string", ["get", "id"]]],
+          ],
           "icon-anchor": "bottom",
-          "icon-allow-overlap": false,
-          "icon-padding": 3,
-          "symbol-sort-key": ["get", "id"],
+          "icon-allow-overlap": true,
+          "symbol-sort-key": ["-", 0, ["coalesce", ["get", "point_count"], 1]],
         },
       })
       map.addLayer({
@@ -368,8 +395,24 @@ export default function BenchMap({
         })
       }
       pick("bench")
-      pick("thumbs")
       pick("sel-thumb")
+      map.on("click", "thumbs", async (e) => {
+        const f = e.features?.[0]
+        if (!f) return
+        const p = f.properties ?? {}
+        if (!p.cluster) {
+          if (typeof p.id === "number") cb.current.onSelect(p.id)
+          return
+        }
+        // A collapsed marker opens up to the zoom where its benches separate.
+        const src = map.getSource("photos") as GeoJSONSource
+        const zoom = await src.getClusterExpansionZoom(Number(p.cluster_id))
+        map.easeTo({
+          center: (f.geometry as unknown as { coordinates: [number, number] })
+            .coordinates,
+          zoom: Math.min(zoom + 0.2, 20),
+        })
+      })
       map.on("click", "roses", (e) => {
         const f = e.features?.[0]
         if (!f) return

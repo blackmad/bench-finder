@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 import { headline, seatText } from "../data/describe"
-import { facingKind, facingShort } from "../data/facing"
+import { facingKind, facingShort, looksAt } from "../data/facing"
 import type { BenchProps } from "../data/types"
 import { Photo } from "./Photo"
 import { Seal } from "./Seal"
@@ -9,13 +9,32 @@ interface Props {
   bench: BenchProps
   selected?: boolean
   onSelect?: (id: number) => void
+  /** Open the bench in the rail preview instead of following the link. */
+  onOpen?: (id: number) => void
 }
 
-/** "≈ Faces NE 52° · estimated · Backrest", leaving out what is not known. */
-function caption(bench: BenchProps) {
+/**
+ * "Looks out over the water · S 180°", else "≈ Faces NE 52° · estimated ·
+ * Backrest", leaving out what is not known.
+ */
+export function caption(bench: BenchProps) {
   const facing = facingShort(bench)
   const kind = facingKind(bench)
   const seat = seatText(bench.backrest)
+  const looks = looksAt(bench.faces_category)
+  if (looks) {
+    return (
+      <>
+        {looks}
+        {facing ? (
+          <span className={kind === "estimated" ? "est" : undefined}>
+            {" "}
+            · {facing}
+          </span>
+        ) : null}
+      </>
+    )
+  }
   if (!facing) return seat ?? "Seat not recorded"
   const est = kind === "estimated"
   return (
@@ -30,7 +49,7 @@ function caption(bench: BenchProps) {
 }
 
 /** A photo tile on the rail: the view, its compass seal, the address. */
-export function Tile({ bench, selected = false, onSelect }: Props) {
+export function Tile({ bench, selected = false, onSelect, onOpen }: Props) {
   const name = headline(bench)
   return (
     <Link
@@ -38,6 +57,16 @@ export function Tile({ bench, selected = false, onSelect }: Props) {
       to={`/bench/${bench.id}`}
       data-id={bench.id}
       aria-current={selected ? "true" : undefined}
+      onClick={
+        onOpen
+          ? (e) => {
+              // A plain click opens the preview; new-tab clicks keep the link.
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+              e.preventDefault()
+              onOpen(bench.id)
+            }
+          : undefined
+      }
       onPointerEnter={onSelect ? () => onSelect(bench.id) : undefined}
       onFocus={onSelect ? () => onSelect(bench.id) : undefined}
     >

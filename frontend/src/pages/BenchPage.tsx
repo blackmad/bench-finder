@@ -10,6 +10,7 @@ import { Photo } from "../components/Photo"
 import { Stamp } from "../components/postmark/Stamp"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
+import { ViewFigure } from "../components/ViewFigure"
 import { hasPhoto } from "../data/api"
 import {
   cityName,
@@ -19,7 +20,7 @@ import {
   monthYear,
   seatText,
 } from "../data/describe"
-import { facingKind, windName } from "../data/facing"
+import { facingKind, looksAt, windName } from "../data/facing"
 import { useBench, useBenches } from "../data/hooks"
 import { MIN_ROW, type Row } from "../data/rows"
 import type { BenchDetail, BenchFeature, GalleryImage } from "../data/types"
@@ -158,38 +159,14 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
               </p>
             </div>
             <div className="gallery">
-              {gallery.map((g) => {
-                const h = g.heading
-                const look =
-                  h === null
-                    ? "Heading not recorded"
-                    : `Looking ${windName(h)} · ${h}°`
-                const key = Object.values(g.urls)[0]
-                return (
-                  <figure key={key}>
-                    <Photo
-                      urls={g.urls}
-                      webp={g.urls_webp}
-                      sizes="(max-width: 760px) 50vw, 300px"
-                      alt={`Street view near the bench at ${name}, ${look.toLowerCase()}`}
-                      width={g.width}
-                      height={g.height}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    {h === null ? null : <MiniCompass heading={h} />}
-                    <figcaption>
-                      {look}
-                      {g.pano_date ? (
-                        <span className="when">
-                          {" "}
-                          · {photoDate(g.pano_date)}
-                        </span>
-                      ) : null}
-                    </figcaption>
-                  </figure>
-                )
-              })}
+              {gallery.map((g) => (
+                <ViewFigure
+                  key={Object.values(g.urls)[0]}
+                  image={g}
+                  name={name}
+                  sizes="(max-width: 760px) 50vw, 300px"
+                />
+              ))}
             </div>
           </section>
         ) : null}
@@ -289,9 +266,19 @@ function Facts({
 }) {
   const kind = facingKind(b)
   const seat = seatText(b.backrest)
+  const looks = looksAt(b.faces_category)
   return (
     <dl>
-      <dt className="caps">Facing</dt>
+      {looks || b.faces_text ? (
+        <>
+          <dt className="caps">Looks at</dt>
+          <dd>
+            {looks ?? capital(b.faces_text as string)}
+            {looks && b.faces_text ? <small> {b.faces_text}</small> : null}
+          </dd>
+        </>
+      ) : null}
+      <dt className="caps">{looks ? "Compass" : "Facing"}</dt>
       <dd>
         {kind && b.facing !== null ? (
           <>
@@ -365,34 +352,6 @@ function Nearby({ bench }: { bench: BenchDetail }) {
       />
     </div>
   )
-}
-
-function MiniCompass({ heading }: { heading: number }) {
-  return (
-    <svg className="minicompass" viewBox="-12 -12 24 24" aria-hidden="true">
-      <circle
-        r="10.5"
-        fill="var(--color-stamp-paper)"
-        stroke="var(--color-ink)"
-        strokeWidth="1"
-      />
-      <g transform={`rotate(${heading})`}>
-        <line y1="3" y2="-6" stroke="var(--color-ink)" strokeWidth="1.6" />
-        <path d="M0 -9 l-2.6 4 h5.2z" fill="var(--color-ink)" />
-      </g>
-    </svg>
-  )
-}
-
-const photoDate = (ym: string) => {
-  const [y, m] = ym.split("-").map(Number)
-  if (!y) return ym
-  return m
-    ? new Date(y, m - 1).toLocaleDateString(undefined, {
-        month: "short",
-        year: "numeric",
-      })
-    : String(y)
 }
 
 const EMBED_KEY = import.meta.env.VITE_GOOGLE_MAPS_EMBED_KEY as

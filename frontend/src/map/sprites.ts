@@ -141,52 +141,70 @@ export function dotSprite(kind: MarkerKind, needle = true): Sprite {
   return finish(cv, g)
 }
 
-// Thumbnail geometry (CSS px): a 58x42 photo in a 3px card border on a 9px
-// stem, with a 20px needle badge on the bottom-right corner.
+// Thumbnail geometry (CSS px): a 58x42 photo in a 3px card border, a closed
+// frame all round, on a small pointer whose tip is the bench. The canvas keeps
+// a margin round the card so the selected frame, the shadow and the count
+// badge are never clipped.
 const PH_W = 58
 const PH_H = 42
 const BORDER = 3
-const STEM = 9
+const POINTER = 7
 const CARD_W = PH_W + 2 * BORDER
 const CARD_H = PH_H + 2 * BORDER
-export const THUMB_W = 84
-export const THUMB_H = CARD_H + STEM + 3
+const SIDE = 14
+const TOP = 14
+export const THUMB_W = CARD_W + 2 * SIDE
+export const THUMB_H = TOP + CARD_H + POINTER
 
 export interface ThumbArgs {
   photo: HTMLImageElement | null
-  facing: number | null
-  known: boolean
   selected: boolean
+  /** Benches this marker stands for; above 1 it shows a count badge. */
+  count?: number
 }
 
-/** Photographed bench: a tiny postcard on a stem. Anchor it at the bottom. */
-export function thumbSprite({
-  photo,
-  facing,
-  known,
-  selected,
-}: ThumbArgs): Sprite {
+/** Photographed bench: a tiny postcard on a pointer. Anchor it at the bottom. */
+export function thumbSprite({ photo, selected, count = 1 }: ThumbArgs): Sprite {
   const { cv, g } = canvas(THUMB_W, THUMB_H)
   const ink = selected ? VERMILION : INK
-  const x0 = (THUMB_W - CARD_W) / 2
+  const x0 = SIDE
+  const y0 = TOP
+  const cx = THUMB_W / 2
+  const card = () => {
+    g.beginPath()
+    g.rect(x0, y0, CARD_W, CARD_H)
+    g.moveTo(cx - 5, y0 + CARD_H)
+    g.lineTo(cx, y0 + CARD_H + POINTER)
+    g.lineTo(cx + 5, y0 + CARD_H)
+    g.closePath()
+  }
+  // A second card peeks out behind a marker that stands for several benches.
+  if (count > 1) {
+    g.save()
+    g.shadowColor = "rgba(20, 20, 20, 0.25)"
+    g.shadowBlur = 3
+    g.shadowOffsetY = 1
+    g.fillStyle = CARD
+    g.fillRect(x0 + 4, y0 - 4, CARD_W, CARD_H)
+    g.restore()
+    g.lineWidth = 1
+    g.strokeStyle = INK
+    g.strokeRect(x0 + 4.5, y0 - 3.5, CARD_W - 1, CARD_H - 1)
+  }
   g.save()
   g.shadowColor = "rgba(20, 20, 20, 0.35)"
   g.shadowBlur = 4
   g.shadowOffsetY = 2
   g.fillStyle = CARD
-  g.fillRect(x0, 0, CARD_W, CARD_H)
+  card()
+  g.fill()
   g.restore()
-  if (selected) {
-    g.strokeStyle = VERMILION
-    g.lineWidth = 2
-    g.strokeRect(x0 - 1, -1, CARD_W + 2, CARD_H + 2)
-  }
   g.fillStyle = EMPTY
-  g.fillRect(x0 + BORDER, BORDER, PH_W, PH_H)
+  g.fillRect(x0 + BORDER, y0 + BORDER, PH_W, PH_H)
   if (photo) {
     const w = photo.naturalWidth || PH_W
     const h = photo.naturalHeight || PH_H
-    // object-fit: cover, cropped low like the rack cards.
+    // object-fit: cover, cropped low like the rail tiles.
     const s = Math.max(PH_W / w, PH_H / h)
     const sw = PH_W / s
     const sh = PH_H / s
@@ -197,48 +215,35 @@ export function thumbSprite({
       sw,
       sh,
       x0 + BORDER,
-      BORDER,
+      y0 + BORDER,
       PH_W,
       PH_H
     )
   }
-  g.fillStyle = ink
-  g.fillRect(THUMB_W / 2 - 0.75, CARD_H, 1.5, STEM + 2)
-  if (facing !== null) {
-    const bx = x0 + CARD_W
-    const by = CARD_H
+  // The frame: one closed outline round card and pointer.
+  g.lineJoin = "miter"
+  g.lineWidth = selected ? 2 : 1
+  g.strokeStyle = ink
+  card()
+  g.stroke()
+  if (count > 1) {
+    const label = String(count)
+    g.font = `700 10.5px ${FONT}`
+    g.fontStretch = "semi-expanded"
+    const w = Math.max(18, g.measureText(label).width + 10)
+    const bx = x0 + CARD_W + 4 - w / 2
+    const by = y0 - 4
     g.beginPath()
-    g.arc(bx, by, 10, 0, Math.PI * 2)
-    g.fillStyle = CARD
+    g.roundRect(bx - w / 2, by - 9, w, 18, 9)
+    g.fillStyle = ink
     g.fill()
     g.lineWidth = 1.5
-    g.strokeStyle = ink
+    g.strokeStyle = PAPER
     g.stroke()
-    g.save()
-    g.translate(bx, by)
-    g.rotate((facing * Math.PI) / 180)
-    const col = selected ? VERMILION : known ? INK : AIRMAIL
-    g.strokeStyle = col
-    g.fillStyle = col
-    g.lineWidth = known ? 2 : 1.2
-    if (!known) g.setLineDash([2, 1.6])
-    g.beginPath()
-    g.moveTo(0, 5)
-    g.lineTo(0, -4)
-    g.stroke()
-    g.setLineDash([])
-    g.beginPath()
-    g.moveTo(0, -8)
-    g.lineTo(-3.5, -3)
-    g.lineTo(3.5, -3)
-    g.closePath()
-    if (known) {
-      g.fill()
-    } else {
-      g.lineWidth = 1.1
-      g.stroke()
-    }
-    g.restore()
+    g.fillStyle = PAPER
+    g.textAlign = "center"
+    g.textBaseline = "middle"
+    g.fillText(label, bx, by + 0.5)
   }
   return finish(cv, g)
 }

@@ -6,12 +6,19 @@ interface Props {
   row: Row
   selectedId: number | null
   onSelect?: (id: number) => void
+  onOpen?: (id: number) => void
   /** Shown instead of the bench count, e.g. "within 1 km". */
   countLabel?: string
 }
 
 /** One titled row of photo tiles that scrolls sideways; "See all" wraps it. */
-export function RailRow({ row, selectedId, onSelect, countLabel }: Props) {
+export function RailRow({
+  row,
+  selectedId,
+  onSelect,
+  onOpen,
+  countLabel,
+}: Props) {
   const [all, setAll] = useState(false)
   const id = useId()
   const shown = row.benches.slice(0, all ? ALL_MAX : STRIP_MAX)
@@ -51,6 +58,7 @@ export function RailRow({ row, selectedId, onSelect, countLabel }: Props) {
             bench={b.properties}
             selected={b.properties.id === selectedId}
             onSelect={onSelect}
+            onOpen={onOpen}
           />
         ))}
       </div>

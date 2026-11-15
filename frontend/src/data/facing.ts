@@ -56,6 +56,23 @@ const FACES: Record<FacesCategory, string> = {
 export const facesText = (f: FacesCategory | null): string =>
   (f && FACES[f]) || "something"
 
+const LOOKS: Record<FacesCategory, string | null> = {
+  water: "Looks out over the water",
+  park: "Looks out over the park",
+  square: "Looks out over the square",
+  street: "Looks onto the street",
+  playground: "Looks onto a playground",
+  wall: "Faces a wall",
+  other: null,
+}
+
+/**
+ * "Looks out over the water": what the bench looks at, the lead way to talk
+ * about its facing. Null when the category is unknown or just "other".
+ */
+export const looksAt = (f: FacesCategory | null | undefined): string | null =>
+  (f && LOOKS[f]) || null
+
 /** Known facings are drawn in ink; estimated ones in airmail blue. */
 export const isKnown = (p: Pick<BenchProps, "facing_method">): boolean =>
   p.facing_method === "osm_tag" || p.facing_method === "human"

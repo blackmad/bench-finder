@@ -3,7 +3,7 @@
  * Nothing here guesses: a missing field drops its clause, and the fallback
  * headline is the street address (or the bench number).
  */
-import { facingKind, WIND_LONG, windName } from "./facing"
+import { facingKind, looksAt, WIND_LONG, windName } from "./facing"
 import type { BenchDetail, BenchProps, GalleryImage } from "./types"
 
 /** Plus codes ("9V5F+V2 Amsterdam") are not addresses a person would say. */
@@ -61,13 +61,24 @@ export function bodySentence(d: BenchDetail): string {
   return `${parts.join(", ")}.`
 }
 
+/**
+ * What the bench looks at leads ("Looks out over the water"); the compass
+ * direction follows as the detail. Without a category it is the compass alone.
+ */
 export function facingSentence(
-  p: Pick<BenchProps, "facing" | "facing_method" | "facing_confidence">
+  p: Pick<BenchProps, "facing" | "facing_method" | "facing_confidence"> &
+    Partial<Pick<BenchProps, "faces_category">>
 ): string | null {
+  const looks = looksAt(p.faces_category)
   const k = facingKind(p)
-  if (k === null || p.facing === null) return null
+  if (k === null || p.facing === null) return looks ? `${looks}.` : null
   const deg = Math.round(p.facing)
   const long = WIND_LONG[windName(deg)]
+  if (looks) {
+    return k === "mapped"
+      ? `${looks}, facing ${long}.`
+      : `${looks}, probably facing ${long}.`
+  }
   if (k === "mapped") {
     return p.facing_method === "human"
       ? `Faces ${long}, confirmed by a visitor.`

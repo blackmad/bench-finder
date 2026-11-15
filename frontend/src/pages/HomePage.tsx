@@ -1,12 +1,20 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { BenchOfTheDay } from "../components/BenchOfTheDay"
+import { BenchPreview } from "../components/BenchPreview"
 import { FiltersPanel } from "../components/FiltersPanel"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
 import { hasPhoto } from "../data/api"
 import { headline } from "../data/describe"
-import { facingKind, facingShort } from "../data/facing"
+import { facingShort, looksAt } from "../data/facing"
 import {
   coverage as coverageOf,
   type Filters,
@@ -20,7 +28,7 @@ import {
   summary,
 } from "../data/filters"
 import { useBenches } from "../data/hooks"
-import { benchOfTheDay, buildRows } from "../data/rows"
+import { buildRows } from "../data/rows"
 import type { BenchFeature } from "../data/types"
 import {
   type Viewport,
@@ -55,8 +63,13 @@ export default function HomePage() {
   const urlViewportRef = useRef(urlViewport)
   urlViewportRef.current = urlViewport
   const initialView = useRef(urlViewport ?? START_VIEW).current
+  // The bench opened in the rail, if any (`?bench=ID`).
+  const openId = useMemo(() => {
+    const n = Number(new URLSearchParams(spKey).get("bench"))
+    return Number.isInteger(n) && n > 0 ? n : null
+  }, [spKey])
 
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [hoverId, setHoverId] = useState<number | null>(null)
   // A bench picked on the map leads the first row even if it is not nearest.
   const [mapPick, setMapPick] = useState<number | null>(null)
   const [view, setView] = useState<MapView | null>(null)
@@ -68,9 +81,11 @@ export default function HomePage() {
   const railRef = useRef<HTMLElement>(null)
 
   const benches = useMemo(() => data ?? [], [data])
-  // The bench of the day ignores the filters: it is the same for everyone
-  // that day, a postcard rather than a search result.
-  const hero = useMemo(() => benchOfTheDay(benches), [benches])
+  const byId = useMemo(
+    () => new Map(benches.map((b) => [b.properties.id, b])),
+    [benches]
+  )
+  const selectedId = openId ?? hoverId
 
   const filters = useMemo(
     () => filtersFromParams(new URLSearchParams(spKey)),
@@ -105,10 +120,6 @@ export default function HomePage() {
     () => new Set(filtered.map((b) => b.properties.id)),
     [filtered]
   )
-  const hasEstimated = useMemo(
-    () => benches.some((b) => facingKind(b.properties) === "estimated"),
-    [benches]
-  )
 
   // The viewport goes in the URL once a move ends. The first report, and any
   // report that already matches the URL (back/forward), do not add history.
@@ -130,7 +141,7 @@ export default function HomePage() {
     [setSp]
   )
 
-  const { rows, plain, total, unfiltered } = useMemo(() => {
+  const { rows, plain, total, photographed, unfiltered } = useMemo(() => {
     const cx = view?.center[0] ?? START_VIEW.lng
     const cy = view?.center[1] ?? START_VIEW.lat
     const d = (b: BenchFeature) =>
@@ -145,26 +156,60 @@ export default function HomePage() {
       if (i > 0) list.unshift(...list.splice(i, 1))
     }
     return {
-      rows: buildRows(photos, filtered !== benches),
+      rows: buildRows(photos),
       plain,
       total: vis.length,
+      photographed: photos.length,
       unfiltered:
         filtered === benches ? vis.length : benches.filter(here).length,
     }
   }, [benches, filtered, view, mapPick])
 
-  const selectFromMap = useCallback((id: number) => {
-    setSelectedId(id)
-    setMapPick(id)
-    // After the rows re-render with the pick leading the first one.
-    requestAnimationFrame(() => {
-      railRef.current?.querySelector(`[data-id="${id}"]`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "start",
+  // Opening a bench adds a history entry, so Back returns to the rows.
+  const openBench = useCallback(
+    (id: number) => {
+      setSp((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set("bench", String(id))
+        return next
       })
+    },
+    [setSp]
+  )
+  const closeBench = useCallback(() => {
+    const id = openId
+    setSp((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete("bench")
+      return next
     })
-  }, [])
+    // Back on the rows, keep the closed bench in sight.
+    requestAnimationFrame(() => {
+      railRef.current
+        ?.querySelector<HTMLElement>(`[data-id="${id}"]`)
+        ?.scrollIntoView({ block: "nearest", inline: "nearest" })
+    })
+  }, [setSp, openId])
+
+  // A bench opened from a link may be off the map: bring it into view once.
+  const shownOpen = useRef<number | null>(null)
+  useEffect(() => {
+    if (openId === null || !view || shownOpen.current === openId) return
+    const b = byId.get(openId)
+    if (!b) return
+    shownOpen.current = openId
+    if (!inBounds(b, view)) {
+      setFlyTo({ center: b.geometry.coordinates, key: Date.now() })
+    }
+  }, [openId, view, byId])
+
+  const selectFromMap = useCallback(
+    (id: number) => {
+      setMapPick(id)
+      openBench(id)
+    },
+    [openBench]
+  )
 
   const flyToPlace = useCallback((center: [number, number]) => {
     setFlyTo({ center, key: Date.now() })
@@ -250,31 +295,42 @@ export default function HomePage() {
           ) : null}
         </div>
         <section className="rail" aria-label="Benches" ref={railRef}>
-          {hero ? <BenchOfTheDay bench={hero.properties} /> : null}
-          <RailCount
-            state={isPending ? "loading" : error ? "error" : "ok"}
-            total={total}
-            unfiltered={unfiltered}
-            filters={filters}
-            onClear={() => setFilters(NO_FILTERS)}
-            hasEstimated={hasEstimated}
-          />
-          {data && !rows.length ? (
-            <p className="railnote">
-              {isFiltered(filters)
-                ? "No photographed benches here match the filters. Zoom out, move the map or loosen the filters."
-                : "No photographed benches in this part of the map. Zoom out or move the map."}
-            </p>
-          ) : null}
-          {rows.map((r) => (
-            <RailRow
-              key={r.key}
-              row={r}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
+          {openId !== null && data ? (
+            <BenchPreview
+              key={openId}
+              id={openId}
+              bench={byId.get(openId)?.properties ?? null}
+              onClose={closeBench}
             />
-          ))}
-          <PlainList benches={plain} selectedId={selectedId} />
+          ) : (
+            <>
+              <RailCount
+                state={isPending ? "loading" : error ? "error" : "ok"}
+                total={total}
+                photographed={photographed}
+                unfiltered={unfiltered}
+                filters={filters}
+                onClear={() => setFilters(NO_FILTERS)}
+              />
+              {data && !rows.length ? (
+                <p className="railnote">
+                  {isFiltered(filters)
+                    ? "No photographed benches here match the filters. Zoom out, move the map or loosen the filters."
+                    : "No photographed benches in this part of the map. Zoom out or move the map."}
+                </p>
+              ) : null}
+              {rows.map((r) => (
+                <RailRow
+                  key={r.key}
+                  row={r}
+                  selectedId={selectedId}
+                  onSelect={setHoverId}
+                  onOpen={openBench}
+                />
+              ))}
+              <PlainList benches={plain} selectedId={selectedId} />
+            </>
+          )}
         </section>
       </main>
     </>
@@ -284,17 +340,17 @@ export default function HomePage() {
 function RailCount({
   state,
   total,
+  photographed,
   unfiltered,
   filters,
   onClear,
-  hasEstimated,
 }: {
   state: "loading" | "error" | "ok"
   total: number
+  photographed: number
   unfiltered: number
   filters: Filters
   onClear: () => void
-  hasEstimated: boolean
 }) {
   if (state !== "ok") {
     return (
@@ -305,6 +361,13 @@ function RailCount({
       </p>
     )
   }
+  const photos =
+    total > 0 ? (
+      <>
+        , <b className="num">{photographed.toLocaleString("en")}</b> with a
+        photo
+      </>
+    ) : null
   return (
     <p className="railcount" role="status">
       {isFiltered(filters) ? (
@@ -317,27 +380,12 @@ function RailCount({
           </button>
         </span>
       ) : (
-        <>
+        <span>
           <b className="num">{total.toLocaleString("en")}</b>{" "}
           {total === 1 ? "bench" : "benches"} in view on the map
-        </>
+          {photos}
+        </span>
       )}
-      <span className="key">
-        <span>
-          <i />
-          Facing mapped
-        </span>
-        {hasEstimated ? (
-          <span>
-            <i className="est" />
-            Estimated
-          </span>
-        ) : null}
-        <span>
-          <i className="none" />
-          Facing not known
-        </span>
-      </span>
     </p>
   )
 }
@@ -364,6 +412,7 @@ function PlainList({
       </div>
       <ul>
         {benches.slice(0, MAX_PLAIN).map((b) => {
+          const looks = looksAt(b.properties.faces_category)
           const f = facingShort(b.properties)
           return (
             <li key={b.properties.id}>
@@ -375,7 +424,7 @@ function PlainList({
                 }
               >
                 <span className="caps">{headline(b.properties)}</span>
-                <small>{f ? `Faces ${f}` : "No photo yet"}</small>
+                <small>{looks ?? (f ? `Faces ${f}` : "No photo yet")}</small>
               </Link>
             </li>
           )

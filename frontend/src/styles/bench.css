@@ -184,15 +184,6 @@ section.block,
 .gallery figcaption .when {
   color: var(--ink-3);
 }
-.minicompass {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 26px;
-  height: 26px;
-  filter: drop-shadow(0 1px 1px rgb(20 20 20 / 0.3));
-}
-
 .embed {
   display: block;
   width: 100%;

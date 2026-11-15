@@ -185,18 +185,31 @@ function FilterControls({
 }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...f, ...patch })
   const missing = [
+    !o.faces && "what it looks at",
     !o.materials && "material",
     !o.lit && "lighting",
     !o.seats && "seat count",
-    !o.faces && "what it looks at",
     !o.types && "kind of seat",
     !o.backrest && "backrest",
   ].filter((x): x is string => Boolean(x))
 
   return (
     <div className="fbody">
+      {/* What the bench looks at leads; the compass is the secondary detail. */}
+      {o.faces ? (
+        <Checks
+          label="Looks at"
+          all={FACES}
+          labels={FACES_LABEL}
+          counts={counts.faces}
+          selected={f.faces}
+          onChange={(s) => set({ faces: s })}
+          chips
+        />
+      ) : null}
+
       <fieldset className="fgroup facinggroup">
-        <legend className="caps">Facing</legend>
+        <legend className="caps">Faces (compass)</legend>
         {o.facing ? (
           <>
             <CompassPicker
@@ -300,17 +313,6 @@ function FilterControls({
           counts={counts.seats}
           selected={f.seats}
           onChange={(s) => set({ seats: s })}
-        />
-      ) : null}
-
-      {o.faces ? (
-        <Checks
-          label="Looks at"
-          all={FACES}
-          labels={FACES_LABEL}
-          counts={counts.faces}
-          selected={f.faces}
-          onChange={(s) => set({ faces: s })}
         />
       ) : null}
 
@@ -421,6 +423,7 @@ function Checks<T extends string>({
   counts,
   selected,
   onChange,
+  chips = false,
 }: {
   label: string
   all: readonly T[]
@@ -428,8 +431,31 @@ function Checks<T extends string>({
   counts: Record<T, number>
   selected: ReadonlySet<T>
   onChange: (s: Set<T>) => void
+  /** Toggle chips instead of a checkbox list (the lead "Looks at" group). */
+  chips?: boolean
 }) {
   const shown = all.filter((v) => counts[v] > 0 || selected.has(v))
+  if (chips) {
+    return (
+      <fieldset className="fgroup">
+        <legend className="caps">{label}</legend>
+        <div className="fchips">
+          {shown.map((v) => (
+            <button
+              key={v}
+              type="button"
+              className="chip"
+              aria-pressed={selected.has(v)}
+              onClick={() => onChange(toggled(selected, v))}
+            >
+              {labels[v]}
+              <small className="num">{fmt(counts[v])}</small>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+    )
+  }
   return (
     <fieldset className="fgroup">
       <legend className="caps">{label}</legend>
