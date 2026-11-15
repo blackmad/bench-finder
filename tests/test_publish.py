@@ -419,3 +419,15 @@ def test_hero_image_ids_match_publish(world):
         conn.close()
     # bench 1: the detected legacy view; bench 2: no bench seen; bench 3: manual hero
     assert ids == [1, 5]
+
+
+def test_source_is_fixed_once_decided(tmp_path):
+    """A re-cut landing mid-publish must not change an image's source (KeyError)."""
+    from bench_finder.publish.build import _source
+
+    _make_image(tmp_path / "v.jpg", (100, 100))
+    img = {"filepath": "v.jpg", "filename": "v.jpg"}
+    first = _source(img, tmp_path)
+    (tmp_path / "hires").mkdir()
+    _make_image(tmp_path / "hires" / "v.jpg", (200, 200))
+    assert _source(img, tmp_path) == first

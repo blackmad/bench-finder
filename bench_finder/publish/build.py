@@ -249,10 +249,16 @@ def _resolve(img: dict, images_root: Path) -> Path | None:
 
 
 def _source(img: dict, images_root: Path) -> str:
-    """The file renditions are cut from: the hi-res re-cut when one exists."""
-    path = _resolve(img, images_root)
-    assert path is not None  # only resolvable images are chosen
-    return str(render_source(path))
+    """The file renditions are cut from: the hi-res re-cut when one exists.
+
+    Decided once per image and cached on it: a re-cut finishing mid-publish
+    must not change the answer between cutting renditions and looking them up.
+    """
+    if "_source" not in img:
+        path = _resolve(img, images_root)
+        assert path is not None  # only resolvable images are chosen
+        img["_source"] = str(render_source(path))
+    return img["_source"]
 
 
 # --------------------------------------------------------------------------- hero ranking
