@@ -89,3 +89,9 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
 - Backup after the fetch: `~/bench_finder_backups/benches_2026-11-14_post_aimed_fetch.db`.
 - `images/` is now 64 GB locally. Pruning the legacy files is an owner GATE (deleting local image directories).
 - Next: gold labelling (2.6), owner.
+
+**2026-11-15 follow-ups**
+- Filters panel (5.x follow-up) live as version bd1127a6: compass direction picker, data-gated controls (MIN_FIELD 3), URL state, phone bottom sheet, vitest added (11 tests). Material/seats/lit appear once data is republished (build.py now writes them).
+- SAM 3 hero run started: `detect_aimed --model sam3` (threshold 0.6), DB backup `data/benches.db.bak-pre-sam3`.
+- OSM refresh check: 8,556 benches in the Amsterdam bbox vs 3,070 in DB; ~2,700 missing inside the covered 5.5 km circle (493 newly mapped since 2025-11, ~2,200 missed by the original radius-patchwork search); 50 deleted from OSM. Not ingested yet.
+- Other sources: BGT `straatmeubilair` plus_type=bank (345–367 Amsterdam, ~90% Zuidoost; 0 in Vondelpark); Amsterdam's DSO has no bench dataset; Amsterdam panorama API (free, ~5 m spacing, 2026 imagery) is the best non-Google image source; Mapillary token expired.
