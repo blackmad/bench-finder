@@ -24,7 +24,12 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
-from bench_finder.publish.images import FORMATS, ImageResult, process_image
+from bench_finder.publish.images import (
+    FORMATS,
+    ImageResult,
+    process_image,
+    render_source,
+)
 
 
 if TYPE_CHECKING:
@@ -243,6 +248,13 @@ def _resolve(img: dict, images_root: Path) -> Path | None:
     return p if p.is_file() else None
 
 
+def _source(img: dict, images_root: Path) -> str:
+    """The file renditions are cut from: the hi-res re-cut when one exists."""
+    path = _resolve(img, images_root)
+    assert path is not None  # only resolvable images are chosen
+    return str(render_source(path))
+
+
 # --------------------------------------------------------------------------- hero ranking
 
 TARGET_MODELS = ("sam3", "yolo11x-seg")
@@ -455,6 +467,30 @@ def _dir_bytes(root: Path, pattern: str) -> tuple[int, int]:
     return sum(p.stat().st_size for p in files), len(files)
 
 
+def select_images(
+    conn: sqlite3.Connection,
+    images_root: Path,
+    include_unclassified: bool = False,
+    limit: int | None = None,
+    bbox: tuple[float, float, float, float] | None = None,
+    gallery_size: int = 4,
+) -> tuple[list[sqlite3.Row], int, dict[int, tuple[list[dict], bool]]]:
+    """(rows, eligible, {bench id: (ordered images, has_hero)}) exactly as published."""
+    rows, eligible = _load_rows(conn, include_unclassified, limit, bbox)
+    imgs_by_bench = _load_images(conn, [r["id"] for r in rows])
+    chosen = {
+        r["id"]: _order_images(
+            imgs_by_bench.get(r["id"], []),
+            r["hero_image_id"],
+            gallery_size,
+            images_root,
+            _rank_facing(r),
+        )
+        for r in rows
+    }
+    return rows, eligible, chosen
+
+
 def publish(
     db_path: str | Path,
     images_root: str | Path,
@@ -474,24 +510,13 @@ def publish(
     out.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
-        rows, eligible = _load_rows(conn, include_unclassified, limit, bbox)
-        imgs_by_bench = _load_images(conn, [r["id"] for r in rows])
+        rows, eligible, chosen = select_images(
+            conn, images_root, include_unclassified, limit, bbox, gallery_size
+        )
     finally:
         conn.close()
 
-    chosen = {
-        r["id"]: _order_images(
-            imgs_by_bench.get(r["id"], []),
-            r["hero_image_id"],
-            gallery_size,
-            images_root,
-            _rank_facing(r),
-        )
-        for r in rows
-    }
-    sources = sorted(
-        {str(_resolve(i, images_root)) for v, _ in chosen.values() for i in v}
-    )
+    sources = sorted({_source(i, images_root) for v, _ in chosen.values() for i in v})
 
     results: dict[str, ImageResult] = {}
     if sources:
@@ -524,7 +549,7 @@ def publish(
         imgs, has_hero = chosen[r["id"]]
         entries = []
         for i in imgs:
-            res = results[str(_resolve(i, images_root))]
+            res = results[_source(i, images_root)]
             entries.append((_image_entry(res, i), i, res))
         hero = entries[0][0] if has_hero else None
         hero_key = entries[0][2].hash if has_hero else None

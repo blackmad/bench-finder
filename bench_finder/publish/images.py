@@ -28,6 +28,26 @@ class ImageResult:
     generated: int  # derivative files actually written (0 when fully cached)
 
 
+# Hi-res re-cuts (bench_finder.recut) live beside the originals: images/hires/<name>.
+HIRES_DIRNAME = "hires"
+
+
+def hires_path(original: Path) -> Path:
+    """Where the hi-res re-cut of ``original`` lives (``<dir>/hires/<same name>``)."""
+    return original.parent / HIRES_DIRNAME / original.name
+
+
+def render_source(original: Path) -> Path:
+    """The file to cut renditions from: the hi-res re-cut if present, else the original."""
+    hires = hires_path(original)
+    try:
+        if hires.is_file() and hires.stat().st_size > 0:
+            return hires
+    except OSError:
+        pass
+    return original
+
+
 def content_hash(src: Path) -> str:
     h = hashlib.sha256(ENCODER_SALT)
     with src.open("rb") as fh:

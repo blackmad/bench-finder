@@ -14,7 +14,13 @@ from bench_finder.publish.build import (
     target_gate,
     view_label,
 )
-from bench_finder.publish.images import process_image, target_widths
+from bench_finder.publish.images import (
+    hires_path,
+    process_image,
+    render_source,
+    target_widths,
+)
+from bench_finder.recut import hero_image_ids
 
 
 def _make_image(path: Path, size=(1000, 600), color=(120, 90, 40)):
@@ -378,3 +384,38 @@ def test_publish_picks_behind_view(world):
     d1 = json.loads((out / "data" / "bench" / "1.json").read_text())
     assert [g["camera_bearing_deg"] for g in d1["gallery"][:2]] == [210.0, 110.0]
     assert d1["gallery"][0]["urls"] == d1["hero_urls"]
+
+
+def test_render_source_prefers_hires(tmp_path):
+    orig = _make_image(tmp_path / "v.jpg", (100, 100))
+    assert render_source(orig) == orig
+    (tmp_path / "hires").mkdir()
+    (tmp_path / "hires" / "v.jpg").write_bytes(b"")  # an empty file is ignored
+    assert render_source(orig) == orig
+    hires = _make_image(tmp_path / "hires" / "v.jpg", (200, 200))
+    assert hires_path(orig) == hires
+    assert render_source(orig) == hires
+
+
+def test_publish_uses_hires_without_upscaling(world):
+    db, images, out = world
+    (images / "hires").mkdir()
+    _make_image(images / "hires" / "aimed.jpg", (1800, 1000))
+    publish(db, images, out, include_unclassified=True, workers=1)
+    d1 = json.loads((out / "data" / "bench" / "1.json").read_text())
+    aimed = next(g for g in d1["gallery"] if g["kind"] == "aimed")
+    assert set(aimed["urls"]) == {"400", "800", "1600"}  # 1600 is real now
+    assert aimed["width"] == 1600
+    legacy = next(g for g in d1["gallery"] if g["kind"] == "legacy")
+    assert set(legacy["urls"]) == {"400", "800"}  # no hi-res: never upscaled
+
+
+def test_hero_image_ids_match_publish(world):
+    db, images, _ = world
+    conn = sqlite3.connect(db)
+    try:
+        ids = hero_image_ids(conn, images, include_unclassified=True)
+    finally:
+        conn.close()
+    # bench 1: the detected legacy view; bench 2: no bench seen; bench 3: manual hero
+    assert ids == [1, 5]
