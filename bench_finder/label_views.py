@@ -57,9 +57,15 @@ class BudgetExceededError(RuntimeError):
     pass
 
 
-def gated_images(conn) -> list[tuple[int, int]]:
-    """(image_id, bench_candidate_id) for photos where the target bench was detected."""
-    return conn.execute(GATED_SQL, (SAM3_MIN, YOLO_MIN)).fetchall()
+def gated_images(conn, sam3_only: bool = False) -> list[tuple[int, int]]:
+    """(image_id, bench_candidate_id) for photos where the target bench was detected.
+
+    ``sam3_only``: only photos sam3 has confirmed (skips yolo-only photos that sam3
+    has not reached yet, which it rejects ~40% of the time).
+    """
+    return conn.execute(
+        GATED_SQL, (SAM3_MIN, 2.0 if sam3_only else YOLO_MIN)
+    ).fetchall()
 
 
 def labelled(conn, annotator: str = ANNOTATOR) -> set[int]:
@@ -73,11 +79,11 @@ def labelled(conn, annotator: str = ANNOTATOR) -> set[int]:
     }
 
 
-def plan(conn) -> list[int]:
+def plan(conn, sam3_only: bool = False) -> list[int]:
     """Unlabelled gated images, whole benches at a time, smallest benches first."""
     done = labelled(conn)
     benches: dict[int, list[int]] = {}
-    for iid, cid in gated_images(conn):
+    for iid, cid in gated_images(conn, sam3_only):
         if iid not in done:
             benches.setdefault(cid, []).append(iid)
     return [
@@ -88,11 +94,16 @@ def plan(conn) -> list[int]:
 
 
 def run(
-    db: str, max_usd: float, workers: int, images_root: Path, limit: int | None
+    db: str,
+    max_usd: float,
+    workers: int,
+    images_root: Path,
+    limit: int | None,
+    sam3_only: bool = False,
 ) -> dict:
     conn = store.connect(db)
     conn.execute("PRAGMA busy_timeout = 120000")  # detection jobs write too
-    todo = plan(conn)[:limit]
+    todo = plan(conn, sam3_only)[:limit]
     paths = {i: store.image_path(conn, i, images_root) for i in todo}
     usage, local, lock = Usage(), threading.local(), threading.Lock()
 
@@ -194,16 +205,17 @@ def main() -> None:
     r.add_argument("--workers", type=int, default=8)
     r.add_argument("--limit", type=int)
     r.add_argument("--images-root", type=Path, default=Path("images"))
+    r.add_argument("--sam3-only", action="store_true")
     p = sub.add_parser("plan", help="how many photos/benches are left to label")
-    del p
+    p.add_argument("--sam3-only", action="store_true")
     sub.add_parser("fuse")
     a = ap.parse_args()
     if a.cmd == "run":
-        print(run(a.db, a.max_usd, a.workers, a.images_root, a.limit))
+        print(run(a.db, a.max_usd, a.workers, a.images_root, a.limit, a.sam3_only))
     elif a.cmd == "plan":
         conn = store.connect(a.db)
-        todo = plan(conn)
-        cids = {c for i, c in gated_images(conn) if i in set(todo)}
+        todo = set(plan(conn, a.sam3_only))
+        cids = {c for i, c in gated_images(conn, a.sam3_only) if i in todo}
         print({"photos": len(todo), "benches": len(cids)})
     else:
         print(fuse(a.db))
