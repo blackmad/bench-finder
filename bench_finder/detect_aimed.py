@@ -12,6 +12,10 @@ One ``detections`` row per image (``model_id = MODEL_ID``, ``source = ULTRALYTIC
 hit's confidence (0 if none). Every box >= 0.05 goes to ``detection_items`` with
 ``is_target`` set. Images that already have a row for MODEL_ID are skipped.
 Bake-off result (task 2.7, 882 oracle gold images): P .98 / R .75 at 0.25.
+
+``--model sam3`` runs SAM 3 (text prompt "bench", ~1.8 s/image on MPS) instead,
+at threshold 0.6 (bake-off: P .98 / R .84); used to pick hero images. Needs
+``uv run --group detect-extra``.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from bench_finder.publish.build import AMSTERDAM_BBOX
 
 MODEL_ID = "yolo11x-seg"
 THRESHOLD = 0.25
+THRESHOLDS = {"yolo11x-seg": 0.25, "sam3": 0.6}
 FLOOR = 0.05
 RADIUS = 0.30
 BENCH_CLASS = 13  # COCO "bench"
@@ -39,10 +44,12 @@ def is_target(x1: float, x2: float, width: float, radius: float = RADIUS) -> boo
 
 
 def todo_images(
-    conn: sqlite3.Connection, bbox: tuple[float, float, float, float] | None
+    conn: sqlite3.Connection,
+    bbox: tuple[float, float, float, float] | None,
+    model_id: str = MODEL_ID,
 ) -> list[tuple[int, str]]:
     where = ""
-    params: list = [MODEL_ID]
+    params: list = [model_id]
     if bbox:
         where = "AND c.lng BETWEEN ? AND ? AND c.lat BETWEEN ? AND ?"
         params += [bbox[0], bbox[2], bbox[1], bbox[3]]
@@ -66,14 +73,23 @@ def main() -> None:
     ap.add_argument("--limit", type=int)
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--device", default="mps")
+    ap.add_argument("--model", choices=sorted(THRESHOLDS), default=MODEL_ID)
     a = ap.parse_args()
 
-    from ultralytics import YOLO
-
+    model_id, threshold = a.model, THRESHOLDS[a.model]
     bbox = AMSTERDAM_BBOX if a.bbox == "amsterdam" else None
     conn = sqlite3.connect(a.db)
-    rows = todo_images(conn, bbox)[: a.limit]
-    model = YOLO(a.weights)
+    rows = todo_images(conn, bbox, model_id)[: a.limit]
+    if model_id == "sam3":
+        from bench_finder.bakeoff.detectors import MODELS
+
+        sam = MODELS["sam3"]
+        sam.load(Path(a.weights).parent, a.device)
+        a.batch = 1
+    else:
+        from ultralytics import YOLO
+
+        model = YOLO(a.weights)
     t0, hits, done = time.time(), 0, 0
     for start in range(0, len(rows), a.batch):
         chunk = []
@@ -86,23 +102,36 @@ def main() -> None:
                 chunk.append((iid, p))
         if not chunk:
             continue
-        results = model.predict(
-            [str(p) for _, p in chunk],
-            conf=FLOOR,
-            classes=[BENCH_CLASS],
-            device=a.device,
-            verbose=False,
-        )
-        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
-        for (iid, _), res in zip(chunk, results, strict=True):
-            width = res.orig_shape[1]
-            boxes = [
-                (float(b.conf), [float(v) for v in b.xyxy[0].tolist()])
-                for b in res.boxes
+        if model_id == "sam3":
+            from PIL import Image
+
+            iid, p = chunk[0]
+            with Image.open(p) as im:
+                w = im.width
+            dets = [d for d in sam.detect(p) if d.conf >= FLOOR]
+            results = [(w, [(d.conf, [d.x1, d.y1, d.x2, d.y2]) for d in dets])]
+        else:
+            results = [
+                (
+                    res.orig_shape[1],
+                    [
+                        (float(b.conf), [float(v) for v in b.xyxy[0].tolist()])
+                        for b in res.boxes
+                    ],
+                )
+                for res in model.predict(
+                    [str(p) for _, p in chunk],
+                    conf=FLOOR,
+                    classes=[BENCH_CLASS],
+                    device=a.device,
+                    verbose=False,
+                )
             ]
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
+        for (iid, _), (width, boxes) in zip(chunk, results, strict=True):
             targets = [c for c, (x1, _, x2, _) in boxes if is_target(x1, x2, width)]
             best = max(targets, default=0.0)
-            has = best >= THRESHOLD
+            has = best >= threshold
             hits += has
             cur = conn.execute(
                 "INSERT INTO detections (image_id, has_bench, bench_count, max_confidence, detections, "
@@ -111,11 +140,11 @@ def main() -> None:
                 (
                     iid,
                     has,
-                    sum(c >= THRESHOLD for c, _ in boxes),
+                    sum(c >= threshold for c, _ in boxes),
                     best,
                     json.dumps([{"conf": c, "xyxy": xy} for c, xy in boxes]),
-                    MODEL_ID,
-                    THRESHOLD,
+                    model_id,
+                    threshold,
                     now,
                 ),
             )
@@ -137,7 +166,7 @@ def main() -> None:
             )
             done += 1
         conn.commit()
-        if (start // a.batch) % 50 == 0:
+        if (start // a.batch) % (50 if a.batch > 1 else 200) == 0:
             print(
                 f"{done}/{len(rows)} images, {hits} with target, {time.time() - t0:.0f}s",
                 flush=True,
