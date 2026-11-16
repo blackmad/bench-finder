@@ -225,35 +225,48 @@ export default function HomePage() {
     setFlyTo({ center, key: Date.now() })
   }, [])
 
-  // Location is only requested when the button is pressed.
-  const nearMe = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocating("denied")
-      return
-    }
-    setLocating("busy")
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const here: [number, number] = [
-          pos.coords.longitude,
-          pos.coords.latitude,
-        ]
-        // Reach out until about eight places are in view, however sparse.
-        const pts = benches.map(
-          (b) => b.geometry.coordinates as [number, number]
-        )
-        const radiusM = reachMetres(here, pts)
-        if (reachMetres(here, pts, 1) > FAR_M) {
-          setLocating("far")
-          return
-        }
-        setLocating("idle")
-        setFlyTo({ center: here, key: Date.now(), radiusM })
-      },
-      () => setLocating("denied"),
-      { timeout: 10_000, maximumAge: 60_000 }
-    )
-  }, [benches])
+  // Location: asked once on arrival (see below) and whenever the button is
+  // pressed. `quiet` keeps the start view without a note when it fails.
+  const nearMe = useCallback(
+    (quiet = false) => {
+      if (!navigator.geolocation) {
+        setLocating(quiet ? "idle" : "denied")
+        return
+      }
+      setLocating("busy")
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const here: [number, number] = [
+            pos.coords.longitude,
+            pos.coords.latitude,
+          ]
+          // Reach out until about eight places are in view, however sparse.
+          const pts = benches.map(
+            (b) => b.geometry.coordinates as [number, number]
+          )
+          const radiusM = reachMetres(here, pts)
+          if (reachMetres(here, pts, 1) > FAR_M) {
+            setLocating(quiet ? "idle" : "far")
+            return
+          }
+          setLocating("idle")
+          setFlyTo({ center: here, key: Date.now(), radiusM })
+        },
+        () => setLocating(quiet ? "idle" : "denied"),
+        { timeout: 10_000, maximumAge: 60_000 }
+      )
+    },
+    [benches]
+  )
+
+  // Default to "near me": a visit with no place or bench in the link starts
+  // where the visitor is (Amsterdam stays the start view if they say no).
+  const autoNear = useRef(urlViewport === null && openId === null)
+  useEffect(() => {
+    if (!autoNear.current || !data) return
+    autoNear.current = false
+    nearMe(true)
+  }, [data, nearMe])
 
   // DOM order is the keyboard path: the map, then the rail (the keyboard
   // route to each bench; markers are GL-drawn).
@@ -291,7 +304,7 @@ export default function HomePage() {
           <button
             className="nearme"
             type="button"
-            onClick={nearMe}
+            onClick={() => nearMe()}
             disabled={locating === "busy"}
           >
             <svg

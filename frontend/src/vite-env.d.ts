@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   /** Base URL of the published static data (manifest.json, GeoJSON, images). */
   readonly VITE_DATA_BASE_URL?: string
+  readonly VITE_SENTRY_RELEASE?: string
   /** Base URL of the Worker that handles user writes. Empty = same origin. */
   readonly VITE_API_BASE_URL?: string
   readonly VITE_FIREBASE_API_KEY?: string

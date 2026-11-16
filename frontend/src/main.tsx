@@ -8,6 +8,7 @@ import "./styles/index.css"
 if (import.meta.env.PROD) {
   Sentry.init({
     dsn: "https://b801bbd46738a657a8f7cf5906ad2ffe@o417464.ingest.us.sentry.io/4512443395604480",
+    release: import.meta.env.VITE_SENTRY_RELEASE,
     sendDefaultPii: false,
     allowUrls: [/bench\.blackmad\.com/, /workers\.dev/],
     // Stale chunks after a deploy reload themselves; not worth an alert.
