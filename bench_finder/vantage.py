@@ -55,6 +55,7 @@ WATER_MAX_M = 60.0
 PER_BENCH = 2
 MIN_FACING_COS = 0.34  # within ~70° of straight behind or straight in front
 FOV_MIN, FOV_MAX = 18.0, 90.0
+SPREAD_M = 3.0  # picks for one bench at least this far apart
 BENCH_HALF_SPAN_M = 3.0  # frame about +-3 m around the bench, as the first capture
 AMS_API = "https://api.data.amsterdam.nl/panorama/panoramas/"
 UA = {"User-Agent": "bench-finder (open data panoramas)"}
@@ -82,8 +83,10 @@ def score(c: PanoCandidate, b: Bench) -> float | None:
         d = c.distance_m
         if not MIN_PANO_DISTANCE_M <= d <= NEAR_MAX_M:
             return None
-        dist_pen = 0.0 if 5 <= d <= 15 else ((d - 15) / 45 if d > 15 else (5 - d) / 5)
-        return 0.6 - 0.5 * dist_pen + 0.02 * ((c.year or 2015) - 2015)
+        # Close matters more than new here: without a facing the view is aimed
+        # at the pin, and a far view of an unknown side is the weakest shot.
+        dist_pen = 0.0 if 5 <= d <= 12 else ((d - 12) / 15 if d > 12 else (5 - d) / 5)
+        return 0.6 - 0.5 * dist_pen + 0.01 * ((c.year or 2015) - 2015)
     rel = math.radians((c.bearing_deg - b.facing + 180) % 360 - 180)
     cos = math.cos(rel)  # 1: camera behind the bench, -1: in front of it
     if abs(cos) < MIN_FACING_COS:
@@ -110,6 +113,12 @@ def choose(
         if s is not None:
             scored.append((s, c))
     scored.sort(key=lambda sc: -sc[0])
+    # Two picks from the same spot (another year) show the same thing.
+    spread: list[tuple[float, PanoCandidate]] = []
+    for sc, c in scored:
+        if all(haversine_m(c.lat, c.lon, o.lat, o.lon) >= SPREAD_M for _, o in spread):
+            spread.append((sc, c))
+    scored = spread
     picked: list[PanoCandidate] = []
     sides: set[bool] = set()
     for _, c in scored:  # first pass: one per side

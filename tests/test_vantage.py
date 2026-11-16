@@ -1,12 +1,16 @@
+import math
+
 from bench_finder.core.pano_geometry import PanoCandidate
 from bench_finder.vantage import Bench, choose, fov_for, score
 
 
 def _c(pid, bearing, d, year=2024, source="google"):
+    # The camera sits opposite the bearing it looks along to the bench.
+    back = math.radians(bearing + 180)
     return PanoCandidate(
         pano_id=pid,
-        lat=0,
-        lon=0,
+        lat=52.37 + d * math.cos(back) / 111_320,
+        lon=4.9 + d * math.sin(back) / (111_320 * math.cos(math.radians(52.37))),
         distance_m=d,
         bearing_deg=bearing,
         source=source,
@@ -40,3 +44,12 @@ def test_choose_one_per_side_and_skips_known_panos():
 def test_fov_narrows_with_distance():
     assert 70 < fov_for(4) < 80
     assert fov_for(45) == 18.0
+
+
+def test_no_facing_prefers_close_and_spread():
+    nf = Bench(3, 52.37, 4.9, facing=None, water=False, have=frozenset())
+    near_old, far_new = _c("n", 0, 7, year=2016), _c("f", 0, 19, year=2025)
+    assert score(near_old, nf) > score(far_new, nf)
+    same_spot = _c("n2", 0, 7, year=2020)  # the same spot in another year
+    ids = [c.pano_id for c in choose([near_old, same_spot, _c("o", 180, 9)], nf)]
+    assert len(ids) == 2 and "o" in ids
