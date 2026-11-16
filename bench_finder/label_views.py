@@ -93,6 +93,15 @@ def plan(conn, sam3_only: bool = False) -> list[int]:
     ]
 
 
+def hero_plan(conn, db: str, images_root: Path) -> list[int]:
+    """Published heroes (publish ranking) that this labeller has not seen yet."""
+    from bench_finder.recut import connect_ro, hero_image_ids
+
+    heroes = hero_image_ids(connect_ro(db), images_root, include_unclassified=True)
+    done = labelled(conn)
+    return [i for i in heroes if i not in done]
+
+
 def run(
     db: str,
     max_usd: float,
@@ -100,10 +109,13 @@ def run(
     images_root: Path,
     limit: int | None,
     sam3_only: bool = False,
+    heroes: bool = False,
 ) -> dict:
     conn = store.connect(db)
     conn.execute("PRAGMA busy_timeout = 120000")  # detection jobs write too
-    todo = plan(conn, sam3_only)[:limit]
+    todo = (hero_plan(conn, db, images_root) if heroes else plan(conn, sam3_only))[
+        :limit
+    ]
     paths = {i: store.image_path(conn, i, images_root) for i in todo}
     usage, local, lock = Usage(), threading.local(), threading.Lock()
 
@@ -206,12 +218,25 @@ def main() -> None:
     r.add_argument("--limit", type=int)
     r.add_argument("--images-root", type=Path, default=Path("images"))
     r.add_argument("--sam3-only", action="store_true")
+    r.add_argument(
+        "--heroes", action="store_true", help="only published heroes not yet labelled"
+    )
     p = sub.add_parser("plan", help="how many photos/benches are left to label")
     p.add_argument("--sam3-only", action="store_true")
     sub.add_parser("fuse")
     a = ap.parse_args()
     if a.cmd == "run":
-        print(run(a.db, a.max_usd, a.workers, a.images_root, a.limit, a.sam3_only))
+        print(
+            run(
+                a.db,
+                a.max_usd,
+                a.workers,
+                a.images_root,
+                a.limit,
+                a.sam3_only,
+                a.heroes,
+            )
+        )
     elif a.cmd == "plan":
         conn = store.connect(a.db)
         todo = set(plan(conn, a.sam3_only))
