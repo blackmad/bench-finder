@@ -31,6 +31,7 @@ import os
 import sqlite3
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -257,7 +258,10 @@ async def _run(db: str, limit: int | None, render: bool, concurrency: int) -> di
     from bench_finder.services.database import BenchDatabase
     from bench_finder.services.image_download_service import image_base_from_capture
 
-    benches = load_benches(db, limit)
+    # Benches already done (a restart must not add two more views each).
+    done_file = Path(db).with_name("vantage_done.txt")
+    done = set(done_file.read_text().split()) if done_file.exists() else set()
+    benches = [b for b in load_benches(db, limit) if str(b.id) not in done]
     client = StreetViewClient()
     database = BenchDatabase(db_path=db) if render else None
     stats: Counter[str] = Counter()
@@ -304,6 +308,9 @@ async def _run(db: str, limit: int | None, render: bool, concurrency: int) -> di
                     await asyncio.to_thread(
                         database.add_image, image_base_from_capture(cap), b.id
                     )
+                if render:
+                    with done_file.open("a") as f:
+                        f.write(f"{b.id}\n")
                 if stats["benches"] % 100 == 0:
                     logger.info("%s", dict(stats))
 
