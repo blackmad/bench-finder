@@ -431,3 +431,11 @@ def test_source_is_fixed_once_decided(tmp_path):
     (tmp_path / "hires").mkdir()
     _make_image(tmp_path / "hires" / "v.jpg", (200, 200))
     assert _source(img, tmp_path) == first
+
+
+def test_webp_capped_at_800():
+    from bench_finder.publish.images import format_widths
+
+    assert format_widths((400, 800, 1600), "avif") == (400, 800, 1600)
+    assert format_widths((400, 800, 1600), "webp") == (400, 800)
+    assert format_widths((1000,), "webp") == (1000,)

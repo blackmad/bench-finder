@@ -15,6 +15,17 @@ FORMATS = ("avif", "webp")
 # Bump to invalidate every derivative when encoder settings change.
 ENCODER_SALT = b"v1-avif-q55-webp-q78"
 QUALITY = {"avif": 55, "webp": 78}
+# WebP is only the fallback for browsers without AVIF; its 1600 rendition cost ~2 GB.
+MAX_WIDTH = {"webp": 800}
+
+
+def format_widths(widths: tuple[int, ...], fmt: str) -> tuple[int, ...]:
+    """The widths rendered in ``fmt``: those within its cap (at least the smallest)."""
+    cap = MAX_WIDTH.get(fmt)
+    if cap is None:
+        return widths
+    kept = tuple(w for w in widths if w <= cap)
+    return kept if kept else widths[:1]
 
 
 @dataclass(frozen=True)
@@ -78,7 +89,10 @@ def process_image(src: str, out_dir: str) -> ImageResult:
         (out / "img").mkdir(parents=True, exist_ok=True)
         for w in widths:
             todo = [
-                f for f in FORMATS if not (out / derivative_name(digest, w, f)).exists()
+                f
+                for f in FORMATS
+                if w in format_widths(widths, f)
+                and not (out / derivative_name(digest, w, f)).exists()
             ]
             if not todo:
                 continue

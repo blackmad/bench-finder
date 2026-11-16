@@ -27,6 +27,7 @@ from PIL import Image
 from bench_finder.publish.images import (
     FORMATS,
     ImageResult,
+    format_widths,
     process_image,
     render_source,
 )
@@ -439,7 +440,7 @@ def _rank_facing(r: sqlite3.Row) -> float | None:
 
 
 def _urls(digest: str, widths: tuple[int, ...], fmt: str) -> dict[str, str]:
-    return {str(w): f"img/{digest}-{w}.{fmt}" for w in widths}
+    return {str(w): f"img/{digest}-{w}.{fmt}" for w in format_widths(widths, fmt)}
 
 
 def _image_entry(res: ImageResult, img: dict) -> dict:
