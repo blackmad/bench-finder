@@ -281,3 +281,142 @@ export function thumbSprite({ photo, selected, count = 1 }: ThumbArgs): Sprite {
   }
   return finish(cv, g)
 }
+
+// ---- Marker style trials (see markers.ts). All drawn facing up (north); the
+// layer rotates them to the bench's facing. "Back" = has a backrest.
+
+const WOOD = "#9a6a3e"
+const WOOD_DARK = "#5e3d22"
+const WOOD_EST = "#b99a78"
+const IRON = "#6f6e68"
+
+/** A wooden bench from above, as in a park plan: slats, backrest, iron ends. */
+export function slatsSprite(kind: MarkerKind | "none", back: boolean): Sprite {
+  const S = 44
+  const c = S / 2
+  const { cv, g } = canvas(S, S)
+  const W = kind === "sel" ? 34 : 30
+  const wood = kind === "est" || kind === "none" ? WOOD_EST : WOOD
+  const slats = back ? 3 : 4
+  const slatH = 2.7
+  const gap = 1.3
+  const seatH = slats * slatH + (slats - 1) * gap
+  const top = c - (seatH + (back ? 5 : 0)) / 2
+  const left = c - W / 2
+  // Soft ground shadow.
+  g.fillStyle = "rgb(20 20 20 / 0.18)"
+  g.fillRect(left + 1, top + 1.5, W, seatH + (back ? 5.5 : 0))
+  if (kind === "sel") {
+    g.strokeStyle = VERMILION
+    g.lineWidth = 2
+    g.strokeRect(left - 3, top - 3, W + 6, seatH + (back ? 5 : 0) + 6)
+  }
+  // Iron ends.
+  g.fillStyle = IRON
+  g.fillRect(left + 2.5, top - 1, 2, seatH + (back ? 5.5 : 2))
+  g.fillRect(left + W - 4.5, top - 1, 2, seatH + (back ? 5.5 : 2))
+  g.fillStyle = wood
+  for (let i = 0; i < slats; i++) {
+    g.fillRect(left, top + i * (slatH + gap), W, slatH)
+  }
+  if (back) {
+    g.fillStyle = kind === "est" ? WOOD : WOOD_DARK
+    g.fillRect(left - 1, top + seatH + 1.5, W + 2, 3.5)
+  }
+  if (kind === "none") {
+    g.globalCompositeOperation = "destination-in"
+    g.fillStyle = "rgb(0 0 0 / 0.7)"
+    g.fillRect(0, 0, S, S)
+  }
+  return finish(cv, g)
+}
+
+/** A dot with a fan of what the bench looks at; backless: a fan both ways. */
+export function coneSprite(kind: MarkerKind | "none", back: boolean): Sprite {
+  const S = 52
+  const c = S / 2
+  const { cv, g } = canvas(S, S)
+  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
+  const half = ((kind === "est" ? 42 : 30) * Math.PI) / 180
+  const R = kind === "sel" ? 24 : 21
+  const fan = (dir: number, alpha: number) => {
+    const a = dir - Math.PI / 2
+    const grad = g.createRadialGradient(c, c, 3, c, c, R)
+    grad.addColorStop(
+      0,
+      `${col}${Math.round(alpha * 255)
+        .toString(16)
+        .padStart(2, "0")}`
+    )
+    grad.addColorStop(1, `${col}00`)
+    g.fillStyle = grad
+    g.beginPath()
+    g.moveTo(c, c)
+    g.arc(c, c, R, a - half, a + half)
+    g.closePath()
+    g.fill()
+  }
+  if (kind !== "none") {
+    const strength = kind === "est" ? 0.35 : 0.55
+    fan(0, back ? strength : strength * 0.7)
+    if (!back) fan(Math.PI, strength * 0.7)
+  }
+  g.beginPath()
+  g.arc(c, c, kind === "sel" ? 5.5 : 4.5, 0, Math.PI * 2)
+  g.fillStyle = kind === "none" ? PAPER : col
+  g.fill()
+  g.lineWidth = 1.6
+  g.strokeStyle = kind === "none" ? INK : PAPER
+  g.stroke()
+  return finish(cv, g)
+}
+
+/** Head-on style, rotating part: a paper disc with a pointer on its rim. */
+export function discSprite(kind: MarkerKind | "none", back: boolean): Sprite {
+  const S = 44
+  const c = S / 2
+  const { cv, g } = canvas(S, S)
+  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
+  const r = kind === "sel" ? 12 : 10.5
+  const tip = (dir: number) => {
+    g.save()
+    g.translate(c, c)
+    g.rotate(dir)
+    g.beginPath()
+    g.moveTo(0, -r - 6.5)
+    g.lineTo(-4.2, -r + 0.5)
+    g.lineTo(4.2, -r + 0.5)
+    g.closePath()
+    g.fillStyle = col
+    g.fill()
+    g.restore()
+  }
+  if (kind !== "none") {
+    tip(0)
+    if (!back) tip(Math.PI)
+  }
+  g.beginPath()
+  g.arc(c, c, r, 0, Math.PI * 2)
+  g.fillStyle = PAPER
+  g.fill()
+  g.lineWidth = kind === "sel" ? 2.2 : 1.6
+  if (kind === "est") g.setLineDash([2.5, 2])
+  g.strokeStyle = col
+  g.stroke()
+  return finish(cv, g)
+}
+
+/** Head-on style, upright part: a bench pictogram seen from the front. */
+export function faceSprite(selected: boolean): Sprite {
+  const S = 44
+  const c = S / 2
+  const { cv, g } = canvas(S, S)
+  g.fillStyle = selected ? VERMILION : INK
+  const w = 12
+  g.fillRect(c - w / 2, c - 5, w, 2.2) // backrest top rail
+  g.fillRect(c - w / 2, c - 1.8, w, 1.6) // backrest lower rail
+  g.fillRect(c - w / 2 - 1, c + 1.2, w + 2, 2.2) // seat
+  g.fillRect(c - w / 2 + 0.5, c - 5, 1.4, 10) // left end
+  g.fillRect(c + w / 2 - 1.9, c - 5, 1.4, 10) // right end
+  return finish(cv, g)
+}

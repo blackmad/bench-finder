@@ -14,7 +14,15 @@ import { isKnown, sectorOf } from "../data/facing"
 import type { BenchFeature, ImageUrls } from "../data/types"
 import { zoomForRadius } from "../lib/nearZoom"
 import type { Viewport } from "../lib/viewport"
-import { benchSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
+import {
+  MARKER_STYLES,
+  type MarkerStyle,
+  markerSprite,
+  markerStyle,
+  pickerWanted,
+  saveMarkerStyle,
+} from "./markers"
+import { faceSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
 import { type MapView, restyle, STYLE_URL } from "./style"
 
 // maplibre-gl 6 locates its worker next to its own module; once bundled that
@@ -315,16 +323,23 @@ export default function BenchMap({
         .getContainer()
         .querySelector(".maplibregl-ctrl-attrib")
         ?.classList.remove("maplibregl-compact-show")
+      const style = markerStyle()
       for (const k of ["known", "est", "sel"] as const) {
-        map.addImage(`m-${k}`, benchSprite(k, true).data, { pixelRatio: 2 })
-        map.addImage(`m-${k}axis`, benchSprite(k, false).data, {
+        map.addImage(`m-${k}`, markerSprite(style, k, true).data, {
+          pixelRatio: 2,
+        })
+        map.addImage(`m-${k}axis`, markerSprite(style, k, false).data, {
           pixelRatio: 2,
         })
       }
-      map.addImage("m-none", benchSprite("none", false).data, { pixelRatio: 2 })
-      map.addImage("m-selnone", benchSprite("sel", false).data, {
+      map.addImage("m-none", markerSprite(style, "none", false).data, {
         pixelRatio: 2,
       })
+      map.addImage("m-selnone", markerSprite(style, "sel", false).data, {
+        pixelRatio: 2,
+      })
+      map.addImage("f-ink", faceSprite(false).data, { pixelRatio: 2 })
+      map.addImage("f-sel", faceSprite(true).data, { pixelRatio: 2 })
       map.addSource("benches", {
         type: "geojson",
         data: dots(benchesRef.current, visibleRef.current, selectedRef.current),
@@ -395,6 +410,33 @@ export default function BenchMap({
         filter: ["all", ["!", ["has", "point_count"]], ["get", "photo"]],
         layout: dotLayout,
       })
+      // The head-on style keeps its bench pictogram upright over the disc.
+      if (style === "headon") {
+        const faceLayout: SymbolLayerSpecification["layout"] = {
+          "icon-image": "f-ink",
+          "icon-allow-overlap": true,
+          "icon-size": 0.86,
+        }
+        map.addLayer({
+          id: "bench-face",
+          type: "symbol",
+          source: "benches",
+          filter: [
+            "all",
+            ["!", ["has", "point_count"]],
+            ["!", ["get", "photo"]],
+          ],
+          layout: faceLayout,
+        })
+        map.addLayer({
+          id: "bench-photo-face",
+          type: "symbol",
+          source: "benches",
+          maxzoom: PHOTO_ZOOM,
+          filter: ["all", ["!", ["has", "point_count"]], ["get", "photo"]],
+          layout: faceLayout,
+        })
+      }
       // Photographed benches: postcard sprites. A cluster shows one member's
       // photo with a count badge; every bench is on the map in some marker.
       map.addLayer({
@@ -440,6 +482,19 @@ export default function BenchMap({
           "icon-size": 1.2,
         },
       })
+      if (style === "headon") {
+        map.addLayer({
+          id: "sel-face",
+          type: "symbol",
+          source: "sel",
+          filter: ["!", ["get", "photo"]],
+          layout: {
+            "icon-image": "f-sel",
+            "icon-allow-overlap": true,
+            "icon-size": 1.2,
+          },
+        })
+      }
       map.addLayer({
         id: "sel-thumb",
         type: "symbol",
@@ -581,5 +636,35 @@ export default function BenchMap({
     }
   }, [flyTo])
 
-  return <div ref={container} className="map-canvas" />
+  return (
+    <>
+      <div ref={container} className="map-canvas" />
+      {pickerWanted() ? <MarkerPicker /> : null}
+    </>
+  )
+}
+
+/** Trial switcher for bench marker styles (shown with `?markers`). */
+function MarkerPicker() {
+  return (
+    <label className="markerpick">
+      Markers{" "}
+      <select
+        defaultValue={markerStyle()}
+        onChange={(e) => {
+          const v = e.target.value as MarkerStyle
+          saveMarkerStyle(v)
+          const u = new URL(window.location.href)
+          u.searchParams.set("markers", v)
+          window.location.assign(u.toString())
+        }}
+      >
+        {MARKER_STYLES.map(([k, label]) => (
+          <option key={k} value={k}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
 }
