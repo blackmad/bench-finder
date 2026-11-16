@@ -451,8 +451,9 @@ h1[tabindex="-1"]:focus {
   gap: 14px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  padding: 2px 2px 14px;
-  margin: 0 -2px;
+  /* Room above for a lifted tile's 2px outline: a scroller clips it otherwise. */
+  padding: 6px 2px 14px;
+  margin: -4px -2px 0;
 }
 .railrow[data-all] .strip {
   display: grid;
@@ -1136,8 +1137,8 @@ h1[tabindex="-1"]:focus {
     display: none;
   }
   .strip {
-    padding: 2px 16px 14px;
-    margin: 0;
+    padding: 6px 16px 14px;
+    margin: -4px 0 0;
     scroll-snap-type: x mandatory;
     scroll-padding-left: 16px;
   }
