@@ -56,7 +56,8 @@ export function roseSprite(
   g.lineCap = "round"
   g.strokeStyle = INK
   g.lineWidth = 2
-  for (let i = 0; i < 8; i++) {
+  // Facing spikes were dropped (owner: "weird"); the badge is the count alone.
+  for (let i = 0; i < 0; i++) {
     const lvl = levels[i] ?? 0
     if (!lvl) continue
     const a = (i * 45 * Math.PI) / 180
