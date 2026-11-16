@@ -764,7 +764,13 @@ def publish(
     )
     res.derivatives_written = sum(r.generated for r in results.values())
     res.geojson_name, res.geojson_bytes, res.geojson_gz_bytes = gname, len(fc), gz
-    res.image_bytes, n_img = _dir_bytes(out, "img/*")
+    # Only images this publish uses count: older renditions stay on disk but
+    # the upload prunes them from the bucket.
+    from bench_finder.publish.upload import live_keys
+
+    live_imgs = [out / k for k in live_keys(out) if k.startswith("img/")]
+    res.image_bytes = sum(p.stat().st_size for p in live_imgs if p.is_file())
+    n_img = len(live_imgs)
     bench_json_bytes, n_json = _dir_bytes(out, "data/bench/*.json")
     res.json_bytes = bench_json_bytes + (out / "manifest.json").stat().st_size
     res.file_counts = {"img": n_img, "bench_json": n_json, "geojson": 1, "manifest": 1}

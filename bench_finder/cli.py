@@ -3134,7 +3134,8 @@ def publish_command(
             raise typer.Exit(1) from e
         stats = upload_dir(result.out, client, bucket)
         console.print(
-            f"Uploaded {stats['uploaded']}, skipped {stats['skipped']} existing"
+            f"Uploaded {stats['uploaded']}, skipped {stats['skipped']} existing, "
+            f"pruned {stats['pruned']} unused"
         )
 
 

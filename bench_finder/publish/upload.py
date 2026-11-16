@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import mimetypes
 import os
+import re
 from typing import TYPE_CHECKING, Any
 
 
@@ -65,15 +67,57 @@ def _md5(path: Path) -> str:
     return hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
 
 
-def upload_dir(out_dir: Path, client: Any, bucket: str) -> dict[str, int]:
-    """Upload files under ``out_dir``; skip hashed objects already present and mutable
-    ones whose ETag equals the local md5. ``manifest.json`` goes last so readers never
-    see a manifest pointing at missing files.
+_IMG_REF = re.compile(r"img/[0-9a-f]{16}-\d+\.(?:avif|webp|jpg)")
+
+
+def live_keys(out_dir: Path) -> set[str]:
+    """Every key the current publish uses: the manifest, its GeoJSON, the bench
+    files, and the images those name. Anything else in ``out_dir`` or the bucket
+    is a leftover from an earlier publish."""
+    manifest = json.loads((out_dir / "manifest.json").read_text())
+    data = manifest.get("data_base", "data")
+    geo = f"{data}/{manifest['benches']}"
+    keys = {"manifest.json", geo}
+    texts = [(out_dir / geo).read_text()]
+    for p in (out_dir / data / manifest.get("bench_dir", "bench")).glob("*.json"):
+        keys.add(p.relative_to(out_dir).as_posix())
+        texts.append(p.read_text())
+    for t in texts:
+        keys.update(_IMG_REF.findall(t))
+    return keys
+
+
+def prune_remote(client: Any, bucket: str, live: set[str], existing: set[str]) -> int:
+    """Delete bucket objects the current publish no longer uses (approved by the
+    owner 2026-11-16). Refuses when the live set looks broken."""
+    stale = sorted(k for k in existing if k not in live)
+    n_json = sum(k.endswith(".json") for k in live)
+    if n_json < 100 or not any(k.endswith(".geojson") for k in live):
+        raise RuntimeError("live set looks incomplete; not pruning")
+    if len(stale) > 0.8 * len(existing):
+        raise RuntimeError(f"would delete {len(stale)} of {len(existing)}; not pruning")
+    for i in range(0, len(stale), 1000):
+        client.delete_objects(
+            Bucket=bucket,
+            Delete={
+                "Objects": [{"Key": k} for k in stale[i : i + 1000]],
+                "Quiet": True,
+            },
+        )
+    return len(stale)
+
+
+def upload_dir(
+    out_dir: Path, client: Any, bucket: str, *, prune: bool = True
+) -> dict[str, int]:
+    """Upload the files the current publish uses; skip hashed objects already
+    present and mutable ones whose ETag equals the local md5. ``manifest.json``
+    goes last so readers never see a manifest pointing at missing files. Then,
+    with ``prune``, delete bucket objects no longer used.
     """
     existing = _existing(client, bucket)
-    files = sorted(
-        p for p in out_dir.rglob("*") if p.is_file() and not p.name.endswith(".tmp")
-    )
+    live = live_keys(out_dir)
+    files = sorted(out_dir / k for k in live if (out_dir / k).is_file())
     files.sort(key=lambda p: p.relative_to(out_dir).as_posix() == "manifest.json")
     uploaded = skipped = 0
     for path in files:
@@ -95,4 +139,5 @@ def upload_dir(out_dir: Path, client: Any, bucket: str) -> dict[str, int]:
             CacheControl=cc,
         )
         uploaded += 1
-    return {"uploaded": uploaded, "skipped": skipped}
+    pruned = prune_remote(client, bucket, live, set(existing)) if prune else 0
+    return {"uploaded": uploaded, "skipped": skipped, "pruned": pruned}

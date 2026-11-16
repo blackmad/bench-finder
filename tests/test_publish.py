@@ -245,18 +245,18 @@ def test_upload_only_new(world):
     db, images, out = world
     publish(db, images, out, include_unclassified=True, workers=1)
     s3 = FakeS3()
-    first = upload_dir(out, s3, "b")
+    first = upload_dir(out, s3, "b", prune=False)
     assert first["skipped"] == 0 and first["uploaded"] > 0
     assert list(s3.objects)[-1] == "manifest.json"
     assert s3.objects["manifest.json"]["cc"] == "public, max-age=60"
     img_key = next(k for k in s3.objects if k.startswith("img/"))
     assert "immutable" in s3.objects[img_key]["cc"]
     assert s3.objects[img_key]["ct"] in ("image/avif", "image/webp")
-    again = upload_dir(out, s3, "b")
+    again = upload_dir(out, s3, "b", prune=False)
     assert again["uploaded"] == 0
     # a changed mutable file is re-uploaded, hashed files are not
     (out / "data" / "bench" / "1.json").write_text("{}")
-    third = upload_dir(out, s3, "b")
+    third = upload_dir(out, s3, "b", prune=False)
     assert third["uploaded"] == 1
 
 
@@ -481,3 +481,22 @@ def test_rank_blocked_view_loses_to_clear_one():
     side_clear = _img(2, 180, sam3=0.9)
     ranked = sorted([behind_blocked, side_clear], key=lambda i: image_rank(i, 90.0))
     assert [i["id"] for i in ranked] == [2, 1]
+
+
+def test_prune_remote_deletes_only_unused():
+    from bench_finder.publish.upload import prune_remote
+
+    class S3:
+        deleted: list[str] = []
+
+        def delete_objects(self, Bucket, Delete):
+            self.deleted += [o["Key"] for o in Delete["Objects"]]
+
+    live = {f"data/bench/{i}.json" for i in range(120)} | {
+        "data/benches.a.geojson",
+        "manifest.json",
+        "img/aaaaaaaaaaaaaaaa-400.avif",
+    }
+    s3 = S3()
+    n = prune_remote(s3, "b", live, live | {"img/bbbbbbbbbbbbbbbb-400.avif"})
+    assert n == 1 and s3.deleted == ["img/bbbbbbbbbbbbbbbb-400.avif"]
