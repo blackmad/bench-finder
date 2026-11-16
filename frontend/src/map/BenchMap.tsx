@@ -4,6 +4,7 @@ import {
   type GeoJSONSource,
   Map as MapLibreMap,
   NavigationControl,
+  type SymbolLayerSpecification,
   setWorkerUrl,
 } from "maplibre-gl"
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url"
@@ -71,6 +72,10 @@ const ROSE_IMAGE: ExpressionSpecification = [
   ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [levelExpr(i), i < 7 ? "," : ""]),
 ]
 
+// Below this zoom the map shows counts and compass dots only; the rail beside
+// it carries the photos. From here on, photographed benches are postcards.
+const PHOTO_ZOOM = 16
+
 const empty = { type: "FeatureCollection" as const, features: [] }
 
 // The selected bench is drawn by its own "sel" layer, so it is left out of the
@@ -89,13 +94,16 @@ function dots(
   return {
     type: "FeatureCollection" as const,
     features: benches
-      .filter((b) => !hasPhoto(b) && shown(b, visible, selected))
+      // Every bench: photographed ones are dots too until PHOTO_ZOOM, where
+      // the "bench" layer leaves them to the postcard layer.
+      .filter((b) => shown(b, visible, selected))
       .map((b) => ({
         type: "Feature" as const,
         geometry: b.geometry,
         properties: {
           id: b.properties.id,
           n: b.properties.count ?? 1,
+          photo: hasPhoto(b),
           facing: b.properties.facing ?? 0,
           // Benches without a facing count toward no sector (-1), so a
           // cluster rose only grows ticks for facings the data really has.
@@ -364,18 +372,28 @@ export default function BenchMap({
           ],
         },
       })
+      const dotLayout: SymbolLayerSpecification["layout"] = {
+        "icon-image": ["concat", "m-", ["get", "kind"]],
+        "icon-rotate": ["get", "facing"],
+        "icon-rotation-alignment": "map",
+        "icon-allow-overlap": true,
+        "icon-size": 0.86,
+      }
       map.addLayer({
         id: "bench",
         type: "symbol",
         source: "benches",
-        filter: ["!", ["has", "point_count"]],
-        layout: {
-          "icon-image": ["concat", "m-", ["get", "kind"]],
-          "icon-rotate": ["get", "facing"],
-          "icon-rotation-alignment": "map",
-          "icon-allow-overlap": true,
-          "icon-size": 0.86,
-        },
+        filter: ["all", ["!", ["has", "point_count"]], ["!", ["get", "photo"]]],
+        layout: dotLayout,
+      })
+      // Photographed benches are plain dots until the map shows a few streets.
+      map.addLayer({
+        id: "bench-photo",
+        type: "symbol",
+        source: "benches",
+        maxzoom: PHOTO_ZOOM,
+        filter: ["all", ["!", ["has", "point_count"]], ["get", "photo"]],
+        layout: dotLayout,
       })
       // Photographed benches: postcard sprites. A cluster shows one member's
       // photo with a count badge; every bench is on the map in some marker.
@@ -383,6 +401,7 @@ export default function BenchMap({
         id: "thumbs",
         type: "symbol",
         source: "photos",
+        minzoom: PHOTO_ZOOM,
         layout: {
           "icon-image": [
             "case",
@@ -443,6 +462,7 @@ export default function BenchMap({
         })
       }
       pick("bench")
+      pick("bench-photo")
       pick("sel-thumb")
       map.on("click", "thumbs", async (e) => {
         const f = e.features?.[0]
@@ -470,7 +490,13 @@ export default function BenchMap({
           zoom: map.getZoom() + 2,
         })
       })
-      for (const layer of ["bench", "thumbs", "roses", "sel-thumb"]) {
+      for (const layer of [
+        "bench",
+        "bench-photo",
+        "thumbs",
+        "roses",
+        "sel-thumb",
+      ]) {
         map.on("mouseenter", layer, () => {
           map.getCanvas().style.cursor = "pointer"
         })
