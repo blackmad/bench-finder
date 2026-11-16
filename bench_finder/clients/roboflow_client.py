@@ -10,11 +10,8 @@ from typing import Any
 
 import cv2
 import requests
+from sqlmodel import SQLModel
 
-from api.api_models import (
-    CacheStatus,
-    ModelCacheInfo,
-)
 from bench_finder.config import (
     ROBOFLOW_API_KEY,
     ROBOFLOW_CONFIDENCE_THRESHOLD,
@@ -34,6 +31,25 @@ logger = logging.getLogger(__name__)
 
 # Global model cache to avoid reinitializing models
 _MODEL_CACHE: dict[str, Any] = {}
+
+
+
+class ModelCacheInfo(SQLModel):
+    """Schema for model cache information."""
+
+    cached_models: list[str]
+    cache_size: int
+
+
+class CacheStatus(SQLModel):
+    """Schema for cache status information."""
+
+    use_local_inference: bool
+    model_id: str | None
+    model_cached: bool
+    cache_key: str | None
+    total_cached_models: int
+    all_cached_models: list[str]
 
 
 def get_cache_info() -> ModelCacheInfo:

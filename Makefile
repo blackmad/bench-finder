@@ -1,7 +1,7 @@
 # Modern Python development Makefile for bench-finder
 # Provides convenient commands for development workflow
 
-.PHONY: help install dev-install lint format check test clean run-server run-cli setup-dev
+.PHONY: help install dev-install lint format check test clean run-cli setup-dev
 
 # Default target
 help: ## Show this help message
@@ -68,10 +68,6 @@ pre-commit-update: ## Update pre-commit hooks
 	uv run pre-commit autoupdate
 
 # Application commands
-run-server: ## Start the FastAPI development server
-	@echo "🚀 Starting FastAPI development server..."
-	uv run uvicorn api.fastapi_server:app --reload --host 0.0.0.0 --port 8866
-
 run-frontend: ## Start the frontend development server (Vite)
 	@echo "🚀 Starting frontend development server..."
 	cd frontend && npm run dev
@@ -131,12 +127,12 @@ db-quarantine: ## One-off: move bad/legacy data to data/archive.db (see bench_fi
 # Type checking
 type-check: ## Run type checking with mypy
 	@echo "🔍 Running type checking..."
-	uv run mypy bench_finder/ api/ tools/
+	uv run mypy bench_finder/ tools/
 
 # Security checks
 security: ## Run security checks with bandit
 	@echo "🔒 Running security checks..."
-	uv run bandit -r bench_finder/ api/ tools/ -x tests/
+	uv run bandit -r bench_finder/ tools/ -x tests/
 
 # All-in-one commands
 all-checks: lint format-check type-check security test ## Run all checks
