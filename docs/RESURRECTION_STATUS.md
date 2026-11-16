@@ -123,3 +123,10 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
   - **Owner:** delete the Supabase project in its dashboard; move Firebase to the free (Spark) plan.
 - **Agent worktrees:** removed; all their commits were already in `resurrect`.
 - **Supabase:** the bench project (`rsuzgqcspploqskvckyu`) was a Vercel Marketplace resource (`supabase-blue-mountain`). Deleted with `vercel integration-resource remove`; its host now returns 410. **Firebase billing unlinked** (Spark plan); sign-in is plain Firebase Auth, not Identity Platform. 4.7 is complete.
+
+### Friday (owner, 2026-11-16): to do
+- Revisit how facings are estimated (canal benches were 45°+ off; `water_facing` snaps waterside ones for now, old values in table `water_facing`).
+- Imagery sweep for unmapped benches: pilot on Kostverlorenvaart (the owner's two missing benches near 52.3643, 4.8595; about an hour), then the canal pass overnight (~13k city panoramas, YOLO first pass, SAM 3 on hits, keep benches seen from 2+ panoramas, drop those within 15 m of known ones).
+- Facing/view labels for the 2,240 BGT benches imported tonight (Flash-Lite ~$10, needs approval; until then they publish unlabelled).
+- Pick a map marker style (`?markers` picker), then delete the others.
+- Make publish stop holding the sqlite write lock for its whole run (it crashed SAM 3 and the local occlusion check on 2026-11-16).
