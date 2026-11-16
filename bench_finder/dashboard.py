@@ -121,6 +121,37 @@ def parse_log(log: Path) -> tuple[list[tuple[str, datetime, list[str]]], bool]:
     return steps, finished
 
 
+STEP = re.compile(r'echo "== (.+?) \$\(date\)"')
+FUNC = re.compile(r"^(\w+)\(\) *\{")
+
+
+def plan(script: Path) -> list[str]:
+    """Step names in the order the chain script runs them, functions expanded."""
+    if not script.exists():
+        return []
+    funcs: dict[str, list[str]] = {}
+    main: list[str] = []
+    cur: list[str] | None = None
+    for line in script.read_text().splitlines():
+        m = FUNC.match(line.strip())
+        if m:
+            cur = funcs.setdefault(m[1], [])
+            continue
+        if cur is not None and line.strip() == "}":
+            cur = None
+            continue
+        target = cur if cur is not None else main
+        step = STEP.search(line)
+        if step:
+            target.append(step[1])
+        elif cur is None and line.strip() in funcs:
+            target.append("@" + line.strip())
+    out: list[str] = []
+    for item in main:
+        out.extend(funcs[item[1:]] if item.startswith("@") else [item])
+    return [s for s in out if s != "done"]
+
+
 def fmt_dur(s: float) -> str:
     s = int(s)
     return (
@@ -130,9 +161,10 @@ def fmt_dur(s: float) -> str:
     )
 
 
-def page(log: Path) -> str:
+def page(log: Path, script: Path) -> str:
     e = html.escape
     steps, finished = parse_log(log)
+    planned = plan(script)
     now = datetime.now()
     rows, card = [], ""
     for k, (name, start, out) in enumerate(steps):
@@ -170,13 +202,20 @@ def page(log: Path) -> str:
                 )
             elif not card:
                 card = f"<h2>{e(name)}</h2><p>running for {dur}; no counter for this step</p>"
+    upcoming = [] if finished else planned[len(steps) :]
+    rows += [
+        f"<tr class=todo><td>{e(n.split(' $')[0])}</td><td></td><td>to do</td><td></td></tr>"
+        for n in upcoming
+    ]
+    if planned and not finished:
+        card += f"<p><small>step {len(steps)} of {len(planned)}</small></p>"
     tail = "\n".join(steps[-1][2][-6:]) if steps else ""
     status = "finished" if finished else ("running" if steps else "not started")
     return (
         "<!doctype html><meta charset=utf-8><meta http-equiv=refresh content=20>"
         "<title>Bench jobs</title><style>body{font:14px system-ui;margin:20px;background:#f7f0e1;color:#2b261e;max-width:980px}"
         "table{border-collapse:collapse;width:100%}td{padding:4px 8px;border-bottom:1px solid #ddd2bd;vertical-align:top}"
-        "tr.run{background:#fffdf8;font-weight:600}.bar{height:10px;background:#ddd2bd;border-radius:5px;overflow:hidden}"
+        "tr.run{background:#fffdf8;font-weight:600}tr.todo{color:#9a8f7c}.bar{height:10px;background:#ddd2bd;border-radius:5px;overflow:hidden}"
         ".bar i{display:block;height:100%;background:#4f8a5b}pre{background:#fffdf8;padding:8px;white-space:pre-wrap;font-size:12px}"
         "small{color:#675d4d;font-weight:400}</style>"
         f"<h1>{e(log.name)} · {status}</h1><p><small>refreshes every 20 s · {now:%H:%M:%S}</small></p>"
@@ -187,12 +226,15 @@ def page(log: Path) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("--log", type=Path, default=Path("data/gaps.log"))
+    ap.add_argument(
+        "--script", type=Path, help="the chain script (default: the log's .sh)"
+    )
     ap.add_argument("--port", type=int, default=8899)
     a = ap.parse_args()
 
     class H(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
-            body = page(a.log).encode()
+            body = page(a.log, a.script or a.log.with_suffix(".sh")).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
