@@ -248,8 +248,12 @@ def render_aimed_view(
     out_size: int = OUTPUT_SIZE_PX,
     pitch_rad: float = 0.0,
     roll_rad: float = 0.0,
+    tilt_deg: float = 0.0,
 ) -> np.ndarray:
     """Render a square rectilinear view from an equirectangular panorama.
+
+    ``tilt_deg`` > 0 points the virtual camera down by that much (the horizon
+    moves up the frame); 0 keeps the horizon at the vertical centre.
 
     The virtual camera looks horizontally at compass bearing ``aim_bearing_deg``
     (the horizon is at the vertical centre). ``pitch_rad`` / ``roll_rad`` are the
@@ -271,6 +275,12 @@ def render_aimed_view(
     fwd = np.array([math.sin(rel), math.cos(rel), 0.0])
     right = np.array([math.cos(rel), -math.sin(rel), 0.0])
     up = np.array([0.0, 0.0, 1.0])
+    if tilt_deg:
+        t = math.radians(tilt_deg)
+        fwd, up = (
+            math.cos(t) * fwd - math.sin(t) * up,
+            math.sin(t) * fwd + math.cos(t) * up,
+        )
 
     xs = np.arange(out_size, dtype=np.float64) - c
     ys = c - np.arange(out_size, dtype=np.float64)

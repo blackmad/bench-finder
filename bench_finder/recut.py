@@ -85,6 +85,8 @@ class RecutJob:
     stored_heading: float | None = None
     stored_pitch: float | None = None
     stored_roll: float | None = None
+    # Camera look-down in degrees (``recentre`` frames the bench low in the view).
+    tilt_deg: float = 0.0
 
 
 def job_from_row(row: dict[str, Any]) -> RecutJob:
@@ -181,6 +183,7 @@ def render_params(
         "out_size": out_px,
         "pitch_rad": _wrap(pitch),
         "roll_rad": _wrap(roll),
+        "tilt_deg": job.tilt_deg,
     }
 
 
