@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { facingSentence } from "./describe"
-import { buildRows, MIN_ROW, spread } from "./rows"
+import { buildRows, MIN_ROW } from "./rows"
 import type { BenchFeature, BenchProps } from "./types"
 
 const bench = (id: number, p: Partial<BenchProps> = {}): BenchFeature => ({
@@ -70,17 +70,5 @@ describe("facingSentence", () => {
     expect(facingSentence(base)).toBe(
       "Faces south, as mapped in OpenStreetMap."
     )
-  })
-})
-
-describe("spread", () => {
-  const at = (id: number, lng: number): BenchFeature => {
-    const b = bench(id)
-    return { ...b, geometry: { type: "Point", coordinates: [lng, 52.37] } }
-  }
-  it("moves benches next to one already shown to the end", () => {
-    // 1 and 2 are ~7 m apart (the same canal-side spot); 3 is ~700 m away.
-    const out = spread([at(1, 4.9), at(2, 4.9001), at(3, 4.91)])
-    expect(out.map((b) => b.properties.id)).toEqual([1, 3, 2])
   })
 })

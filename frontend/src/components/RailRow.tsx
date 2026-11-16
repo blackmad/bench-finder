@@ -1,4 +1,5 @@
 import { useId, useState } from "react"
+import { benchCount } from "../data/hooks"
 import { ALL_MAX, type Row, STRIP_MAX } from "../data/rows"
 import { Tile } from "./Tile"
 
@@ -24,6 +25,8 @@ export function RailRow({
   const shown = row.benches.slice(0, all ? ALL_MAX : STRIP_MAX)
   const more = row.benches.length > STRIP_MAX
   const n = row.benches.length
+  // Each tile is a place; the count is of benches.
+  const benches = row.benches.reduce((s, b) => s + benchCount(b.properties), 0)
   return (
     <section
       className="railrow"
@@ -36,7 +39,7 @@ export function RailRow({
         </h3>
         <small>
           <span className="num">
-            {countLabel ?? `${n.toLocaleString("en")} in view`}
+            {countLabel ?? `${benches.toLocaleString("en")} in view`}
           </span>
           {row.note ? <span className="note"> · {row.note}</span> : null}
         </small>

@@ -27,7 +27,7 @@ import {
   passes,
   summary,
 } from "../data/filters"
-import { useBenches } from "../data/hooks"
+import { benchCount, useBenches } from "../data/hooks"
 import { buildRows } from "../data/rows"
 import type { BenchFeature } from "../data/types"
 import {
@@ -51,6 +51,9 @@ const sameViewport = (a: Viewport, b: Viewport) =>
   Math.abs(a.lat - b.lat) < 5e-5 &&
   Math.abs(a.lng - b.lng) < 5e-5 &&
   Math.abs(a.z - b.z) < 0.02
+
+const sumBenches = (list: BenchFeature[]) =>
+  list.reduce((s, b) => s + benchCount(b.properties), 0)
 
 export default function HomePage() {
   const { data, isPending, error } = useBenches()
@@ -158,10 +161,13 @@ export default function HomePage() {
     return {
       rows: buildRows(photos),
       plain,
-      total: vis.length,
-      photographed: photos.length,
+      // Features are places; counts are of benches.
+      total: sumBenches(vis),
+      photographed: sumBenches(photos),
       unfiltered:
-        filtered === benches ? vis.length : benches.filter(here).length,
+        filtered === benches
+          ? sumBenches(vis)
+          : sumBenches(benches.filter(here)),
     }
   }, [benches, filtered, view, mapPick])
 

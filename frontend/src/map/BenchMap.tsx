@@ -36,9 +36,25 @@ const sectorExpr = (i: number): ExpressionSpecification => [
   "+",
   ["case", ["==", ["get", "sec"], i], 1, 0],
 ]
-const SECTOR_PROPS = Object.fromEntries(
-  [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [`s${i}`, sectorExpr(i)])
-)
+// Each feature is a place of `n` benches; clusters sum them so the numbers
+// on the map count benches, not places.
+const BENCHES_PROP: ExpressionSpecification = ["+", ["get", "n"]]
+const SECTOR_PROPS = {
+  ...Object.fromEntries(
+    [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [`s${i}`, sectorExpr(i)])
+  ),
+  n: BENCHES_PROP,
+}
+const N_ABBR: ExpressionSpecification = [
+  "case",
+  [">=", ["get", "n"], 1000],
+  [
+    "concat",
+    ["to-string", ["/", ["round", ["/", ["get", "n"], 100]], 10]],
+    "k",
+  ],
+  ["to-string", ["get", "n"]],
+]
 
 // Share of each facing sector in tenths, rounded up so any member shows a tick.
 const levelExpr = (i: number): ExpressionSpecification => [
@@ -48,9 +64,9 @@ const levelExpr = (i: number): ExpressionSpecification => [
 const ROSE_IMAGE: ExpressionSpecification = [
   "concat",
   "rose:",
-  ["step", ["get", "point_count"], "0", 20, "1", 100, "2"],
+  ["step", ["get", "n"], "0", 20, "1", 100, "2"],
   ":",
-  ["get", "point_count_abbreviated"],
+  N_ABBR,
   ":",
   ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [levelExpr(i), i < 7 ? "," : ""]),
 ]
@@ -79,6 +95,7 @@ function dots(
         geometry: b.geometry,
         properties: {
           id: b.properties.id,
+          n: b.properties.count ?? 1,
           facing: b.properties.facing ?? 0,
           // Benches without a facing count toward no sector (-1), so a
           // cluster rose only grows ticks for facings the data really has.
@@ -107,7 +124,7 @@ function photos(
       .map((b) => ({
         type: "Feature" as const,
         geometry: b.geometry,
-        properties: { id: b.properties.id },
+        properties: { id: b.properties.id, n: b.properties.count ?? 1 },
       })),
   }
 }
@@ -322,7 +339,7 @@ export default function BenchMap({
         cluster: true,
         clusterRadius: 52,
         clusterMaxZoom: 19,
-        clusterProperties: { rep: ["min", ["get", "id"]] },
+        clusterProperties: { rep: ["min", ["get", "id"]], n: BENCHES_PROP },
       })
       map.addSource("sel", { type: "geojson", data: empty })
       map.addLayer({
@@ -375,13 +392,22 @@ export default function BenchMap({
               "thumbc:",
               ["to-string", ["get", "rep"]],
               ":",
-              ["to-string", ["get", "point_count"]],
+              ["to-string", ["get", "n"]],
+            ],
+            // A place of several benches carries the same count badge.
+            [">", ["get", "n"], 1],
+            [
+              "concat",
+              "thumbc:",
+              ["to-string", ["get", "id"]],
+              ":",
+              ["to-string", ["get", "n"]],
             ],
             ["concat", "thumb:", ["to-string", ["get", "id"]]],
           ],
           "icon-anchor": "bottom",
           "icon-allow-overlap": true,
-          "symbol-sort-key": ["-", 0, ["coalesce", ["get", "point_count"], 1]],
+          "symbol-sort-key": ["-", 0, ["get", "n"]],
         },
       })
       map.addLayer({

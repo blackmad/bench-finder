@@ -46,7 +46,35 @@ export interface BenchProps {
   hero_height?: number | null
   /** Short street address, e.g. "Javakade 622". */
   address: string | null
+  /**
+   * A feature is a place: benches a few metres apart, led by the one with the
+   * best photo (`id`). Every member id, leader first; absent in old data.
+   */
+  bench_ids?: number[]
+  /** Benches at this place (1 when alone). */
+  count?: number
 }
+
+/** Another bench at the same place, as listed in a bench file. */
+export type PlaceMember = Pick<
+  BenchProps,
+  | "id"
+  | "lat"
+  | "lng"
+  | "address"
+  | "facing"
+  | "facing_confidence"
+  | "facing_method"
+  | "axis_only"
+  | "backrest"
+  | "bench_type"
+  | "faces_category"
+  | "hero_key"
+  | "hero_urls"
+  | "hero_urls_webp"
+  | "hero_width"
+  | "hero_height"
+>
 
 export interface BenchFeature {
   type: "Feature"
@@ -102,4 +130,6 @@ export interface BenchDetail extends BenchProps {
   gallery: GalleryImage[]
   embed_pano_id: string | null
   embed_heading_deg: number | null
+  /** The place this bench belongs to; `benches` are the others there. */
+  place?: { id: number; count: number; benches: PlaceMember[] }
 }

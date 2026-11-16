@@ -23,7 +23,12 @@ import {
 import { facingKind, looksAt, windName } from "../data/facing"
 import { useBench, useBenches } from "../data/hooks"
 import { MIN_ROW, type Row } from "../data/rows"
-import type { BenchDetail, BenchFeature, GalleryImage } from "../data/types"
+import type {
+  BenchDetail,
+  BenchFeature,
+  GalleryImage,
+  PlaceMember,
+} from "../data/types"
 import "../styles/bench.css"
 import NotFoundPage from "./NotFoundPage"
 
@@ -180,6 +185,7 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
           />
         ) : null}
 
+        <HereToo bench={b} />
         <Nearby bench={b} />
 
         {tags.length ? (
@@ -326,14 +332,38 @@ function Facts({
   )
 }
 
-/** Photographed benches within a kilometre, nearest first. */
+const asFeature = (m: PlaceMember): BenchFeature => ({
+  type: "Feature",
+  geometry: { type: "Point", coordinates: [m.lng, m.lat] },
+  properties: m,
+})
+
+/** The other benches at this place, a few metres away. */
+function HereToo({ bench }: { bench: BenchDetail }) {
+  const others = bench.place?.benches ?? []
+  if (!others.length) return null
+  const row: Row = {
+    key: "place",
+    title: `${others.length + 1} benches here`,
+    note: "",
+    benches: others.map(asFeature),
+  }
+  return (
+    <div className="block nearby">
+      <RailRow row={row} selectedId={null} countLabel="Within a few metres" />
+    </div>
+  )
+}
+
+/** Photographed places within a kilometre, nearest first, not this one. */
 function Nearby({ bench }: { bench: BenchDetail }) {
   const { data } = useBenches()
+  const placeId = bench.place?.id ?? bench.id
   const row = useMemo<Row | null>(() => {
     if (!data) return null
     const here: [number, number] = [bench.lng, bench.lat]
     const near = data
-      .filter((f) => f.properties.id !== bench.id && hasPhoto(f))
+      .filter((f) => f.properties.id !== placeId && hasPhoto(f))
       .map((f) => [f, metres(here, f.geometry.coordinates)] as const)
       .filter(([, m]) => m <= NEARBY_M)
       .sort((a, b) => a[1] - b[1])
@@ -341,7 +371,7 @@ function Nearby({ bench }: { bench: BenchDetail }) {
     return near.length >= MIN_ROW
       ? { key: "nearby", title: "Nearby benches", note: "", benches: near }
       : null
-  }, [data, bench.id, bench.lat, bench.lng])
+  }, [data, placeId, bench.lat, bench.lng])
   if (!row) return null
   return (
     <div className="block nearby">

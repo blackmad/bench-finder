@@ -512,9 +512,17 @@ def _place_rank(d: dict) -> tuple:
 
 _MEMBER_KEYS = (
     "id",
+    "lat",
+    "lng",
     "address",
     "facing",
+    "facing_confidence",
+    "facing_method",
+    "axis_only",
     "backrest",
+    "bench_type",
+    "faces_category",
+    "hero_key",
     "hero_urls",
     "hero_urls_webp",
     "hero_width",

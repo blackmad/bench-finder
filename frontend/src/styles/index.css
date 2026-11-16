@@ -1187,3 +1187,8 @@ h1[tabindex="-1"]:focus {
 picture {
   display: contents;
 }
+/* "6 benches ·" on a tile whose place holds several. */
+.tile .cap .many {
+  color: var(--color-ink);
+  font-weight: 600;
+}

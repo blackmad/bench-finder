@@ -30,32 +30,6 @@ const WATER_STREET = /(gracht|burgwal|kade|haven)$/i
 const PARK_STREET = /park$/i
 const NOT_A_PARK = /^science park$/i
 
-// Benches this close (often one bench mapped twice, or a row of benches
-// seen in the same photo) look like duplicates side by side in a strip.
-export const NEAR_DUP_M = 30
-
-function metres(a: BenchFeature, b: BenchFeature): number {
-  const [lng1, lat1] = a.geometry.coordinates
-  const [lng2, lat2] = b.geometry.coordinates
-  const x = (lng2 - lng1) * Math.cos(((lat1 + lat2) / 2) * (Math.PI / 180))
-  return Math.hypot(x, lat2 - lat1) * 111_320
-}
-
-/**
- * Keeps the order but moves each bench within NEAR_DUP_M of one already kept
- * to the end, so a strip shows different places first and "See all" still
- * lists every bench.
- */
-export function spread(benches: BenchFeature[]): BenchFeature[] {
-  const first: BenchFeature[] = []
-  const later: BenchFeature[] = []
-  for (const b of benches) {
-    if (first.some((k) => metres(k, b) < NEAR_DUP_M)) later.push(b)
-    else first.push(b)
-  }
-  return [...first, ...later]
-}
-
 const list = (names: string[]) =>
   names.length <= 2
     ? names.join(" and ")
@@ -153,11 +127,9 @@ export function buildRows(photos: BenchFeature[]): Row[] {
 
   // Themed rows need MIN_ROW benches, and a row that repeats the first one
   // exactly says nothing new.
-  return rows
-    .filter(
-      (r) =>
-        r.key === "near" ||
-        (r.benches.length >= MIN_ROW && r.benches.length < photos.length)
-    )
-    .map((r) => ({ ...r, benches: spread(r.benches) }))
+  return rows.filter(
+    (r) =>
+      r.key === "near" ||
+      (r.benches.length >= MIN_ROW && r.benches.length < photos.length)
+  )
 }

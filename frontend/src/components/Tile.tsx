@@ -87,7 +87,12 @@ export function Tile({ bench, selected = false, onSelect, onOpen }: Props) {
       </div>
       <div className="cap">
         <span className="caps">{name}</span>
-        <small>{caption(bench)}</small>
+        <small>
+          {(bench.count ?? 1) > 1 ? (
+            <span className="many">{bench.count} benches · </span>
+          ) : null}
+          {caption(bench)}
+        </small>
       </div>
     </Link>
   )

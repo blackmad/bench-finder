@@ -1,7 +1,6 @@
-import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import { TopBar } from "../components/TopBar"
-import { useBenches } from "../data/hooks"
+import { useBenchIndex } from "../data/hooks"
 import { useMe } from "../data/social"
 import type { BenchFeature } from "../data/types"
 import { useAuth } from "../lib/auth"
@@ -12,12 +11,8 @@ const H1 =
 export default function MePage() {
   const { user, ready, openSignIn, signOut } = useAuth()
   const { data: me, isPending, error } = useMe()
-  const { data: benches } = useBenches()
-  const byId = useMemo(
-    () =>
-      new Map<number, BenchFeature>(benches?.map((f) => [f.properties.id, f])),
-    [benches]
-  )
+  // Saved ids may be any bench in a place, not just its leader.
+  const byId = useBenchIndex()
 
   return (
     <>
