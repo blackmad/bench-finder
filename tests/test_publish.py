@@ -439,3 +439,27 @@ def test_webp_capped_at_800():
     assert format_widths((400, 800, 1600), "avif") == (400, 800, 1600)
     assert format_widths((400, 800, 1600), "webp") == (400, 800)
     assert format_widths((1000,), "webp") == (1000,)
+
+
+def test_benches_metres_apart_publish_as_one_place(world):
+    db, images, out = world
+    c = sqlite3.connect(db)
+    # Bench 2 (no photo) sits 5 m north of bench 1 (photo): one place, led by 1.
+    c.execute(
+        "UPDATE bench_candidates SET lat = 52.1234567 + 1 + 5 / 111320.0 WHERE id = 2"
+    )
+    c.commit()
+    res = publish(db, images, out, include_unclassified=True, workers=1)
+    assert res.benches == 3
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["count"] == 2
+    assert manifest["counts"]["benches"] == 3 and manifest["counts"]["places"] == 2
+    gj = json.loads((out / "data" / manifest["benches"]).read_text())
+    feats = {f["id"]: f["properties"] for f in gj["features"]}
+    assert set(feats) == {1, 3}
+    assert feats[1]["bench_ids"] == [1, 2] and feats[1]["count"] == 2
+    assert feats[3]["bench_ids"] == [3] and feats[3]["count"] == 1
+    d2 = json.loads((out / "data" / "bench" / "2.json").read_text())
+    assert d2["place"]["id"] == 1 and d2["place"]["count"] == 2
+    assert [b["id"] for b in d2["place"]["benches"]] == [1]
+    assert d2["place"]["benches"][0]["hero_urls"] == feats[1]["hero_urls"]

@@ -31,6 +31,7 @@ from bench_finder.publish.images import (
     process_image,
     render_source,
 )
+from bench_finder.publish.places import group_places
 
 
 if TYPE_CHECKING:
@@ -498,6 +499,67 @@ def select_images(
     return rows, eligible, chosen
 
 
+def _place_rank(d: dict) -> tuple:
+    """Best representative first: a photo, then what it looks at, then a facing."""
+    return (
+        d["hero_urls"] is None,
+        d["faces_category"] is None,
+        d["facing"] is None,
+        -len(d["gallery"]),
+        d["id"],
+    )
+
+
+_MEMBER_KEYS = (
+    "id",
+    "address",
+    "facing",
+    "backrest",
+    "hero_urls",
+    "hero_urls_webp",
+    "hero_width",
+    "hero_height",
+)
+
+
+def _group_into_places(features: list[dict], details: list[dict]) -> list[dict]:
+    """One feature per place (benches a few metres apart; see ``places``).
+
+    The place carries its best bench's props plus ``bench_ids`` and ``count``;
+    backrest is true if any member has one, and looks-at falls back to a member's.
+    Every bench keeps its own detail file, which gains ``place`` (the others).
+    """
+    feat = {f["id"]: f for f in features}
+    det = {d["id"]: d for d in details}
+    order = sorted(det.values(), key=_place_rank)
+    places = group_places([(d["id"], d["lat"], d["lng"]) for d in order])
+    out = []
+    for members in places:
+        f = feat[members[0]]
+        props = dict(f["properties"])
+        ms = [det[m] for m in members]
+        props["bench_ids"] = members
+        props["count"] = len(members)
+        if any(m["backrest"] is True for m in ms):
+            props["backrest"] = True
+        if props["faces_category"] is None:
+            props["faces_category"] = next(
+                (m["faces_category"] for m in ms if m["faces_category"]), None
+            )
+        if len(ms) > 1 and all(m["seats"] for m in ms):
+            props["seats"] = sum(m["seats"] for m in ms)
+        out.append({**f, "properties": props})
+        for m in ms:
+            m["place"] = {
+                "id": members[0],
+                "count": len(members),
+                "benches": [
+                    {k: o[k] for k in _MEMBER_KEYS} for o in ms if o["id"] != m["id"]
+                ],
+            }
+    return out
+
+
 def publish(
     db_path: str | Path,
     images_root: str | Path,
@@ -634,6 +696,9 @@ def publish(
             }
         )
 
+    n_benches = len(features)
+    features = _group_into_places(features, details)
+
     # Write data. Drop stale hashed GeoJSON so only the current one remains locally.
     data_dir = out / "data"
     data_dir.mkdir(exist_ok=True)
@@ -655,13 +720,14 @@ def publish(
         {
             "version": SCHEMA_VERSION,
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "count": len(features),
+            "count": len(features),  # places: one feature per place
             "benches": gname,
             "bench_dir": "bench",
             "data_base": "data",
             "image_base": "img",
             "counts": {
-                "benches": len(features),
+                "benches": n_benches,
+                "places": len(features),
                 "with_hero": hero_count,
                 "images": len(sources),
             },
@@ -669,7 +735,7 @@ def publish(
     )
 
     res = PublishResult(
-        out=out, benches=len(features), with_hero=hero_count, images=len(sources)
+        out=out, benches=n_benches, with_hero=hero_count, images=len(sources)
     )
     res.derivatives_written = sum(r.generated for r in results.values())
     res.geojson_name, res.geojson_bytes, res.geojson_gz_bytes = gname, len(fc), gz
@@ -678,7 +744,7 @@ def publish(
     res.json_bytes = bench_json_bytes + (out / "manifest.json").stat().st_size
     res.file_counts = {"img": n_img, "bench_json": n_json, "geojson": 1, "manifest": 1}
     res.eligible = eligible
-    scale = eligible / len(features) if features else 1.0
+    scale = eligible / n_benches if n_benches else 1.0
     res.projected_total_bytes = int(res.total_bytes * scale)
     res.projected_geojson_gz_bytes = int(gz * scale)
     res.seconds = time.time() - t0
