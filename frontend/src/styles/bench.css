@@ -88,17 +88,15 @@ body {
   box-shadow: var(--shadow-card);
   padding: 22px;
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr);
-  gap: 22px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
 }
 .postback dl {
   margin: 0;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 9px 16px;
-  border-left: 1px solid var(--rule);
-  padding-left: 20px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 18px;
   font-size: 14.5px;
 }
 .postback dt {

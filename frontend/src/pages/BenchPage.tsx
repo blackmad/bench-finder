@@ -237,6 +237,9 @@ function Facts({
   const kind = facingKind(b)
   const seat = seatText(b.backrest)
   const looks = looksAt(b.faces_category)
+  const build = [seat, b.material ? capital(b.material) : null]
+    .filter(Boolean)
+    .join(" · ")
   return (
     <dl>
       {looks || b.faces_text ? (
@@ -244,32 +247,28 @@ function Facts({
           <dt className="caps">Looks at</dt>
           <dd>
             {looks ?? capital(b.faces_text as string)}
-            {looks && b.faces_text ? <small> {b.faces_text}</small> : null}
+            {looks && b.faces_text ? <small> · {b.faces_text}</small> : null}
           </dd>
         </>
       ) : null}
-      <dt className="caps">{looks ? "Compass" : "Facing"}</dt>
+      <dt className="caps">Faces</dt>
       <dd>
         {kind && b.facing !== null ? (
           <>
             <span className="num">
               {kind === "estimated" ? "≈ " : ""}
-              {windName(b.facing)} · {Math.round(b.facing)}°
+              {windName(b.facing)} {Math.round(b.facing)}°
             </span>{" "}
-            <small>{facingSource(b)}</small>
+            <small>· {facingSource(b)}</small>
           </>
         ) : (
-          <>
-            Not known yet <small>no direction in the map data</small>
-          </>
+          "Not known yet"
         )}
       </dd>
-      <dt className="caps">Seat</dt>
-      <dd>{seat ?? "Not recorded"}</dd>
-      {b.material ? (
+      {build ? (
         <>
-          <dt className="caps">Material</dt>
-          <dd>{capital(b.material)}</dd>
+          <dt className="caps">Bench</dt>
+          <dd>{build}</dd>
         </>
       ) : null}
       {photographed ? (
@@ -278,20 +277,6 @@ function Facts({
           <dd>{photographed}</dd>
         </>
       ) : null}
-      <dt className="caps">Where</dt>
-      <dd>
-        <span className="num">
-          {b.lat.toFixed(5)}° N, {b.lng.toFixed(5)}° E
-        </span>{" "}
-        <small>
-          <a
-            href={`https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lng}#map=19/${b.lat}/${b.lng}`}
-            rel="noreferrer"
-          >
-            OpenStreetMap
-          </a>
-        </small>
-      </dd>
     </dl>
   )
 }
