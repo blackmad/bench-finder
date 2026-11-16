@@ -101,3 +101,9 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
 - Looks-at categories v2 (water, park, residential_street, busy_street, square, courtyard, playground, other). `bench_finder.label_views run` (Flash-Lite, detector-gated, whole benches, spend cap) labelled 3,628 photos for $2.81 before the $5 Gemini account ran out; ~3,700 gated photos remain (~$3) plus the new benches. `label_views fuse` wrote `bench_attributes` for 1,724 benches (1,709 with looks-at; park 736, water 488, playground 120, square 105, quiet street 97, busy street 42, courtyard 22).
 - `bench_finder.recut` re-renders hero views at 2048 px from the same panorama; publish cuts renditions from `images/hires/` when present. Full hero re-cut running (free, several hours).
 - Publish command: `uv run bench-finder publish --bbox amsterdam --include-unclassified --upload --out dist-data`.
+
+### 2026-11-16
+- SAM 3 on the new OSM benches done (5,580/9,128 photos with the target). Owner topped up Gemini; labelled 3,803 + 3,241 more photos ($2.95 + $2.51; total Flash-Lite spend $8.26). 2,022 SAM 3-confirmed photos (403 benches) unlabelled, ~$1.55, awaiting owner OK.
+- Published: 5,837 benches, 4,448 with a hero, 3,877 with looks-at. R2 bucket 6.43 GB (free tier 10 GB), no meaningful orphans.
+- Fixes: selected bench double-counted in map clusters; publish KeyError when a re-cut lands mid-publish.
+- Hero re-cut (2048 px) ~half done; re-run `recut --heroes` afterwards (heroes changed with new labels), then publish again.
