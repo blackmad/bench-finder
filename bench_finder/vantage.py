@@ -154,13 +154,14 @@ async def amsterdam_candidates(
 
 
 async def amsterdam_equirect(
-    pano_id: str, session: aiohttp.ClientSession
+    pano_id: str, session: aiohttp.ClientSession, size: str = "full"
 ) -> np.ndarray:
-    """The 8000 x 4000 equirectangular; its centre column faces north (verified
-    against Google and across mission years, whatever the API's ``heading``)."""
+    """The equirectangular (``full`` 8000 px, ``medium`` 4000 px); its centre column
+    faces north (verified against Google and across mission years, whatever the
+    API's ``heading``)."""
     async with session.get(f"{AMS_API}{pano_id}/", headers=UA) as r:
         r.raise_for_status()
-        url = (await r.json())["_links"]["equirectangular_full"]["href"]
+        url = (await r.json())["_links"][f"equirectangular_{size}"]["href"]
     async with session.get(url, headers=UA) as r:
         r.raise_for_status()
         raw = await r.read()
@@ -177,7 +178,8 @@ async def render_amsterdam(client: Any, c: PanoCandidate, b: Bench, session) -> 
         c, str(b.id), b.lat, b.lng, fov, filename, ImageSource.AMSTERDAM_PANORAMA
     )
     try:
-        arr = await amsterdam_equirect(c.pano_id, session)
+        # Capture only needs detection quality; hero re-cuts use the full size.
+        arr = await amsterdam_equirect(c.pano_id, session, "medium")
         view = await asyncio.to_thread(
             render_aimed_view,
             arr,
