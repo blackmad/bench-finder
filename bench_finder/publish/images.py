@@ -43,19 +43,26 @@ class ImageResult:
 HIRES_DIRNAME = "hires"
 
 
+CENTRED_DIRNAME = "centred"  # recentre.py: heroes re-aimed at the detected bench
+
+
 def hires_path(original: Path) -> Path:
     """Where the hi-res re-cut of ``original`` lives (``<dir>/hires/<same name>``)."""
     return original.parent / HIRES_DIRNAME / original.name
 
 
 def render_source(original: Path) -> Path:
-    """The file to cut renditions from: the hi-res re-cut if present, else the original."""
-    hires = hires_path(original)
-    try:
-        if hires.is_file() and hires.stat().st_size > 0:
-            return hires
-    except OSError:
-        pass
+    """The file to cut renditions from: the re-aimed (centred) view, else the hi-res
+    re-cut, else the original."""
+    for alt in (
+        original.parent / CENTRED_DIRNAME / original.name,
+        hires_path(original),
+    ):
+        try:
+            if alt.is_file() and alt.stat().st_size > 0:
+                return alt
+        except OSError:
+            pass
     return original
 
 

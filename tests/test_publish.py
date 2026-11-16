@@ -463,3 +463,14 @@ def test_benches_metres_apart_publish_as_one_place(world):
     assert d2["place"]["id"] == 1 and d2["place"]["count"] == 2
     assert [b["id"] for b in d2["place"]["benches"]] == [1]
     assert d2["place"]["benches"][0]["hero_urls"] == feats[1]["hero_urls"]
+
+
+def test_render_source_prefers_centred(tmp_path):
+    from bench_finder.publish.images import render_source
+
+    orig = tmp_path / "v.jpg"
+    _make_image(orig, (100, 100))
+    for sub in ("hires", "centred"):
+        (tmp_path / sub).mkdir()
+        _make_image(tmp_path / sub / "v.jpg", (200, 200))
+    assert render_source(orig) == tmp_path / "centred" / "v.jpg"

@@ -24,6 +24,7 @@ import shutil
 from pathlib import Path
 
 from bench_finder import recut
+from bench_finder.publish.images import CENTRED_DIRNAME
 
 
 BOX_SHARE = 0.38  # bench width as a share of the frame width
@@ -58,8 +59,11 @@ def frame_for_box(
     return yaw, tilt, fov
 
 
-def target_boxes(conn, image_ids: list[int]) -> dict[int, dict]:
-    """Best target box per image: sam3 when it has one, else yolo11x-seg."""
+def target_boxes(conn, image_ids: list[int], min_conf: float = 0.0) -> dict[int, dict]:
+    """Best target box per image: sam3 when it has one, else yolo11x-seg.
+
+    ``min_conf`` drops images whose best box is less sure than that.
+    """
     best: dict[int, tuple[tuple[int, float], dict]] = {}
     for i in range(0, len(image_ids), 500):
         chunk = image_ids[i : i + 500]
@@ -68,7 +72,7 @@ def target_boxes(conn, image_ids: list[int]) -> dict[int, dict]:
             key = (model == "sam3", conf or 0.0)
             if iid not in best or key > best[iid][0]:
                 best[iid] = (key, json.loads(bbox))
-    return {iid: b for iid, (_, b) in best.items()}
+    return {iid: b for iid, ((_, c), b) in best.items() if c >= min_conf}
 
 
 def recentred_job(job: recut.RecutJob, box: dict) -> recut.RecutJob:
@@ -81,17 +85,36 @@ def recentred_job(job: recut.RecutJob, box: dict) -> recut.RecutJob:
     )
 
 
-def pilot(db: str, images_root: Path, out: Path, n: int, seed: int) -> dict:
+def _hero_jobs(
+    db: str, images_root: Path, min_conf: float = 0.0
+) -> tuple[list[recut.RecutJob], dict[int, dict]]:
     conn = recut.connect_ro(db)
     heroes = recut.hero_image_ids(conn, images_root, include_unclassified=True)
-    boxes = target_boxes(conn, heroes)
-    rows = recut.load_rows(conn, [i for i in heroes if i in boxes])
+    boxes = target_boxes(conn, heroes, min_conf)
     jobs = []
-    for row in rows:
+    for row in recut.load_rows(conn, [i for i in heroes if i in boxes]):
         try:
             jobs.append(recut.job_from_row(row))
         except ValueError:
             continue
+    return jobs, boxes
+
+
+def run_all(db: str, images_root: Path, min_conf: float, concurrency: int) -> dict:
+    """Re-aim every hero with a sure target box into ``images/centred`` (publish prefers it)."""
+    jobs, boxes = _hero_jobs(db, images_root, min_conf)
+    out = images_root / CENTRED_DIRNAME
+    out.mkdir(parents=True, exist_ok=True)
+    new = [recentred_job(j, boxes[j.image_id]) for j in jobs]
+    results = asyncio.run(recut.run(new, out, concurrency=concurrency))
+    counts: dict[str, int] = {}
+    for r in results:
+        counts[r.status] = counts.get(r.status, 0) + 1
+    return {"heroes_with_box": len(jobs), **counts}
+
+
+def pilot(db: str, images_root: Path, out: Path, n: int, seed: int) -> dict:
+    jobs, boxes = _hero_jobs(db, images_root)
     random.Random(seed).shuffle(jobs)
     jobs = jobs[:n]
     (out / "after").mkdir(parents=True, exist_ok=True)
@@ -136,8 +159,14 @@ def main() -> None:
     p.add_argument("--n", type=int, default=50)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--out", type=Path, default=Path("data/centring_pilot"))
+    r = sub.add_parser("run", help="re-aim every hero into images/centred")
+    r.add_argument("--min-conf", type=float, default=0.5)
+    r.add_argument("--concurrency", type=int, default=1)
     a = ap.parse_args()
-    print(pilot(a.db, a.images_root, a.out, a.n, a.seed))
+    if a.cmd == "run":
+        print(run_all(a.db, a.images_root, a.min_conf, a.concurrency))
+    else:
+        print(pilot(a.db, a.images_root, a.out, a.n, a.seed))
 
 
 if __name__ == "__main__":
