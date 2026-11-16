@@ -153,6 +153,12 @@ Do not repair the Vercel deploy. Phase 4 replaces it.
 
 - **Coverage:** query by city area or tiled bounding box instead of a point radius; add `bench=yes` on other features and `leisure=picnic_table` as bench types; a city queue with `update-all <city>` running generate → fetch → detect → classify → publish. [S]
 - **Centred heroes:** aimed views point at the OSM pin, so the bench is often off to one side. `bench_finder/recentre.py` turns the camera towards the target detection box. It tilts down so the bench sits at ~64% of the frame height with what it looks at above, sets the FOV so the bench fills ~38% of the width, and re-renders at 2,048 px. Pilot of 50 first (owner reviews `data/centring_pilot/index.html`), then all ~4,450 heroes and republish. [S]
+- **Second capture from better vantage points:** the first capture chose panoramas before facings were known. For each bench with a facing or a looks-at answer:
+  - Search Google and Apple (streetlevel) plus the **City of Amsterdam panoramas**. These are open data with no key: `api.data.amsterdam.nl/panorama/panoramas/?near=lng,lat&radius=20` returns yearly 360° equirectangulars up to 8,000 px, and there are ~100 within 20 m of the Rokin benches.
+  - Score each panorama: behind the bench (bearing from panorama to bench within ±40° of the facing) first, then 4–12 m away, then newest.
+  - Render the best 2 per bench, already centred, with the `recentre` framing once the bench is detected.
+  - Run SAM 3, then label with Flash-Lite. That is ~8,600 views, ~$6.60: a paid run, so it needs owner OK.
+  - Let the publish ranking choose. Add `amsterdam` as an `image_source`, with the city's licence and attribution on the bench page. [S]
 - **Refresh:** monthly re-query; `cleanup-deleted-osm` already exists; re-fetch views when a newer panorama appears. [H]
 - **Unmapped benches:** run the detector on panoramas along park paths where no OSM bench is within 10 m; results enter the review queue as unverified, alongside user missing-bench reports. [S]
 - **Never write Street-View-derived data back to OpenStreetMap;** OSM does not accept it. Offer an "edit in OSM" link for human contributions only.
