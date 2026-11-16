@@ -2,7 +2,7 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl"
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url"
 import { useEffect, useRef } from "react"
-import { dotSprite } from "./sprites"
+import { benchSprite } from "./sprites"
 import { restyle, STYLE_URL } from "./style"
 
 setWorkerUrl(workerUrl)
@@ -40,7 +40,7 @@ export default function MiniMap({
         .getContainer()
         .querySelector(".maplibregl-ctrl-attrib")
         ?.classList.remove("maplibregl-compact-show")
-      map.addImage("here", dotSprite("sel", facing !== null).data, {
+      map.addImage("here", benchSprite("sel", facing !== null).data, {
         pixelRatio: 2,
       })
       map.addSource("here", {

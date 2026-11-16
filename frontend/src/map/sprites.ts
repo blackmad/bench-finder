@@ -120,6 +120,40 @@ function drawNeedle(g: CanvasRenderingContext2D, c: number, est: boolean) {
  * (the layer rotates it). Without `needle` it is the hub alone, for benches
  * whose facing is not known: nothing pretends to point anywhere.
  */
+/**
+ * A bench seen from above, facing up (the map rotates it to its facing): a
+ * seat slab with the backrest as a thick bar behind it. Backless benches
+ * (axis only) are the slab alone, so no front is invented. Estimated facings
+ * are an airmail outline; mapped ones solid ink; the selected bench vermilion.
+ * No facing at all: an unrotated slab with a hollow middle.
+ */
+export function benchSprite(kind: MarkerKind | "none", back: boolean): Sprite {
+  const S = 44
+  const c = S / 2
+  const { cv, g } = canvas(S, S)
+  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
+  const W = kind === "sel" ? 34 : 28
+  const seatH = kind === "sel" ? 10 : 8
+  const top = back ? c - seatH / 2 - 2 : c - seatH / 2
+  // A paper halo keeps the mark legible on any map colour.
+  g.fillStyle = PAPER
+  g.globalAlpha = 0.9
+  g.fillRect(c - W / 2 - 3, top - 3, W + 6, seatH + (back ? 11 : 6))
+  g.globalAlpha = 1
+  g.lineWidth = 2
+  g.strokeStyle = col
+  g.fillStyle = col
+  if (kind === "est" || kind === "none") {
+    g.strokeRect(c - W / 2 + 1, top + 1, W - 2, seatH - 2)
+  } else {
+    g.fillRect(c - W / 2, top, W, seatH)
+  }
+  if (back) {
+    g.fillRect(c - W / 2, top + seatH + 2, W, 4)
+  }
+  return finish(cv, g)
+}
+
 export function dotSprite(kind: MarkerKind, needle = true): Sprite {
   const S = 44
   const c = S / 2

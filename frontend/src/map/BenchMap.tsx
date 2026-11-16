@@ -14,7 +14,7 @@ import { isKnown, sectorOf } from "../data/facing"
 import type { BenchFeature, ImageUrls } from "../data/types"
 import { zoomForRadius } from "../lib/nearZoom"
 import type { Viewport } from "../lib/viewport"
-import { dotSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
+import { benchSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
 import { type MapView, restyle, STYLE_URL } from "./style"
 
 // maplibre-gl 6 locates its worker next to its own module; once bundled that
@@ -109,9 +109,9 @@ function dots(
           kind:
             b.properties.facing === null
               ? "none"
-              : isKnown(b.properties)
-                ? "known"
-                : "est",
+              : `${isKnown(b.properties) ? "known" : "est"}${
+                  b.properties.axis_only ? "axis" : ""
+                }`,
         },
       })),
   }
@@ -316,10 +316,13 @@ export default function BenchMap({
         .querySelector(".maplibregl-ctrl-attrib")
         ?.classList.remove("maplibregl-compact-show")
       for (const k of ["known", "est", "sel"] as const) {
-        map.addImage(`m-${k}`, dotSprite(k).data, { pixelRatio: 2 })
+        map.addImage(`m-${k}`, benchSprite(k, true).data, { pixelRatio: 2 })
+        map.addImage(`m-${k}axis`, benchSprite(k, false).data, {
+          pixelRatio: 2,
+        })
       }
-      map.addImage("m-none", dotSprite("known", false).data, { pixelRatio: 2 })
-      map.addImage("m-selnone", dotSprite("sel", false).data, {
+      map.addImage("m-none", benchSprite("none", false).data, { pixelRatio: 2 })
+      map.addImage("m-selnone", benchSprite("sel", false).data, {
         pixelRatio: 2,
       })
       map.addSource("benches", {
@@ -423,7 +426,14 @@ export default function BenchMap({
         source: "sel",
         filter: ["!", ["get", "photo"]],
         layout: {
-          "icon-image": ["case", ["get", "faced"], "m-sel", "m-selnone"],
+          "icon-image": [
+            "case",
+            ["!", ["get", "faced"]],
+            "m-selnone",
+            ["get", "axis"],
+            "m-selaxis",
+            "m-sel",
+          ],
           "icon-rotate": ["get", "facing"],
           "icon-rotation-alignment": "map",
           "icon-allow-overlap": true,
@@ -535,6 +545,7 @@ export default function BenchMap({
                   id: b.properties.id,
                   facing: b.properties.facing ?? 0,
                   faced: b.properties.facing !== null,
+                  axis: b.properties.axis_only,
                   photo: hasPhoto(b),
                 },
               },
