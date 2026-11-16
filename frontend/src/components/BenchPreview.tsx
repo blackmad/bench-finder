@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from "react"
 import { Link } from "react-router-dom"
 import { cityName, headline, heroImage, lede, seatText } from "../data/describe"
-import { facingKind, facingShort, looksAt } from "../data/facing"
+import { looksAt } from "../data/facing"
 import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
 import { PinIcon } from "./Icons"
@@ -61,8 +61,6 @@ export function BenchPreview({ bench, id, onClose }: Props) {
   const name = headline(b)
   const city = detail ? cityName(detail) : null
   const looks = looksAt(b.faces_category)
-  const facing = facingShort(b)
-  const kind = facingKind(b)
   const seat = seatText(b.backrest)
   const hero = detail ? heroImage(detail) : null
   const views = detail?.gallery.filter((g) => g !== hero) ?? []
@@ -94,20 +92,18 @@ export function BenchPreview({ bench, id, onClose }: Props) {
           Bench No. {b.id}
           {city ? ` · ${city}` : ""}
         </p>
+        {/* The title is the way to the rest (notes, ratings, the panorama);
+            there is no separate "open the page" button. */}
         <h2 id={titleId} tabIndex={-1}>
-          {name}
+          <Link className="titlelink" to={`/bench/${b.id}`}>
+            {name}
+          </Link>
         </h2>
         <p className="lede">{detail ? lede(detail) : " "}</p>
         <p className="facts">
           {looks || detail?.faces_text ? (
             <span>
               <b>{looks ?? detail?.faces_text}</b>
-            </span>
-          ) : null}
-          {facing ? (
-            <span className={kind === "estimated" ? "est" : undefined}>
-              <b className="num">{facing}</b>{" "}
-              {kind === "mapped" ? "mapped" : "estimated"}
             </span>
           ) : null}
           {seat ? (
@@ -122,10 +118,12 @@ export function BenchPreview({ bench, id, onClose }: Props) {
           ) : null}
         </p>
         <div className="ctas">
-          <Link className="btn solid" to={`/bench/${b.id}`}>
-            Open the bench page
-          </Link>
-          <a className="btn" href={directions} target="_blank" rel="noreferrer">
+          <a
+            className="btn solid"
+            href={directions}
+            target="_blank"
+            rel="noreferrer"
+          >
             <PinIcon />
             Take me there
           </a>

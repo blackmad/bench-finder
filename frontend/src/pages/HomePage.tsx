@@ -30,6 +30,7 @@ import {
 import { benchCount, useBenches } from "../data/hooks"
 import { buildRows } from "../data/rows"
 import type { BenchFeature } from "../data/types"
+import { FAR_M, reachMetres } from "../lib/nearZoom"
 import {
   type Viewport,
   viewportFromParams,
@@ -79,8 +80,11 @@ export default function HomePage() {
   const [flyTo, setFlyTo] = useState<{
     center: [number, number]
     key: number
+    radiusM?: number
   } | null>(null)
-  const [locating, setLocating] = useState<"idle" | "busy" | "denied">("idle")
+  const [locating, setLocating] = useState<"idle" | "busy" | "denied" | "far">(
+    "idle"
+  )
   const railRef = useRef<HTMLElement>(null)
 
   const benches = useMemo(() => data ?? [], [data])
@@ -230,13 +234,26 @@ export default function HomePage() {
     setLocating("busy")
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        const here: [number, number] = [
+          pos.coords.longitude,
+          pos.coords.latitude,
+        ]
+        // Reach out until about eight places are in view, however sparse.
+        const pts = benches.map(
+          (b) => b.geometry.coordinates as [number, number]
+        )
+        const radiusM = reachMetres(here, pts)
+        if (reachMetres(here, pts, 1) > FAR_M) {
+          setLocating("far")
+          return
+        }
         setLocating("idle")
-        flyToPlace([pos.coords.longitude, pos.coords.latitude])
+        setFlyTo({ center: here, key: Date.now(), radiusM })
       },
       () => setLocating("denied"),
       { timeout: 10_000, maximumAge: 60_000 }
     )
-  }, [flyToPlace])
+  }, [benches])
 
   // DOM order is the keyboard path: the map, then the rail (the keyboard
   // route to each bench; markers are GL-drawn).
@@ -297,6 +314,10 @@ export default function HomePage() {
           {locating === "denied" ? (
             <p className="nearme-note" role="status">
               Location is unavailable. Search for a place instead.
+            </p>
+          ) : locating === "far" ? (
+            <p className="nearme-note" role="status">
+              No benches near you yet: Bench Finder covers Amsterdam for now.
             </p>
           ) : null}
         </div>

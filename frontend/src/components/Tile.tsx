@@ -42,8 +42,7 @@ export function caption(bench: BenchProps) {
   return (
     <>
       <span className={est ? "est" : undefined}>
-        {est ? "≈ " : ""}Faces {facing.replace(/^≈ /, "")} ·{" "}
-        {est ? "estimated" : "mapped"}
+        {est ? "≈ " : ""}Faces {facing.replace(/^≈ /, "")}
       </span>
       {seat ? ` · ${seat}` : null}
     </>

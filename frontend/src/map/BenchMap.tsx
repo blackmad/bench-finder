@@ -12,6 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { dataUrl, hasPhoto } from "../data/api"
 import { isKnown, sectorOf } from "../data/facing"
 import type { BenchFeature, ImageUrls } from "../data/types"
+import { zoomForRadius } from "../lib/nearZoom"
 import type { Viewport } from "../lib/viewport"
 import { dotSprite, roseSprite, type Sprite, thumbSprite } from "./sprites"
 import { type MapView, restyle, STYLE_URL } from "./style"
@@ -30,7 +31,7 @@ interface Props {
   initialView: Viewport
   /** The URL's viewport; the map jumps there when it differs (back/forward). */
   viewport: Viewport | null
-  flyTo: { center: [number, number]; key: number } | null
+  flyTo: { center: [number, number]; key: number; radiusM?: number } | null
 }
 
 const sectorExpr = (i: number): ExpressionSpecification => [
@@ -556,7 +557,16 @@ export default function BenchMap({
   useEffect(() => {
     const map = mapRef.current
     if (flyTo && map) {
-      map.flyTo({ center: flyTo.center, zoom: Math.max(map.getZoom(), 15) })
+      const box = map.getContainer()
+      const zoom =
+        flyTo.radiusM !== undefined
+          ? zoomForRadius(
+              flyTo.radiusM,
+              flyTo.center[1],
+              Math.min(box.clientWidth, box.clientHeight)
+            )
+          : Math.max(map.getZoom(), 15)
+      map.flyTo({ center: flyTo.center, zoom })
     }
   }, [flyTo])
 

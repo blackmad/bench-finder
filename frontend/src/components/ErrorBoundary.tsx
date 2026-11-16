@@ -7,6 +7,10 @@ interface State {
   failed: boolean
 }
 
+const STALE_CHUNK =
+  /dynamically imported module|Importing a module script failed|Failed to fetch|error loading dynamically/i
+const RELOADED = "bf-chunk-reload"
+
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { failed: false }
 
@@ -16,6 +20,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(error, info.componentStack)
+    // After a deploy, an open tab asks for code chunks that no longer exist.
+    // Reload once to pick up the new build instead of showing the error.
+    if (STALE_CHUNK.test(String(error?.message))) {
+      try {
+        if (!sessionStorage.getItem(RELOADED)) {
+          sessionStorage.setItem(RELOADED, "1")
+          window.location.reload()
+        }
+      } catch {
+        /* storage blocked: show the error with its Reload button */
+      }
+    }
   }
 
   render() {

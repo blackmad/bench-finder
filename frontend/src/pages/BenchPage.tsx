@@ -7,7 +7,6 @@ import {
 } from "../components/account/BenchSocial"
 import { EyeIcon, PinIcon } from "../components/Icons"
 import { Photo } from "../components/Photo"
-import { Stamp } from "../components/postmark/Stamp"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
 import { ViewFigure } from "../components/ViewFigure"
@@ -33,9 +32,6 @@ import "../styles/bench.css"
 import NotFoundPage from "./NotFoundPage"
 
 const MiniMap = lazy(() => import("../map/MiniMap"))
-
-/** Tags every bench has, or that the page already shows elsewhere. */
-const HIDDEN_TAGS = new Set(["amenity", "leisure", "check_date", "source"])
 
 const capital = (s: string) => s.replace(/^\w/, (c) => c.toUpperCase())
 
@@ -93,7 +89,6 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
   const heroImg = heroImage(b)
   const shownLead = heroImg ?? lead
   const gallery = b.gallery.filter((g) => g !== shownLead)
-  const tags = Object.entries(b.tags ?? {}).filter(([k]) => !HIDDEN_TAGS.has(k))
   const photographed = monthYear(shownLead?.pano_date)
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}&travelmode=walking`
 
@@ -124,9 +119,6 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
                 Look around
               </a>
             ) : null}
-            <a className="btn" href="#rate">
-              Rate this bench
-            </a>
           </div>
         </div>
       </section>
@@ -134,9 +126,6 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
       <div className="sheet">
         <section className="backside" aria-label="About this bench">
           <div className="postback">
-            <div className="stampslot">
-              <Stamp bench={b} large />
-            </div>
             <Facts bench={b} photographed={photographed} />
             <div className="rate" id="rate">
               <BenchActions benchId={b.id} />
@@ -187,25 +176,6 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
 
         <HereToo bench={b} />
         <Nearby bench={b} />
-
-        {tags.length ? (
-          <section className="block" aria-labelledby="h-tags">
-            <div className="blockhead">
-              <h2 id="h-tags">Map data</h2>
-              <p>Tags on this bench in OpenStreetMap</p>
-            </div>
-            <dl className="tags">
-              {tags
-                .sort(([a], [c]) => a.localeCompare(c))
-                .map(([k, v]) => (
-                  <div key={k}>
-                    <dt>{k}</dt>
-                    <dd>{v}</dd>
-                  </div>
-                ))}
-            </dl>
-          </section>
-        ) : null}
 
         <BenchNotes benchId={b.id} />
         <ReportRow benchId={b.id} lat={b.lat} lng={b.lng} />
