@@ -122,3 +122,4 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
   - `api/` and the FastAPI launchers: removed.
   - **Owner:** delete the Supabase project in its dashboard; move Firebase to the free (Spark) plan.
 - **Agent worktrees:** removed; all their commits were already in `resurrect`.
+- **Supabase:** the bench project (`rsuzgqcspploqskvckyu`) was a Vercel Marketplace resource (`supabase-blue-mountain`). Deleted with `vercel integration-resource remove`; its host now returns 410. **Firebase billing unlinked** (Spark plan); sign-in is plain Firebase Auth, not Identity Platform. 4.7 is complete.
