@@ -474,3 +474,10 @@ def test_render_source_prefers_centred(tmp_path):
         (tmp_path / sub).mkdir()
         _make_image(tmp_path / sub / "v.jpg", (200, 200))
     assert render_source(orig) == tmp_path / "centred" / "v.jpg"
+
+
+def test_rank_blocked_view_loses_to_clear_one():
+    behind_blocked = {**_img(1, 90, sam3=0.9), "occluded": True}
+    side_clear = _img(2, 180, sam3=0.9)
+    ranked = sorted([behind_blocked, side_clear], key=lambda i: image_rank(i, 90.0))
+    assert [i["id"] for i in ranked] == [2, 1]

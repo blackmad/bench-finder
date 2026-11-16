@@ -239,6 +239,19 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
                 v = value
             if isinstance(v, str):
                 by_id[image_id]["view_labels"][annotator] = v
+    # Is the bench hidden behind something? The VLM labeller's answer wins over
+    # the local model's (bench_finder.local_occlusion), which only fills gaps.
+    for image_id, annotator, value in conn.execute(
+        "SELECT a.image_id, a.annotator, a.value FROM image_annotations a "
+        "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
+        "WHERE a.label_type = 'occluded'"
+    ):
+        if image_id in by_id:
+            blocked = value in ("true", "1", 1, True)
+            img = by_id[image_id]
+            local = annotator.startswith(OCCLUSION_LOCAL_PREFIX)
+            if not local or "occluded" not in img:
+                img["occluded"] = blocked
     return by_bench
 
 
@@ -269,6 +282,8 @@ TARGET_MODELS = ("sam3", "yolo11x-seg")
 SAM3_MIN = 0.6
 YOLO_MIN = 0.25
 # Annotators trusted for view_relation, best first; the first real label wins.
+OCCLUSION_LOCAL_PREFIX = "ollama/"  # local_occlusion.py's annotator
+
 VIEW_ANNOTATORS = (
     "oracle:",
     "gemini-4-hydrogen",
@@ -356,6 +371,7 @@ def image_rank(
 
     1. Target gate (``target_gate``): a confirmed detection of the aimed-at bench
        first, then legacy detections, then images where no bench was seen.
+       Within a gate, views labelled ``occluded`` come after unblocked ones.
     2. View relation: the camera behind the bench (the sitter's view) beats the
        back corners, then the sides, then the front. A trusted label decides
        (``VIEW_ANNOTATORS``, oracle first). Without one, when the bench's facing
@@ -383,6 +399,7 @@ def image_rank(
     digits = re.sub(r"\D", "", img.get("pano_date") or "")[:6]
     return (
         gate,
+        bool(img.get("occluded")),  # a bench hidden behind a hedge or car loses
         tier,
         diff / 180 if diff is not None else 0.5,
         -round(_box_score(box, size), 3),
