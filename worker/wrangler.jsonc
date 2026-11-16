@@ -8,6 +8,8 @@
 
   "vars": {
     "FIREBASE_PROJECT_ID": "bench-finder-a45db",
+    // Error reports to Sentry project whizziwig/bench-finder-worker (a public key).
+    "SENTRY_DSN": "https://cc4c36278c6ae7a6f2637474082cabfe@o417464.ingest.us.sentry.io/4512443395735552",
     // Deployed Pages origins, comma-separated. http://localhost:5173 is always allowed.
     "ALLOWED_ORIGINS": "https://bench.blackmad.com,https://bench-finder.bench-finder-worker.workers.dev",
     // TODO(owner): comma-separated Firebase uids of moderators (find yours via GET /api/me after signing in).

@@ -1,4 +1,6 @@
 export interface Env {
+  /** Sentry DSN for error reports (public key; unset in tests). */
+  SENTRY_DSN?: string;
   DB: D1Database;
   UPLOADS: R2Bucket;
   /** Firebase project id. Defaults to bench-finder-a45db. */

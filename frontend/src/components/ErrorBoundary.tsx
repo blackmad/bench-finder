@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react"
 import { Component, type ErrorInfo, type ReactNode } from "react"
 
 interface Props {
@@ -20,6 +21,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(error, info.componentStack)
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: info.componentStack ?? "" } },
+    })
     // After a deploy, an open tab asks for code chunks that no longer exist.
     // Reload once to pick up the new build instead of showing the error.
     if (STALE_CHUNK.test(String(error?.message))) {

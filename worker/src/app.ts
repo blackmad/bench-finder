@@ -5,6 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import type { JWTVerifyGetKey } from "jose";
 import { z } from "zod";
 import { type AuthUser, googleJwks, testJwksFromEnv, verifierFromEnv } from "./auth";
+import * as Sentry from "@sentry/cloudflare";
 import { csv, type Env } from "./env";
 import { hit, num } from "./rate-limit";
 import { TURNSTILE_ACTION, type TurnstileVerifier, verifyTurnstile } from "./turnstile";
@@ -122,6 +123,8 @@ export function createApp(deps: Deps = {}) {
     .onError((err, c) => {
       if (err instanceof HTTPException) return c.json({ error: err.message }, err.status);
       console.error(err);
+      // Hono catches it before withSentry can: report it here.
+      Sentry.captureException(err);
       return c.json({ error: "Internal error" }, 500);
     })
     .notFound((c) => c.json({ error: "Not found" }, 404))
