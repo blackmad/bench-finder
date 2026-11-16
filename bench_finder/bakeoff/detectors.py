@@ -52,6 +52,8 @@ class Det:
     x2: float
     y2: float
     conf: float
+    # Outline as [[x, y], ...] in 0..1 image coordinates (segmenting models).
+    poly: tuple[tuple[float, float], ...] | None = None
 
 
 HIT_MODES = ("radial", "horizontal")
@@ -338,10 +340,22 @@ class Sam3Detector(Detector):
 
     def detect(self, path: Path) -> list[Det]:
         self.predictor.set_image(str(path))
-        boxes = self.predictor(text=["bench"])[0].boxes
+        res = self.predictor(text=["bench"])[0]
+        boxes = res.boxes
+        polys = res.masks.xyn if res.masks is not None else [None] * len(boxes)
         return [
-            Det(*map(float, xyxy), conf=float(c))
-            for xyxy, c in zip(boxes.xyxy.tolist(), boxes.conf.tolist(), strict=True)
+            Det(
+                *map(float, xyxy),
+                conf=float(c),
+                poly=(
+                    tuple((round(float(x), 4), round(float(y), 4)) for x, y in p)
+                    if p is not None and len(p)
+                    else None
+                ),
+            )
+            for xyxy, c, p in zip(
+                boxes.xyxy.tolist(), boxes.conf.tolist(), polys, strict=True
+            )
         ]
 
 

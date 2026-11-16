@@ -110,6 +110,7 @@ def main() -> None:
                 w = im.width
             dets = [d for d in sam.detect(p) if d.conf >= FLOOR]
             results = [(w, [(d.conf, [d.x1, d.y1, d.x2, d.y2]) for d in dets])]
+            polys = [d.poly for d in dets]
         else:
             results = [
                 (
@@ -127,6 +128,8 @@ def main() -> None:
                     verbose=False,
                 )
             ]
+        if model_id != "sam3":
+            polys = None
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
         for (iid, _), (width, boxes) in zip(chunk, results, strict=True):
             targets = [c for c, (x1, _, x2, _) in boxes if is_target(x1, x2, width)]
@@ -148,9 +151,10 @@ def main() -> None:
                     now,
                 ),
             )
+            # SAM 3 outlines are kept (0..1 coordinates) for the hero fade.
             conn.executemany(
-                "INSERT INTO detection_items (detection_id, confidence, bbox, class_name, created_at, is_target) "
-                "VALUES (?, ?, ?, 'bench', ?, ?)",
+                "INSERT INTO detection_items (detection_id, confidence, bbox, class_name, created_at, "
+                "is_target, polygon) VALUES (?, ?, ?, 'bench', ?, ?, ?)",
                 [
                     (
                         cur.lastrowid,
@@ -160,8 +164,9 @@ def main() -> None:
                         ),
                         now,
                         is_target(xy[0], xy[2], width),
+                        json.dumps(polys[k]) if polys and polys[k] else None,
                     )
-                    for c, xy in boxes
+                    for k, (c, xy) in enumerate(boxes)
                 ],
             )
             done += 1
