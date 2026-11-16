@@ -26,6 +26,28 @@ DB = "data/benches.db"
 IMAGES = Path("images")
 HEADER = re.compile(r"^== (.+?) (\w{3} \w{3} +\d+ [\d:]+ \w+ \d{4})$")
 WINDOW_S = 15 * 60
+# Rough minutes per step, from tonight's sizes (Apple M-series, SAM 3 ~1.8 s and
+# Qwen ~3.6 s per image). Steps not listed get DEFAULT_MIN. A running step with a
+# measured rate uses that instead.
+GUESS_MIN = {
+    "vantage": 60,
+    "wide": 25,
+    "sam3": 120,
+    "recentre": 30,
+    "local occlusion": 180,
+    "hero masks": 150,
+    "fade": 10,
+    "publish": 25,
+    "triage": 5,
+    "bgt import": 10,
+    "fetch images": 180,
+}
+DEFAULT_MIN = 15
+
+
+def guess_s(step: str) -> float:
+    s = step.lower()
+    return 60 * next((m for k, m in GUESS_MIN.items() if s.startswith(k)), DEFAULT_MIN)
 
 
 def _q(sql: str, *args) -> int:
@@ -167,11 +189,15 @@ def page(log: Path, script: Path) -> str:
     planned = plan(script)
     now = datetime.now()
     rows, card = [], ""
+    left_s = 0.0  # time still to go for the running step
     for k, (name, start, out) in enumerate(steps):
         end = steps[k + 1][1] if k + 1 < len(steps) else None
         running = end is None and not finished
-        dur = fmt_dur(((end or now) - start).total_seconds())
+        elapsed = ((end or now) - start).total_seconds()
+        dur = fmt_dur(elapsed)
         last = e(out[-1][:140]) if out else ""
+        if running:
+            left_s = max(guess_s(name) - elapsed, 60)
         rows.append(
             f"<tr class={'run' if running else ''}><td>{e(name)}</td>"
             f"<td>{start:%H:%M}</td><td>{dur}{' …' if running else ''}</td><td><small>{last}</small></td></tr>"
@@ -189,7 +215,8 @@ def page(log: Path, script: Path) -> str:
                 if r:
                     bits.append(f"{r * 60:,.1f}/min")
                 if r and total and total > done:
-                    eta = time.time() + (total - done) / r
+                    left_s = (total - done) / r
+                    eta = time.time() + left_s
                     bits.append(
                         f"finishes ≈ <b>{datetime.fromtimestamp(eta):%H:%M}</b> (in {fmt_dur((total - done) / r)})"
                     )
@@ -203,19 +230,29 @@ def page(log: Path, script: Path) -> str:
             elif not card:
                 card = f"<h2>{e(name)}</h2><p>running for {dur}; no counter for this step</p>"
     upcoming = [] if finished else planned[len(steps) :]
-    rows += [
-        f"<tr class=todo><td>{e(n.split(' $')[0])}</td><td></td><td>to do</td><td></td></tr>"
-        for n in upcoming
-    ]
+    t = time.time() + left_s
+    for n in upcoming:
+        g = guess_s(n)
+        start_at, t = datetime.fromtimestamp(t), t + g
+        rows.append(
+            f"<tr class=todo><td>{e(n.split(' $')[0])}</td><td>≈ {start_at:%H:%M}</td>"
+            f"<td>≈ {fmt_dur(g)}</td><td></td></tr>"
+        )
     if planned and not finished:
-        card += f"<p><small>step {len(steps)} of {len(planned)}</small></p>"
+        end_at = datetime.fromtimestamp(t)
+        day = "" if end_at.date() == now.date() else f"{end_at:%a} "
+        card = (
+            f"<p class=all>All {len(planned)} steps done ≈ <b>{day}{end_at:%H:%M}</b> "
+            f"(in {fmt_dur(t - time.time())}) · step {len(steps)} of {len(planned)} · "
+            "<small>later steps are rough guesses</small></p>" + card
+        )
     tail = "\n".join(steps[-1][2][-6:]) if steps else ""
     status = "finished" if finished else ("running" if steps else "not started")
     return (
         "<!doctype html><meta charset=utf-8><meta http-equiv=refresh content=20>"
         "<title>Bench jobs</title><style>body{font:14px system-ui;margin:20px;background:#f7f0e1;color:#2b261e;max-width:980px}"
         "table{border-collapse:collapse;width:100%}td{padding:4px 8px;border-bottom:1px solid #ddd2bd;vertical-align:top}"
-        "tr.run{background:#fffdf8;font-weight:600}tr.todo{color:#9a8f7c}.bar{height:10px;background:#ddd2bd;border-radius:5px;overflow:hidden}"
+        "p.all{font-size:16px}tr.run{background:#fffdf8;font-weight:600}tr.todo{color:#9a8f7c}.bar{height:10px;background:#ddd2bd;border-radius:5px;overflow:hidden}"
         ".bar i{display:block;height:100%;background:#4f8a5b}pre{background:#fffdf8;padding:8px;white-space:pre-wrap;font-size:12px}"
         "small{color:#675d4d;font-weight:400}</style>"
         f"<h1>{e(log.name)} · {status}</h1><p><small>refreshes every 20 s · {now:%H:%M:%S}</small></p>"
