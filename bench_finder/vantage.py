@@ -65,7 +65,7 @@ class Bench:
     id: int
     lat: float
     lng: float
-    facing: float
+    facing: float | None  # None: no facing yet, panoramas rank by distance only
     water: bool
     have: frozenset[str]  # pano ids this bench already has a view from
 
@@ -78,6 +78,12 @@ def fov_for(distance_m: float) -> float:
 
 def score(c: PanoCandidate, b: Bench) -> float | None:
     """Higher is better; None when the panorama is no use for this bench."""
+    if b.facing is None:  # no side to prefer: any near panorama will do
+        d = c.distance_m
+        if not MIN_PANO_DISTANCE_M <= d <= NEAR_MAX_M:
+            return None
+        dist_pen = 0.0 if 5 <= d <= 15 else ((d - 15) / 45 if d > 15 else (5 - d) / 5)
+        return 0.6 - 0.5 * dist_pen + 0.02 * ((c.year or 2015) - 2015)
     rel = math.radians((c.bearing_deg - b.facing + 180) % 360 - 180)
     cos = math.cos(rel)  # 1: camera behind the bench, -1: in front of it
     if abs(cos) < MIN_FACING_COS:
@@ -107,6 +113,8 @@ def choose(
     picked: list[PanoCandidate] = []
     sides: set[bool] = set()
     for _, c in scored:  # first pass: one per side
+        if b.facing is None:
+            break
         side = math.cos(math.radians(c.bearing_deg - b.facing)) > 0
         if side not in sides:
             picked.append(c)
@@ -200,7 +208,7 @@ async def render_amsterdam(client: Any, c: PanoCandidate, b: Bench, session) -> 
 
 
 def load_benches(db: str, limit: int | None = None) -> list[Bench]:
-    """Benches with a facing (VLM/human, else OSM ``direction``), in Amsterdam."""
+    """Amsterdam benches with their facing (VLM/human, else OSM ``direction``, else None)."""
     from bench_finder.publish.build import AMSTERDAM_BBOX, parse_direction
 
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -223,14 +231,12 @@ def load_benches(db: str, limit: int | None = None) -> list[Bench]:
             facing = parse_direction(
                 (json.loads(tags) if tags else {}).get("direction")
             )
-        if facing is None:
-            continue
         out.append(
             Bench(
                 cid,
                 lat,
                 lng,
-                float(facing),
+                None if facing is None else float(facing),
                 faces == "water",
                 frozenset(have.get(cid, ())),
             )
@@ -284,7 +290,9 @@ async def _run(db: str, limit: int | None, render: bool, concurrency: int) -> di
                 for c in picked:
                     stats[f"picked_{c.source}"] += 1
                     side = (
-                        "behind"
+                        "unknown"
+                        if b.facing is None
+                        else "behind"
                         if math.cos(math.radians(c.bearing_deg - b.facing)) > 0
                         else "front"
                     )
@@ -315,7 +323,7 @@ async def _run(db: str, limit: int | None, render: bool, concurrency: int) -> di
                     logger.info("%s", dict(stats))
 
         await asyncio.gather(*(one(b) for b in benches))
-    return {"benches_with_facing": len(benches), **stats}
+    return {"benches": len(benches), **stats}
 
 
 def main() -> None:
