@@ -12,20 +12,23 @@ export interface MapView {
   zoom: number
 }
 
-/** The basemap re-inked as card stock, with airmail water. */
+/** The basemap re-inked as warm card stock: canal-blue water, green parks. */
 export function restyle(map: MapLibreMap) {
   for (const l of map.getStyle().layers) {
     if (l.type === "background") {
-      map.setPaintProperty(l.id, "background-color", "#f6f6f1")
+      map.setPaintProperty(l.id, "background-color", "#f7f0e1")
     }
     if (/water/.test(l.id) && l.type === "fill") {
-      map.setPaintProperty(l.id, "fill-color", "#cfdbee")
+      map.setPaintProperty(l.id, "fill-color", "#a7cfe4")
     }
     if (/park|landuse|landcover|wood|grass/.test(l.id) && l.type === "fill") {
-      map.setPaintProperty(l.id, "fill-color", "#e6eadc")
+      map.setPaintProperty(l.id, "fill-color", "#cfe3b3")
+    }
+    if (/building/.test(l.id) && l.type === "fill") {
+      map.setPaintProperty(l.id, "fill-color", "#e9dfcb")
     }
     if (l.type === "symbol" && l.layout?.["text-field"]) {
-      map.setPaintProperty(l.id, "text-color", "#5c5c57")
+      map.setPaintProperty(l.id, "text-color", "#5e5547")
     }
   }
 }

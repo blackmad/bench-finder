@@ -32,6 +32,7 @@ export function RailRow({
       className="railrow"
       aria-labelledby={id}
       data-all={all || undefined}
+      data-cat={rowCategory(row.key)}
     >
       <div className="rowhead">
         <h3 id={id} className="caps">
@@ -67,4 +68,11 @@ export function RailRow({
       </div>
     </section>
   )
+}
+
+/** "looks:water" and the gracht/kade row are water; "looks:park" is park. */
+function rowCategory(key: string): string | undefined {
+  if (key === "water") return "water"
+  if (key.startsWith("looks:")) return key.slice(6)
+  return undefined
 }

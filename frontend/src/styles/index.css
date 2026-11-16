@@ -3,22 +3,35 @@
 
 /* Tokens from DESIGN.md. Tailwind generates utilities from these (bg-card, text-ink-2, ...). */
 @theme {
-  --color-card: #f6f6f1;
-  --color-rack: #ecece4;
-  --color-stamp-paper: #fbfbf7;
+  --color-card: #fbf8f1;
+  --color-rack: #efe6d4;
+  --color-stamp-paper: #fffdf8;
   --color-ink: #141414;
-  --color-ink-2: #4a4a46;
-  --color-ink-3: #64645f;
-  --color-rule: #d6d6cc;
+  --color-ink-2: #4b4438;
+  --color-ink-3: #675d4d;
+  --color-rule: #ddd2bd;
   --color-airmail: #1e4fa3;
   --color-airmail-deep: #163d80;
   --color-airmail-wash: #dfe6f2;
   --color-vermilion: #e23b1e;
   /* Vermilion for small text (stamp labels): 5.0:1 on stamp paper. */
   --color-vermilion-ink: #cc3217;
-  --color-map-water: #cfdbee;
-  --color-map-park: #e6eadc;
-  --color-photo-empty: #c9c9bf;
+  --color-map-water: #a7cfe4;
+  --color-map-park: #cfe3b3;
+  --color-photo-empty: #d6ccb8;
+
+  /* What the bench looks at: one ink per category (all >= 5:1 on card), with
+     a wash for swatches. Never vermilion, which marks the selected bench. */
+  --color-cat-water: #1d6690;
+  --color-cat-water-wash: #cfe5f1;
+  --color-cat-park: #3b6e2c;
+  --color-cat-park-wash: #d9eac6;
+  --color-cat-square: #95560f;
+  --color-cat-square-wash: #f1e0c2;
+  --color-cat-street: #6a4a84;
+  --color-cat-street-wash: #e6dcef;
+  --color-cat-courtyard: #77602a;
+  --color-cat-playground: #8b3d86;
 
   --font-sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
 
@@ -482,8 +495,17 @@ h1[tabindex="-1"]:focus {
   transform: translateY(-2px);
   box-shadow: var(--shadow-card-lifted);
 }
+/* The selected ring is an inset shadow: it sits exactly on the card's edge,
+   moves with it when lifted, and no scroller can clip it. */
 .tile[aria-current="true"] {
-  outline-color: var(--color-vermilion);
+  box-shadow:
+    inset 0 0 0 2px var(--color-vermilion),
+    var(--shadow-card);
+}
+.tile[aria-current="true"]:hover {
+  box-shadow:
+    inset 0 0 0 2px var(--color-vermilion),
+    var(--shadow-card-lifted);
 }
 .tile:focus-visible {
   outline-color: var(--color-airmail);
@@ -1191,5 +1213,33 @@ picture {
 /* "6 benches ·" on a tile whose place holds several. */
 .tile .cap .many {
   color: var(--color-ink);
+  font-weight: 600;
+}
+
+/* Category colour: row headings carry a swatch, captions say it in colour. */
+[data-cat="water"] { --cat: var(--color-cat-water); --cat-wash: var(--color-cat-water-wash); }
+[data-cat="park"] { --cat: var(--color-cat-park); --cat-wash: var(--color-cat-park-wash); }
+[data-cat="square"] { --cat: var(--color-cat-square); --cat-wash: var(--color-cat-square-wash); }
+[data-cat="residential_street"],
+[data-cat="busy_street"] { --cat: var(--color-cat-street); --cat-wash: var(--color-cat-street-wash); }
+[data-cat="courtyard"] { --cat: var(--color-cat-courtyard); --cat-wash: var(--color-cat-square-wash); }
+[data-cat="playground"] { --cat: var(--color-cat-playground); --cat-wash: var(--color-cat-street-wash); }
+.railrow[data-cat] .rowhead h3 {
+  color: var(--cat);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.railrow[data-cat] .rowhead h3::before {
+  content: "";
+  width: 18px;
+  height: 6px;
+  background: var(--cat);
+}
+.railrow[data-cat] .tile {
+  border-top: 3px solid var(--cat);
+}
+.looks[data-cat] {
+  color: var(--cat);
   font-weight: 600;
 }

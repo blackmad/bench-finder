@@ -8,8 +8,8 @@
 const INK = "#141414"
 const AIRMAIL = "#1e4fa3"
 const VERMILION = "#e23b1e"
-const PAPER = "#fbfbf7"
-const CARD = "#f6f6f1"
+const PAPER = "#fffdf8"
+const CARD = "#fbf8f1"
 const EMPTY = "#c9c9bf"
 const DPR = 2
 const FONT = '"Archivo Variable", ui-sans-serif, system-ui, sans-serif'

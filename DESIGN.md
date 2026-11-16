@@ -2,21 +2,21 @@
 name: Bench Finder
 description: A picture rail of benches beside the map; every photo carries a compass seal, and only where the facing is really known.
 colors:
-  card: "#f6f6f1"
-  card-rack: "#ecece4"
-  stamp-paper: "#fbfbf7"
+  card: "#fbf8f1"
+  card-rack: "#efe6d4"
+  stamp-paper: "#fffdf8"
   ink: "#141414"
-  ink-2: "#4a4a46"
-  ink-3: "#64645f"
-  rule: "#d6d6cc"
+  ink-2: "#4b4438"
+  ink-3: "#675d4d"
+  rule: "#ddd2bd"
   airmail: "#1e4fa3"
   airmail-deep: "#163d80"
   airmail-wash: "#dfe6f2"
   vermilion: "#e23b1e"
   vermilion-ink: "#cc3217"
-  map-water: "#cfdbee"
-  map-park: "#e6eadc"
-  photo-empty: "#c9c9bf"
+  map-water: "#a7cfe4"
+  map-park: "#cfe3b3"
+  photo-empty: "#d6ccb8"
 typography:
   display:
     fontFamily: "Archivo, ui-sans-serif, system-ui, sans-serif"
@@ -129,7 +129,7 @@ A gallery's picture rail beside a map. The map stays on screen; next to it hang 
 It is the earlier Postcard Rack direction (paper, Archivo, the always-on re-inked map, needle markers, vermilion only for selection, the perforated compass stamp) crossed with the Title-Card Wall (hero with a headline on a paper card over the photo, horizontally scrolling rows by category, full-bleed bench pages). The approved reference mock is `frontend/design-reference/hybrid/` (its photos are not committed).
 
 **Key characteristics:**
-- Card stock (#f6f6f1) on a warmer rail ground (#ecece4); square corners everywhere except compass forms.
+- Card stock (#fbf8f1) on a warmer rail ground (#efe6d4); square corners everywhere except compass forms.
 - The facing is the signature datum and it is never faked. Mapped facing = solid ink needle; estimated = dashed airmail needle with "≈"; no facing = no needle and no seal.
 - Words come from data. Headlines are the street address (fallback "Bench No. N"); ledes are assembled from OSM tags, facing and photo date. No invented prose.
 - Vermilion belongs to the one selected bench (tile outline, map thumb or marker).
@@ -164,6 +164,8 @@ Ink on card stock, one airmail blue for interaction and estimates, one vermilion
 - **Card** (`card`): tiles, title cards, postback, top bar, map background. **Rail** (`card-rack`): page ground. **Stamp paper** (`stamp-paper`): seals, stamps, rose and marker hubs.
 - **Ink / Ink 2 / Ink 3**: text at 17:1, 8.6:1 and 5.5:1 on card. **Rule**: hairlines.
 - **Map water / park**: basemap re-ink (`frontend/src/map/style.ts`).
+
+**Category inks.** What a bench looks at has one ink each (water `#1d6690`, park `#3b6e2c`, square `#95560f`, street `#6a4a84`, courtyard `#77602a`, playground `#8b3d86`, all at least 5:1 on card). They colour the "Looks out over…" caption, a category row's heading with its swatch bar, and a 3 px top edge on that row's cards. The map uses real canal blue and park green on warm paper.
 
 **The One Vermilion Rule.** Vermilion marks exactly one bench at a time and is never used for errors, hover or emphasis. The kicker labels ("Bench No. 1278 · Amsterdam") use `vermilion-ink` as print colour, the one exception, matching the approved mock.
 

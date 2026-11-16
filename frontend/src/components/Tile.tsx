@@ -25,7 +25,9 @@ export function caption(bench: BenchProps) {
   if (looks) {
     return (
       <>
-        {looks}
+        <span className="looks" data-cat={bench.faces_category ?? undefined}>
+          {looks}
+        </span>
         {facing ? (
           <span className={kind === "estimated" ? "est" : undefined}>
             {" "}
