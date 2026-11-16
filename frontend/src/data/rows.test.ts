@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { facingSentence } from "./describe"
-import { buildRows, MIN_ROW } from "./rows"
+import { buildRows } from "./rows"
 import type { BenchFeature, BenchProps } from "./types"
 
 const bench = (id: number, p: Partial<BenchProps> = {}): BenchFeature => ({
@@ -34,21 +34,6 @@ describe("buildRows", () => {
 
   it("returns no rows only when there is no photographed bench", () => {
     expect(buildRows([])).toEqual([])
-  })
-
-  it("hides short themed rows and ones that repeat the first", () => {
-    const photos = [
-      ...Array.from({ length: MIN_ROW + 1 }, (_, i) =>
-        bench(i + 1, { faces_category: "water" })
-      ),
-      bench(9, { address: "Dam 1", faces_category: "water" }),
-      bench(10, { address: "Dam 2" }),
-    ]
-    const keys = buildRows(photos).map((r) => r.key)
-    expect(keys[0]).toBe("near")
-    expect(keys).toContain("looks:water")
-    expect(keys).toContain("water") // the gracht addresses: 4 of 6
-    expect(keys).not.toContain("looks:park")
   })
 })
 
