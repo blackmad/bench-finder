@@ -56,7 +56,11 @@ APPLE_EQUIRECT_WIDTHS = {0: 16384, 1: 12016, 2: 6416, 3: 4560}
 # a warning: the framing would no longer match the original exactly.
 POSE_DRIFT_WARN_RAD = 1e-3
 
-SOURCES = {"STREETVIEW_STREETLEVEL": "google", "APPLE_STREETLEVEL": "apple"}
+SOURCES = {
+    "STREETVIEW_STREETLEVEL": "google",
+    "APPLE_STREETLEVEL": "apple",
+    "AMSTERDAM_PANORAMA": "amsterdam",
+}
 
 _IMAGE_COLS = (
     "id, bench_candidate_id, filename, filepath, image_source, kind, pano_id, "
@@ -358,6 +362,25 @@ async def _render_apple(
     return await asyncio.to_thread(render_aimed_view, arr, **params), zoom
 
 
+async def _render_amsterdam(
+    job: RecutJob, session: aiohttp.ClientSession, out_px: int
+) -> tuple[Any, int]:
+    """City panoramas: one 8000 px equirectangular, centre column north, level."""
+    from bench_finder.vantage import amsterdam_equirect
+
+    arr = await amsterdam_equirect(job.pano_id, session)
+    view = await asyncio.to_thread(
+        render_aimed_view,
+        arr,
+        center_compass_deg=0.0,
+        aim_bearing_deg=job.aim_bearing_deg,
+        fov_deg=job.fov_deg,
+        out_size=out_px,
+        tilt_deg=job.tilt_deg,
+    )
+    return view, 0
+
+
 async def recut_one(
     job: RecutJob,
     out_dir: Path,
@@ -373,6 +396,8 @@ async def recut_one(
         async with state.panos:
             if job.source == "google":
                 view, zoom = await _render_google(job, session, out_px)
+            elif job.source == "amsterdam":
+                view, zoom = await _render_amsterdam(job, session, out_px)
             else:
                 view, zoom = await _render_apple(job, session, state, out_px)
             await asyncio.to_thread(_save_jpeg, view, dest)

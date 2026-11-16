@@ -71,3 +71,4 @@ class ImageSource(StrEnum):
         "streetview_streetlevel"  # Google Street View via streetlevel library
     )
     APPLE_STREETLEVEL = "apple_streetlevel"  # Apple Look Around via streetlevel library
+    AMSTERDAM_PANORAMA = "amsterdam_panorama"  # City of Amsterdam panoramas (open data)

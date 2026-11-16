@@ -297,45 +297,8 @@ class ImageDownloadService:
             # Add all images to database
             for image_capture in image_results.captures:
                 try:
-                    # Convert image_source string to ImageSource enum if present
-                    from bench_finder.models.enums import ImageSource
-
-                    image_source = None
-                    if image_capture.image_source:
-                        try:
-                            image_source = ImageSource(image_capture.image_source)
-                        except ValueError:
-                            logger.warning(
-                                f"Unknown image_source: {image_capture.image_source}"
-                            )
-
                     self.database.add_image(
-                        ImageBase(
-                            heading=image_capture.heading,
-                            filepath=image_capture.filepath,
-                            filename=image_capture.filename,
-                            file_size=image_capture.file_size,
-                            capture_success=image_capture.success,
-                            capture_error=image_capture.error,
-                            image_source=image_source,
-                            panorama_lat=image_capture.panorama_lat,
-                            panorama_lng=image_capture.panorama_lng,
-                            panorama_metadata=(
-                                image_capture.panorama_metadata.model_dump(
-                                    mode="json", exclude_none=True
-                                )
-                                if image_capture.panorama_metadata
-                                else None
-                            ),
-                            panorama_heading=image_capture.panorama_heading,
-                            pano_id=image_capture.pano_id,
-                            pano_date=image_capture.pano_date,
-                            camera_bearing_deg=image_capture.camera_bearing_deg,
-                            camera_distance_m=image_capture.camera_distance_m,
-                            fov_deg=image_capture.fov_deg,
-                            pitch_deg=image_capture.pitch_deg,
-                            kind=image_capture.kind,
-                        ),
+                        image_base_from_capture(image_capture),
                         bench_id=bench_id,
                     )
 
@@ -393,3 +356,39 @@ class ImageDownloadService:
             logger.warning(f"Failed to update candidate status: {e}")
 
         return result
+
+
+def image_base_from_capture(image_capture) -> ImageBase:
+    """The ``images`` row for one capture (success or error)."""
+    from bench_finder.models.enums import ImageSource
+
+    image_source = None
+    if image_capture.image_source:
+        try:
+            image_source = ImageSource(image_capture.image_source)
+        except ValueError:
+            logger.warning(f"Unknown image_source: {image_capture.image_source}")
+    return ImageBase(
+        heading=image_capture.heading,
+        filepath=image_capture.filepath,
+        filename=image_capture.filename,
+        file_size=image_capture.file_size,
+        capture_success=image_capture.success,
+        capture_error=image_capture.error,
+        image_source=image_source,
+        panorama_lat=image_capture.panorama_lat,
+        panorama_lng=image_capture.panorama_lng,
+        panorama_metadata=(
+            image_capture.panorama_metadata.model_dump(mode="json", exclude_none=True)
+            if image_capture.panorama_metadata
+            else None
+        ),
+        panorama_heading=image_capture.panorama_heading,
+        pano_id=image_capture.pano_id,
+        pano_date=image_capture.pano_date,
+        camera_bearing_deg=image_capture.camera_bearing_deg,
+        camera_distance_m=image_capture.camera_distance_m,
+        fov_deg=image_capture.fov_deg,
+        pitch_deg=image_capture.pitch_deg,
+        kind=image_capture.kind,
+    )

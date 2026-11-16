@@ -209,7 +209,11 @@ class StreetViewClient:
         return await asyncio.shield(state.metas[pano_id])
 
     async def enumerate_google_panoramas(
-        self, lat: float, lng: float, session: ClientSession
+        self,
+        lat: float,
+        lng: float,
+        session: ClientSession,
+        max_m: float = MAX_PANO_DISTANCE_M,
     ) -> tuple[list[PanoCandidate], list[str]]:
         """All official Google panoramas 4-30 m from the point, with dates and tilt.
 
@@ -217,7 +221,10 @@ class StreetViewClient:
         """
         errors: list[str] = []
         tile_results = await asyncio.gather(
-            *[self._google_tile(x, y, session) for x, y in _tiles_around(lat, lng)],
+            *[
+                self._google_tile(x, y, session)
+                for x, y in _tiles_around(lat, lng, max_m)
+            ],
             return_exceptions=True,
         )
         near: dict[str, float] = {}
@@ -233,7 +240,7 @@ class StreetViewClient:
                 ):
                     continue
                 d = haversine_m(p.lat, p.lon, lat, lng)
-                if MIN_PANO_DISTANCE_M <= d <= MAX_PANO_DISTANCE_M:
+                if MIN_PANO_DISTANCE_M <= d <= max_m:
                     near[p.id] = d
         ids = sorted(near, key=near.__getitem__)[:MAX_METADATA_FETCHES_PER_BENCH]
 
@@ -285,12 +292,19 @@ class StreetViewClient:
         return await asyncio.shield(state.tiles[("a", x, y)])
 
     async def enumerate_apple_panoramas(
-        self, lat: float, lng: float, session: ClientSession
+        self,
+        lat: float,
+        lng: float,
+        session: ClientSession,
+        max_m: float = MAX_PANO_DISTANCE_M,
     ) -> tuple[list[PanoCandidate], list[str]]:
         """Apple Look Around panoramas 4-30 m from the point."""
         errors: list[str] = []
         tile_results = await asyncio.gather(
-            *[self._apple_tile(x, y, session) for x, y in _tiles_around(lat, lng)],
+            *[
+                self._apple_tile(x, y, session)
+                for x, y in _tiles_around(lat, lng, max_m)
+            ],
             return_exceptions=True,
         )
         cands: dict[str, PanoCandidate] = {}
@@ -300,7 +314,7 @@ class StreetViewClient:
                 continue
             for p in res.panos or []:
                 d = haversine_m(p.lat, p.lon, lat, lng)
-                if not MIN_PANO_DISTANCE_M <= d <= MAX_PANO_DISTANCE_M:
+                if not MIN_PANO_DISTANCE_M <= d <= max_m:
                     continue
                 date = p.date
                 cands[str(p.id)] = PanoCandidate(
@@ -332,9 +346,10 @@ class StreetViewClient:
         lat: float,
         lng: float,
         session: ClientSession,
+        fov_deg: float | None = None,
     ) -> StreetViewImageCapture:
         pano = cand.raw
-        fov = fov_for_distance(cand.distance_m)
+        fov = fov_deg or fov_for_distance(cand.distance_m)
         filename = self._view_filename(bench_id, cand.pano_id, "streetview")
         filepath = os.path.join(self.images_dir, filename)
         common = self._common_fields(
@@ -401,9 +416,10 @@ class StreetViewClient:
         lat: float,
         lng: float,
         session: ClientSession,
+        fov_deg: float | None = None,
     ) -> StreetViewImageCapture:
         pano = cand.raw
-        fov = fov_for_distance(cand.distance_m)
+        fov = fov_deg or fov_for_distance(cand.distance_m)
         filename = self._view_filename(bench_id, cand.pano_id, "lookaround")
         filepath = os.path.join(self.images_dir, filename)
         common = self._common_fields(
