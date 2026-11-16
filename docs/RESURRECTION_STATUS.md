@@ -107,3 +107,18 @@ Conclusion: no production-only user data, so task 4.4 (import user rows into D1)
 - Published: 5,837 benches, 4,448 with a hero, 3,877 with looks-at. R2 bucket 6.43 GB (free tier 10 GB), no meaningful orphans.
 - Fixes: selected bench double-counted in map clusters; publish KeyError when a re-cut lands mid-publish.
 - Hero re-cut (2048 px) ~half done; re-run `recut --heroes` afterwards (heroes changed with new labels), then publish again.
+
+### 2026-11-16 (afternoon)
+
+- **Labelling finished:** the last 2,022 SAM 3-confirmed photos for $1.56 (Flash-Lite total ~$9.84). Fusion: 4,279 benches have a looks-at answer.
+- **Hero re-cut at 2,048 px finished** (two passes; 5 Apple panoramas are no longer in coverage). The WebP fallback is capped at 800 px (`publish/images.py` `MAX_WIDTH`) to keep R2 at 8.6 GB, under the 9 GB budget.
+- **Places:** `publish/places.py` groups benches 10 m apart into places no wider than 25 m. The GeoJSON is one feature per place (3,609 from 5,837 benches) with `bench_ids` and `count`. Each bench file carries `place`. The site counts benches, badges map markers, and the bench page shows "N benches here".
+- **Owner admin:** `ADMIN_UIDS` is set in `worker/wrangler.jsonc`.
+- **4.7 teardown:**
+  - Vercel project: already gone.
+  - Firebase Hosting: disabled.
+  - Leaked admin key `0ea27e87…`: deleted.
+  - Storage bucket: all 13,310 objects backed up to `~/bench_finder_backups/firebase_storage/` (size-verified), then the bucket was deleted.
+  - `api/` and the FastAPI launchers: removed.
+  - **Owner:** delete the Supabase project in its dashboard; move Firebase to the free (Spark) plan.
+- **Agent worktrees:** removed; all their commits were already in `resurrect`.
