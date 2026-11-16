@@ -30,6 +30,7 @@ import {
 import { benchCount, useBenches } from "../data/hooks"
 import { buildRows } from "../data/rows"
 import type { BenchFeature } from "../data/types"
+import { setHere } from "../lib/here"
 import { FAR_M, reachMetres } from "../lib/nearZoom"
 import {
   type Viewport,
@@ -186,6 +187,21 @@ export default function HomePage() {
     },
     [setSp]
   )
+  // Swiping an opened bench walks the benches nearest the middle of the map,
+  // in the order the rail showed them when the bench was opened.
+  const stepOrder = useRef<number[]>([])
+  if (openId === null) {
+    stepOrder.current = (rows[0]?.benches ?? []).map((f) => f.properties.id)
+  }
+  const stepBench = useCallback(
+    (dir: 1 | -1) => {
+      const ids = stepOrder.current
+      const i = openId === null ? -1 : ids.indexOf(openId)
+      const next = ids[i + dir]
+      if (next !== undefined) openBench(next)
+    },
+    [openId, openBench]
+  )
   const closeBench = useCallback(() => {
     const id = openId
     setSp((prev) => {
@@ -250,6 +266,7 @@ export default function HomePage() {
             return
           }
           setLocating("idle")
+          setHere(here)
           setFlyTo({ center: here, key: Date.now(), radiusM })
         },
         () => setLocating(quiet ? "idle" : "denied"),
@@ -341,6 +358,7 @@ export default function HomePage() {
               id={openId}
               bench={byId.get(openId)?.properties ?? null}
               onClose={closeBench}
+              onStep={stepBench}
             />
           ) : (
             <>

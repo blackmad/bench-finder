@@ -12,7 +12,6 @@ import { TopBar } from "../components/TopBar"
 import { ViewFigure } from "../components/ViewFigure"
 import { hasPhoto } from "../data/api"
 import {
-  cityName,
   headline,
   heroImage,
   lede,
@@ -81,7 +80,6 @@ export default function BenchPage() {
 
 function Spread({ bench: b }: { bench: BenchDetail }) {
   const name = headline(b)
-  const city = cityName(b)
   // Without a chosen hero, lead with the first aimed view.
   const lead = b.hero_urls
     ? null
@@ -97,10 +95,6 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
       <section className="dhero">
         <HeroPhoto bench={b} lead={lead} name={name} />
         <div className="dtitle">
-          <p className="kicker caps">
-            Bench No. {b.id}
-            {city ? ` · ${city}` : ""}
-          </p>
           <h1>{name}</h1>
           <p className="lede">{lede(b)}</p>
           <div className="ctas">

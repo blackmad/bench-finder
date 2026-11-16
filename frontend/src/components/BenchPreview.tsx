@@ -1,12 +1,13 @@
 import { useEffect, useId, useRef } from "react"
 import { Link } from "react-router-dom"
-import { cityName, headline, heroImage, lede, seatText } from "../data/describe"
+import { headline, heroImage, lede, seatText } from "../data/describe"
 import { looksAt } from "../data/facing"
 import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
+import { useSwipe } from "../lib/useSwipe"
+import { Away } from "./Away"
 import { PinIcon } from "./Icons"
 import { Photo } from "./Photo"
-import { Seal } from "./Seal"
 import { ViewFigure } from "./ViewFigure"
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
   bench: BenchProps | null
   id: number
   onClose: () => void
+  /** Swipe left/right (phones): the next or previous bench nearby. */
+  onStep?: (dir: 1 | -1) => void
 }
 
 /**
@@ -21,7 +24,8 @@ interface Props {
  * at, the other views, and the way on to the full page. The map stays beside
  * it with the bench marked in vermilion; the URL carries `?bench=ID`.
  */
-export function BenchPreview({ bench, id, onClose }: Props) {
+export function BenchPreview({ bench, id, onClose, onStep }: Props) {
+  const swipe = useSwipe(onStep)
   const { data: detail, isPending } = useBench(id)
   const b: BenchProps | null = detail ?? bench
   const titleId = useId()
@@ -49,7 +53,7 @@ export function BenchPreview({ bench, id, onClose }: Props) {
 
   if (!b) {
     return (
-      <section className="pv" ref={ref} aria-labelledby={titleId}>
+      <section className="pv" ref={ref} aria-labelledby={titleId} {...swipe}>
         {back}
         <h2 id={titleId} className="railnote" tabIndex={-1}>
           {isPending ? "Loading bench…" : `Bench No. ${id} could not be found.`}
@@ -59,7 +63,6 @@ export function BenchPreview({ bench, id, onClose }: Props) {
   }
 
   const name = headline(b)
-  const city = detail ? cityName(detail) : null
   const looks = looksAt(b.faces_category)
   const seat = seatText(b.backrest)
   const hero = detail ? heroImage(detail) : null
@@ -83,15 +86,9 @@ export function BenchPreview({ bench, id, onClose }: Props) {
         ) : (
           <p className="nophoto">No street-level photo of this bench yet.</p>
         )}
-        <span className="sealslot">
-          <Seal bench={b} size={56} selected />
-        </span>
+        <Away lat={b.lat} lng={b.lng} />
       </div>
       <div className="titlecard">
-        <p className="kicker caps">
-          Bench No. {b.id}
-          {city ? ` · ${city}` : ""}
-        </p>
         {/* The title is the way to the rest (notes, ratings, the panorama);
             there is no separate "open the page" button. */}
         <h2 id={titleId} tabIndex={-1}>

@@ -2,8 +2,8 @@ import { Link } from "react-router-dom"
 import { headline, seatText } from "../data/describe"
 import { facingKind, facingShort, looksAt } from "../data/facing"
 import type { BenchProps } from "../data/types"
+import { Away } from "./Away"
 import { Photo } from "./Photo"
-import { Seal } from "./Seal"
 
 interface Props {
   bench: BenchProps
@@ -82,9 +82,7 @@ export function Tile({ bench, selected = false, onSelect, onOpen }: Props) {
           loading="lazy"
           decoding="async"
         />
-        <span className="sealslot">
-          <Seal bench={bench} selected={selected} />
-        </span>
+        <Away lat={bench.lat} lng={bench.lng} />
       </div>
       <div className="cap">
         <span className="caps">{name}</span>

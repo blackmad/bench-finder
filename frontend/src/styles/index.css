@@ -1278,3 +1278,21 @@ picture {
   font: inherit;
   font-weight: 400;
 }
+
+.away {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: var(--color-stamp-paper);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 7px;
+  box-shadow: var(--shadow-thumb);
+}
+.pv .away {
+  font-size: 13.5px;
+  right: 12px;
+  top: 12px;
+  bottom: auto;
+}

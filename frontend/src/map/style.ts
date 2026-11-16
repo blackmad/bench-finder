@@ -21,11 +21,19 @@ export function restyle(map: MapLibreMap) {
     if (/water/.test(l.id) && l.type === "fill") {
       map.setPaintProperty(l.id, "fill-color", "#a7cfe4")
     }
-    if (/park|landuse|landcover|wood|grass/.test(l.id) && l.type === "fill") {
+    // Residential and other built-up landuse melts into the paper; only real
+    // green (parks, grass, woods) is green, so the city reads in two tones.
+    if (/landuse|landcover/.test(l.id) && l.type === "fill") {
+      map.setPaintProperty(l.id, "fill-color", "#f7f0e1")
+    }
+    if (
+      /park|wood|grass|forest|garden|cemetery|pitch/.test(l.id) &&
+      l.type === "fill"
+    ) {
       map.setPaintProperty(l.id, "fill-color", "#cfe3b3")
     }
     if (/building/.test(l.id) && l.type === "fill") {
-      map.setPaintProperty(l.id, "fill-color", "#e9dfcb")
+      map.setPaintProperty(l.id, "fill-color", "#ece4d4")
     }
     if (l.type === "symbol" && l.layout?.["text-field"]) {
       map.setPaintProperty(l.id, "text-color", "#5e5547")
