@@ -451,7 +451,21 @@ def _order_images(
     if hero is None and ranked and target_gate(ranked[0])[0] < 2:
         hero = ranked[0]
     rest = [i for i in ranked if i is not hero]
+    if hero is not None and (hy := _year(hero)):
+        # Benches get replaced: a view years older than the hero may show the
+        # old one (Museumplein: red metal in 2021, wood since 2022).
+        rest = [
+            i for i in rest if (y := _year(i)) is None or y >= hy - MAX_GALLERY_AGE_Y
+        ]
     return (([hero] if hero else []) + rest)[:n], hero is not None
+
+
+MAX_GALLERY_AGE_Y = 3
+
+
+def _year(img: dict) -> int | None:
+    m = re.match(r"(\d{4})", img.get("pano_date") or "")
+    return int(m.group(1)) if m else None
 
 
 def _rank_facing(r: sqlite3.Row) -> float | None:
