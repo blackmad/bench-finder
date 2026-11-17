@@ -331,14 +331,6 @@ def view_label(img: dict) -> str | None:
     return None
 
 
-def _camera_car(img: dict, box: dict | None, h: float = 1024.0) -> bool:
-    """A city-panorama target box reaching the bottom edge is the camera car's
-    bonnet or roof rack, which SAM 3 and yolo11x-seg both call a bench."""
-    name = img.get("filename") or ""
-    city = "amsterdam" in name or "TMX" in name or "recording_" in name
-    return bool(city and box and float(box["y2"]) >= 0.97 * h)
-
-
 def target_gate(img: dict) -> tuple[int, float, dict | None]:
     """(tier, confidence, bbox) for the bench the image was aimed at.
 
@@ -351,7 +343,7 @@ def target_gate(img: dict) -> tuple[int, float, dict | None]:
     t = img.get("targets") or {}
     if "sam3" in t:
         conf, box = t["sam3"]
-        if conf >= SAM3_MIN and not _camera_car(img, box):
+        if conf >= SAM3_MIN:
             return 0, conf, box
     elif "yolo11x-seg" in t:
         conf, box = t["yolo11x-seg"]

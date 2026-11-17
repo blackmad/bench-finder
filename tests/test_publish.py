@@ -510,14 +510,3 @@ def test_winter_view_ranks_after_summer():
     summer = {**base, "id": 2, "pano_date": "2019-07-01T10:00:00Z"}
     winter = {**base, "id": 1, "pano_date": "2021-02-17T12:52:48Z"}
     assert image_rank(summer, None) < image_rank(winter, None)
-
-
-def test_camera_car_box_is_not_a_target():
-    from bench_finder.publish.build import target_gate
-
-    car = {"x1": 300, "y1": 870, "x2": 440, "y2": 1024}
-    img = {
-        **_img(1, 0, sam3=0.9, box=car),
-        "filename": "aimed_1_TMX7316_pano_amsterdam_wide.jpg",
-    }
-    assert target_gate(img)[0] == 2
