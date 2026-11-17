@@ -3,7 +3,7 @@
 SAM 3 at >= 0.6 is right ~98% of the time, but the misses become hero photos: the
 camera car's roof rack, gratings, railings, utility boxes.
 
-NOT IN USE (2026-11-17). Gold views (10 SAM 3 false positives, 80 real benches):
+The general 'is it a bench?' veto is NOT IN USE (2026-11-17). Gold views (10 SAM 3 false positives, 80 real benches):
 Flash-Lite full frame caught 5/10, vetoed 0/40; zoomed 1/10 and 2/80; 3.8 Flash
 full 5/10 and 2/80, zoomed 1/10 and 3/80. But on production heroes Flash-Lite
 vetoed 6 of 70 (9%) where ~2% are wrong, so most vetoes would drop real benches.
@@ -13,6 +13,10 @@ Opus 5.5 (low effort) 3/10, 5/80, 3/70, and its 3 production vetoes, which
 Flash-Lite shared, were all real benches (people on them, behind a hedge).
 Conclusion: on views SAM 3 already confirmed, no model tried beats it; vetoes
 drop more real benches than bad photos. Use visitor/owner feedback instead.
+
+IN USE: ``rig`` asks Opus only whether the box is the camera vehicle (car roof,
+roof rack, mount, boat deck), for city-panorama views with a box in the bottom
+fifth: 3/5 of the owner's car examples, 0/40 real benches. ``apply`` stores both.
 
 ``run`` vets each bench's current hero (as ``publish`` would choose it), caching
 verdicts in ``data/vet_targets.jsonl`` (no database writes, so it can run beside
@@ -48,6 +52,71 @@ PROMPT = """The red rectangle marks what a detector thinks is a bench. The photo
 Is the object inside the red rectangle really a bench (a seat for people: park bench, street bench, picnic table bench, seating block)?
 A bench with people sitting on it, or partly hidden behind a bin or post, still counts as a bench.
 Answer JSON {"is_bench": true|false, "what": "<two or three words>"}"""
+
+
+RIG_CACHE = Path("data/vet_rig.jsonl")
+RIG_MODEL = "claude-opus-5-5"
+RIG_PROMPT = """This photo comes from a street-level panorama camera mounted on a vehicle (a car or a boat). Parts of that vehicle often show at the bottom of the frame: the car's roof, bonnet, roof rack, camera mast or mount, or the boat's deck and railing.
+A detector marked the red rectangle as a bench. Is the object in the red rectangle part of the camera vehicle itself (rather than something out in the street, such as a bench)?
+Answer JSON {"is_bench": <true if it is NOT part of the camera vehicle>, "what": "<two or three words>"}"""
+RIG_LOW = 0.8  # only boxes reaching the lowest fifth of the frame can be the vehicle
+
+
+def rig_candidates(db: str) -> list[tuple[int, Path, dict]]:
+    """City-panorama views with a SAM 3 target >= 0.6 reaching the bottom fifth."""
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "SELECT i.id, i.filepath, di.bbox FROM images i "
+            "JOIN detections d ON d.image_id = i.id AND d.model_id = 'sam3' "
+            "JOIN detection_items di ON di.detection_id = d.id AND di.is_target = 1 "
+            "AND di.confidence >= 0.6 WHERE i.kind = 'aimed' "
+            "AND i.image_source = 'AMSTERDAM_PANORAMA' AND i.filepath IS NOT NULL"
+        ).fetchall()
+    finally:
+        conn.close()
+    best: dict[int, tuple[int, Path, dict]] = {}
+    for iid, fp, bbox in rows:
+        b = json.loads(bbox)
+        if float(b["y2"]) >= RIG_LOW * 1024 and iid not in best:
+            best[iid] = (iid, Path(fp), b)
+    return list(best.values())
+
+
+def run_rig(db: str, max_usd: float, workers: int = 6) -> dict:
+    """Opus on 'is the box part of the camera vehicle?' for city-panorama views
+    (2026-11-17: 3/5 of the owner's car/rig examples, 0/40 real benches flagged)."""
+    import anthropic
+
+    done = _cached(RIG_CACHE)
+    todo = [c for c in rig_candidates(db) if c[0] not in done]
+    client, usage, lock = anthropic.Anthropic(), Usage(), threading.Lock()
+    stats = {"todo": len(todo), "vetted": 0, "vehicle": 0, "failed": 0}
+
+    def one(c):
+        iid, path, box = c
+        if usage.usd(RIG_MODEL) >= max_usd:
+            return
+        try:
+            a = _ask(client, path, box, usage, RIG_MODEL, prompt=RIG_PROMPT)
+        except Exception:
+            with lock:
+                stats["failed"] += 1
+            return
+        rec = {
+            "image_id": iid,
+            "is_bench": a.get("is_bench") is not False,
+            "what": a.get("what"),
+        }
+        with lock:
+            with RIG_CACHE.open("a") as f:
+                f.write(json.dumps(rec) + "\n")
+            stats["vetted"] += 1
+            stats["vehicle"] += not rec["is_bench"]
+
+    with ThreadPoolExecutor(workers) as pool:
+        list(pool.map(one, todo))
+    return {**stats, "usd": round(usage.usd(RIG_MODEL), 3)}
 
 
 def _cached(cache: Path = CACHE) -> dict[int, dict]:
@@ -89,7 +158,13 @@ def heroes(db: str, images_root: Path) -> list[tuple[int, int, Path, dict]]:
 
 
 def _ask(
-    client, path: Path, box: dict, usage: Usage, model: str = MODEL, zoom: bool = False
+    client,
+    path: Path,
+    box: dict,
+    usage: Usage,
+    model: str = MODEL,
+    zoom: bool = False,
+    prompt: str = PROMPT,
 ) -> dict:
     im = Image.open(path).convert("RGB")
     x1, y1, x2, y2 = (float(box[k]) for k in ("x1", "y1", "x2", "y2"))
@@ -111,7 +186,7 @@ def _ask(
     buf = io.BytesIO()
     im.save(buf, "JPEG", quality=88)
     if model.startswith("claude"):
-        return _ask_claude(client, buf.getvalue(), usage, model)
+        return _ask_claude(client, buf.getvalue(), usage, model, prompt)
     resp = client.models.generate_content(
         model=model,
         contents=[
@@ -124,7 +199,7 @@ def _ask(
                             "data": buf.getvalue(),
                         }
                     },
-                    {"text": PROMPT},
+                    {"text": prompt},
                 ],
             }
         ],
@@ -136,7 +211,9 @@ def _ask(
     return a[0] if isinstance(a, list) else a
 
 
-def _ask_claude(client, jpeg: bytes, usage: Usage, model: str) -> dict:
+def _ask_claude(
+    client, jpeg: bytes, usage: Usage, model: str, prompt: str = PROMPT
+) -> dict:
     """The same question to a Claude model (``anthropic`` SDK; an ``ant auth login``
     session works without ANTHROPIC_API_KEY)."""
     import base64
@@ -165,7 +242,7 @@ def _ask_claude(client, jpeg: bytes, usage: Usage, model: str) -> dict:
                             "data": base64.b64encode(jpeg).decode(),
                         },
                     },
-                    {"type": "text", "text": PROMPT + "\nReply with the JSON only."},
+                    {"type": "text", "text": prompt + "\nReply with the JSON only."},
                 ],
             }
         ],
@@ -221,7 +298,11 @@ def apply(db: str) -> dict:
     conn = sqlite3.connect(db, timeout=120)
     now = datetime.now(UTC).isoformat()
     n = 0
-    for iid, r in _cached().items():
+    verdicts = _cached()
+    for iid, r in _cached(RIG_CACHE).items():  # the vehicle check wins when it says no
+        if not r["is_bench"] or iid not in verdicts:
+            verdicts[iid] = r
+    for iid, r in verdicts.items():
         conn.execute(
             "DELETE FROM image_annotations WHERE image_id = ? AND annotator = ? "
             "AND label_type = 'target_is_bench'",
@@ -246,10 +327,16 @@ def main() -> None:
     r = sub.add_parser("run")
     r.add_argument("--max-usd", type=float, default=8.0)
     r.add_argument("--workers", type=int, default=8)
+    rg = sub.add_parser(
+        "rig", help="Opus: is the box the camera vehicle? (city panoramas)"
+    )
+    rg.add_argument("--max-usd", type=float, default=10.0)
     sub.add_parser("apply")
     a = ap.parse_args()
     if a.cmd == "run":
         print(run(a.db, a.images_root, a.max_usd, a.workers))
+    elif a.cmd == "rig":
+        print(run_rig(a.db, a.max_usd))
     else:
         print(apply(a.db))
 
