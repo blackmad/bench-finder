@@ -371,7 +371,8 @@ def image_rank(
 
     1. Target gate (``target_gate``): a confirmed detection of the aimed-at bench
        first, then legacy detections, then images where no bench was seen.
-       Within a gate, views labelled ``occluded`` come after unblocked ones.
+       Within a gate, views labelled ``occluded`` come after unblocked ones, then
+       winter views (December to February: snow, bare trees) after the rest.
     2. View relation: the camera behind the bench (the sitter's view) beats the
        back corners, then the sides, then the front. A trusted label decides
        (``VIEW_ANNOTATORS``, oracle first). Without one, when the bench's facing
@@ -400,6 +401,7 @@ def image_rank(
     return (
         gate,
         bool(img.get("occluded")),  # a bench hidden behind a hedge or car loses
+        _winter(img),  # snow, bare trees and grey skies lose to a summer view
         tier,
         diff / 180 if diff is not None else 0.5,
         -round(_box_score(box, size), 3),
@@ -407,6 +409,14 @@ def image_rank(
         -int(digits or 0),
         img["id"],
     )
+
+
+WINTER_MONTHS = {12, 1, 2}
+
+
+def _winter(img: dict) -> bool:
+    m = re.match(r"\d{4}-(\d{2})", img.get("pano_date") or "")
+    return bool(m) and int(m.group(1)) in WINTER_MONTHS
 
 
 def _image_size(path: Path) -> tuple[int, int] | None:

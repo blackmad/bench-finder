@@ -500,3 +500,12 @@ def test_prune_remote_deletes_only_unused():
     s3 = S3()
     n = prune_remote(s3, "b", live, live | {"img/bbbbbbbbbbbbbbbb-400.avif"})
     assert n == 1 and s3.deleted == ["img/bbbbbbbbbbbbbbbb-400.avif"]
+
+
+def test_winter_view_ranks_after_summer():
+    from bench_finder.publish.build import image_rank
+
+    base = {"id": 1, "image_source": "AMSTERDAM_PANORAMA", "detections": []}
+    summer = {**base, "id": 2, "pano_date": "2019-07-01T10:00:00Z"}
+    winter = {**base, "id": 1, "pano_date": "2021-02-17T12:52:48Z"}
+    assert image_rank(summer, None) < image_rank(winter, None)
