@@ -3124,6 +3124,10 @@ def publish_command(
         console.print(f"[bold red]CAPACITY GUARD FAILED:[/bold red] {failure}")
         raise typer.Exit(2)
 
+    from bench_finder.whats_new import snapshot
+
+    console.print(f"Snapshot: {snapshot(result.out)} (uv run python -m bench_finder.whats_new)")
+
     if upload:
         from bench_finder.publish.upload import make_client
 
