@@ -119,6 +119,14 @@ def _facts(b: dict | None) -> str:
     return " · ".join(x for x in bits if x)
 
 
+FEEDBACK = ("good", "no bench", "bad photo", "wrong spot", "winter")
+FB = (
+    "<div class=fb>"
+    + "".join(f"<button data-fb='{f}'>{f}</button>" for f in FEEDBACK)
+    + "</div>"
+)
+
+
 def page(changes: dict[str, list[dict]], old_name: str, new_name: str, rel: str) -> str:
     e = html.escape
     points = []
@@ -146,7 +154,7 @@ def page(changes: dict[str, list[dict]], old_name: str, new_name: str, rel: str)
                 f"<p><b>#{b['id']}</b>{extra} · <a href='{SITE}{b['id']}'>live</a> · "
                 f"<a href='https://www.openstreetmap.org/?mlat={b['lat']}&mlon={b['lng']}#map=19/{b['lat']}/{b['lng']}'>OSM</a> · "
                 f"<a href='#' data-fly='{b['lat']},{b['lng']}'>map</a></p>"
-                f"<small>{_facts(it.get('new') or it.get('old'))}</small>{before}</article>"
+                f"<small>{_facts(it.get('new') or it.get('old'))}</small>{before}{FB}</article>"
             )
         cards.append("</div></section>")
     nav = "".join(
@@ -173,10 +181,15 @@ main{{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:0 
 article{{background:#fffdf8;padding:8px;border-radius:4px}}article p{{margin:6px 0 2px}}
 article img,.none{{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#e9e2d2}}
 .none{{display:grid;place-items:center;color:#9a8f7c}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:4px}}
-small{{display:block;color:#675d4d}}a{{color:#2b5a8a}}
+small{{display:block;color:#675d4d}}
+.fb{{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}}.fb button{{font:12px system-ui;padding:2px 6px;border:1px solid #cbbfa8;background:#fbf8f1;border-radius:3px;cursor:pointer}}
+.fb button.on{{background:#2b261e;color:#fff;border-color:#2b261e}}article.marked{{outline:2px solid #2b261e}}
+#fbout{{margin-left:8px}}a{{color:#2b5a8a}}
 @media (max-width:900px){{main{{grid-template-columns:1fr}}#map{{position:static;height:300px}}}}</style>
 <header><b>What's new</b> · {e(old_name)} → {e(new_name)} ·
-<input id=q placeholder="filter: id or address"><br>{nav}</header>
+<input id=q placeholder="filter: id or address">
+<span id=fbout><button id=fbcopy>Copy feedback (0)</button> <button id=fbsave>Download</button>
+<label><input type=checkbox id=unmarked value=_> only unmarked</label></span><br>{nav}</header>
 <main><div>{"".join(cards)}</div><div id=map></div></main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -184,11 +197,23 @@ const pts={json.dumps(points)}, colors={json.dumps(colors)};
 const map=L.map('map').setView([52.37,4.89],12);
 L.tileLayer('https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}}.png',{{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap contributors © CARTO'}}).addTo(map);
 const marks=pts.map(([la,ln,k,id])=>{{const m=L.circleMarker([la,ln],{{radius:5,color:colors[k],weight:2}}).bindPopup('#'+id+' '+k).addTo(map);m.k=k;m.id=id;return m}});
-function apply(){{const on=new Set([...document.querySelectorAll('header input[type=checkbox]:checked')].map(c=>c.value));
+let apply=function(){{const on=new Set([...document.querySelectorAll('header input[type=checkbox]:checked')].map(c=>c.value));
 const q=document.getElementById('q').value.trim().toLowerCase();
 document.querySelectorAll('section').forEach(s=>s.hidden=!on.has(s.dataset.kind));
 document.querySelectorAll('article').forEach(a=>a.hidden=q&&!(a.dataset.id===q||a.dataset.text.includes(q)));
 marks.forEach(m=>{{const show=on.has(m.k);show?m.addTo(map):m.remove()}})}}
+const KEY='wn-fb-'+{json.dumps(new_name)};let fb={{}};try{{fb=JSON.parse(localStorage.getItem(KEY)||'{{}}')}}catch(e){{}}
+function paint(){{document.querySelectorAll('article').forEach(a=>{{const v=fb[a.dataset.id]||[];a.classList.toggle('marked',v.length>0);
+a.querySelectorAll('[data-fb]').forEach(b=>b.classList.toggle('on',v.includes(b.dataset.fb)))}});
+document.getElementById('fbcopy').textContent='Copy feedback ('+Object.keys(fb).length+')'}}
+function save(){{try{{localStorage.setItem(KEY,JSON.stringify(fb))}}catch(e){{}}paint()}}
+document.addEventListener('click',ev=>{{const b=ev.target.closest('[data-fb]');if(!b)return;const id=b.closest('article').dataset.id,f=b.dataset.fb;
+const v=new Set(fb[id]||[]);v.has(f)?v.delete(f):v.add(f);if(v.size)fb[id]=[...v];else delete fb[id];save()}});
+const dump=()=>JSON.stringify({{snapshot:{json.dumps(new_name)},feedback:fb}},null,1);
+document.getElementById('fbcopy').onclick=()=>navigator.clipboard.writeText(dump());
+document.getElementById('fbsave').onclick=()=>{{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([dump()],{{type:'application/json'}}));a.download='whats_new_feedback.json';a.click()}};
+const _apply=apply;apply=function(){{_apply();if(document.getElementById('unmarked').checked)document.querySelectorAll('article').forEach(a=>{{if(fb[a.dataset.id])a.hidden=true}})}};
+paint();
 document.querySelectorAll('header input').forEach(i=>i.addEventListener('input',apply));
 document.addEventListener('click',ev=>{{const f=ev.target.dataset&&ev.target.dataset.fly;if(f){{ev.preventDefault();map.setView(f.split(',').map(Number),18)}}}});
 </script>"""

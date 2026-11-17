@@ -73,6 +73,42 @@ def todo_images(
     ).fetchall()
 
 
+def verify_images(
+    conn: sqlite3.Connection,
+    bbox: tuple[float, float, float, float] | None,
+    per_bench: int = 3,
+) -> list[tuple[int, str]]:
+    """Views yolo11x-seg alone calls a target, for SAM 3 to confirm: the best
+    ``per_bench`` per bench, only for benches without a SAM 3-confirmed view.
+    yolo11x-seg alone may not pick a hero (it reads the camera car's roof
+    rack, gratings and planters as benches in wide views)."""
+    where, params = "", []
+    if bbox:
+        where = "AND c.lng BETWEEN ? AND ? AND c.lat BETWEEN ? AND ?"
+        params = [bbox[0], bbox[2], bbox[1], bbox[3]]
+    return conn.execute(
+        f"""WITH y AS (
+              SELECT i.id, i.filepath, i.bench_candidate_id b, MAX(yi.confidence) conf
+              FROM images i JOIN bench_candidates c ON c.id = i.bench_candidate_id
+              JOIN detections d ON d.image_id = i.id AND d.model_id = '{MODEL_ID}'
+              JOIN detection_items yi ON yi.detection_id = d.id AND yi.is_target = 1
+                   AND yi.confidence >= {THRESHOLDS[MODEL_ID]}
+              WHERE i.kind = 'aimed' AND i.capture_success = 1 {where}
+                AND NOT EXISTS (SELECT 1 FROM detections s
+                                WHERE s.image_id = i.id AND s.model_id = 'sam3')
+              GROUP BY i.id),
+            ok AS (
+              SELECT DISTINCT i.bench_candidate_id b FROM images i
+              JOIN detections d ON d.image_id = i.id AND d.model_id = 'sam3'
+              JOIN detection_items si ON si.detection_id = d.id AND si.is_target = 1
+                   AND si.confidence >= {THRESHOLDS["sam3"]}),
+            r AS (SELECT y.*, ROW_NUMBER() OVER (PARTITION BY b ORDER BY conf DESC) rn
+                  FROM y WHERE b NOT IN (SELECT b FROM ok))
+            SELECT id, filepath FROM r WHERE rn <= ? ORDER BY b, rn""",
+        [*params, per_bench],
+    ).fetchall()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("--db", default="data/benches.db")
@@ -83,16 +119,28 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--device", default="mps")
     ap.add_argument("--model", choices=sorted(THRESHOLDS), default=MODEL_ID)
+    ap.add_argument(
+        "--verify-only",
+        action="store_true",
+        help="only SAM 3 on yolo-only target views",
+    )
     a = ap.parse_args()
 
     model_id = a.model
     bbox = AMSTERDAM_BBOX if a.bbox == "amsterdam" else None
     conn = sqlite3.connect(a.db, timeout=120)  # other jobs write too
+    if a.verify_only:
+        a.model = "sam3"
+        _detect(conn, verify_images(conn, bbox)[: a.limit], "sam3", a)
+        return
     if model_id == "sam3":
         # Easy views first: yolo11x-seg (14x faster) on views it hasn't seen;
         # SAM 3 then skips views where it already found the target bench.
         _detect(conn, todo_images(conn, bbox, MODEL_ID)[: a.limit], MODEL_ID, a)
     _detect(conn, todo_images(conn, bbox, model_id)[: a.limit], model_id, a)
+    if model_id == "sam3":
+        # yolo11x-seg alone can't pick a hero: SAM 3 checks its best views.
+        _detect(conn, verify_images(conn, bbox)[: a.limit], model_id, a)
 
 
 def _detect(conn: sqlite3.Connection, rows: list, model_id: str, a) -> None:
