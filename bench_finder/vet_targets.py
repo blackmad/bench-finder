@@ -7,8 +7,12 @@ NOT IN USE (2026-11-17). Gold views (10 SAM 3 false positives, 80 real benches):
 Flash-Lite full frame caught 5/10, vetoed 0/40; zoomed 1/10 and 2/80; 3.8 Flash
 full 5/10 and 2/80, zoomed 1/10 and 3/80. But on production heroes Flash-Lite
 vetoed 6 of 70 (9%) where ~2% are wrong, so most vetoes would drop real benches.
-Next to try: a Claude model (the gold labels are Claude Opus's); needs
-ANTHROPIC_API_KEY. Don't ``apply`` without a precision check on production views.
+Claude (via ``ant auth login``), same question, full frame: Haiku 5.5 caught 8/10
+but vetoed 20/80 real and 18/70 production heroes (people on a bench = "person");
+Opus 5.5 (low effort) 3/10, 5/80, 3/70, and its 3 production vetoes, which
+Flash-Lite shared, were all real benches (people on them, behind a hedge).
+Conclusion: on views SAM 3 already confirmed, no model tried beats it; vetoes
+drop more real benches than bad photos. Use visitor/owner feedback instead.
 
 ``run`` vets each bench's current hero (as ``publish`` would choose it), caching
 verdicts in ``data/vet_targets.jsonl`` (no database writes, so it can run beside
@@ -42,6 +46,7 @@ ANNOTATOR = f"{MODEL}@box1"
 CACHE = Path("data/vet_targets.jsonl")
 PROMPT = """The red rectangle marks what a detector thinks is a bench. The photo comes from a street-level camera on a car or boat, so the camera vehicle's own roof, bonnet, roof rack or deck can appear at the bottom.
 Is the object inside the red rectangle really a bench (a seat for people: park bench, street bench, picnic table bench, seating block)?
+A bench with people sitting on it, or partly hidden behind a bin or post, still counts as a bench.
 Answer JSON {"is_bench": true|false, "what": "<two or three words>"}"""
 
 
@@ -105,6 +110,8 @@ def _ask(
     )
     buf = io.BytesIO()
     im.save(buf, "JPEG", quality=88)
+    if model.startswith("claude"):
+        return _ask_claude(client, buf.getvalue(), usage, model)
     resp = client.models.generate_content(
         model=model,
         contents=[
@@ -127,6 +134,45 @@ def _ask(
     usage.add(um.prompt_token_count or 0, um.candidates_token_count or 0)
     a = json.loads(resp.text)
     return a[0] if isinstance(a, list) else a
+
+
+def _ask_claude(client, jpeg: bytes, usage: Usage, model: str) -> dict:
+    """The same question to a Claude model (``anthropic`` SDK; an ``ant auth login``
+    session works without ANTHROPIC_API_KEY)."""
+    import base64
+
+    msg = client.messages.create(
+        model=model,
+        # A yes/no about one box: no thinking where the model allows it, else little.
+        **(
+            {"max_tokens": 300, "thinking": {"type": "disabled"}}
+            if "haiku" in model
+            else {
+                "max_tokens": 4000,
+                "thinking": {"type": "adaptive"},
+                "output_config": {"effort": "low"},
+            }
+        ),
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": base64.b64encode(jpeg).decode(),
+                        },
+                    },
+                    {"type": "text", "text": PROMPT + "\nReply with the JSON only."},
+                ],
+            }
+        ],
+    )
+    usage.add(msg.usage.input_tokens, msg.usage.output_tokens)
+    text = "".join(b.text for b in msg.content if b.type == "text")
+    return json.loads(text[text.index("{") : text.rindex("}") + 1])
 
 
 def run(db: str, images_root: Path, max_usd: float, workers: int = 8) -> dict:
