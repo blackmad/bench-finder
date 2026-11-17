@@ -88,8 +88,8 @@ def test_missing_keys(monkeypatch, img):
         "TYPESAFE_API_KEY",
     ):
         monkeypatch.delenv(var, raising=False)
-    with pytest.raises(vc.MissingApiKeyError, match="ANTHROPIC_API_KEY"):
-        vc.ClaudeViewClassifier().classify(img)
+    # Claude without a key falls back to the SDK's own resolution (an
+    # `ant auth login` profile), so it has no missing-key error to test.
     with pytest.raises(vc.MissingApiKeyError, match="GEMINI_API_KEY"):
         vc.GeminiViewClassifier().classify(img)
     with pytest.raises(vc.MissingApiKeyError, match="TYPESAFE_API_KEY"):

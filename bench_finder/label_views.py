@@ -53,6 +53,14 @@ ORDER BY i.bench_candidate_id, i.id
 """
 
 
+def annotator_for(model: str) -> str:
+    """Flash-Lite keeps its historic name; Claude models sort under ``anthropic/``
+    (``publish.VIEW_ANNOTATORS``)."""
+    if model == MODEL:
+        return ANNOTATOR
+    return f"anthropic/{model}@v2" if model.startswith("claude") else f"{model}@v2"
+
+
 class BudgetExceededError(RuntimeError):
     pass
 
@@ -93,6 +101,19 @@ def plan(conn, sam3_only: bool = False) -> list[int]:
     ]
 
 
+def unlabelled_bench_images(conn) -> list[int]:
+    """SAM 3-confirmed photos of benches that no view labeller has seen yet (the
+    city's BGT benches, benches photographed for the first time)."""
+    seen = {
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT i.bench_candidate_id FROM image_annotations a "
+            "JOIN images i ON i.id = a.image_id WHERE a.label_type = 'view_relation'"
+        )
+    }
+    return [i for i, cid in gated_images(conn, sam3_only=True) if cid not in seen]
+
+
 def hero_plan(conn, db: str, images_root: Path) -> list[int]:
     """Published heroes (publish ranking) that this labeller has not seen yet."""
     from bench_finder.recut import connect_ro, hero_image_ids
@@ -110,22 +131,32 @@ def run(
     limit: int | None,
     sam3_only: bool = False,
     heroes: bool = False,
+    backend: str = "google",
+    model: str = MODEL,
+    effort: str | None = None,
+    ids: list[int] | None = None,
 ) -> dict:
+    annotator = annotator_for(model)
     conn = store.connect(db)
     conn.execute("PRAGMA busy_timeout = 120000")  # detection jobs write too
-    todo = (hero_plan(conn, db, images_root) if heroes else plan(conn, sam3_only))[
-        :limit
-    ]
+    if ids is not None:
+        done = labelled(conn, annotator)
+        todo = [i for i in ids if i not in done][:limit]
+    else:
+        todo = (hero_plan(conn, db, images_root) if heroes else plan(conn, sam3_only))[
+            :limit
+        ]
     paths = {i: store.image_path(conn, i, images_root) for i in todo}
     usage, local, lock = Usage(), threading.local(), threading.Lock()
 
     def one(iid: int):
-        if usage.usd(MODEL) >= max_usd:
+        if usage.usd(model) >= max_usd:
             raise BudgetExceededError
         if not hasattr(local, "clf"):
-            local.clf = make_classifier("google", model=MODEL, usage=usage)
+            kw = {"effort": effort} if effort else {}
+            local.clf = make_classifier(backend, model=model, usage=usage, **kw)
         lab = local.clf.classify(paths[iid], ViewContext(image_id=iid))
-        lab.model = ANNOTATOR
+        lab.model = annotator
         return iid, lab
 
     ok = err = skipped = 0
@@ -145,14 +176,14 @@ def run(
                 if err <= 5:
                     print(f"error: {e!r}"[:300], flush=True)
             if n % 250 == 0:
-                print(f"{n}/{len(futs)} done, ${usage.usd(MODEL):.2f}", flush=True)
+                print(f"{n}/{len(futs)} done, ${usage.usd(model):.2f}", flush=True)
     return {
         "planned": len(todo),
         "classified": ok,
         "errors": err,
         "skipped_budget": skipped,
-        "usd": round(usage.usd(MODEL), 3),
-        "usd_per_image": round(usage.usd(MODEL) / ok, 5) if ok else None,
+        "usd": round(usage.usd(model), 3),
+        "usd_per_image": round(usage.usd(model) / ok, 5) if ok else None,
         "seconds": round(time.time() - t0),
     }
 
@@ -221,9 +252,18 @@ def main() -> None:
     r.add_argument(
         "--heroes", action="store_true", help="only published heroes not yet labelled"
     )
+    r.add_argument("--backend", default="google", help="google | claude")
+    r.add_argument("--model", default=MODEL)
+    r.add_argument("--effort", help="Claude effort (low/medium/high)")
+    r.add_argument(
+        "--unlabelled-benches",
+        action="store_true",
+        help="only benches no labeller has seen (SAM 3-confirmed photos)",
+    )
     p = sub.add_parser("plan", help="how many photos/benches are left to label")
     p.add_argument("--sam3-only", action="store_true")
-    sub.add_parser("fuse")
+    f = sub.add_parser("fuse")
+    f.add_argument("--model", default=MODEL)
     a = ap.parse_args()
     if a.cmd == "run":
         print(
@@ -235,6 +275,12 @@ def main() -> None:
                 a.limit,
                 a.sam3_only,
                 a.heroes,
+                a.backend,
+                a.model,
+                a.effort,
+                unlabelled_bench_images(store.connect(a.db))
+                if a.unlabelled_benches
+                else None,
             )
         )
     elif a.cmd == "plan":
@@ -243,7 +289,7 @@ def main() -> None:
         cids = {c for i, c in gated_images(conn, a.sam3_only) if i in todo}
         print({"photos": len(todo), "benches": len(cids)})
     else:
-        print(fuse(a.db))
+        print(fuse(a.db, annotator_for(a.model)))
 
 
 if __name__ == "__main__":

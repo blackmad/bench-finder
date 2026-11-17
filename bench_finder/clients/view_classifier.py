@@ -461,7 +461,9 @@ class ClaudeViewClassifier(_BaseClassifier):
         max_tokens: int = 2000,
         effort: str = "low",
         max_side: int = 1568,
+        usage: Usage | None = None,
     ):
+        self.usage = usage
         self.model = model or os.environ.get(
             "VIEW_CLASSIFIER_CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL
         )
@@ -480,6 +482,9 @@ class ClaudeViewClassifier(_BaseClassifier):
                 self._client = anthropic.Anthropic(
                     api_key=require_key("ANTHROPIC_API_KEY", self._api_key)
                 )
+            elif not os.environ.get("OPENROUTER_API_KEY"):
+                # No key: the SDK's own resolution (an `ant auth login` profile).
+                self._client = anthropic.Anthropic()
             else:  # OpenRouter's Anthropic-compatible endpoint, model ids "anthropic/..."
                 self._client = anthropic.Anthropic(
                     api_key=None,
@@ -540,6 +545,8 @@ class ClaudeViewClassifier(_BaseClassifier):
         msg = self.client.messages.create(
             **p, extra_body={"output_config": output_config}
         )
+        if self.usage is not None and getattr(msg, "usage", None):
+            self.usage.add(msg.usage.input_tokens, msg.usage.output_tokens)
         return self._parse(msg)
 
     def classify_batch(self, items, poll_seconds: float = 30.0, sleep=time.sleep):
