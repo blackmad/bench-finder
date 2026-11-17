@@ -136,14 +136,23 @@ def masks(db: str, images_root: Path, limit: int | None) -> dict:
     return {"heroes": len(todo), "with_outline": found, "from_sam3": by_sam}
 
 
+MASK_PX = 512  # the soft mask is built at this width, then scaled up
+
+
 def fade_image(src: Path, poly: list, dst: Path) -> None:
     im = Image.open(src).convert("RGB")
     w, h = im.size
-    m = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(m).polygon([(x * w, y * h) for x, y in poly], fill=255)
-    grow = max(1, int(GROW * w)) | 1
+    # Grow and feather at MASK_PX: a MaxFilter's cost grows with the square of
+    # its size, and at 2048 px this took ~3 s an image. The edge is soft anyway.
+    k = min(1.0, MASK_PX / w)
+    mw, mh = max(1, round(w * k)), max(1, round(h * k))
+    m = Image.new("L", (mw, mh), 0)
+    ImageDraw.Draw(m).polygon([(x * mw, y * mh) for x, y in poly], fill=255)
+    grow = max(1, int(GROW * mw)) | 1
     m = m.filter(ImageFilter.MaxFilter(min(grow * 2 + 1, 31)))
-    m = m.filter(ImageFilter.GaussianBlur(FEATHER * w))
+    m = m.filter(ImageFilter.GaussianBlur(FEATHER * mw))
+    if (mw, mh) != (w, h):
+        m = m.resize((w, h), Image.BILINEAR)
     outside = ImageEnhance.Color(im).enhance(DESAT)
     outside = Image.blend(outside, Image.new("RGB", (w, h), PAPER), MIX)
     out = Image.composite(im, outside, m)
@@ -151,17 +160,33 @@ def fade_image(src: Path, poly: list, dst: Path) -> None:
     out.save(dst, quality=92)
 
 
+def _fade_one(job: tuple[str, str, str]) -> bool:
+    source, poly, dst = job
+    fade_image(Path(source), json.loads(poly), Path(dst))
+    return True
+
+
 def fade(db: str, images_root: Path) -> dict:
+    """Fade every hero with an outline, in parallel; skips ones already faded
+    after both the image and its outline were last written."""
+    from concurrent.futures import ProcessPoolExecutor
+
     conn = recut.connect_ro(db)
-    rows = conn.execute("SELECT source, polygon FROM hero_masks").fetchall()
-    n = 0
-    for source, poly in rows:
+    rows = conn.execute("SELECT source, polygon, created_at FROM hero_masks").fetchall()
+    conn.close()
+    jobs = []
+    for source, poly, created in rows:
         src = Path(source)
         if not src.is_file():
             continue
-        fade_image(src, json.loads(poly), images_root / FADED_DIRNAME / src.name)
-        n += 1
-    return {"faded": n}
+        dst = images_root / FADED_DIRNAME / src.name
+        newest = max(src.stat().st_mtime, datetime.fromisoformat(created).timestamp())
+        if dst.is_file() and dst.stat().st_mtime > newest:
+            continue
+        jobs.append((source, poly, str(dst)))
+    with ProcessPoolExecutor() as pool:
+        n = sum(pool.map(_fade_one, jobs, chunksize=16))
+    return {"faded": n, "already": len(rows) - len(jobs)}
 
 
 def main() -> None:
