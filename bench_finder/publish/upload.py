@@ -7,11 +7,8 @@ import json
 import mimetypes
 import os
 import re
-from typing import TYPE_CHECKING, Any
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
+from typing import Any
 
 
 IMMUTABLE = "public, max-age=31536000, immutable"
@@ -117,6 +114,8 @@ def upload_dir(
     """
     existing = _existing(client, bucket)
     live = live_keys(out_dir)
+    # Read now: a later publish may rewrite manifest.json while this runs.
+    manifest_bytes = (out_dir / "manifest.json").read_bytes()
     files = sorted(out_dir / k for k in live if (out_dir / k).is_file())
     files.sort(key=lambda p: p.relative_to(out_dir).as_posix() == "manifest.json")
     uploaded = skipped = 0
@@ -134,10 +133,65 @@ def upload_dir(
         client.put_object(
             Bucket=bucket,
             Key=key,
-            Body=path.read_bytes(),
+            Body=manifest_bytes if key == "manifest.json" else path.read_bytes(),
             ContentType=ctype,
             CacheControl=cc,
         )
         uploaded += 1
     pruned = prune_remote(client, bucket, live, set(existing)) if prune else 0
     return {"uploaded": uploaded, "skipped": skipped, "pruned": pruned}
+
+
+LOCK = Path("data/upload.lock")
+
+
+def wait_for_uploads() -> None:
+    """Block until no background upload holds the lock (a publish calls this
+    before rewriting the output directory)."""
+    import fcntl
+
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with LOCK.open("w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+
+
+def start_background(out_dir: Path, log: Path = Path("data/upload.log")) -> int:
+    """Upload ``out_dir`` in a detached process; returns its pid."""
+    import subprocess
+    import sys
+
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a") as fh:
+        p = subprocess.Popen(
+            [sys.executable, "-m", "bench_finder.publish.upload", str(out_dir)],
+            stdout=fh,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    return p.pid
+
+
+def main() -> None:
+    """``python -m bench_finder.publish.upload OUT_DIR``: one upload at a time."""
+    import fcntl
+    import sys
+    import time
+
+    import bench_finder.config  # noqa: F401 - loads .env (R2_* keys)
+
+    out_dir = Path(sys.argv[1])
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with LOCK.open("w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        t0 = time.time()
+        print(f"{time.strftime('%F %T')} upload {out_dir} started", flush=True)
+        client, bucket = make_client()
+        stats = upload_dir(out_dir, client, bucket)
+        print(
+            f"{time.strftime('%F %T')} done in {time.time() - t0:.0f}s: {stats}",
+            flush=True,
+        )
+
+
+if __name__ == "__main__":
+    main()

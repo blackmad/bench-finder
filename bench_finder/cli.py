@@ -3067,6 +3067,11 @@ def publish_command(
     upload: bool = typer.Option(
         False, "--upload", help="Upload to R2 (needs R2_* env vars)"
     ),
+    upload_wait: bool = typer.Option(
+        False,
+        "--upload-wait",
+        help="Upload in the foreground instead of a background process",
+    ),
 ) -> None:
     """Build the static data set (AVIF/WebP images, GeoJSON, per-bench JSON, manifest)."""
     from rich.table import Table
@@ -3085,6 +3090,9 @@ def publish_command(
     def fmt(n: float) -> str:
         return f"{n / 1e6:.2f} MB" if n >= 1e5 else f"{n / 1e3:.1f} kB"
 
+    from bench_finder.publish.upload import wait_for_uploads
+
+    wait_for_uploads()  # a background upload still reads the output directory
     try:
         result = publish(
             db,
@@ -3126,9 +3134,11 @@ def publish_command(
 
     from bench_finder.whats_new import snapshot
 
-    console.print(f"Snapshot: {snapshot(result.out)} (uv run python -m bench_finder.whats_new)")
+    console.print(
+        f"Snapshot: {snapshot(result.out)} (uv run python -m bench_finder.whats_new)"
+    )
 
-    if upload:
+    if upload and upload_wait:
         from bench_finder.publish.upload import make_client
 
         try:
@@ -3141,6 +3151,11 @@ def publish_command(
             f"Uploaded {stats['uploaded']}, skipped {stats['skipped']} existing, "
             f"pruned {stats['pruned']} unused"
         )
+    elif upload:
+        from bench_finder.publish.upload import start_background
+
+        pid = start_background(result.out)
+        console.print(f"Uploading in the background (pid {pid}, log data/upload.log)")
 
 
 def main():
