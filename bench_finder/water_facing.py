@@ -162,6 +162,68 @@ def apply(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
     }
 
 
+QUAY_M = 6.0  # a bench without any facing this close to the water faces it
+
+
+def apply_unfaced(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
+    """Benches with no facing at all (no estimate, no OSM ``direction``) within
+    ``QUAY_M`` of a water edge: face the water, as an estimate (method
+    ``water_edge``, confidence 0.5). Recorded in ``water_facing`` with no old value."""
+    w, s_, e, n = AMSTERDAM_BBOX
+    to = _local((s_ + n) / 2)
+    shapes = []
+    for ring in json.loads(cache.read_text()):
+        p = Polygon([to(x, y) for x, y in ring])
+        if not p.is_valid:
+            p = p.buffer(0)
+        if not p.is_empty:
+            shapes.append(p.boundary)
+    tree = STRtree(shapes)
+    conn = sqlite3.connect(db, timeout=120)
+    rows = conn.execute(
+        "SELECT c.id, c.lat, c.lng, c.tags FROM bench_candidates c "
+        "LEFT JOIN bench_attributes a ON a.bench_candidate_id = c.id "
+        "WHERE a.facing_deg IS NULL AND c.lat BETWEEN ? AND ? AND c.lng BETWEEN ? AND ?",
+        (s_, n, w, e),
+    ).fetchall()
+    now = datetime.now(UTC).isoformat()
+    done = 0
+    for bid, lat, lng, tags in rows:
+        if (json.loads(tags) if tags else {}).get("direction"):
+            continue
+        here = Point(to(lng, lat))
+        edge = shapes[tree.nearest(here)]
+        d = here.distance(edge)
+        if not 0.5 <= d <= QUAY_M:
+            continue
+        _, q = nearest_points(here, edge)
+        f = round(bearing(q.x - here.x, q.y - here.y), 1)
+        done += 1
+        if dry_run:
+            continue
+        conn.execute(
+            "INSERT OR REPLACE INTO water_facing VALUES (?,?,?,?,?,?)",
+            (bid, None, None, f, round(d, 1), now),
+        )
+        if (
+            conn.execute(
+                "UPDATE bench_attributes SET facing_deg = ?, facing_confidence = 0.5, "
+                "facing_method = 'water_edge', updated_at = ? WHERE bench_candidate_id = ?",
+                (f, now, bid),
+            ).rowcount
+            == 0
+        ):
+            conn.execute(
+                "INSERT INTO bench_attributes (bench_candidate_id, facing_deg, "
+                "facing_confidence, facing_method, axis_only, updated_at) "
+                "VALUES (?, ?, 0.5, 'water_edge', 0, ?)",
+                (bid, f, now),
+            )
+    conn.commit()
+    conn.close()
+    return {"unfaced": len(rows), "faced_water": done}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("--db", default="data/benches.db")
@@ -169,8 +231,17 @@ def main() -> None:
     sub.add_parser("fetch")
     p = sub.add_parser("apply")
     p.add_argument("--dry-run", action="store_true")
+    p = sub.add_parser(
+        "unfaced", help="benches with no facing on a quay face the water"
+    )
+    p.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
-    print(fetch() if a.cmd == "fetch" else apply(a.db, a.dry_run))
+    if a.cmd == "fetch":
+        print(fetch())
+    elif a.cmd == "unfaced":
+        print(apply_unfaced(a.db, a.dry_run))
+    else:
+        print(apply(a.db, a.dry_run))
 
 
 if __name__ == "__main__":
