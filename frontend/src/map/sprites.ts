@@ -6,7 +6,6 @@
  */
 
 const INK = "#141414"
-const AIRMAIL = "#1e4fa3"
 const VERMILION = "#e23b1e"
 const PAPER = "#fffdf8"
 const CARD = "#fbf8f1"
@@ -94,87 +93,6 @@ export function roseSprite(
 }
 
 export type MarkerKind = "known" | "est" | "sel"
-
-function drawNeedle(g: CanvasRenderingContext2D, c: number, est: boolean) {
-  g.lineWidth = est ? 1.4 : 2.2
-  if (est) g.setLineDash([2.5, 2.2])
-  g.beginPath()
-  g.moveTo(c, c - 6)
-  g.lineTo(c, c - 17)
-  g.stroke()
-  g.setLineDash([])
-  g.beginPath()
-  g.moveTo(c, c - 21)
-  g.lineTo(c - 3.6, c - 14.5)
-  g.lineTo(c + 3.6, c - 14.5)
-  g.closePath()
-  if (est) {
-    g.lineWidth = 1.2
-    g.stroke()
-  } else {
-    g.fill()
-  }
-}
-
-/**
- * Unphotographed bench: hub ring with a facing needle drawn pointing north
- * (the layer rotates it). Without `needle` it is the hub alone, for benches
- * whose facing is not known: nothing pretends to point anywhere.
- */
-/**
- * A bench seen from above, facing up (the map rotates it to its facing): a
- * seat slab with the backrest as a thick bar behind it. Backless benches
- * (axis only) are the slab alone, so no front is invented. Estimated facings
- * are an airmail outline; mapped ones solid ink; the selected bench vermilion.
- * No facing at all: an unrotated slab with a hollow middle.
- */
-export function benchSprite(kind: MarkerKind | "none", back: boolean): Sprite {
-  const S = 44
-  const c = S / 2
-  const { cv, g } = canvas(S, S)
-  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
-  const W = kind === "sel" ? 34 : 28
-  const seatH = kind === "sel" ? 10 : 8
-  const top = back ? c - seatH / 2 - 2 : c - seatH / 2
-  // A paper halo keeps the mark legible on any map colour.
-  g.fillStyle = PAPER
-  g.globalAlpha = 0.9
-  g.fillRect(c - W / 2 - 3, top - 3, W + 6, seatH + (back ? 11 : 6))
-  g.globalAlpha = 1
-  g.lineWidth = 2
-  g.strokeStyle = col
-  g.fillStyle = col
-  if (kind === "est" || kind === "none") {
-    g.strokeRect(c - W / 2 + 1, top + 1, W - 2, seatH - 2)
-  } else {
-    g.fillRect(c - W / 2, top, W, seatH)
-  }
-  if (back) {
-    g.fillRect(c - W / 2, top + seatH + 2, W, 4)
-  }
-  return finish(cv, g)
-}
-
-export function dotSprite(kind: MarkerKind, needle = true): Sprite {
-  const S = 44
-  const c = S / 2
-  const { cv, g } = canvas(S, S)
-  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
-  g.strokeStyle = col
-  g.fillStyle = col
-  g.lineCap = "round"
-  if (needle) drawNeedle(g, c, kind === "est")
-  g.beginPath()
-  g.arc(c, c, kind === "sel" ? 6.5 : 5, 0, Math.PI * 2)
-  g.fillStyle = kind === "sel" ? VERMILION : PAPER
-  g.fill()
-  if (kind !== "sel") {
-    g.lineWidth = kind === "est" ? 1.4 : 2
-    g.strokeStyle = col
-    g.stroke()
-  }
-  return finish(cv, g)
-}
 
 // Thumbnail geometry (CSS px): a 58x42 photo in a 3px card border, a closed
 // frame all round, on a small pointer whose tip is the bench. The canvas keeps
@@ -329,95 +247,5 @@ export function slatsSprite(kind: MarkerKind | "none", back: boolean): Sprite {
     g.fillStyle = "rgb(0 0 0 / 0.7)"
     g.fillRect(0, 0, S, S)
   }
-  return finish(cv, g)
-}
-
-/** A dot with a fan of what the bench looks at; backless: a fan both ways. */
-export function coneSprite(kind: MarkerKind | "none", back: boolean): Sprite {
-  const S = 52
-  const c = S / 2
-  const { cv, g } = canvas(S, S)
-  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
-  const half = ((kind === "est" ? 42 : 30) * Math.PI) / 180
-  const R = kind === "sel" ? 24 : 21
-  const fan = (dir: number, alpha: number) => {
-    const a = dir - Math.PI / 2
-    const grad = g.createRadialGradient(c, c, 3, c, c, R)
-    grad.addColorStop(
-      0,
-      `${col}${Math.round(alpha * 255)
-        .toString(16)
-        .padStart(2, "0")}`
-    )
-    grad.addColorStop(1, `${col}00`)
-    g.fillStyle = grad
-    g.beginPath()
-    g.moveTo(c, c)
-    g.arc(c, c, R, a - half, a + half)
-    g.closePath()
-    g.fill()
-  }
-  if (kind !== "none") {
-    const strength = kind === "est" ? 0.35 : 0.55
-    fan(0, back ? strength : strength * 0.7)
-    if (!back) fan(Math.PI, strength * 0.7)
-  }
-  g.beginPath()
-  g.arc(c, c, kind === "sel" ? 5.5 : 4.5, 0, Math.PI * 2)
-  g.fillStyle = kind === "none" ? PAPER : col
-  g.fill()
-  g.lineWidth = 1.6
-  g.strokeStyle = kind === "none" ? INK : PAPER
-  g.stroke()
-  return finish(cv, g)
-}
-
-/** Head-on style, rotating part: a paper disc with a pointer on its rim. */
-export function discSprite(kind: MarkerKind | "none", back: boolean): Sprite {
-  const S = 44
-  const c = S / 2
-  const { cv, g } = canvas(S, S)
-  const col = kind === "sel" ? VERMILION : kind === "est" ? AIRMAIL : INK
-  const r = kind === "sel" ? 12 : 10.5
-  const tip = (dir: number) => {
-    g.save()
-    g.translate(c, c)
-    g.rotate(dir)
-    g.beginPath()
-    g.moveTo(0, -r - 6.5)
-    g.lineTo(-4.2, -r + 0.5)
-    g.lineTo(4.2, -r + 0.5)
-    g.closePath()
-    g.fillStyle = col
-    g.fill()
-    g.restore()
-  }
-  if (kind !== "none") {
-    tip(0)
-    if (!back) tip(Math.PI)
-  }
-  g.beginPath()
-  g.arc(c, c, r, 0, Math.PI * 2)
-  g.fillStyle = PAPER
-  g.fill()
-  g.lineWidth = kind === "sel" ? 2.2 : 1.6
-  if (kind === "est") g.setLineDash([2.5, 2])
-  g.strokeStyle = col
-  g.stroke()
-  return finish(cv, g)
-}
-
-/** Head-on style, upright part: a bench pictogram seen from the front. */
-export function faceSprite(selected: boolean): Sprite {
-  const S = 44
-  const c = S / 2
-  const { cv, g } = canvas(S, S)
-  g.fillStyle = selected ? VERMILION : INK
-  const w = 12
-  g.fillRect(c - w / 2, c - 5, w, 2.2) // backrest top rail
-  g.fillRect(c - w / 2, c - 1.8, w, 1.6) // backrest lower rail
-  g.fillRect(c - w / 2 - 1, c + 1.2, w + 2, 2.2) // seat
-  g.fillRect(c - w / 2 + 0.5, c - 5, 1.4, 10) // left end
-  g.fillRect(c + w / 2 - 1.9, c - 5, 1.4, 10) // right end
   return finish(cv, g)
 }

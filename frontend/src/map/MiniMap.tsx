@@ -2,7 +2,7 @@ import "maplibre-gl/dist/maplibre-gl.css"
 import { Map as MapLibreMap, setWorkerUrl } from "maplibre-gl"
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url"
 import { useEffect, useRef } from "react"
-import { markerSprite, markerStyle } from "./markers"
+import { markerSprite } from "./markers"
 import { restyle, STYLE_URL } from "./style"
 
 setWorkerUrl(workerUrl)
@@ -42,8 +42,7 @@ export default function MiniMap({
         ?.classList.remove("maplibregl-compact-show")
       map.addImage(
         "here",
-        markerSprite(markerStyle(), facing === null ? "none" : "sel", true)
-          .data,
+        markerSprite(facing === null ? "none" : "sel", true).data,
         {
           pixelRatio: 2,
         }
