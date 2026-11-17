@@ -7,14 +7,12 @@ import {
   useRef,
   useState,
 } from "react"
-import { Link, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { BenchPreview } from "../components/BenchPreview"
 import { FiltersPanel } from "../components/FiltersPanel"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
 import { hasPhoto } from "../data/api"
-import { headline } from "../data/describe"
-import { facingShort, looksAt } from "../data/facing"
 import {
   coverage as coverageOf,
   type Filters,
@@ -40,8 +38,6 @@ import {
 import { type MapView, START_VIEW } from "../map/style"
 
 const BenchMap = lazy(() => import("../map/BenchMap"))
-
-const MAX_PLAIN = 12
 
 const inBounds = (b: BenchFeature, v: MapView) => {
   const [w, s, e, n] = v.bounds
@@ -149,7 +145,7 @@ export default function HomePage() {
     [setSp]
   )
 
-  const { rows, plain, total, photographed, unfiltered } = useMemo(() => {
+  const { rows, total, photographed, unfiltered } = useMemo(() => {
     const cx = view?.center[0] ?? START_VIEW.lng
     const cy = view?.center[1] ?? START_VIEW.lat
     const d = (b: BenchFeature) =>
@@ -158,14 +154,10 @@ export default function HomePage() {
     const here = (b: BenchFeature) => !view || inBounds(b, view)
     const vis = filtered.filter(here).sort((a, b) => d(a) - d(b))
     const photos = vis.filter(hasPhoto)
-    const plain = vis.filter((b) => !hasPhoto(b))
-    for (const list of [photos, plain]) {
-      const i = list.findIndex((b) => b.properties.id === mapPick)
-      if (i > 0) list.unshift(...list.splice(i, 1))
-    }
+    const i = photos.findIndex((b) => b.properties.id === mapPick)
+    if (i > 0) photos.unshift(...photos.splice(i, 1))
     return {
       rows: buildRows(photos),
-      plain,
       // Features are places; counts are of benches.
       total: sumBenches(vis),
       photographed: sumBenches(photos),
@@ -386,7 +378,6 @@ export default function HomePage() {
                   onOpen={openBench}
                 />
               ))}
-              <PlainList benches={plain} selectedId={selectedId} />
             </>
           )}
         </section>
@@ -445,49 +436,5 @@ function RailCount({
         </span>
       )}
     </p>
-  )
-}
-
-/** Unphotographed benches in view: a plain list, honest about the missing photo. */
-function PlainList({
-  benches,
-  selectedId,
-}: {
-  benches: BenchFeature[]
-  selectedId: number | null
-}) {
-  if (!benches.length) return null
-  return (
-    <section className="plainrow" aria-labelledby="h-plain">
-      <div className="rowhead">
-        <h3 id="h-plain" className="caps">
-          Not photographed yet
-        </h3>
-        <small className="num">
-          {benches.length.toLocaleString("en")} in view
-          {benches.length > MAX_PLAIN ? `, nearest ${MAX_PLAIN}` : ""}
-        </small>
-      </div>
-      <ul>
-        {benches.slice(0, MAX_PLAIN).map((b) => {
-          const looks = looksAt(b.properties.faces_category)
-          const f = facingShort(b.properties)
-          return (
-            <li key={b.properties.id}>
-              <Link
-                to={`/bench/${b.properties.id}`}
-                data-id={b.properties.id}
-                aria-current={
-                  b.properties.id === selectedId ? "true" : undefined
-                }
-              >
-                <span className="caps">{headline(b.properties)}</span>
-                <small>{looks ?? (f ? `Faces ${f}` : "No photo yet")}</small>
-              </Link>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
   )
 }
