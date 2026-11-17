@@ -510,3 +510,7 @@ def test_winter_view_ranks_after_summer():
     summer = {**base, "id": 2, "pano_date": "2019-07-01T10:00:00Z"}
     winter = {**base, "id": 1, "pano_date": "2021-02-17T12:52:48Z"}
     assert image_rank(summer, None) < image_rank(winter, None)
+
+
+def test_vetoed_view_is_never_a_hero():
+    assert target_gate({**_img(1, 0, sam3=0.9), "vetoed": True})[0] == 2

@@ -252,6 +252,14 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
             local = annotator.startswith(OCCLUSION_LOCAL_PREFIX)
             if not local or "occluded" not in img:
                 img["occluded"] = blocked
+    # Flash-Lite's second opinion on the target box (bench_finder.vet_targets).
+    for (image_id,) in conn.execute(
+        "SELECT a.image_id FROM image_annotations a "
+        "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
+        "WHERE a.label_type = 'target_is_bench' AND a.value = '\"no\"'"
+    ):
+        if image_id in by_id:
+            by_id[image_id]["vetoed"] = True
     return by_bench
 
 
@@ -338,9 +346,12 @@ def target_gate(img: dict) -> tuple[int, float, dict | None]:
     is the stricter model, so its miss counts).
     Tier 1: no such target, but an older detector saw a bench (legacy images).
     Tier 1.5: a yolo11x-seg target >= 0.25 SAM 3 has not checked. Gallery only.
+    A view Flash-Lite vetoed (``vet_targets``: the box is not a bench) is tier 2.
     Tier 2: no bench seen; never a hero.
     """
     t = img.get("targets") or {}
+    if img.get("vetoed"):  # Flash-Lite: the box is not a bench
+        return 2, 0.0, None
     if "sam3" in t:
         conf, box = t["sam3"]
         if conf >= SAM3_MIN:
