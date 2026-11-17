@@ -53,11 +53,20 @@ def todo_images(
     if bbox:
         where = "AND c.lng BETWEEN ? AND ? AND c.lat BETWEEN ? AND ?"
         params += [bbox[0], bbox[2], bbox[1], bbox[3]]
+    # SAM 3 leaves views yolo11x-seg already confirmed (same precision, 0.98).
+    skip = (
+        "AND NOT EXISTS (SELECT 1 FROM detections y JOIN detection_items yi "
+        "ON yi.detection_id = y.id WHERE y.image_id = i.id AND y.model_id = "
+        f"'{MODEL_ID}' AND yi.is_target = 1 AND yi.confidence >= {THRESHOLDS[MODEL_ID]})"
+        if model_id == "sam3"
+        else ""
+    )
     return conn.execute(
         f"""SELECT i.id, i.filepath FROM images i
             JOIN bench_candidates c ON c.id = i.bench_candidate_id
             WHERE i.kind = 'aimed' AND i.capture_success = 1 AND i.filepath IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM detections d WHERE d.image_id = i.id AND d.model_id = ?)
+              {skip}
               {where}
             ORDER BY i.id""",
         params,
@@ -76,10 +85,18 @@ def main() -> None:
     ap.add_argument("--model", choices=sorted(THRESHOLDS), default=MODEL_ID)
     a = ap.parse_args()
 
-    model_id, threshold = a.model, THRESHOLDS[a.model]
+    model_id = a.model
     bbox = AMSTERDAM_BBOX if a.bbox == "amsterdam" else None
     conn = sqlite3.connect(a.db, timeout=120)  # other jobs write too
-    rows = todo_images(conn, bbox, model_id)[: a.limit]
+    if model_id == "sam3":
+        # Easy views first: yolo11x-seg (14x faster) on views it hasn't seen;
+        # SAM 3 then skips views where it already found the target bench.
+        _detect(conn, todo_images(conn, bbox, MODEL_ID)[: a.limit], MODEL_ID, a)
+    _detect(conn, todo_images(conn, bbox, model_id)[: a.limit], model_id, a)
+
+
+def _detect(conn: sqlite3.Connection, rows: list, model_id: str, a) -> None:
+    threshold = THRESHOLDS[model_id]
     if model_id == "sam3":
         from bench_finder.bakeoff.detectors import MODELS
 

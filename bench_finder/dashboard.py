@@ -32,7 +32,8 @@ WINDOW_S = 15 * 60
 GUESS_MIN = {
     "vantage": 60,
     "wide": 25,
-    "sam3": 120,
+    "yolo outlines": 60,
+    "sam3": 60,
     "recentre": 30,
     "local occlusion": 180,
     "hero masks": 150,
@@ -82,6 +83,18 @@ def counter(step: str) -> tuple[int, int | None] | None:
         return done, _q("SELECT COUNT(*) FROM bench_candidates")
     if s.startswith("wide"):
         return _files("aimed_*_amsterdam_wide.jpg"), None
+    if s.startswith("yolo outlines"):
+        todo = _q(
+            "SELECT COUNT(DISTINCT d.image_id) FROM detections d JOIN detection_items di "
+            "ON di.detection_id = d.id WHERE d.model_id = 'yolo11x-seg' AND di.polygon IS NULL"
+        )
+        done = (
+            _q(
+                "SELECT COUNT(DISTINCT d.image_id) FROM detections d WHERE d.model_id = 'yolo11x-seg'"
+            )
+            - todo
+        )
+        return done, done + todo
     if s.startswith("sam3"):
         done = _q("SELECT COUNT(*) FROM detections WHERE model_id='sam3'")
         return done, done + _q(SAM3_TODO)

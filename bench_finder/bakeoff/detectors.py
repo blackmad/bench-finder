@@ -342,7 +342,8 @@ class Sam3Detector(Detector):
         self.predictor.set_image(str(path))
         res = self.predictor(text=["bench"])[0]
         boxes = res.boxes
-        polys = res.masks.xyn if res.masks is not None else [None] * len(boxes)
+        masks = getattr(res, "masks", None)
+        polys = masks.xyn if masks is not None else [None] * len(boxes.conf.tolist())
         return [
             Det(
                 *map(float, xyxy),

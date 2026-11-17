@@ -40,10 +40,13 @@ SUFFIX = "amsterdam_wide"
 def benches_without_hero(db: str, images_root: Path) -> list[tuple[int, float, float]]:
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=120)
     conn.row_factory = sqlite3.Row
-    rows, _, chosen = select_images(
-        conn, images_root, include_unclassified=True, bbox=AMSTERDAM_BBOX
-    )
-    return [(r["id"], r["lat"], r["lng"]) for r in rows if not chosen[r["id"]][1]]
+    try:
+        rows, _, chosen = select_images(
+            conn, images_root, include_unclassified=True, bbox=AMSTERDAM_BBOX
+        )
+        return [(r["id"], r["lat"], r["lng"]) for r in rows if not chosen[r["id"]][1]]
+    finally:
+        conn.close()  # an open read transaction would block this job's own writes
 
 
 def pick(cands: list, n: int = PER_BENCH) -> list:
@@ -66,6 +69,14 @@ async def _run(db: str, images_root: Path, limit: int | None, dry: bool) -> dict
     from bench_finder.services.image_download_service import image_base_from_capture
 
     benches = benches_without_hero(db, images_root)[:limit]
+    ro = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=120)
+    have = {
+        f
+        for (f,) in ro.execute(
+            f"SELECT filename FROM images WHERE filename LIKE '%_{SUFFIX}.jpg'"
+        )
+    }
+    ro.close()
     client = StreetViewClient()
     database = None if dry else BenchDatabase(db_path=db)
     stats: Counter[str] = Counter(benches=len(benches))
@@ -86,7 +97,7 @@ async def _run(db: str, images_root: Path, limit: int | None, dry: bool) -> dict
                 for c in picked:
                     filename = client._view_filename(str(bid), c.pano_id, SUFFIX)
                     filepath = os.path.join(client.images_dir, filename)
-                    if dry or os.path.exists(filepath):
+                    if dry or filename in have:  # a file with no row is redone
                         stats["skipped" if not dry else "planned"] += 1
                         continue
                     common = client._common_fields(

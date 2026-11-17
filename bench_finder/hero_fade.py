@@ -58,8 +58,10 @@ def pick(dets) -> object | None:
 def _heroes(db: str, images_root: Path) -> list[tuple[int, Path]]:
     conn = recut.connect_ro(db)
     ids = recut.hero_image_ids(conn, images_root, include_unclassified=True)
+    rows = recut.load_rows(conn, ids)
+    conn.close()  # an open read transaction would block this job's own writes
     out = []
-    for r in recut.load_rows(conn, ids):
+    for r in rows:
         original = images_root / Path(r["filepath"]).name
         src = render_source(original, faded=False)
         if src.is_file():
@@ -77,11 +79,35 @@ def masks(db: str, images_root: Path, limit: int | None) -> dict:
     conn.execute(SCHEMA)
     done = {(i, s) for i, s in conn.execute("SELECT image_id, source FROM hero_masks")}
     todo = [(i, p) for i, p in todo if (i, str(p)) not in done][:limit]
-    sam = MODELS["sam3"]
-    sam.load(Path("models"), "mps")
-    t0, found = time.time(), 0
+    from types import SimpleNamespace
+
+    from ultralytics import YOLO
+
+    yolo = YOLO("models/yolo11x-seg.pt")
+    sam = None  # loaded only when YOLO finds nothing: it is ~14x slower
+
+    def yolo_dets(src: Path) -> list:
+        res = yolo.predict(
+            str(src), conf=0.05, classes=[13], device="mps", verbose=False
+        )[0]
+        if res.masks is None:
+            return []
+        return [
+            SimpleNamespace(
+                conf=float(b.conf), poly=[(float(x), float(y)) for x, y in xy]
+            )
+            for b, xy in zip(res.boxes, res.masks.xyn, strict=True)
+        ]
+
+    t0, found, by_sam = time.time(), 0, 0
     for n, (iid, src) in enumerate(todo, 1):
-        d = pick(sam.detect(src))
+        d = pick(yolo_dets(src))
+        if d is None:
+            if sam is None:
+                sam = MODELS["sam3"]
+                sam.load(Path("models"), "mps")
+            d = pick(sam.detect(src))
+            by_sam += d is not None
         if d is not None:
             found += 1
             conn.execute(
@@ -97,7 +123,7 @@ def masks(db: str, images_root: Path, limit: int | None) -> dict:
             conn.commit()
         if n % 100 == 0:
             print(f"{n}/{len(todo)} {(time.time() - t0) / n:.1f}s/img", flush=True)
-    return {"heroes": len(todo), "with_outline": found}
+    return {"heroes": len(todo), "with_outline": found, "from_sam3": by_sam}
 
 
 def fade_image(src: Path, poly: list, dst: Path) -> None:
