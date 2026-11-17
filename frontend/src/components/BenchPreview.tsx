@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef } from "react"
 import { Link } from "react-router-dom"
-import { headline, heroImage, lede, seatText } from "../data/describe"
-import { looksAt } from "../data/facing"
+import { headline, heroImage, lede } from "../data/describe"
 import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
 import { useSwipe } from "../lib/useSwipe"
@@ -63,8 +62,6 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
   }
 
   const name = headline(b)
-  const looks = looksAt(b.faces_category)
-  const seat = seatText(b.backrest)
   const hero = detail ? heroImage(detail) : null
   const views = detail?.gallery.filter((g) => g !== hero) ?? []
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}&travelmode=walking`
@@ -97,23 +94,6 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
           </Link>
         </h2>
         <p className="lede">{detail ? lede(detail) : " "}</p>
-        <p className="facts">
-          {looks || detail?.faces_text ? (
-            <span>
-              <b>{looks ?? detail?.faces_text}</b>
-            </span>
-          ) : null}
-          {seat ? (
-            <span>
-              <b>{seat}</b>
-            </span>
-          ) : null}
-          {b.material ? (
-            <span>
-              <b>{b.material.replace(/^\w/, (c) => c.toUpperCase())}</b>
-            </span>
-          ) : null}
-        </p>
         <div className="ctas">
           <a
             className="btn solid"

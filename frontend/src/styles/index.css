@@ -319,7 +319,7 @@ h1[tabindex="-1"]:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 16px;
+  margin: 0;
 }
 .pv .ctas .btn {
   padding: 10px 15px;
@@ -362,10 +362,14 @@ h1[tabindex="-1"]:focus {
 }
 .titlecard {
   position: relative;
-  margin: -64px 0 0 22px;
+  margin: -48px 0 0 22px;
   width: min(580px, calc(100% - 44px));
   background: var(--color-card);
-  padding: 18px 22px;
+  padding: 14px 18px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 18px;
+  align-items: end;
   box-shadow: var(--shadow-card-lifted);
 }
 .kicker {
@@ -383,7 +387,9 @@ h1[tabindex="-1"]:focus {
   text-wrap: balance;
 }
 .titlecard h2 {
-  font-size: 40px;
+  font-size: 32px;
+  grid-column: 1 / -1;
+  margin: 2px 0 2px;
 }
 .titlecard .lede {
   margin: 0;
@@ -1145,8 +1151,14 @@ h1[tabindex="-1"]:focus {
     width: auto;
     padding: 14px 16px;
   }
+  .titlecard {
+    grid-template-columns: 1fr;
+  }
   .titlecard h2 {
-    font-size: 30px;
+    font-size: 26px;
+  }
+  .pv .ctas {
+    margin-top: 8px;
   }
   .rowhead,
   .railcount,

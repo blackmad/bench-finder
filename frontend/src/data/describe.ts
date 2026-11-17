@@ -110,12 +110,16 @@ export function monthYear(ym: string | null | undefined): string | null {
     : String(y)
 }
 
-/** Body + facing + photo date, for the title cards. */
+/**
+ * Body + what it looks at + photo date, for the title cards. The compass
+ * direction stays out: it means little to a visitor and the facts list has it.
+ */
 export function lede(d: BenchDetail): string {
   const date = monthYear(heroImage(d)?.pano_date)
+  const looks = looksAt(d.faces_category) ?? d.faces_text ?? null
   return [
     bodySentence(d),
-    facingSentence(d),
+    looks ? `${looks.replace(/\.$/, "")}.` : null,
     date ? `Photographed ${date}.` : null,
   ]
     .filter(Boolean)
