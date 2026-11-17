@@ -117,7 +117,14 @@ def upload_dir(
     # Read now: a later publish may rewrite manifest.json while this runs.
     manifest_bytes = (out_dir / "manifest.json").read_bytes()
     files = sorted(out_dir / k for k in live if (out_dir / k).is_file())
-    files.sort(key=lambda p: p.relative_to(out_dir).as_posix() == "manifest.json")
+    # Images first, then data, manifest last: bench files have fixed names and
+    # go live at once, so the images they point at must already be there.
+    files.sort(
+        key=lambda p: (
+            p.relative_to(out_dir).as_posix() == "manifest.json",
+            not p.relative_to(out_dir).as_posix().startswith("img/"),
+        )
+    )
     uploaded = skipped = 0
     for path in files:
         key = path.relative_to(out_dir).as_posix()
