@@ -223,7 +223,7 @@ def load_benches(db: str, limit: int | None = None) -> list[Bench]:
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     w, s, e, n = AMSTERDAM_BBOX
     rows = conn.execute(
-        "SELECT c.id, c.lat, c.lng, c.tags, a.facing_deg, a.faces_category "
+        "SELECT c.id, c.lat, c.lng, c.tags, a.facing_deg, a.faces_category, a.facing_method "
         "FROM bench_candidates c LEFT JOIN bench_attributes a "
         "ON a.bench_candidate_id = c.id WHERE c.lat BETWEEN ? AND ? "
         "AND c.lng BETWEEN ? AND ? ORDER BY c.id",
@@ -234,7 +234,7 @@ def load_benches(db: str, limit: int | None = None) -> list[Bench]:
         if pid:
             have.setdefault(cid, set()).add(str(pid))
     out = []
-    for cid, lat, lng, tags, vlm_facing, faces in rows:
+    for cid, lat, lng, tags, vlm_facing, faces, method in rows:
         facing = vlm_facing
         if facing is None:
             facing = parse_direction(
@@ -246,7 +246,7 @@ def load_benches(db: str, limit: int | None = None) -> list[Bench]:
                 lat,
                 lng,
                 None if facing is None else float(facing),
-                faces == "water",
+                faces == "water" or method == "water_edge",
                 frozenset(have.get(cid, ())),
             )
         )
@@ -268,15 +268,57 @@ async def candidates_for(
     return [c for c in g if not c.is_third_party] + a + ams, errors
 
 
-async def _run(db: str, limit: int | None, render: bool, concurrency: int) -> dict:
+ACROSS_MIN_M = 25.0
+
+
+def across_water(
+    cands: list[PanoCandidate], b: Bench, picked: list[PanoCandidate]
+) -> PanoCandidate | None:
+    """For a waterside bench still without a photo: the best view from the far
+    bank (in front of the bench, 25-60 m), the side its near views can't see."""
+    if not b.water or b.facing is None:
+        return None
+    best = None
+    for c in cands:
+        if c.pano_id in b.have or c in picked or c.distance_m < ACROSS_MIN_M:
+            continue
+        s = score(c, b)
+        cos = math.cos(math.radians(c.bearing_deg - b.facing))
+        if s is not None and cos < -0.5 and (best is None or s > best[0]):
+            best = (s, c)
+    return best[1] if best else None
+
+
+def photoless_ids(snapshots: Path = Path("data/snapshots")) -> set[int]:
+    """Benches the latest publish shows without a photo."""
+    snap = sorted(p for p in snapshots.iterdir() if p.is_dir())[-1]
+    out = set()
+    for f in (snap / "data" / "bench").glob("*.json"):
+        if not json.loads(f.read_text()).get("hero_key"):
+            out.add(int(f.stem))
+    return out
+
+
+async def _run(
+    db: str, limit: int | None, render: bool, concurrency: int, photoless: bool = False
+) -> dict:
     from bench_finder.core.streetview import StreetViewClient
     from bench_finder.services.database import BenchDatabase
     from bench_finder.services.image_download_service import image_base_from_capture
 
     # Benches already done (a restart must not add two more views each).
-    done_file = Path(db).with_name("vantage_done.txt")
+    # --photoless: a second round for benches still without a photo (new
+    # panoramas only, far views across the water allowed), tracked apart.
+    done_file = Path(db).with_name(
+        "vantage_photoless_done.txt" if photoless else "vantage_done.txt"
+    )
     done = set(done_file.read_text().split()) if done_file.exists() else set()
-    benches = [b for b in load_benches(db, limit) if str(b.id) not in done]
+    want = photoless_ids() if photoless else None
+    benches = [
+        b
+        for b in load_benches(db)
+        if str(b.id) not in done and (want is None or b.id in want)
+    ][:limit]
     client = StreetViewClient()
     database = BenchDatabase(db_path=db) if render else None
     stats: Counter[str] = Counter()
@@ -294,6 +336,9 @@ async def _run(db: str, limit: int | None, render: bool, concurrency: int) -> di
                     logger.warning("bench %s: %s", b.id, e)
                     return
                 picked = choose(cands, b)
+                if photoless and (far := across_water(cands, b, picked)):
+                    picked.append(far)
+                    stats["across_water"] += 1
                 stats["benches"] += 1
                 stats["with_new_view"] += bool(picked)
                 for c in picked:
@@ -346,8 +391,13 @@ def main() -> None:
         p = sub.add_parser(name)
         p.add_argument("--limit", type=int)
         p.add_argument("--concurrency", type=int, default=4)
+        p.add_argument(
+            "--photoless",
+            action="store_true",
+            help="only benches the last publish shows without a photo",
+        )
     a = ap.parse_args()
-    print(asyncio.run(_run(a.db, a.limit, a.cmd == "run", a.concurrency)))
+    print(asyncio.run(_run(a.db, a.limit, a.cmd == "run", a.concurrency, a.photoless)))
 
 
 if __name__ == "__main__":
