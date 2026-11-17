@@ -154,6 +154,8 @@ def run(
             raise BudgetExceededError
         if not hasattr(local, "clf"):
             kw = {"effort": effort} if effort else {}
+            if backend == "claude":
+                kw["max_tokens"] = 8000  # medium effort thinks before answering
             local.clf = make_classifier(backend, model=model, usage=usage, **kw)
         lab = local.clf.classify(paths[iid], ViewContext(image_id=iid))
         lab.model = annotator

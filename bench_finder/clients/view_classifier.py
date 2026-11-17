@@ -482,8 +482,9 @@ class ClaudeViewClassifier(_BaseClassifier):
                 self._client = anthropic.Anthropic(
                     api_key=require_key("ANTHROPIC_API_KEY", self._api_key)
                 )
-            elif not os.environ.get("OPENROUTER_API_KEY"):
+            elif not self.model.startswith("anthropic/"):
                 # No key: the SDK's own resolution (an `ant auth login` profile).
+                # OpenRouter only for its own model ids ("anthropic/...").
                 self._client = anthropic.Anthropic()
             else:  # OpenRouter's Anthropic-compatible endpoint, model ids "anthropic/..."
                 self._client = anthropic.Anthropic(
