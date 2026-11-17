@@ -109,8 +109,13 @@ def main() -> None:
             with Image.open(p) as im:
                 w = im.width
             dets = [d for d in sam.detect(p) if d.conf >= FLOOR]
-            results = [(w, [(d.conf, [d.x1, d.y1, d.x2, d.y2]) for d in dets])]
-            polys = [d.poly for d in dets]
+            results = [
+                (
+                    w,
+                    [(d.conf, [d.x1, d.y1, d.x2, d.y2]) for d in dets],
+                    [d.poly for d in dets],
+                )
+            ]
         else:
             results = [
                 (
@@ -119,6 +124,13 @@ def main() -> None:
                         (float(b.conf), [float(v) for v in b.xyxy[0].tolist()])
                         for b in res.boxes
                     ],
+                    # yolo11x-seg outlines too (0..1), kept for the hero fade
+                    [
+                        [(round(float(x), 4), round(float(y), 4)) for x, y in xy]
+                        for xy in res.masks.xyn
+                    ]
+                    if res.masks is not None
+                    else [None] * len(res.boxes),
                 )
                 for res in model.predict(
                     [str(p) for _, p in chunk],
@@ -128,10 +140,8 @@ def main() -> None:
                     verbose=False,
                 )
             ]
-        if model_id != "sam3":
-            polys = None
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S.%f")
-        for (iid, _), (width, boxes) in zip(chunk, results, strict=True):
+        for (iid, _), (width, boxes, polys) in zip(chunk, results, strict=True):
             targets = [c for c, (x1, _, x2, _) in boxes if is_target(x1, x2, width)]
             best = max(targets, default=0.0)
             has = best >= threshold
@@ -151,7 +161,7 @@ def main() -> None:
                     now,
                 ),
             )
-            # SAM 3 outlines are kept (0..1 coordinates) for the hero fade.
+            # Outlines (SAM 3 and yolo11x-seg, 0..1 coordinates) are kept for the hero fade.
             conn.executemany(
                 "INSERT INTO detection_items (detection_id, confidence, bbox, class_name, created_at, "
                 "is_target, polygon) VALUES (?, ?, ?, 'bench', ?, ?, ?)",
