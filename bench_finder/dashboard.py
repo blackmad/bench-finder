@@ -64,9 +64,6 @@ def _files(pattern: str, sub: str = "") -> int:
     return sum(1 for _ in d.glob(pattern)) if d.exists() else 0
 
 
-SAM3_TODO = """SELECT COUNT(*) FROM images i WHERE i.kind='aimed' AND i.capture_success=1
-  AND i.filepath IS NOT NULL AND NOT EXISTS (SELECT 1 FROM detections d
-  WHERE d.image_id=i.id AND d.model_id='sam3')"""
 OCC_TODO = """SELECT COUNT(DISTINCT i.id) FROM images i
   JOIN detections d ON d.image_id=i.id AND d.model_id='sam3' AND d.detection_success=1
   JOIN detection_items di ON di.detection_id=d.id AND di.is_target=1 AND di.confidence>=0.6
@@ -96,8 +93,20 @@ def counter(step: str) -> tuple[int, int | None] | None:
         )
         return done, done + todo
     if s.startswith("sam3"):
-        done = _q("SELECT COUNT(*) FROM detections WHERE model_id='sam3'")
-        return done, done + _q(SAM3_TODO)
+        # YOLO runs first on views it hasn't seen, then SAM 3 on what YOLO missed.
+        from bench_finder.detect_aimed import todo_images
+
+        conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True, timeout=5)
+        try:
+            left = len(todo_images(conn, None, "yolo11x-seg")) + len(
+                todo_images(conn, None, "sam3")
+            )
+            done = conn.execute(
+                "SELECT COUNT(*) FROM detections WHERE model_id IN ('sam3', 'yolo11x-seg')"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        return done, done + left
     if s.startswith("recentre"):
         return _files("*.jpg", "centred"), None
     if s.startswith("local occlusion"):
@@ -203,6 +212,7 @@ def page(log: Path, script: Path) -> str:
     now = datetime.now()
     rows, card = [], ""
     left_s = 0.0  # time still to go for the running step
+    run_row: int | None = None
     for k, (name, start, out) in enumerate(steps):
         end = steps[k + 1][1] if k + 1 < len(steps) else None
         running = end is None and not finished
@@ -213,8 +223,11 @@ def page(log: Path, script: Path) -> str:
             left_s = max(guess_s(name) - elapsed, 60)
         rows.append(
             f"<tr class={'run' if running else ''}><td>{e(name)}</td>"
-            f"<td>{start:%H:%M}</td><td>{dur}{' …' if running else ''}</td><td><small>{last}</small></td></tr>"
+            f"<td>{start:%H:%M}</td><td>{dur}{' …' if running else ''}</td><td><small>{{progress}}</small></td></tr>"
+            if running
+            else f"<tr><td>{e(name)}</td><td>{start:%H:%M}</td><td>{dur}</td><td><small>{last}</small></td></tr>"
         )
+        run_row = len(rows) - 1 if running else None
         if running:
             c = None
             try:
@@ -242,6 +255,13 @@ def page(log: Path, script: Path) -> str:
                 )
             elif not card:
                 card = f"<h2>{e(name)}</h2><p>running for {dur}; no counter for this step</p>"
+    if steps and not finished and run_row is not None:
+        prog = (
+            re.sub(r"<[^>]+>", "", card.split("<p>", 1)[1].split("</p>")[0])
+            if "<p>" in card
+            else ""
+        )
+        rows[run_row] = rows[run_row].replace("{progress}", e(prog))
     upcoming = [] if finished else planned[len(steps) :]
     t = time.time() + left_s
     for n in upcoming:
