@@ -182,7 +182,7 @@ small{{display:block;color:#675d4d}}a{{color:#2b5a8a}}
 <script>
 const pts={json.dumps(points)}, colors={json.dumps(colors)};
 const map=L.map('map').setView([52.37,4.89],12);
-L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{maxZoom:19,attribution:'© OpenStreetMap'}}).addTo(map);
+L.tileLayer('https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}}.png',{{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap contributors © CARTO'}}).addTo(map);
 const marks=pts.map(([la,ln,k,id])=>{{const m=L.circleMarker([la,ln],{{radius:5,color:colors[k],weight:2}}).bindPopup('#'+id+' '+k).addTo(map);m.k=k;m.id=id;return m}});
 function apply(){{const on=new Set([...document.querySelectorAll('header input[type=checkbox]:checked')].map(c=>c.value));
 const q=document.getElementById('q').value.trim().toLowerCase();
