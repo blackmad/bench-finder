@@ -305,10 +305,11 @@ def _img(iid, bearing, *, sam3=None, yolo=None, labels=None, box=None, date=None
 
 def test_target_gate_prefers_sam3_verdict():
     assert target_gate(_img(1, 0, sam3=0.7))[0] == 0
-    # sam3 ran and stayed under 0.6: yolo's hit does not lift it to the top tier
-    assert target_gate(_img(1, 0, sam3=0.5, yolo=0.9))[0] == 1
-    assert target_gate(_img(1, 0, yolo=0.3))[0] == 0
-    assert target_gate(_img(1, 0, yolo=0.1))[0] == 1  # legacy-style fallback
+    # sam3 ran and stayed under 0.6: its miss counts, whatever yolo said
+    assert target_gate(_img(1, 0, sam3=0.5, yolo=0.9))[0] == 2
+    assert target_gate(_img(1, 0, yolo=0.3))[0] == 1.5  # gallery until SAM 3 checks
+    assert target_gate(_img(1, 0, yolo=0.1))[0] == 2
+    assert target_gate({"id": 1, "conf": 0.4})[0] == 1  # legacy: older detector only
     assert target_gate({"id": 1, "conf": None})[0] == 2
 
 
@@ -509,3 +510,14 @@ def test_winter_view_ranks_after_summer():
     summer = {**base, "id": 2, "pano_date": "2019-07-01T10:00:00Z"}
     winter = {**base, "id": 1, "pano_date": "2021-02-17T12:52:48Z"}
     assert image_rank(summer, None) < image_rank(winter, None)
+
+
+def test_camera_car_box_is_not_a_target():
+    from bench_finder.publish.build import target_gate
+
+    car = {"x1": 300, "y1": 870, "x2": 440, "y2": 1024}
+    img = {
+        **_img(1, 0, sam3=0.9, box=car),
+        "filename": "aimed_1_TMX7316_pano_amsterdam_wide.jpg",
+    }
+    assert target_gate(img)[0] == 2

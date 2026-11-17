@@ -331,24 +331,36 @@ def view_label(img: dict) -> str | None:
     return None
 
 
+def _camera_car(img: dict, box: dict | None, h: float = 1024.0) -> bool:
+    """A city-panorama target box reaching the bottom edge is the camera car's
+    bonnet or roof rack, which SAM 3 and yolo11x-seg both call a bench."""
+    name = img.get("filename") or ""
+    city = "amsterdam" in name or "TMX" in name or "recording_" in name
+    return bool(city and box and float(box["y2"]) >= 0.97 * h)
+
+
 def target_gate(img: dict) -> tuple[int, float, dict | None]:
     """(tier, confidence, bbox) for the bench the image was aimed at.
 
     Tier 0: a target detection by sam3 >= 0.6 when sam3 has run on the image (it
-    is the stricter model, so its miss counts), else by yolo11x-seg >= 0.25.
+    is the stricter model, so its miss counts).
     Tier 1: no such target, but an older detector saw a bench (legacy images).
+    Tier 1.5: a yolo11x-seg target >= 0.25 SAM 3 has not checked. Gallery only.
     Tier 2: no bench seen; never a hero.
     """
     t = img.get("targets") or {}
     if "sam3" in t:
         conf, box = t["sam3"]
-        if conf >= SAM3_MIN:
+        if conf >= SAM3_MIN and not _camera_car(img, box):
             return 0, conf, box
     elif "yolo11x-seg" in t:
         conf, box = t["yolo11x-seg"]
+        # yolo11x-seg alone is not enough: in wide views it calls the camera
+        # car's roof rack, gratings and planters benches. SAM 3 checks its best
+        # views (detect_aimed.verify_images); unchecked ones may join a gallery.
         if conf >= YOLO_MIN:
-            return 0, conf, box
-    if (img.get("conf") or 0) > 0:
+            return 1.5, conf, box
+    if not t and (img.get("conf") or 0) > 0:  # legacy: an older detector only
         return 1, float(img["conf"]), None
     return 2, 0.0, None
 
@@ -448,7 +460,7 @@ def _order_images(
         )
     ]
     hero = next((i for i in ranked if i["id"] == hero_id), None)
-    if hero is None and ranked and target_gate(ranked[0])[0] < 2:
+    if hero is None and ranked and target_gate(ranked[0])[0] < 1.5:
         hero = ranked[0]
     rest = [i for i in ranked if i is not hero]
     if hero is not None and (hy := _year(hero)):
