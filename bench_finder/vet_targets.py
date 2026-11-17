@@ -16,7 +16,9 @@ drop more real benches than bad photos. Use visitor/owner feedback instead.
 
 IN USE: ``rig`` asks Opus only whether the box is the camera vehicle (car roof,
 roof rack, mount, boat deck), for city-panorama views with a box in the bottom
-fifth: 3/5 of the owner's car examples, 0/40 real benches. ``apply`` stores both.
+fifth: 3/5 of the owner's car examples, 0/40 real benches. Of 1,888 views it
+flagged 22; the 12 with the box at the bottom edge were all the rig, the rest
+mostly real benches, hence ``RIG_LOW`` 0.95. ``apply`` stores both.
 
 ``run`` vets each bench's current hero (as ``publish`` would choose it), caching
 verdicts in ``data/vet_targets.jsonl`` (no database writes, so it can run beside
@@ -59,7 +61,8 @@ RIG_MODEL = "claude-opus-5-5"
 RIG_PROMPT = """This photo comes from a street-level panorama camera mounted on a vehicle (a car or a boat). Parts of that vehicle often show at the bottom of the frame: the car's roof, bonnet, roof rack, camera mast or mount, or the boat's deck and railing.
 A detector marked the red rectangle as a bench. Is the object in the red rectangle part of the camera vehicle itself (rather than something out in the street, such as a bench)?
 Answer JSON {"is_bench": <true if it is NOT part of the camera vehicle>, "what": "<two or three words>"}"""
-RIG_LOW = 0.8  # only boxes reaching the lowest fifth of the frame can be the vehicle
+RIG_LOW = 0.95  # only a box reaching the bottom edge can be the vehicle; above it Opus
+# blames a bench for the camera mast elsewhere in the frame (7 of 22 at 0.8)
 
 
 def rig_candidates(db: str) -> list[tuple[int, Path, dict]]:
@@ -299,7 +302,12 @@ def apply(db: str) -> dict:
     now = datetime.now(UTC).isoformat()
     n = 0
     verdicts = _cached()
+    low = {
+        c[0] for c in rig_candidates(db)
+    }  # verdicts on boxes at the bottom edge only
     for iid, r in _cached(RIG_CACHE).items():  # the vehicle check wins when it says no
+        if iid not in low:
+            continue
         if not r["is_bench"] or iid not in verdicts:
             verdicts[iid] = r
     for iid, r in verdicts.items():
