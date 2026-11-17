@@ -514,3 +514,8 @@ def test_winter_view_ranks_after_summer():
 
 def test_vetoed_view_is_never_a_hero():
     assert target_gate({**_img(1, 0, sam3=0.9), "vetoed": True})[0] == 2
+
+
+def test_confirmed_near_miss_can_be_hero():
+    assert target_gate({**_img(1, 0, sam3=0.5), "confirmed": True})[0] == 0
+    assert target_gate({**_img(1, 0, sam3=0.3), "confirmed": True})[0] == 2

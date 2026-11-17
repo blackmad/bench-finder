@@ -122,6 +122,74 @@ def run_rig(db: str, max_usd: float, workers: int = 6) -> dict:
     return {**stats, "usd": round(usage.usd(RIG_MODEL), 3)}
 
 
+BAND_CACHE = Path("data/vet_band.jsonl")
+BAND = (0.4, 0.6)  # SAM 3 near misses
+
+
+def band_candidates(db: str, per_bench: int = 2) -> list[tuple[int, Path, dict]]:
+    """Best ``per_bench`` near-miss views (SAM 3 0.4-0.6) of benches with no view
+    SAM 3 confirmed (>= 0.6)."""
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "SELECT i.id, i.bench_candidate_id, i.filepath, di.bbox, di.confidence "
+            "FROM images i JOIN detections d ON d.image_id = i.id AND d.model_id = 'sam3' "
+            "JOIN detection_items di ON di.detection_id = d.id AND di.is_target = 1 "
+            "WHERE i.kind = 'aimed' AND i.filepath IS NOT NULL AND di.confidence >= ?",
+            (BAND[0],),
+        ).fetchall()
+    finally:
+        conn.close()
+    confirmed = {b for _, b, _, _, conf in rows if conf >= BAND[1]}
+    per: dict[int, dict[int, tuple]] = {}
+    for iid, b, fp, bbox, conf in rows:
+        if b in confirmed or conf >= BAND[1]:
+            continue
+        v = per.setdefault(b, {})
+        if iid not in v or conf > v[iid][3]:
+            v[iid] = (iid, Path(fp), json.loads(bbox), conf)
+    out = []
+    for v in per.values():
+        out += [x[:3] for x in sorted(v.values(), key=lambda x: -x[3])[:per_bench]]
+    return out
+
+
+def run_band(db: str, max_usd: float, workers: int = 6) -> dict:
+    """Opus confirms SAM 3 near misses for benches without a photo. On gold views
+    in the band (91% are benches), Opus-confirmed ones were 50/52 right."""
+    import anthropic
+
+    done = _cached(BAND_CACHE)
+    todo = [c for c in band_candidates(db) if c[0] not in done]
+    client, usage, lock = anthropic.Anthropic(), Usage(), threading.Lock()
+    stats = {"todo": len(todo), "vetted": 0, "confirmed": 0, "failed": 0}
+
+    def one(c):
+        iid, path, box = c
+        if usage.usd(RIG_MODEL) >= max_usd:
+            return
+        try:
+            a = _ask(client, path, box, usage, RIG_MODEL)
+        except Exception:
+            with lock:
+                stats["failed"] += 1
+            return
+        rec = {
+            "image_id": iid,
+            "is_bench": a.get("is_bench") is True,
+            "what": a.get("what"),
+        }
+        with lock:
+            with BAND_CACHE.open("a") as f:
+                f.write(json.dumps(rec) + "\n")
+            stats["vetted"] += 1
+            stats["confirmed"] += rec["is_bench"]
+
+    with ThreadPoolExecutor(workers) as pool:
+        list(pool.map(one, todo))
+    return {**stats, "usd": round(usage.usd(RIG_MODEL), 3)}
+
+
 def _cached(cache: Path = CACHE) -> dict[int, dict]:
     if not cache.exists():
         return {}
@@ -310,6 +378,9 @@ def apply(db: str) -> dict:
             continue
         if not r["is_bench"] or iid not in verdicts:
             verdicts[iid] = r
+    for iid, r in _cached(BAND_CACHE).items():  # confirmations only
+        if r["is_bench"] and iid not in verdicts:
+            verdicts[iid] = r
     for iid, r in verdicts.items():
         conn.execute(
             "DELETE FROM image_annotations WHERE image_id = ? AND annotator = ? "
@@ -339,10 +410,14 @@ def main() -> None:
         "rig", help="Opus: is the box the camera vehicle? (city panoramas)"
     )
     rg.add_argument("--max-usd", type=float, default=10.0)
+    bd = sub.add_parser("band", help="Opus confirms SAM 3 near misses (0.4-0.6)")
+    bd.add_argument("--max-usd", type=float, default=10.0)
     sub.add_parser("apply")
     a = ap.parse_args()
     if a.cmd == "run":
         print(run(a.db, a.images_root, a.max_usd, a.workers))
+    elif a.cmd == "band":
+        print(run_band(a.db, a.max_usd))
     elif a.cmd == "rig":
         print(run_rig(a.db, a.max_usd))
     else:

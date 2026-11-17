@@ -260,6 +260,13 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
     ):
         if image_id in by_id:
             by_id[image_id]["vetoed"] = True
+    for (image_id,) in conn.execute(
+        "SELECT a.image_id FROM image_annotations a "
+        "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
+        "WHERE a.label_type = 'target_is_bench' AND a.value = '\"yes\"'"
+    ):
+        if image_id in by_id:
+            by_id[image_id]["confirmed"] = True
     return by_bench
 
 
@@ -346,7 +353,8 @@ def target_gate(img: dict) -> tuple[int, float, dict | None]:
     is the stricter model, so its miss counts).
     Tier 1: no such target, but an older detector saw a bench (legacy images).
     Tier 1.5: a yolo11x-seg target >= 0.25 SAM 3 has not checked. Gallery only.
-    A view Flash-Lite vetoed (``vet_targets``: the box is not a bench) is tier 2.
+    A view vetoed by ``vet_targets`` (the box is the camera vehicle) is tier 2; a
+    SAM 3 near miss (0.4-0.6) that Opus confirmed (``vet_targets band``) is tier 0.
     Tier 2: no bench seen; never a hero.
     """
     t = img.get("targets") or {}
@@ -354,7 +362,7 @@ def target_gate(img: dict) -> tuple[int, float, dict | None]:
         return 2, 0.0, None
     if "sam3" in t:
         conf, box = t["sam3"]
-        if conf >= SAM3_MIN:
+        if conf >= SAM3_MIN or (img.get("confirmed") and conf >= SAM3_BAND_MIN):
             return 0, conf, box
     elif "yolo11x-seg" in t:
         conf, box = t["yolo11x-seg"]
@@ -432,6 +440,9 @@ WINTER_MONTHS = {12, 1, 2}
 def _winter(img: dict) -> bool:
     m = re.match(r"\d{4}-(\d{2})", img.get("pano_date") or "")
     return bool(m) and int(m.group(1)) in WINTER_MONTHS
+
+
+SAM3_BAND_MIN = 0.4  # a near miss Opus confirmed (vet_targets band) counts
 
 
 def _image_size(path: Path) -> tuple[int, int] | None:
