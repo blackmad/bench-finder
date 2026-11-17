@@ -32,6 +32,8 @@ BOX_Y = 0.64  # where the bench's centre lands, as a share of the height from th
 FOV_MIN, FOV_MAX = 35.0, 90.0
 TILT_MIN, TILT_MAX = -5.0, 25.0
 DETECTED_PX = 1024  # detections ran on the 1024 px originals
+EDGE_PX = 6  # a box this close to the left/right edge is probably cut off
+EDGE_ROUNDS = 2  # re-renders to try for a bench still cut off
 
 TARGET_SQL = """
 SELECT d.image_id, d.model_id, di.bbox, di.confidence FROM detections d
@@ -75,6 +77,25 @@ def target_boxes(conn, image_ids: list[int], min_conf: float = 0.0) -> dict[int,
     return {iid: b for iid, ((_, c), b) in best.items() if c >= min_conf}
 
 
+def edge_side(box: dict, size: float = DETECTED_PX) -> int:
+    """-1 / +1 when the box touches the left / right edge (both: the wider gap), else 0."""
+    x1, x2 = sorted((box["x1"], box["x2"]))
+    left, right = (
+        x1 <= EDGE_PX * size / DETECTED_PX,
+        x2 >= size - EDGE_PX * size / DETECTED_PX,
+    )
+    if left and right:
+        return 0  # wider than the frame already: widening is all we can do
+    return -1 if left else (1 if right else 0)
+
+
+def extend(box: dict, side: int, factor: float) -> dict:
+    """The box stretched past the edge it touches by ``factor`` times its width."""
+    x1, x2 = sorted((box["x1"], box["x2"]))
+    w = (x2 - x1) * factor
+    return {**box, "x1": x1 - w if side < 0 else x1, "x2": x2 + w if side > 0 else x2}
+
+
 def recentred_job(job: recut.RecutJob, box: dict) -> recut.RecutJob:
     yaw, tilt, fov = frame_for_box(box, job.fov_deg)
     return dataclasses.replace(
@@ -110,7 +131,58 @@ def run_all(db: str, images_root: Path, min_conf: float, concurrency: int) -> di
     counts: dict[str, int] = {}
     for r in results:
         counts[r.status] = counts.get(r.status, 0) + 1
-    return {"heroes_with_box": len(jobs), **counts}
+    return {
+        "heroes_with_box": len(jobs),
+        **counts,
+        **fix_edges(jobs, boxes, out, concurrency),
+    }
+
+
+def _target_in(path: Path, yolo) -> dict | None:
+    """The bench nearest the centre column of a rendered hero, by YOLO."""
+    res = yolo.predict(str(path), conf=0.25, classes=[13], device="mps", verbose=False)[
+        0
+    ]
+    w = res.orig_shape[1]
+    best = None
+    for b in res.boxes:
+        x1, y1, x2, y2 = (float(v) for v in b.xyxy[0].tolist())
+        d = abs((x1 + x2) / 2 - w / 2)
+        if best is None or d < best[0]:
+            best = (d, {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "w": w})
+    return best[1] if best else None
+
+
+def fix_edges(
+    jobs: list[recut.RecutJob], boxes: dict[int, dict], out: Path, concurrency: int
+) -> dict:
+    """Re-render heroes whose bench box touches a side of the frame (cut off):
+    stretch the box past that edge, re-aim and widen, check again with YOLO."""
+    from ultralytics import YOLO
+
+    yolo = YOLO("models/yolo11x-seg.pt")
+    todo = {j.image_id: (j, edge_side(boxes[j.image_id])) for j in jobs}
+    todo = {i: js for i, js in todo.items() if js[1]}
+    stats = {"edge_cut": len(todo), "edge_fixed": 0}
+    for rnd in range(1, EDGE_ROUNDS + 1):
+        if not todo:
+            break
+        new = []
+        for j, side in todo.values():
+            new.append(recentred_job(j, extend(boxes[j.image_id], side, rnd)))
+            recut.output_path(out, j).unlink(missing_ok=True)  # re-render in place
+        asyncio.run(recut.run(new, out, concurrency=concurrency))
+        still = {}
+        for i, (j, side) in todo.items():
+            path = recut.output_path(out, j)
+            t = _target_in(path, yolo) if path.is_file() else None
+            if t and edge_side(t, t["w"]) == 0:
+                stats["edge_fixed"] += 1
+            else:
+                still[i] = (j, side)
+        todo = still
+    stats["edge_still_cut"] = len(todo)
+    return stats
 
 
 def pilot(db: str, images_root: Path, out: Path, n: int, seed: int) -> dict:

@@ -77,8 +77,18 @@ def masks(db: str, images_root: Path, limit: int | None) -> dict:
     todo = _heroes(db, images_root)
     conn = sqlite3.connect(db, timeout=120)
     conn.execute(SCHEMA)
-    done = {(i, s) for i, s in conn.execute("SELECT image_id, source FROM hero_masks")}
-    todo = [(i, p) for i, p in todo if (i, str(p)) not in done][:limit]
+    # Done unless the image was re-rendered since (recentre's edge fix rewrites heroes).
+    done = {
+        (i, s): datetime.fromisoformat(t).timestamp()
+        for i, s, t in conn.execute(
+            "SELECT image_id, source, created_at FROM hero_masks"
+        )
+    }
+    todo = [
+        (i, p)
+        for i, p in todo
+        if (i, str(p)) not in done or p.stat().st_mtime > done[(i, str(p))]
+    ][:limit]
     from types import SimpleNamespace
 
     from ultralytics import YOLO
