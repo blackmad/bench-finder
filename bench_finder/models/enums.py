@@ -3,6 +3,7 @@ from enum import StrEnum
 
 class DataSource(StrEnum):
     OSM = "OSM"
+    BGT = "BGT"  # the city's street-furniture register (import_bgt)
 
 
 class DetectionSource(StrEnum):
