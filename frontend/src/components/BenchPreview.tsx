@@ -1,11 +1,13 @@
-import { useEffect, useId, useRef } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Link } from "react-router-dom"
+import { focusStyle } from "../data/api"
 import { headline, heroImage, lede } from "../data/describe"
 import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
 import { useSwipe } from "../lib/useSwipe"
 import { Away } from "./Away"
 import { PinIcon } from "./Icons"
+import { Lightbox } from "./Lightbox"
 import { Photo } from "./Photo"
 import { ViewFigure } from "./ViewFigure"
 
@@ -29,6 +31,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
   const b: BenchProps | null = detail ?? bench
   const titleId = useId()
   const ref = useRef<HTMLElement>(null)
+  const [viewing, setViewing] = useState<number | null>(null)
 
   // Bring the preview into view and give keyboard users its heading. The
   // parent keys this component by bench id, so this runs once per bench.
@@ -78,6 +81,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
             alt={`Street view of the bench at ${name}`}
             width={b.hero_width ?? 800}
             height={b.hero_height ?? 800}
+            style={focusStyle(b.hero_focus)}
             decoding="async"
           />
         ) : (
@@ -116,15 +120,25 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
             </small>
           </div>
           <div className="strip">
-            {views.map((g) => (
+            {views.map((g, i) => (
               <ViewFigure
                 key={Object.values(g.urls)[0]}
                 image={g}
                 name={name}
                 sizes="(max-width: 760px) 60vw, 220px"
+                onOpen={() => setViewing(i)}
               />
             ))}
           </div>
+          {viewing !== null ? (
+            <Lightbox
+              images={views}
+              index={viewing}
+              name={name}
+              onIndex={setViewing}
+              onClose={() => setViewing(null)}
+            />
+          ) : null}
         </div>
       ) : null}
     </section>

@@ -6,11 +6,12 @@ import {
   ReportRow,
 } from "../components/account/BenchSocial"
 import { EyeIcon, PinIcon } from "../components/Icons"
+import { Lightbox } from "../components/Lightbox"
 import { Photo } from "../components/Photo"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
 import { ViewFigure } from "../components/ViewFigure"
-import { hasPhoto } from "../data/api"
+import { focusStyle, hasPhoto } from "../data/api"
 import {
   headline,
   heroImage,
@@ -88,6 +89,8 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
   const shownLead = heroImg ?? lead
   const gallery = b.gallery.filter((g) => g !== shownLead)
   const photographed = monthYear(shownLead?.pano_date)
+  // The "More views" photo open in the lightbox, by index into `gallery`.
+  const [viewing, setViewing] = useState<number | null>(null)
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}&travelmode=walking`
 
   return (
@@ -147,15 +150,25 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
               </p>
             </div>
             <div className="gallery">
-              {gallery.map((g) => (
+              {gallery.map((g, i) => (
                 <ViewFigure
                   key={Object.values(g.urls)[0]}
                   image={g}
                   name={name}
                   sizes="(max-width: 760px) 50vw, 300px"
+                  onOpen={() => setViewing(i)}
                 />
               ))}
             </div>
+            {viewing !== null ? (
+              <Lightbox
+                images={gallery}
+                index={viewing}
+                name={name}
+                onIndex={setViewing}
+                onClose={() => setViewing(null)}
+              />
+            ) : null}
           </section>
         ) : null}
 
@@ -197,6 +210,7 @@ function HeroPhoto({
           alt={`Street view of the bench at ${name}`}
           width={b.hero_width ?? 800}
           height={b.hero_height ?? 800}
+          style={focusStyle(b.hero_focus)}
           fetchPriority="high"
           decoding="async"
         />

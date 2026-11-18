@@ -485,6 +485,9 @@ h1[tabindex="-1"]:focus {
   display: block;
   margin: 8px auto 0;
 }
+.gridsentinel {
+  height: 1px;
+}
 .tile {
   flex: 0 0 236px;
   scroll-snap-align: start;
@@ -1298,4 +1301,108 @@ picture {
   right: 12px;
   top: 12px;
   bottom: auto;
+}
+
+/* Street views opened large (bench page and preview "More views"). */
+.viewlink {
+  display: block;
+  cursor: zoom-in;
+}
+.viewlink:focus-visible {
+  outline: 2px solid var(--color-airmail);
+  outline-offset: 2px;
+}
+.lightbox {
+  border: 0;
+  padding: 0;
+  margin: auto;
+  background: transparent;
+  max-width: 100vw;
+  max-height: 100dvh;
+  overflow: visible;
+}
+.lightbox::backdrop {
+  background: rgb(20 20 20 / 0.86);
+}
+.lightbox figure {
+  width: fit-content;
+  margin: 0;
+  background: var(--card);
+  padding: 8px 8px 0;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.4);
+}
+/* Specific enough to beat `.gallery img` (bench.css loads after this file). */
+.lightbox figure img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: calc(100vw - 136px);
+  max-height: calc(100dvh - 96px);
+  /* Undo the cropped thumbnails' ratio from the gallery the dialog sits in. */
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+.lightbox figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--ink-2);
+  padding: 8px 2px 10px;
+}
+.lightbox figcaption .when {
+  color: var(--ink-3);
+}
+.lb-step,
+.lb-x {
+  position: fixed;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 253 248 / 0.92);
+  color: var(--ink);
+  cursor: pointer;
+}
+.lb-step svg,
+.lb-x svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lb-step {
+  top: 50%;
+  translate: 0 -50%;
+}
+.lb-prev {
+  left: 12px;
+}
+.lb-next {
+  right: 12px;
+}
+.lb-x {
+  top: 12px;
+  right: 12px;
+}
+.lb-step:focus-visible,
+.lb-x:focus-visible {
+  outline: 2px solid var(--color-airmail);
+  outline-offset: 2px;
+}
+@media (max-width: 760px) {
+  .lightbox figure img {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 140px);
+  }
+  .lb-step {
+    top: auto;
+    bottom: 16px;
+    translate: none;
+  }
 }
