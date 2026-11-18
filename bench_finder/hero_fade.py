@@ -162,20 +162,27 @@ def fade_image(src: Path, poly: list, dst: Path) -> None:
 
 FRAME_MIN_SHARE = 0.4  # zoom until the bench spans this share of the crop's width
 FRAME_MIN_SIDE = 0.45  # but never crop below this share of the image (pixelation)
+FRAME_RECUT_MIN_SIDE = 0.85  # a re-aimed cut is zoomed already: re-centre only
 FRAME_OUT_PX = 800  # crops are scaled up to at least this (the largest rendition)
 
 
-def frame_box(poly: list) -> tuple[float, float, float] | None:
+def frame_box(poly: list, recut: bool = False) -> tuple[float, float, float] | None:
     """(cx, cy, side) of a square crop, in shares of the image width/height, that
-    centres the bench and zooms in on a small one; None when the full frame will do."""
+    centres the bench and zooms in on a small one; None when the full frame will do.
+
+    ``recut``: the image is a ``recentre`` cut, which already zoomed in as far as
+    the panorama's resolution allows; zooming again blurs it (Marnixstraat 256),
+    so only a slight crop to centre the bench is allowed."""
     xs = [p[0] for p in poly]
     ys = [p[1] for p in poly]
     bw, bh = max(xs) - min(xs), max(ys) - min(ys)
     mx, my = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
     # Zoom for a small bench; tighten further so an off-centre bench can sit
     # mid-frame, but always keep the whole bench in.
-    want = min(1.0, bw / FRAME_MIN_SHARE, 2 * min(mx, 1 - mx), 2 * min(my, 1 - my))
-    side = min(1.0, max(FRAME_MIN_SIDE, want, bw * 1.15, bh * 1.3))
+    zoom = 1.0 if recut else bw / FRAME_MIN_SHARE
+    want = min(1.0, zoom, 2 * min(mx, 1 - mx), 2 * min(my, 1 - my))
+    floor = FRAME_RECUT_MIN_SIDE if recut else FRAME_MIN_SIDE
+    side = min(1.0, max(floor, want, bw * 1.15, bh * 1.3))
     cx = min(max(mx, side / 2), 1 - side / 2)
     cy = min(max(my, side / 2), 1 - side / 2)
     if side >= 0.98 and abs(cx - 0.5) < 0.03 and abs(cy - 0.5) < 0.03:
@@ -183,12 +190,12 @@ def frame_box(poly: list) -> tuple[float, float, float] | None:
     return cx, cy, side
 
 
-def focus(poly: list) -> tuple[float, float]:
+def focus(poly: list, recut: bool = False) -> tuple[float, float]:
     """Where the bench's centre lands in the published (framed) hero, 0..1."""
     xs = [p[0] for p in poly]
     ys = [p[1] for p in poly]
     mx, my = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-    fb = frame_box(poly)
+    fb = frame_box(poly, recut)
     if fb is None:
         return round(mx, 3), round(my, 3)
     cx, cy, side = fb
@@ -198,8 +205,13 @@ def focus(poly: list) -> tuple[float, float]:
     )
 
 
-def frame_image(src: Path, poly: list, dst: Path) -> bool:
-    fb = frame_box(poly)
+def is_recut(source: str) -> bool:
+    """Is the outlined image a ``recentre`` cut (``images/centred/``)?"""
+    return "/centred/" in source
+
+
+def frame_image(src: Path, poly: list, dst: Path, recut_src: bool = False) -> bool:
+    fb = frame_box(poly, recut_src)
     if fb is None:
         return False
     cx, cy, side = fb
@@ -220,9 +232,9 @@ def frame_image(src: Path, poly: list, dst: Path) -> bool:
     return True
 
 
-def _frame_one(job: tuple[str, str, str]) -> bool:
-    src, poly, dst = job
-    return frame_image(Path(src), json.loads(poly), Path(dst))
+def _frame_one(job: tuple[str, str, str, bool]) -> bool:
+    src, poly, dst, rc = job
+    return frame_image(Path(src), json.loads(poly), Path(dst), rc)
 
 
 def frame(db: str, images_root: Path) -> dict:
@@ -243,7 +255,7 @@ def frame(db: str, images_root: Path) -> dict:
         if dst.is_file() and dst.stat().st_mtime > base.stat().st_mtime:
             continue
         dst.unlink(missing_ok=True)
-        jobs.append((str(base), poly, str(dst)))
+        jobs.append((str(base), poly, str(dst), is_recut(source)))
     with ProcessPoolExecutor() as pool:
         n = sum(pool.map(_frame_one, jobs, chunksize=16))
     return {"framed": n, "full_frame": len(jobs) - n, "already": len(rows) - len(jobs)}

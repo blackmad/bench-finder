@@ -634,8 +634,10 @@ def _hero_masks(db_path) -> dict[int, list]:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         return {
-            i: json.loads(p)
-            for i, p in conn.execute("SELECT image_id, polygon FROM hero_masks")
+            i: (json.loads(p), "/centred/" in src)
+            for i, p, src in conn.execute(
+                "SELECT image_id, polygon, source FROM hero_masks"
+            )
         }
     except sqlite3.OperationalError:  # no hero_fade run yet
         return {}
@@ -789,7 +791,7 @@ def publish(
             "hero_width": hero["width"] if hero else None,
             "hero_height": hero["height"] if hero else None,
             # Where the bench sits in the hero (0..1): the page's crops keep it in view.
-            "hero_focus": list(focus(hero_poly)) if hero_poly else None,
+            "hero_focus": list(focus(*hero_poly)) if hero_poly else None,
             "address": short,
         }
         if isinstance(props["backrest"], int):
