@@ -1325,17 +1325,21 @@ picture {
   background: rgb(20 20 20 / 0.86);
 }
 .lightbox figure {
+  width: fit-content;
   margin: 0;
   background: var(--card);
   padding: 8px 8px 0;
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.4);
 }
-.lightbox img {
+/* Specific enough to beat `.gallery img` (bench.css loads after this file). */
+.lightbox figure img {
   display: block;
   width: auto;
   height: auto;
   max-width: calc(100vw - 136px);
   max-height: calc(100dvh - 96px);
+  /* Undo the cropped thumbnails' ratio from the gallery the dialog sits in. */
+  aspect-ratio: auto;
   object-fit: contain;
 }
 .lightbox figcaption {
@@ -1392,7 +1396,7 @@ picture {
   outline-offset: 2px;
 }
 @media (max-width: 760px) {
-  .lightbox img {
+  .lightbox figure img {
     max-width: calc(100vw - 16px);
     max-height: calc(100dvh - 140px);
   }
