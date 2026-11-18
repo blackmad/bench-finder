@@ -751,6 +751,10 @@ def publish(
             facing, conf, method = tag_deg, 1.0, "osm_tag"
         if masks_by_image is None:
             masks_by_image = _hero_masks(db_path)
+            from bench_finder.addresses import address as street_address
+            from bench_finder.addresses import load as load_addresses
+
+            pdok = load_addresses()
         imgs, has_hero = chosen[r["id"]]
         entries = []
         for i in imgs:
@@ -767,6 +771,11 @@ def publish(
             if street
             else (r["formatted_address"] or "").split(",")[0] or None
         )
+        # The street the bench is on (PDOK), not the nearest building's (Google).
+        on = pdok.get(r["id"])
+        better = street_address(on, short) if on else None
+        if better and better != short:
+            short, street, number = better, better, None
         aimed = next(
             (i for _, i, _ in entries if i["kind"] == "aimed" and i["pano_id"]), None
         )
