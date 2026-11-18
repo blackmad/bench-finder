@@ -60,7 +60,7 @@ def pick(cands: list, have: set[str], n: int = PER_BENCH) -> list:
 
 
 def weak_hero_ids(db: str) -> list[int]:
-    """Benches whose best SAM 3 score is under 0.8 or whose hero view is blocked."""
+    """Amsterdam benches whose best SAM 3 score is under 0.8 (or that have none)."""
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     try:
         best = dict(
@@ -73,7 +73,7 @@ def weak_hero_ids(db: str) -> list[int]:
         )
     finally:
         conn.close()
-    return sorted(b for b, s in best.items() if (s or 0) < 0.8)
+    return sorted(b.id for b in load_benches(db) if (best.get(b.id) or 0) < 0.8)
 
 
 async def _run(db: str, ids: list[int], dry: bool) -> dict:
