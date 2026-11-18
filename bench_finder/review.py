@@ -115,7 +115,7 @@ header b{font-size:18px}main{display:grid;grid-template-columns:minmax(0,1fr) 32
 .hero{width:100%;max-height:62vh;object-fit:contain;background:#e9e2d2;display:block}
 .none{height:40vh;display:grid;place-items:center;background:#e9e2d2;color:var(--mute)}
 .views{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:6px}
-.views a{position:relative;display:block;outline:3px solid transparent}.views a.h{outline-color:var(--hi)}
+.views a{position:relative;display:block;outline:3px solid transparent}.views a.h{outline-color:var(--hi)}.views a.sel{outline-color:#2a5db0}
 .views img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .views i{position:absolute;left:2px;bottom:2px;font:11px system-ui;background:#fffd;padding:0 3px;font-style:normal}
 aside{display:grid;gap:10px;align-content:start}h1{font-size:20px;margin:0}.mute{color:var(--mute)}
@@ -145,9 +145,12 @@ function show(){const b=Q[i];if(!b){$("title").textContent="Queue empty";return}
  $("title").textContent=`#${b.id} ${b.address}`;$("facts").textContent=b.facts;
  $("marks").innerHTML=m.map(x=>`<span>${esc(x)}</span>`).join("");
  const hero=b.hero?`<img class=hero src="${esc(b.hero)}">`:`<div class=none>no photo · ${b.views.length?b.views.length+" views, none passed (needs 0.60)":"no street-level imagery"}</div>`;
- $("pics").innerHTML=hero+`<div class=views>${b.views.map(v=>`<a class="${v.id===b.hero_id?"h":""}" href="${esc(v.src)}" target=_blank><img loading=lazy src="${esc(v.src)}"><i>${v.score==null?"–":v.score.toFixed(2)} ${esc((v.source||"").slice(0,5))} ${esc((v.when||"").slice(0,7))}</i></a>`).join("")}</div>`;
+ $("pics").innerHTML=`<div id=big>${hero}</div>`+`<div class=views>${b.views.map(v=>`<a class="${v.id===b.hero_id?"h":""}" href="${esc(v.src)}" target=_blank><img loading=lazy src="${esc(v.src)}"><i>${v.score==null?"–":v.score.toFixed(2)} ${esc((v.source||"").slice(0,5))} ${esc((v.when||"").slice(0,7))}</i></a>`).join("")}</div>`;
  $("links").innerHTML=`<a href="https://bench.blackmad.com/bench/${b.id}" target=_blank>live</a> · <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${b.lat},${b.lng}" target=_blank>street view</a> · <a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lng}#map=19/${b.lat}/${b.lng}" target=_blank>OSM</a>`;
  const d=.0012;$("map").src=`https://www.openstreetmap.org/export/embed.html?bbox=${b.lng-d*1.6},${b.lat-d},${b.lng+d*1.6},${b.lat+d}&layer=mapnik&marker=${b.lat},${b.lng}`}
+document.addEventListener("click",e=>{const a=e.target.closest(".views a");if(!a||e.metaKey||e.ctrlKey)return;
+ e.preventDefault();document.querySelectorAll(".views a").forEach(x=>x.classList.toggle("sel",x===a));
+ $("big").innerHTML=`<img class=hero src="${esc(a.getAttribute("href"))}">`});
 async function save(b,marks){const r=await fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks,hero_id:b.hero_id})});S=await r.json();show()}
 document.onkeydown=e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const b=Q[i],k=e.key;
  if(k==="ArrowRight"||k==="j"){i=Math.min(Q.length-1,i+1);show()}

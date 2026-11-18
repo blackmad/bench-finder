@@ -186,11 +186,18 @@ async def amsterdam_equirect(
     return np.asarray(Image.open(io.BytesIO(raw)).convert("RGB"))
 
 
-async def render_amsterdam(client: Any, c: PanoCandidate, b: Bench, session) -> Any:
+async def render_amsterdam(
+    client: Any,
+    c: PanoCandidate,
+    b: Bench,
+    session,
+    fov: float | None = None,
+    suffix: str = "amsterdam",
+) -> Any:
     from bench_finder.models.streetview_models import StreetViewImageCaptureError
 
-    fov = fov_for(c.distance_m)
-    filename = client._view_filename(str(b.id), c.pano_id, "amsterdam")
+    fov = fov or fov_for(c.distance_m)
+    filename = client._view_filename(str(b.id), c.pano_id, suffix)
     filepath = os.path.join(client.images_dir, filename)
     common = client._common_fields(
         c, str(b.id), b.lat, b.lng, fov, filename, ImageSource.AMSTERDAM_PANORAMA

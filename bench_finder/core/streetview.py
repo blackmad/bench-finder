@@ -347,10 +347,11 @@ class StreetViewClient:
         lng: float,
         session: ClientSession,
         fov_deg: float | None = None,
+        suffix: str = "streetview",
     ) -> StreetViewImageCapture:
         pano = cand.raw
         fov = fov_deg or fov_for_distance(cand.distance_m)
-        filename = self._view_filename(bench_id, cand.pano_id, "streetview")
+        filename = self._view_filename(bench_id, cand.pano_id, suffix)
         filepath = os.path.join(self.images_dir, filename)
         common = self._common_fields(
             cand, bench_id, lat, lng, fov, filename, ImageSource.STREETVIEW_STREETLEVEL
@@ -417,10 +418,11 @@ class StreetViewClient:
         lng: float,
         session: ClientSession,
         fov_deg: float | None = None,
+        suffix: str = "lookaround",
     ) -> StreetViewImageCapture:
         pano = cand.raw
         fov = fov_deg or fov_for_distance(cand.distance_m)
-        filename = self._view_filename(bench_id, cand.pano_id, "lookaround")
+        filename = self._view_filename(bench_id, cand.pano_id, suffix)
         filepath = os.path.join(self.images_dir, filename)
         common = self._common_fields(
             cand, bench_id, lat, lng, fov, filename, ImageSource.APPLE_STREETLEVEL
