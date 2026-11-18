@@ -485,6 +485,9 @@ h1[tabindex="-1"]:focus {
   display: block;
   margin: 8px auto 0;
 }
+.gridsentinel {
+  height: 1px;
+}
 .tile {
   flex: 0 0 236px;
   scroll-snap-align: start;
