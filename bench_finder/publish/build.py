@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
+from bench_finder.publish.exclude import excluded
 from bench_finder.publish.images import (
     FORMATS,
     ImageResult,
@@ -164,6 +165,10 @@ def _load_rows(
         ORDER BY c.id
     """
     rows = conn.execute(sql, params).fetchall()
+    out = excluded([(r["id"], r["lat"], r["lng"]) for r in rows])
+    drop = set().union(*out.values())
+    rows = [r for r in rows if r["id"] not in drop]
+    print({k: len(v) for k, v in out.items()} | {"excluded": len(drop)})
     eligible = len(rows)
     if limit is not None:
         rows = rows[:limit]
