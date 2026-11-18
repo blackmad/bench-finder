@@ -16,6 +16,7 @@ import argparse
 import html
 import json
 import shutil
+import sqlite3
 from pathlib import Path
 
 
@@ -93,14 +94,51 @@ TITLES = {
 }
 
 
+# Photoless benches: bench id -> [(local image path, best target score)].
+VIEWS: dict[int, list[tuple[str, float | None]]] = {}
+
+
+def load_views(ids: set[int], db: str = "data/benches.db") -> None:
+    """The captured views of photoless benches, so the page can show them."""
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        for bid, fp, conf in conn.execute(
+            "SELECT i.bench_candidate_id, i.filepath, (SELECT max(di.confidence) "
+            "FROM detections d JOIN detection_items di ON di.detection_id = d.id "
+            "AND di.is_target = 1 WHERE d.image_id = i.id AND d.model_id = 'sam3') "
+            "FROM images i WHERE i.kind = 'aimed' AND i.capture_success = 1 "
+            "AND i.filepath IS NOT NULL ORDER BY i.id"
+        ):
+            if bid in ids:
+                VIEWS.setdefault(bid, []).append((fp, conf))
+    finally:
+        conn.close()
+
+
+def _views(b: dict | None) -> str:
+    v = VIEWS.get((b or {}).get("id"), [])
+    if not v:
+        return (
+            "<div class=none>no photo<small>no street-level imagery "
+            "near this bench</small></div>"
+        )
+    best = max((c or 0) for _, c in v)
+    tiles = "".join(
+        f"<a href='../../{html.escape(fp)}' target=_blank><img loading=lazy "
+        f"src='../../{html.escape(fp)}'><i>{c or 0:.2f}</i></a>"
+        for fp, c in v[:9]
+    )
+    return (
+        f"<div class=views>{tiles}</div><p class=why>no photo: {len(v)} views, "
+        f"none showed the bench clearly (best detector score {best:.2f}, "
+        "needs 0.60)</p>"
+    )
+
+
 def _img(b: dict | None, rel: str) -> str:
     urls = (b or {}).get("hero_urls") or {}
     src = urls.get("400") or next(iter(urls.values()), None)
-    return (
-        f"<img loading=lazy src='{rel}/{html.escape(src)}'>"
-        if src
-        else "<div class=none>no photo</div>"
-    )
+    return f"<img loading=lazy src='{rel}/{html.escape(src)}'>" if src else _views(b)
 
 
 def _facts(b: dict | None) -> str:
@@ -119,7 +157,7 @@ def _facts(b: dict | None) -> str:
     return " · ".join(x for x in bits if x)
 
 
-FEEDBACK = ("good", "no bench", "bad photo", "wrong spot", "winter")
+FEEDBACK = ("good", "no bench", "bus stop", "bad photo", "wrong spot", "winter")
 FB = (
     "<div class=fb>"
     + "".join(f"<button data-fb='{f}'>{f}</button>" for f in FEEDBACK)
@@ -180,7 +218,10 @@ main{{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;padding:0 
 .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}}
 article{{background:#fffdf8;padding:8px;border-radius:4px}}article p{{margin:6px 0 2px}}
 article img,.none{{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#e9e2d2}}
-.none{{display:grid;place-items:center;color:#9a8f7c}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:4px}}
+.none{{display:grid;place-items:center;align-content:center;color:#9a8f7c}}.none small{{display:block;font-size:12px}}
+.views{{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;aspect-ratio:1}}.views a{{position:relative;display:block}}
+.views img{{width:100%;height:100%;aspect-ratio:auto;object-fit:cover}}.views i{{position:absolute;left:2px;bottom:2px;font:10px sans-serif;background:#fffc;padding:0 3px}}
+.why{{margin:4px 0 0;font-size:12.5px;color:#7a6f5c}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:4px}}
 small{{display:block;color:#675d4d}}
 .fb{{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}}.fb button{{font:12px system-ui;padding:2px 6px;border:1px solid #cbbfa8;background:#fbf8f1;border-radius:3px;cursor:pointer}}
 .fb button.on{{background:#2b261e;color:#fff;border-color:#2b261e}}article.marked{{outline:2px solid #2b261e}}
@@ -226,7 +267,9 @@ def main() -> None:
     a = ap.parse_args()
     snaps = sorted(p.name for p in SNAPS.iterdir() if p.is_dir())
     old, new = a.old or snaps[-2], a.new or snaps[-1]
-    changes = diff(load(SNAPS / old), load(SNAPS / new))
+    newer = load(SNAPS / new)
+    changes = diff(load(SNAPS / old), newer)
+    load_views({i for i, b in newer.items() if not b.get("hero_key")})
     OUT.mkdir(parents=True, exist_ok=True)
     rel = Path("../../" + str(DIST)).as_posix()
     (OUT / "index.html").write_text(page(changes, old, new, rel))

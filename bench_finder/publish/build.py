@@ -165,7 +165,7 @@ def _load_rows(
         ORDER BY c.id
     """
     rows = conn.execute(sql, params).fetchall()
-    out = excluded([(r["id"], r["lat"], r["lng"]) for r in rows])
+    out = excluded()
     drop = set().union(*out.values())
     rows = [r for r in rows if r["id"] not in drop]
     print({k: len(v) for k, v in out.items()} | {"excluded": len(drop)})

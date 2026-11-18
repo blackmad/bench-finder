@@ -6,7 +6,10 @@ with ``python -m bench_finder.publish.exclude fetch``). The city register (BGT)
 counts the seat inside a bus shelter as a bench; the owner does not (2026-11-18).
 
 Feedback files (``data/feedback/*.json``) are the what's-new page's export; a
-bench whose latest marks include "no bench" is hidden.
+bench whose latest marks include "no bench" or "bus stop" is hidden.
+``mark-stops`` records benches within ``STOP_M`` of a stop as "bus stop" in
+``data/feedback/bus_stops.json`` (hidden while the owner decides what to do with
+them; delete an id there to bring it back).
 """
 
 from __future__ import annotations
@@ -64,20 +67,45 @@ def at_stops(
 
 
 def feedback(folder: Path = FEEDBACK) -> dict[int, list[str]]:
-    """Latest marks per bench across the exports (later files win)."""
+    """Every mark per bench across the exports and mark files."""
     marks: dict[int, list[str]] = {}
     for f in sorted(folder.glob("*.json")) if folder.exists() else []:
         for k, v in json.loads(f.read_text()).get("feedback", {}).items():
-            marks[int(k)] = v
+            marks.setdefault(int(k), [])
+            marks[int(k)] += [m for m in v if m not in marks[int(k)]]
     return marks
 
 
-def excluded(benches: list[tuple[int, float, float]]) -> dict[str, set[int]]:
+HIDE = ("no bench", "bus stop")
+
+
+def excluded() -> dict[str, set[int]]:
     marks = feedback()
-    return {
-        "bus_stop": at_stops(benches, stop_points()),
-        "no_bench": {b for b, v in marks.items() if "no bench" in v},
-    }
+    return {m: {b for b, v in marks.items() if m in v} for m in HIDE}
+
+
+def mark_stops(db: str = "data/benches.db") -> int:
+    """Write the "bus stop" marks (bench_feedback format) for every bench near a stop."""
+    import sqlite3
+
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        rows = conn.execute("SELECT id, lat, lng FROM bench_candidates").fetchall()
+    finally:
+        conn.close()
+    ids = sorted(at_stops(rows, stop_points()))
+    out = FEEDBACK / "bus_stops.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps(
+            {
+                "source": f"OSM stops within {STOP_M:.0f} m",
+                "feedback": {str(i): ["bus stop"] for i in ids},
+            },
+            indent=0,
+        )
+    )
+    return len(ids)
 
 
 def fetch(path: Path = STOPS) -> int:
@@ -96,3 +124,5 @@ def fetch(path: Path = STOPS) -> int:
 if __name__ == "__main__":
     if sys.argv[1:] == ["fetch"]:
         print(fetch())
+    elif sys.argv[1:] == ["mark-stops"]:
+        print(mark_stops())
