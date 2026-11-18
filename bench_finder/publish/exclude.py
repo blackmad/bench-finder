@@ -19,6 +19,7 @@ import math
 import sys
 import urllib.parse
 import urllib.request
+from itertools import pairwise
 from pathlib import Path
 
 
@@ -76,7 +77,66 @@ def feedback(folder: Path = FEEDBACK) -> dict[int, list[str]]:
     return marks
 
 
-HIDE = ("no bench", "bus stop")
+HIDE = ("no bench", "bus stop", "train station")
+PLATFORMS = Path(
+    "data/osm/rail_platforms.json"
+)  # railway=platform, train/subway platforms
+PLATFORM_M = 8.0
+
+
+def _seg_m(lat, lng, a, b) -> float:
+    """Metres from (lat, lng) to segment a-b (local flat projection)."""
+    k = 111320 * math.cos(math.radians(lat))
+    ax, ay = (a[1] - lng) * k, (a[0] - lat) * 111320
+    bx, by = (b[1] - lng) * k, (b[0] - lat) * 111320
+    dx, dy = bx - ax, by - ay
+    t = (
+        0.0
+        if dx == dy == 0
+        else max(0.0, min(1.0, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+    )
+    return math.hypot(ax + t * dx, ay + t * dy)
+
+
+def _inside(lat, lng, ring) -> bool:
+    hit = False
+    for (y1, x1), (y2, x2) in zip(ring, ring[1:] + ring[:1], strict=True):
+        if (y1 > lat) != (y2 > lat) and lng < x1 + (lat - y1) * (x2 - x1) / (y2 - y1):
+            hit = not hit
+    return hit
+
+
+def on_platforms(benches, path: Path = PLATFORMS, m: float = PLATFORM_M) -> set[int]:
+    """Ids of benches on or within ``m`` metres of a rail platform's outline."""
+    if not path.exists():
+        return set()
+    lines = []
+    for e in json.loads(path.read_text())["elements"]:
+        if e.get("tags", {}).get("tram") == "yes":  # tram stops: the bus-stop rule
+            continue
+        if e["type"] == "node":
+            lines.append([(e["lat"], e["lon"])])
+        for g in [e.get("geometry")] + [
+            mm.get("geometry") for mm in e.get("members", [])
+        ]:
+            lines.extend([[(q["lat"], q["lon"]) for q in g]] if g else [])
+    hit = set()
+    for bid, lat, lng in benches:
+        for ln in lines:
+            ys = [q[0] for q in ln]
+            xs = [q[1] for q in ln]
+            if not (
+                min(ys) - 2e-4 < lat < max(ys) + 2e-4
+                and min(xs) - 3e-4 < lng < max(xs) + 3e-4
+            ):
+                continue
+            segs = pairwise(ln) if len(ln) > 1 else [(ln[0], ln[0])]
+            if any(_seg_m(lat, lng, a, b) <= m for a, b in segs) or (
+                len(ln) > 3 and ln[0] == ln[-1] and _inside(lat, lng, ln)
+            ):
+                hit.add(bid)
+                break
+    return hit
 
 
 def excluded() -> dict[str, set[int]]:
@@ -84,7 +144,7 @@ def excluded() -> dict[str, set[int]]:
     return {m: {b for b, v in marks.items() if m in v} for m in HIDE}
 
 
-def mark_stops(db: str = "data/benches.db") -> int:
+def mark_stops(db: str = "data/benches.db") -> dict[str, int]:
     """Write the "bus stop" marks (bench_feedback format) for every bench near a stop."""
     import sqlite3
 
@@ -93,19 +153,30 @@ def mark_stops(db: str = "data/benches.db") -> int:
         rows = conn.execute("SELECT id, lat, lng FROM bench_candidates").fetchall()
     finally:
         conn.close()
-    ids = sorted(at_stops(rows, stop_points()))
-    out = FEEDBACK / "bus_stops.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "source": f"OSM stops within {STOP_M:.0f} m",
-                "feedback": {str(i): ["bus stop"] for i in ids},
-            },
-            indent=0,
+    FEEDBACK.mkdir(parents=True, exist_ok=True)
+    n = {}
+    for name, mark, ids, src in (
+        (
+            "bus_stops",
+            "bus stop",
+            at_stops(rows, stop_points()),
+            f"OSM stops within {STOP_M:.0f} m",
+        ),
+        (
+            "train_stations",
+            "train station",
+            on_platforms(rows),
+            f"OSM rail platforms within {PLATFORM_M:.0f} m",
+        ),
+    ):
+        (FEEDBACK / f"{name}.json").write_text(
+            json.dumps(
+                {"source": src, "feedback": {str(i): [mark] for i in sorted(ids)}},
+                indent=0,
+            )
         )
-    )
-    return len(ids)
+        n[mark] = len(ids)
+    return n
 
 
 def fetch(path: Path = STOPS) -> int:
