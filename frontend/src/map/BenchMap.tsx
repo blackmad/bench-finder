@@ -241,6 +241,7 @@ export default function BenchMap({
       photo: photoCache.get(id) ?? null,
       selected,
       count,
+      focus: byIdRef.current.get(id)?.properties.hero_focus,
     })
     const drawThumb = (id: number) => {
       add(`thumb:${id}`, thumbSprite(thumbArgs(id, false)))

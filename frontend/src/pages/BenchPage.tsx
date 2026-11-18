@@ -11,7 +11,7 @@ import { Photo } from "../components/Photo"
 import { RailRow } from "../components/RailRow"
 import { TopBar } from "../components/TopBar"
 import { ViewFigure } from "../components/ViewFigure"
-import { hasPhoto } from "../data/api"
+import { focusStyle, hasPhoto } from "../data/api"
 import {
   headline,
   heroImage,
@@ -210,6 +210,7 @@ function HeroPhoto({
           alt={`Street view of the bench at ${name}`}
           width={b.hero_width ?? 800}
           height={b.hero_height ?? 800}
+          style={focusStyle(b.hero_focus)}
           fetchPriority="high"
           decoding="async"
         />

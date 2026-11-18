@@ -44,6 +44,11 @@ export interface BenchProps {
   /** Pixel size of the hero source, for explicit width/height. */
   hero_width?: number | null
   hero_height?: number | null
+  /**
+   * Where the bench centre sits in the hero, as fractions [x, y] of its width
+   * and height; null or absent when unknown. Cropped heroes keep it in view.
+   */
+  hero_focus?: [number, number] | null
   /** Short street address, e.g. "Javakade 622". */
   address: string | null
   /**
@@ -74,6 +79,7 @@ export type PlaceMember = Pick<
   | "hero_urls_webp"
   | "hero_width"
   | "hero_height"
+  | "hero_focus"
 >
 
 export interface BenchFeature {

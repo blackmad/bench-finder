@@ -114,10 +114,17 @@ export interface ThumbArgs {
   selected: boolean
   /** Benches this marker stands for; above 1 it shows a count badge. */
   count?: number
+  /** Where the bench sits in the photo ([x, y] fractions); kept in the crop. */
+  focus?: [number, number] | null
 }
 
 /** Photographed bench: a tiny postcard on a pointer. Anchor it at the bottom. */
-export function thumbSprite({ photo, selected, count = 1 }: ThumbArgs): Sprite {
+export function thumbSprite({
+  photo,
+  selected,
+  count = 1,
+  focus,
+}: ThumbArgs): Sprite {
   const { cv, g } = canvas(THUMB_W, THUMB_H)
   const ink = selected ? VERMILION : INK
   const x0 = SIDE
@@ -157,14 +164,17 @@ export function thumbSprite({ photo, selected, count = 1 }: ThumbArgs): Sprite {
   if (photo) {
     const w = photo.naturalWidth || PH_W
     const h = photo.naturalHeight || PH_H
-    // object-fit: cover, cropped low like the rail tiles.
+    // object-fit: cover, centred on the bench when its place in the photo is
+    // known, else cropped low like the rail tiles.
     const s = Math.max(PH_W / w, PH_H / h)
     const sw = PH_W / s
     const sh = PH_H / s
+    const fx = focus ? focus[0] : 0.5
+    const fy = focus ? focus[1] : 0.62
     g.drawImage(
       photo,
-      (w - sw) / 2,
-      (h - sh) * 0.62,
+      (w - sw) * fx,
+      (h - sh) * fy,
       sw,
       sh,
       x0 + BORDER,

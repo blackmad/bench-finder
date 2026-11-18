@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query"
+import type { CSSProperties } from "react"
 import type {
   BenchCollection,
   BenchDetail,
@@ -76,6 +77,19 @@ export function bestUrl(urls: ImageUrls | null): string | undefined {
   if (!urls) return undefined
   const widest = Object.keys(urls).sort((a, b) => Number(b) - Number(a))[0]
   return widest ? dataUrl(urls[widest]) : undefined
+}
+
+/**
+ * `object-position` that keeps the bench in a cover-cropped hero. Undefined
+ * without a focus, so the stylesheet's default crop applies.
+ */
+export function focusStyle(
+  focus: [number, number] | null | undefined
+): CSSProperties | undefined {
+  if (!focus) return undefined
+  const pct = (v: number) =>
+    `${Math.round(Math.min(1, Math.max(0, v)) * 1000) / 10}%`
+  return { objectPosition: `${pct(focus[0])} ${pct(focus[1])}` }
 }
 
 export const hasPhoto = (f: BenchFeature): boolean =>

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { focusStyle } from "../data/api"
 import { headline, seatText } from "../data/describe"
 import { facingKind, facingShort, looksAt } from "../data/facing"
 import type { BenchProps } from "../data/types"
@@ -79,6 +80,7 @@ export function Tile({ bench, selected = false, onSelect, onOpen }: Props) {
           alt={`Street view of the bench at ${name}`}
           width={bench.hero_width ?? 800}
           height={bench.hero_height ?? 800}
+          style={focusStyle(bench.hero_focus)}
           loading="lazy"
           decoding="async"
         />

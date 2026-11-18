@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react"
 import { Link } from "react-router-dom"
+import { focusStyle } from "../data/api"
 import { headline, heroImage, lede } from "../data/describe"
 import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
@@ -80,6 +81,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
             alt={`Street view of the bench at ${name}`}
             width={b.hero_width ?? 800}
             height={b.hero_height ?? 800}
+            style={focusStyle(b.hero_focus)}
             decoding="async"
           />
         ) : (
