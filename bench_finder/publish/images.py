@@ -45,6 +45,7 @@ HIRES_DIRNAME = "hires"
 
 CENTRED_DIRNAME = "centred"  # recentre.py: heroes re-aimed at the detected bench
 FADED_DIRNAME = "faded"  # hero_fade.py: heroes faded outside the bench
+FRAMED_DIRNAME = "framed"  # hero_fade.py frame: faded hero cropped around the bench
 
 
 def hires_path(original: Path) -> Path:
@@ -53,14 +54,17 @@ def hires_path(original: Path) -> Path:
 
 
 def render_source(original: Path, *, faded: bool = True) -> Path:
-    """The file to cut renditions from: the faded hero (bench_finder.hero_fade),
+    """The file to cut renditions from: the framed, else the faded hero (bench_finder.hero_fade),
     else the re-aimed (centred) view, else the hi-res re-cut, else the original."""
     alts = [
         original.parent / CENTRED_DIRNAME / original.name,
         hires_path(original),
     ]
     if faded:
-        alts.insert(0, original.parent / FADED_DIRNAME / original.name)
+        alts[:0] = [
+            original.parent / FRAMED_DIRNAME / original.name,
+            original.parent / FADED_DIRNAME / original.name,
+        ]
     for alt in alts:
         try:
             if alt.is_file() and alt.stat().st_size > 0:

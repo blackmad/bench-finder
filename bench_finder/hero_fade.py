@@ -23,7 +23,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 from bench_finder import recut
-from bench_finder.publish.images import FADED_DIRNAME, render_source
+from bench_finder.publish.images import FADED_DIRNAME, FRAMED_DIRNAME, render_source
 
 
 EXPECT = (0.5, 0.62)  # where the framing usually puts the bench (0..1)
@@ -160,6 +160,95 @@ def fade_image(src: Path, poly: list, dst: Path) -> None:
     out.save(dst, quality=92)
 
 
+FRAME_MIN_SHARE = 0.4  # zoom until the bench spans this share of the crop's width
+FRAME_MIN_SIDE = 0.45  # but never crop below this share of the image (pixelation)
+FRAME_OUT_PX = 800  # crops are scaled up to at least this (the largest rendition)
+
+
+def frame_box(poly: list) -> tuple[float, float, float] | None:
+    """(cx, cy, side) of a square crop, in shares of the image width/height, that
+    centres the bench and zooms in on a small one; None when the full frame will do."""
+    xs = [p[0] for p in poly]
+    ys = [p[1] for p in poly]
+    bw, bh = max(xs) - min(xs), max(ys) - min(ys)
+    mx, my = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    # Zoom for a small bench; tighten further so an off-centre bench can sit
+    # mid-frame, but always keep the whole bench in.
+    want = min(1.0, bw / FRAME_MIN_SHARE, 2 * min(mx, 1 - mx), 2 * min(my, 1 - my))
+    side = min(1.0, max(FRAME_MIN_SIDE, want, bw * 1.15, bh * 1.3))
+    cx = min(max(mx, side / 2), 1 - side / 2)
+    cy = min(max(my, side / 2), 1 - side / 2)
+    if side >= 0.98 and abs(cx - 0.5) < 0.03 and abs(cy - 0.5) < 0.03:
+        return None
+    return cx, cy, side
+
+
+def focus(poly: list) -> tuple[float, float]:
+    """Where the bench's centre lands in the published (framed) hero, 0..1."""
+    xs = [p[0] for p in poly]
+    ys = [p[1] for p in poly]
+    mx, my = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    fb = frame_box(poly)
+    if fb is None:
+        return round(mx, 3), round(my, 3)
+    cx, cy, side = fb
+    return (
+        round(min(1, max(0, (mx - cx) / side + 0.5)), 3),
+        round(min(1, max(0, (my - cy) / side + 0.5)), 3),
+    )
+
+
+def frame_image(src: Path, poly: list, dst: Path) -> bool:
+    fb = frame_box(poly)
+    if fb is None:
+        return False
+    cx, cy, side = fb
+    im = Image.open(src).convert("RGB")
+    w, h = im.size
+    s = side * min(w, h)
+    box = (
+        round(cx * w - s / 2),
+        round(cy * h - s / 2),
+        round(cx * w + s / 2),
+        round(cy * h + s / 2),
+    )
+    out = im.crop(box)
+    if out.width < FRAME_OUT_PX:
+        out = out.resize((FRAME_OUT_PX, FRAME_OUT_PX), Image.LANCZOS)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    out.save(dst, quality=92)
+    return True
+
+
+def _frame_one(job: tuple[str, str, str]) -> bool:
+    src, poly, dst = job
+    return frame_image(Path(src), json.loads(poly), Path(dst))
+
+
+def frame(db: str, images_root: Path) -> dict:
+    """Crop every outlined hero (the faded one when there is one) around its bench."""
+    from concurrent.futures import ProcessPoolExecutor
+
+    conn = recut.connect_ro(db)
+    rows = conn.execute("SELECT source, polygon FROM hero_masks").fetchall()
+    conn.close()
+    jobs = []
+    for source, poly in rows:
+        src = Path(source)
+        faded = images_root / FADED_DIRNAME / src.name
+        base = faded if faded.is_file() else src
+        if not base.is_file():
+            continue
+        dst = images_root / FRAMED_DIRNAME / src.name
+        if dst.is_file() and dst.stat().st_mtime > base.stat().st_mtime:
+            continue
+        dst.unlink(missing_ok=True)
+        jobs.append((str(base), poly, str(dst)))
+    with ProcessPoolExecutor() as pool:
+        n = sum(pool.map(_frame_one, jobs, chunksize=16))
+    return {"framed": n, "full_frame": len(jobs) - n, "already": len(rows) - len(jobs)}
+
+
 def _fade_one(job: tuple[str, str, str]) -> bool:
     source, poly, dst = job
     fade_image(Path(source), json.loads(poly), Path(dst))
@@ -197,9 +286,12 @@ def main() -> None:
     m = sub.add_parser("masks")
     m.add_argument("--limit", type=int)
     sub.add_parser("fade")
+    sub.add_parser("frame")
     a = ap.parse_args()
     if a.cmd == "masks":
         print(masks(a.db, a.images_root, a.limit))
+    elif a.cmd == "frame":
+        print(frame(a.db, a.images_root))
     else:
         print(fade(a.db, a.images_root))
 

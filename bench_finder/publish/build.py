@@ -602,7 +602,21 @@ _MEMBER_KEYS = (
     "hero_urls_webp",
     "hero_width",
     "hero_height",
+    "hero_focus",
 )
+
+
+def _hero_masks(db_path) -> dict[int, list]:
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        return {
+            i: json.loads(p)
+            for i, p in conn.execute("SELECT image_id, polygon FROM hero_masks")
+        }
+    except sqlite3.OperationalError:  # no hero_fade run yet
+        return {}
+    finally:
+        conn.close()
 
 
 def _group_into_places(features: list[dict], details: list[dict]) -> list[dict]:
@@ -688,6 +702,9 @@ def publish(
                     progress(n, len(sources))
 
     features, details, hero_count = [], [], 0
+    from bench_finder.hero_fade import focus  # lazy: hero_fade imports recut
+
+    masks_by_image: dict[int, list] | None = None
     for r in rows:
         tags = json.loads(r["tags"]) if r["tags"] else {}
         tag_deg = parse_direction(tags.get("direction"))
@@ -698,12 +715,15 @@ def publish(
         )
         if facing is None and tag_deg is not None:
             facing, conf, method = tag_deg, 1.0, "osm_tag"
+        if masks_by_image is None:
+            masks_by_image = _hero_masks(db_path)
         imgs, has_hero = chosen[r["id"]]
         entries = []
         for i in imgs:
             res = results[_source(i, images_root)]
             entries.append((_image_entry(res, i), i, res))
         hero = entries[0][0] if has_hero else None
+        hero_poly = masks_by_image.get(imgs[0]["id"]) if has_hero else None
         hero_key = entries[0][2].hash if has_hero else None
         hero_count += has_hero
         street = r["street_name"]
@@ -744,6 +764,8 @@ def publish(
             "hero_urls_webp": hero["urls_webp"] if hero else None,
             "hero_width": hero["width"] if hero else None,
             "hero_height": hero["height"] if hero else None,
+            # Where the bench sits in the hero (0..1): the page's crops keep it in view.
+            "hero_focus": list(focus(hero_poly)) if hero_poly else None,
             "address": short,
         }
         if isinstance(props["backrest"], int):

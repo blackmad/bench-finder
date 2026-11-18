@@ -309,9 +309,10 @@ async def _run(
     # Benches already done (a restart must not add two more views each).
     # --photoless: a second round for benches still without a photo (new
     # panoramas only, far views across the water allowed), tracked apart.
-    done_file = Path(db).with_name(
-        "vantage_photoless_done.txt" if photoless else "vantage_done.txt"
-    )
+    name = "vantage_photoless" if photoless else "vantage"
+    if NEAR_MAX_M > 30:  # --far: a separate round, tracked apart
+        name += f"_far{NEAR_MAX_M:.0f}"
+    done_file = Path(db).with_name(f"{name}_done.txt")
     done = set(done_file.read_text().split()) if done_file.exists() else set()
     want = photoless_ids() if photoless else None
     benches = [
@@ -396,7 +397,16 @@ def main() -> None:
             action="store_true",
             help="only benches the last publish shows without a photo",
         )
+        p.add_argument(
+            "--far",
+            type=float,
+            help="search panoramas up to this many metres (default 30; 60 across water)",
+        )
     a = ap.parse_args()
+    if a.far:  # benches in parks and on paths: the nearest street is often >30 m away
+        global NEAR_MAX_M, WATER_MAX_M  # noqa: PLW0603 - a CLI override
+        NEAR_MAX_M = a.far
+        WATER_MAX_M = max(WATER_MAX_M, a.far)
     print(asyncio.run(_run(a.db, a.limit, a.cmd == "run", a.concurrency, a.photoless)))
 
 
