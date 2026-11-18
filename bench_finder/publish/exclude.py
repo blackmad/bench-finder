@@ -147,6 +147,14 @@ def vetoed_images(folder: Path = FEEDBACK) -> set[int]:
     return out
 
 
+def picked_images(folder: Path = FEEDBACK) -> set[int]:
+    """Views the owner picked as a bench's hero in review (``h``), whatever SAM 3 said."""
+    out: set[int] = set()
+    for f in sorted(folder.glob("*.json")) if folder.exists() else []:
+        out |= {int(i) for i in json.loads(f.read_text()).get("hero_pick", {}).values()}
+    return out
+
+
 UNDER_M = 9.0  # a panorama this far below the street around it is in a tunnel
 NEIGHBOUR_M = 200.0
 

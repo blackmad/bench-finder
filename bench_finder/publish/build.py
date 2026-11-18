@@ -24,7 +24,12 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
-from bench_finder.publish.exclude import excluded, underground_images, vetoed_images
+from bench_finder.publish.exclude import (
+    excluded,
+    picked_images,
+    underground_images,
+    vetoed_images,
+)
 from bench_finder.publish.images import (
     FORMATS,
     ImageResult,
@@ -268,6 +273,10 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
     for image_id in vetoed_images():  # owner review: "wrong photo"
         if image_id in by_id:
             by_id[image_id]["vetoed"] = True
+    for image_id in picked_images():  # owner review: "use this view" beats any model
+        if image_id in by_id:
+            by_id[image_id]["picked"] = True
+            by_id[image_id].pop("vetoed", None)
     for (image_id,) in conn.execute(
         "SELECT a.image_id FROM image_annotations a "
         "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
@@ -283,6 +292,7 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
             i
             for i in imgs
             if i["id"] not in under
+            or i.get("picked")
             or (i["targets"].get("sam3") or (0, None))[0] >= SAM3_MIN
         ]
     return by_bench
@@ -374,8 +384,12 @@ def target_gate(img: dict) -> tuple[int, float, dict | None]:
     A view vetoed by ``vet_targets`` (the box is the camera vehicle) is tier 2; a
     SAM 3 near miss (0.4-0.6) that Opus confirmed (``vet_targets band``) is tier 0.
     Tier 2: no bench seen; never a hero.
+    Tier -1: the owner picked the view in review (``picked``); it always leads.
     """
     t = img.get("targets") or {}
+    if img.get("picked"):  # the owner chose this view in review
+        conf, box = t.get("sam3") or (1.0, None)
+        return -1, conf, box
     if img.get("vetoed"):  # Flash-Lite: the box is not a bench
         return 2, 0.0, None
     if "sam3" in t:

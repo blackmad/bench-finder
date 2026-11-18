@@ -14,8 +14,10 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
 from bench_finder.whats_new import SNAPS, diff, load
@@ -36,6 +38,7 @@ def _state() -> dict:
     s = json.loads(OUT.read_text()) if OUT.exists() else {}
     s.setdefault("feedback", {})
     s.setdefault("wrong_photo", [])
+    s.setdefault("hero_pick", {})
     return s
 
 
@@ -131,39 +134,43 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 .on{background:var(--ink);color:var(--card)}.marks{min-height:24px}.marks span{background:var(--ink);color:var(--card);padding:2px 8px;margin-right:4px}
 @media(max-width:800px){main{grid-template-columns:1fr}.views{grid-template-columns:repeat(4,1fr)}}
 </style>
-<header><b>Bench review</b><span id=pos class=mute></span><span id=done class=mute></span></header>
+<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=private>Maybe private<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
 <main><section id=pics></section><aside>
 <h1 id=title></h1><div id=facts class=mute></div><div class=marks id=marks></div>
 <div class=keys>
-<kbd>g</kbd><span>good</span><kbd>p</kbd><span>wrong photo: veto it, keep the bench</span>
+<kbd>g</kbd><span>right as shown (also: no photo, and I see no bench in the views either)</span><kbd>p</kbd><span>wrong photo: veto it, keep the bench</span>
 <kbd>x</kbd><span>no bench here: hide it</span><kbd>w</kbd><span>wrong spot</span>
 <kbd>s</kbd><span>bus / tram / train stop: hide it</span><kbd>← →</kbd><span>previous / next</span>
-<kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
+<kbd>h</kbd><span>use the selected view as the photo (click one first)</span><kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
 <div id=links></div><iframe id=map loading=lazy></iframe></aside></main>
 <script>
 const KEYS={g:"good",p:"wrong photo",x:"no bench",w:"wrong spot",s:"bus stop"},ADV=new Set("gpxs");
-let Q=[],S={feedback:{},wrong_photo:[]},i=0;
+let Q=[],S={feedback:{},wrong_photo:[],hero_pick:{}},i=0,sel=null;
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<'"]/g,c=>"&#"+c.charCodeAt(0)+";");
-async function boot(){[Q,S]=await Promise.all([fetch("queue").then(r=>r.json()),fetch("state").then(r=>r.json())]);
+async function boot(){const q=location.hash.slice(1)||"new";$("qsel").value=q;$("title").textContent="Loading…";
+ [Q,S]=await Promise.all([fetch("queue?name="+q).then(r=>r.json()),fetch("state").then(r=>r.json())]);
  i=Q.findIndex(b=>!S.feedback[b.id]);if(i<0)i=0;show()}
-function show(){const b=Q[i];if(!b){$("title").textContent="Queue empty";return}
+$("qsel").onchange=e=>{location.hash=e.target.value;boot()};
+function show(){sel=null;const b=Q[i];if(!b){$("title").textContent="Queue empty";$("pics").innerHTML="";return}
  const m=S.feedback[b.id]||[];$("pos").textContent=`${i+1} / ${Q.length}`;
  $("done").textContent=`${Q.filter(x=>S.feedback[x.id]).length} reviewed`;
  $("title").textContent=`#${b.id} ${b.address}`;$("facts").textContent=b.facts;
  $("marks").innerHTML=m.map(x=>`<span>${esc(x)}</span>`).join("");
  const hero=b.hero?`<img class=hero src="${esc(b.hero)}"><p class=cap>published crop of the HERO view · click a view below to see it whole</p>`:`<div class=none>no photo · ${b.views.length?b.views.length+" views, none passed (needs 0.60)":"no street-level imagery"}</div>`;
- $("pics").innerHTML=`<div id=big>${hero}</div>`+`<div class=views>${b.views.map(v=>`<a class="${v.id===b.hero_id?"h":""}" href="${esc(v.src)}" target=_blank><img loading=lazy src="${esc(v.src)}"><i>${v.id===b.hero_id?"HERO · ":""}${v.score==null?"–":v.score.toFixed(2)} ${esc((v.source||"").slice(0,5))} ${esc((v.when||"").slice(0,7))}</i></a>`).join("")}</div>`;
+ $("pics").innerHTML=`<div id=big>${hero}</div>`+`<div class=views>${b.views.map(v=>`<a data-id=${v.id} class="${v.id===b.hero_id?"h":""}" href="${esc(v.src)}" target=_blank><img loading=lazy src="${esc(v.src)}"><i>${S.hero_pick[b.id]===v.id?"PICKED · ":v.id===b.hero_id?"HERO · ":""}${v.score==null?"–":v.score.toFixed(2)} ${esc((v.source||"").slice(0,5))} ${esc((v.when||"").slice(0,7))}</i></a>`).join("")}</div>`;
  $("links").innerHTML=`<a href="https://bench.blackmad.com/bench/${b.id}" target=_blank>live</a> · <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${b.lat},${b.lng}" target=_blank>street view</a> · <a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lng}#map=19/${b.lat}/${b.lng}" target=_blank>OSM</a>`;
  const d=.0012;$("map").src=`https://www.openstreetmap.org/export/embed.html?bbox=${b.lng-d*1.6},${b.lat-d},${b.lng+d*1.6},${b.lat+d}&layer=mapnik&marker=${b.lat},${b.lng}`}
 document.addEventListener("click",e=>{const a=e.target.closest(".views a");if(!a||e.metaKey||e.ctrlKey)return;
- e.preventDefault();document.querySelectorAll(".views a").forEach(x=>x.classList.toggle("sel",x===a));
- $("big").innerHTML=`<img class=hero src="${esc(a.getAttribute("href"))}"><p class=cap>${a.classList.contains("h")?"the HERO view, uncropped":"another view"}</p>`});
+ e.preventDefault();sel=+a.dataset.id;document.querySelectorAll(".views a").forEach(x=>x.classList.toggle("sel",x===a));
+ $("big").innerHTML=`<img class=hero src="${esc(a.getAttribute("href"))}"><p class=cap>${a.classList.contains("h")?"the HERO view, uncropped":"another view · press h to use it as the photo"}</p>`});
 async function save(b,marks){const r=await fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks,hero_id:b.hero_id})});S=await r.json();show()}
 document.onkeydown=e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const b=Q[i],k=e.key;
  if(k==="ArrowRight"||k==="j"){i=Math.min(Q.length-1,i+1);show()}
  else if(k==="ArrowLeft"||k==="k"){i=Math.max(0,i-1);show()}
  else if(k==="n"){const j=Q.findIndex((x,n)=>n>i&&!S.feedback[x.id]);if(j>=0){i=j;show()}}
- else if(k==="u"&&b)save(b,[]);
+ else if(k==="u"&&b){fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[],pick:null})}).then(r=>r.json()).then(x=>{S=x;show()})}
+ else if(k==="h"&&b&&sel){const m=new Set(S.feedback[b.id]||[]);m.delete("wrong photo");m.delete("no bench");m.add("good");
+  fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[...m],pick:sel})}).then(r=>r.json()).then(x=>{S=x;if(i<Q.length-1)i++;show()})}
  else if(KEYS[k]&&b){const m=new Set(S.feedback[b.id]||[]);m.has(KEYS[k])?m.delete(KEYS[k]):m.add(KEYS[k]);
   if(k==="g"){m.delete("wrong photo");m.delete("no bench")}if(k!=="g"&&k!=="w")m.delete("good");
   save(b,[...m]).then(()=>{if(ADV.has(k)&&m.has(KEYS[k])&&i<Q.length-1){i++;show()}})}};
@@ -171,8 +178,15 @@ boot();
 </script>"""
 
 
-def serve(queue: list[dict], port: int) -> None:
-    body_q = json.dumps(queue).encode()
+def serve(base: str | None, port: int) -> None:
+    cache: dict[str, bytes] = {}
+    lock = threading.Lock()
+
+    def queue_body(name: str) -> bytes:
+        with lock:  # one build at a time; each reads the whole DB
+            if name not in cache:
+                cache[name] = json.dumps(build_queue(name, base)).encode()
+            return cache[name]
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -190,7 +204,10 @@ def serve(queue: list[dict], port: int) -> None:
             if path == "":
                 return self._send(PAGE.encode(), "text/html; charset=utf-8")
             if path == "queue":
-                return self._send(body_q, "application/json")
+                q = parse_qs(urlparse(self.path).query).get("name", ["new"])[0]
+                if q not in QUEUES:
+                    return self.send_error(404)
+                return self._send(queue_body(q), "application/json")
             if path == "state":
                 return self._send(json.dumps(_state()).encode(), "application/json")
             for prefix, root in ROOTS.items():
@@ -217,6 +234,11 @@ def serve(queue: list[dict], port: int) -> None:
                 s["feedback"][bid] = marks
             else:
                 s["feedback"].pop(bid, None)
+            if "pick" in req:  # "use this view as the hero" (None clears it)
+                if req["pick"]:
+                    s["hero_pick"][bid] = req["pick"]
+                else:
+                    s["hero_pick"].pop(bid, None)
             hero = req.get("hero_id")
             wrong = set(s["wrong_photo"])
             if hero:
@@ -226,19 +248,18 @@ def serve(queue: list[dict], port: int) -> None:
             OUT.write_text(json.dumps(s, indent=0))
             self._send(json.dumps(s).encode(), "application/json")
 
-    print(f"http://localhost:{port}  ({len(queue)} benches)")
+    print(f"http://localhost:{port}")
     ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
-    ap.add_argument("--queue", choices=list(QUEUES), default="new")
     ap.add_argument(
         "--from", dest="base", help="snapshot to compare with (default: oldest)"
     )
     ap.add_argument("--port", type=int, default=8897)
     a = ap.parse_args()
-    serve(build_queue(a.queue, a.base), a.port)
+    serve(a.base, a.port)
 
 
 if __name__ == "__main__":
