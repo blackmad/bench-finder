@@ -75,6 +75,12 @@ const ROSE_IMAGE: ExpressionSpecification = [
 // Below this zoom the map shows counts and compass dots only; the rail beside
 // it carries the photos. From here on, photographed benches are postcards.
 const PHOTO_ZOOM = 16
+// From this zoom the city-wide clusters give way to close-up ones: bench
+// sprites that would land on top of each other (closer than NEAR_RADIUS px)
+// merge into a small count badge, down to the map's deepest zoom.
+const NEAR_ZOOM = 15
+const NEAR_RADIUS = 16
+const NEAR_SOURCES = ["near", "near-dots"] as const
 
 const empty = { type: "FeatureCollection" as const, features: [] }
 
@@ -118,6 +124,16 @@ function dots(
         },
       })),
   }
+}
+
+/** Benches drawn as sprites at photo zoom: those without a photo. */
+function plainDots(
+  benches: BenchFeature[],
+  visible: ReadonlySet<number>,
+  selected: number | null = null
+) {
+  const fc = dots(benches, visible, selected)
+  return { ...fc, features: fc.features.filter((f) => !f.properties.photo) }
 }
 
 function photos(
@@ -357,6 +373,27 @@ export default function BenchMap({
         clusterMaxZoom: 19,
         clusterProperties: { rep: ["min", ["get", "id"]] },
       })
+      // Close-up clusters: every bench between NEAR_ZOOM and PHOTO_ZOOM, then
+      // only the unphotographed ones (photographed ones are postcards there).
+      const near = {
+        type: "geojson" as const,
+        cluster: true,
+        clusterRadius: NEAR_RADIUS,
+        clusterMaxZoom: 21,
+        clusterProperties: SECTOR_PROPS,
+      }
+      map.addSource("near", {
+        ...near,
+        data: dots(benchesRef.current, visibleRef.current, selectedRef.current),
+      })
+      map.addSource("near-dots", {
+        ...near,
+        data: plainDots(
+          benchesRef.current,
+          visibleRef.current,
+          selectedRef.current
+        ),
+      })
       map.addSource("sel", { type: "geojson", data: empty })
       map.addLayer({
         id: "roses",
@@ -391,6 +428,7 @@ export default function BenchMap({
         id: "bench",
         type: "symbol",
         source: "benches",
+        maxzoom: NEAR_ZOOM,
         filter: ["all", ["!", ["has", "point_count"]], ["!", ["get", "photo"]]],
         layout: dotLayout,
       })
@@ -399,10 +437,38 @@ export default function BenchMap({
         id: "bench-photo",
         type: "symbol",
         source: "benches",
-        maxzoom: PHOTO_ZOOM,
+        maxzoom: NEAR_ZOOM,
         filter: ["all", ["!", ["has", "point_count"]], ["get", "photo"]],
         layout: dotLayout,
       })
+      const nearBadge: SymbolLayerSpecification["layout"] = {
+        "icon-image": ROSE_IMAGE,
+        "icon-allow-overlap": true,
+        "icon-size": 0.78,
+      }
+      for (const [src, minzoom, maxzoom] of [
+        ["near", NEAR_ZOOM, PHOTO_ZOOM],
+        ["near-dots", PHOTO_ZOOM, 24],
+      ] as const) {
+        map.addLayer({
+          id: `${src}-bench`,
+          type: "symbol",
+          source: src,
+          minzoom,
+          maxzoom,
+          filter: ["!", ["has", "point_count"]],
+          layout: dotLayout,
+        })
+        map.addLayer({
+          id: `${src}-roses`,
+          type: "symbol",
+          source: src,
+          minzoom,
+          maxzoom,
+          filter: ["has", "point_count"],
+          layout: nearBadge,
+        })
+      }
       // Photographed benches: postcard sprites. A cluster shows one member's
       // photo with a count badge; every bench is on the map in some marker.
       map.addLayer({
@@ -469,6 +535,8 @@ export default function BenchMap({
       }
       pick("bench")
       pick("bench-photo")
+      pick("near-bench")
+      pick("near-dots-bench")
       pick("sel-thumb")
       map.on("click", "thumbs", async (e) => {
         const f = e.features?.[0]
@@ -496,6 +564,7 @@ export default function BenchMap({
         "roses",
         "sel-dot",
         "sel-thumb",
+        ...NEAR_SOURCES.flatMap((src) => [`${src}-bench`, `${src}-roses`]),
       ]
       map.on("click", (e) => {
         const layers = MARKER_LAYERS.filter((l) => map.getLayer(l))
@@ -503,6 +572,20 @@ export default function BenchMap({
           cb.current.onBackground?.()
         }
       })
+      for (const src of NEAR_SOURCES) {
+        map.on("click", `${src}-roses`, async (e) => {
+          const f = e.features?.[0]
+          const cid = f?.properties?.cluster_id
+          if (!f || cid === undefined) return
+          const s = map.getSource(src) as GeoJSONSource
+          const zoom = await s.getClusterExpansionZoom(Number(cid))
+          map.easeTo({
+            center: (f.geometry as unknown as { coordinates: [number, number] })
+              .coordinates,
+            zoom: Math.min(zoom + 0.2, 22),
+          })
+        })
+      }
       map.on("click", "roses", (e) => {
         const f = e.features?.[0]
         if (!f) return
@@ -518,6 +601,7 @@ export default function BenchMap({
         "thumbs",
         "roses",
         "sel-thumb",
+        ...NEAR_SOURCES.flatMap((src) => [`${src}-bench`, `${src}-roses`]),
       ]) {
         map.on("mouseenter", layer, () => {
           map.getCanvas().style.cursor = "pointer"
@@ -546,6 +630,12 @@ export default function BenchMap({
     const map = mapRef.current
     ;(map?.getSource("benches") as GeoJSONSource | undefined)?.setData(
       dots(benches, visible, selectedId)
+    )
+    ;(map?.getSource("near") as GeoJSONSource | undefined)?.setData(
+      dots(benches, visible, selectedId)
+    )
+    ;(map?.getSource("near-dots") as GeoJSONSource | undefined)?.setData(
+      plainDots(benches, visible, selectedId)
     )
     ;(map?.getSource("photos") as GeoJSONSource | undefined)?.setData(
       photos(benches, visible, selectedId)
