@@ -784,6 +784,10 @@ def publish(
     data_dir.mkdir(exist_ok=True)
     for old in data_dir.glob("benches.*.geojson"):
         old.unlink()
+    keep = {f"{d['id']}.json" for d in details}
+    for old in (data_dir / "bench").glob("*.json"):  # benches no longer published
+        if old.name not in keep:
+            old.unlink()
     for d in details:
         _write_json(data_dir / "bench" / f"{d['id']}.json", d)
     fc = json.dumps(
