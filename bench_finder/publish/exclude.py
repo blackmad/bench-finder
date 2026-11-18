@@ -200,7 +200,9 @@ def excluded() -> dict[str, set[int]]:
     marks = feedback()
     out = {m: {b for b, v in marks.items() if m in v} for m in HIDE}
     for b, use in hidden().items():
-        if "good" not in marks.get(b, ()):
+        # "private" is too loose to hide on (a third show no bench or a public
+        # strip outside flats): it is a review queue instead.
+        if use == "business" and "good" not in marks.get(b, ()):
             out.setdefault(use, set()).add(b)
     return out
 

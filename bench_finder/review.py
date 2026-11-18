@@ -27,6 +27,7 @@ QUEUES = {
     "new": ("new_bench",),
     "changed": ("photo_changed", "photo_gained"),
     "photoless": (),
+    "private": (),  # Opus thinks these belong to a home; g keeps, x hides
     "all": (),
 }
 
@@ -46,6 +47,10 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
         ids = [it["new"]["id"] for k in QUEUES[queue] for it in ch[k] if it.get("new")]
     elif queue == "photoless":
         ids = [i for i, b in new.items() if not b.get("hero_key")]
+    elif queue == "private":
+        from bench_finder.terrace import hidden
+
+        ids = [i for i, use in hidden().items() if use == "private" and i in new]
     else:
         ids = sorted(new)
     conn = sqlite3.connect("file:data/benches.db?mode=ro", uri=True)
