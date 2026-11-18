@@ -193,8 +193,16 @@ def underground_images(conn) -> set[int]:
 
 
 def excluded() -> dict[str, set[int]]:
+    """Mark -> bench ids to hide: owner/stop marks, plus Opus terrace verdicts
+    (a bench the owner marked good stays)."""
+    from bench_finder.terrace import hidden
+
     marks = feedback()
-    return {m: {b for b, v in marks.items() if m in v} for m in HIDE}
+    out = {m: {b for b, v in marks.items() if m in v} for m in HIDE}
+    for b, use in hidden().items():
+        if "good" not in marks.get(b, ()):
+            out.setdefault(use, set()).add(b)
+    return out
 
 
 def mark_stops(db: str = "data/benches.db") -> dict[str, int]:
