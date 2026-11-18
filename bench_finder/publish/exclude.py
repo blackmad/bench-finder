@@ -147,6 +147,51 @@ def vetoed_images(folder: Path = FEEDBACK) -> set[int]:
     return out
 
 
+UNDER_M = 9.0  # a panorama this far below the street around it is in a tunnel
+NEIGHBOUR_M = 200.0
+
+
+def underground_images(conn) -> set[int]:
+    """Views taken in road tunnels (IJtunnel, Piet Heintunnel...): the panorama's
+    elevation is UNDER_M or more below the 90th percentile of the distinct
+    panoramas within NEIGHBOUR_M (a tunnel has many in a row; polders are low
+    all round, so only the relative drop counts)."""
+    by_img: dict[int, tuple] = {}
+    panos: dict[tuple, float] = {}
+    for iid, lat, lng, md in conn.execute(
+        "SELECT id, panorama_lat, panorama_lng, panorama_metadata FROM images "
+        "WHERE capture_success = 1 AND panorama_metadata LIKE '%elevation%' "
+        "AND panorama_lat IS NOT NULL"
+    ):
+        try:
+            e = json.loads(md).get("elevation")
+        except ValueError:
+            continue
+        if e is not None:
+            k = (round(lat, 6), round(lng, 6))
+            panos[k] = float(e)
+            by_img[iid] = k
+    cell = 0.002
+    grid: dict[tuple[int, int], list] = {}
+    for (lat, lng), e in panos.items():
+        grid.setdefault((int(lat / cell), int(lng / cell)), []).append((lat, lng, e))
+    low = set()
+    for (lat, lng), e in panos.items():
+        ci, cj = int(lat / cell), int(lng / cell)
+        coslat = math.cos(math.radians(lat))
+        near = sorted(
+            q[2]
+            for di in (-1, 0, 1)
+            for dj in (-2, -1, 0, 1, 2)
+            for q in grid.get((ci + di, cj + dj), ())
+            if math.hypot((q[0] - lat) * 111320, (q[1] - lng) * 111320 * coslat)
+            <= NEIGHBOUR_M
+        )
+        if len(near) >= 5 and e <= near[int(len(near) * 0.9)] - UNDER_M:
+            low.add((lat, lng))
+    return {i for i, k in by_img.items() if k in low}
+
+
 def excluded() -> dict[str, set[int]]:
     marks = feedback()
     return {m: {b for b, v in marks.items() if m in v} for m in HIDE}

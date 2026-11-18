@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
-from bench_finder.publish.exclude import excluded, vetoed_images
+from bench_finder.publish.exclude import excluded, underground_images, vetoed_images
 from bench_finder.publish.images import (
     FORMATS,
     ImageResult,
@@ -275,6 +275,16 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
     ):
         if image_id in by_id:
             by_id[image_id]["confirmed"] = True
+    # Views from road tunnels and deep underpasses (panorama elevation), unless
+    # SAM 3 confirmed a bench in them.
+    under = underground_images(conn)
+    for cid, imgs in by_bench.items():
+        by_bench[cid] = [
+            i
+            for i in imgs
+            if i["id"] not in under
+            or (i["targets"].get("sam3") or (0, None))[0] >= SAM3_MIN
+        ]
     return by_bench
 
 
