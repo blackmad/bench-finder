@@ -139,6 +139,14 @@ def on_platforms(benches, path: Path = PLATFORMS, m: float = PLATFORM_M) -> set[
     return hit
 
 
+def vetoed_images(folder: Path = FEEDBACK) -> set[int]:
+    """Images the owner marked as not showing the bench (review's "wrong photo")."""
+    out: set[int] = set()
+    for f in sorted(folder.glob("*.json")) if folder.exists() else []:
+        out |= {int(i) for i in json.loads(f.read_text()).get("wrong_photo", [])}
+    return out
+
+
 def excluded() -> dict[str, set[int]]:
     marks = feedback()
     return {m: {b for b, v in marks.items() if m in v} for m in HIDE}

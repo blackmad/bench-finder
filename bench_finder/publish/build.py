@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
-from bench_finder.publish.exclude import excluded
+from bench_finder.publish.exclude import excluded, vetoed_images
 from bench_finder.publish.images import (
     FORMATS,
     ImageResult,
@@ -263,6 +263,9 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
         "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
         "WHERE a.label_type = 'target_is_bench' AND a.value = '\"no\"'"
     ):
+        if image_id in by_id:
+            by_id[image_id]["vetoed"] = True
+    for image_id in vetoed_images():  # owner review: "wrong photo"
         if image_id in by_id:
             by_id[image_id]["vetoed"] = True
     for (image_id,) in conn.execute(
