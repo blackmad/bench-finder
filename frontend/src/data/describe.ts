@@ -115,12 +115,20 @@ export function monthYear(ym: string | null | undefined): string | null {
  * direction stays out: it means little to a visitor and the facts list has it.
  */
 export function lede(d: BenchDetail): string {
-  const date = monthYear(heroImage(d)?.pano_date)
+  const hero = heroImage(d)
+  const date = monthYear(hero?.pano_date)
   const looks = looksAt(d.faces_category) ?? d.faces_text ?? null
+  // Without a photo every fact comes from the map data: say whose.
+  const source = hero
+    ? null
+    : (d.tags ?? {}).source
+      ? "As recorded by the City of Amsterdam."
+      : "As mapped on OpenStreetMap."
   return [
     bodySentence(d),
     looks ? `${looks.replace(/\.$/, "")}.` : null,
     date ? `Photographed ${date}.` : null,
+    source,
   ]
     .filter(Boolean)
     .join(" ")
