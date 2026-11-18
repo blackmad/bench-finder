@@ -81,6 +81,8 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
         imgs, has_hero = chosen.get(i, ([], False))
         hero = imgs[0]["id"] if has_hero and imgs else None
         v = sorted(views.get(i, []), key=lambda x: -(x["score"] or 0))[:12]
+        if not v and not hero:  # nothing to judge: no imagery at all
+            continue
         items.append(
             {
                 "id": i,
