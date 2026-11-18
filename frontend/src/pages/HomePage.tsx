@@ -371,6 +371,7 @@ export default function HomePage() {
               ) : null}
               {rows.map((r) => (
                 <RailRow
+                  grid
                   key={r.key}
                   row={r}
                   selectedId={selectedId}

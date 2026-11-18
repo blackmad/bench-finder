@@ -451,7 +451,8 @@ h1[tabindex="-1"]:focus {
   font-size: 13px;
   color: var(--color-ink-3);
 }
-.rowhead .more {
+.rowhead .more,
+.gridmore {
   margin-left: auto;
   background: none;
   border: 0;
@@ -461,7 +462,8 @@ h1[tabindex="-1"]:focus {
   font-size: 13.5px;
   font-weight: 600;
 }
-.rowhead .more:hover {
+.rowhead .more:hover,
+.gridmore:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -478,6 +480,10 @@ h1[tabindex="-1"]:focus {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   overflow: visible;
+}
+.railrow .gridmore {
+  display: block;
+  margin: 8px auto 0;
 }
 .tile {
   flex: 0 0 236px;

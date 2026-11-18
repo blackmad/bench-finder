@@ -10,6 +10,8 @@ interface Props {
   onOpen?: (id: number) => void
   /** Shown instead of the bench count, e.g. "within 1 km". */
   countLabel?: string
+  /** Headless and wrapped into a grid, growing by ALL_MAX ("Show more"). */
+  grid?: boolean
 }
 
 /** One titled row of photo tiles that scrolls sideways; "See all" wraps it. */
@@ -19,14 +21,41 @@ export function RailRow({
   onSelect,
   onOpen,
   countLabel,
+  grid,
 }: Props) {
   const [all, setAll] = useState(false)
+  const [limit, setLimit] = useState(ALL_MAX)
   const id = useId()
   const shown = row.benches.slice(0, all ? ALL_MAX : STRIP_MAX)
   const more = row.benches.length > STRIP_MAX
   const n = row.benches.length
   // Each tile is a place; the count is of benches.
   const benches = row.benches.reduce((s, b) => s + benchCount(b.properties), 0)
+  if (grid)
+    return (
+      <section className="railrow" data-all aria-label="Benches in view">
+        <div className="strip">
+          {row.benches.slice(0, limit).map((b) => (
+            <Tile
+              key={b.properties.id}
+              bench={b.properties}
+              selected={b.properties.id === selectedId}
+              onSelect={onSelect}
+              onOpen={onOpen}
+            />
+          ))}
+        </div>
+        {n > limit ? (
+          <button
+            type="button"
+            className="more gridmore"
+            onClick={() => setLimit((l) => l + ALL_MAX)}
+          >
+            Show more
+          </button>
+        ) : null}
+      </section>
+    )
   return (
     <section
       className="railrow"

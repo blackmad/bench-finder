@@ -12,7 +12,7 @@ export interface MapView {
   zoom: number
 }
 
-/** The basemap re-inked as warm card stock: canal-blue water, green parks. */
+/** The basemap re-inked as warm card stock: canal-blue water, parks a faint olive wash. */
 export function restyle(map: MapLibreMap) {
   for (const l of map.getStyle().layers) {
     if (l.type === "background") {
@@ -30,7 +30,7 @@ export function restyle(map: MapLibreMap) {
       /park|wood|grass|forest|garden|cemetery|pitch/.test(l.id) &&
       l.type === "fill"
     ) {
-      map.setPaintProperty(l.id, "fill-color", "#cfe3b3")
+      map.setPaintProperty(l.id, "fill-color", "#e4e3c9")
     }
     if (/building/.test(l.id) && l.type === "fill") {
       map.setPaintProperty(l.id, "fill-color", "#ece4d4")
