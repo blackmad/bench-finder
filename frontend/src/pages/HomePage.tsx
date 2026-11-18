@@ -50,6 +50,34 @@ const sameViewport = (a: Viewport, b: Viewport) =>
   Math.abs(a.lng - b.lng) < 5e-5 &&
   Math.abs(a.z - b.z) < 0.02
 
+// The area the data covers (Amsterdam): the start view only follows the
+// visitor's location when it falls inside, [west, south, east, north].
+const COVERED: [number, number, number, number] = [4.72, 52.27, 5.08, 52.44]
+const covered = ([lng, lat]: [number, number]) =>
+  lng >= COVERED[0] &&
+  lng <= COVERED[2] &&
+  lat >= COVERED[1] &&
+  lat <= COVERED[3]
+
+// A visitor who refused their location is not asked again on arrival (the
+// Near me button still asks). Storage can be unavailable; then we just ask.
+const GEO_DENIED_KEY = "bf:geo-denied"
+const geoDenied = () => {
+  try {
+    return localStorage.getItem(GEO_DENIED_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+const rememberGeoDenied = (denied: boolean) => {
+  try {
+    if (denied) localStorage.setItem(GEO_DENIED_KEY, "1")
+    else localStorage.removeItem(GEO_DENIED_KEY)
+  } catch {
+    // Private mode or blocked storage: nothing to remember.
+  }
+}
+
 const sumBenches = (list: BenchFeature[]) =>
   list.reduce((s, b) => s + benchCount(b.properties), 0)
 
@@ -241,13 +269,20 @@ export default function HomePage() {
         setLocating(quiet ? "idle" : "denied")
         return
       }
+      if (quiet && geoDenied()) return
       setLocating("busy")
       navigator.geolocation.getCurrentPosition(
         (pos) => {
+          rememberGeoDenied(false)
           const here: [number, number] = [
             pos.coords.longitude,
             pos.coords.latitude,
           ]
+          // On arrival, only leave the start view for somewhere covered.
+          if (quiet && !covered(here)) {
+            setLocating("idle")
+            return
+          }
           // Reach out until about eight places are in view, however sparse.
           const pts = benches.map(
             (b) => b.geometry.coordinates as [number, number]
@@ -261,7 +296,10 @@ export default function HomePage() {
           setHere(here)
           setFlyTo({ center: here, key: Date.now(), radiusM })
         },
-        () => setLocating(quiet ? "idle" : "denied"),
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) rememberGeoDenied(true)
+          setLocating(quiet ? "idle" : "denied")
+        },
         { timeout: 10_000, maximumAge: 60_000 }
       )
     },
@@ -269,7 +307,8 @@ export default function HomePage() {
   )
 
   // Default to "near me": a visit with no place or bench in the link starts
-  // where the visitor is (Amsterdam stays the start view if they say no).
+  // where the visitor is. The Amsterdam start view stays if they say no (and
+  // they are not asked again on later visits) or are outside the covered area.
   const autoNear = useRef(urlViewport === null && openId === null)
   useEffect(() => {
     if (!autoNear.current || !data) return
