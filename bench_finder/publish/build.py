@@ -142,6 +142,11 @@ def check_capacity(
 AMSTERDAM_BBOX = (4.72, 52.27, 5.08, 52.44)
 
 
+MOVE_MIN_RAYS = 3  # a triangulated pin needs this many agreeing panoramas
+MOVE_MIN_M = 2.0  # and to be this far off (closer is within the noise)
+MOVE_MAX_ERR_M = 1.0
+
+
 def _load_rows(
     conn: sqlite3.Connection,
     include_unclassified: bool,
@@ -156,8 +161,24 @@ def _load_rows(
     if bbox is not None:
         where += " AND c.lng BETWEEN ? AND ? AND c.lat BETWEEN ? AND ?"
         params = [bbox[0], bbox[2], bbox[1], bbox[3]]
+    # Pins the panoramas triangulated elsewhere (bench_finder.triangulate).
+    has_moved = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE name = 'bench_positions'"
+    ).fetchone()
+    moved_join = (
+        "LEFT JOIN bench_positions m ON m.bench_candidate_id = c.id "
+        f"AND m.rays >= {MOVE_MIN_RAYS} AND m.shift_m > {MOVE_MIN_M} "
+        f"AND m.err_m <= {MOVE_MAX_ERR_M}"
+        if has_moved
+        else ""
+    )
+    lat, lng = (
+        ("coalesce(m.lat, c.lat)", "coalesce(m.lng, c.lng)")
+        if has_moved
+        else ("c.lat", "c.lng")
+    )
     sql = f"""
-        SELECT c.id, c.lat, c.lng, c.tags,
+        SELECT c.id, {lat} AS lat, {lng} AS lng, c.tags,
                a.id AS attr_id, a.facing_deg, a.facing_confidence, a.facing_method,
                a.axis_only, a.bench_type, a.backrest, a.faces_category, a.faces_text,
                a.hero_image_id, a.embed_pano_id, a.embed_heading_deg,
@@ -166,6 +187,7 @@ def _load_rows(
         FROM bench_candidates c
         LEFT JOIN bench_attributes a ON a.bench_candidate_id = c.id
         LEFT JOIN reverse_geocodes g ON g.bench_candidate_id = c.id
+        {moved_join}
         WHERE {where}
         ORDER BY c.id
     """
