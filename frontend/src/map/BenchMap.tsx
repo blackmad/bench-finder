@@ -27,6 +27,8 @@ interface Props {
   visible: ReadonlySet<number>
   selectedId: number | null
   onSelect: (id: number) => void
+  /** A click on the map that hits no marker (closes the open bench). */
+  onBackground?: () => void
   onView: (view: MapView) => void
   /** Where the map starts (from the URL, else the Amsterdam default). */
   initialView: Viewport
@@ -154,6 +156,7 @@ export default function BenchMap({
   visible,
   selectedId,
   onSelect,
+  onBackground,
   onView,
   initialView,
   viewport,
@@ -163,8 +166,8 @@ export default function BenchMap({
   const mapRef = useRef<MapLibreMap | null>(null)
   const [ready, setReady] = useState(false)
 
-  const cb = useRef({ onSelect, onView })
-  cb.current = { onSelect, onView }
+  const cb = useRef({ onSelect, onView, onBackground })
+  cb.current = { onSelect, onView, onBackground }
   const benchesRef = useRef(benches)
   benchesRef.current = benches
   const visibleRef = useRef(visible)
@@ -483,6 +486,22 @@ export default function BenchMap({
             .coordinates,
           zoom: Math.min(zoom + 0.2, 20),
         })
+      })
+      // Anything clickable on the map; a click that hits none of these is a
+      // click on the map itself.
+      const MARKER_LAYERS = [
+        "bench",
+        "bench-photo",
+        "thumbs",
+        "roses",
+        "sel-dot",
+        "sel-thumb",
+      ]
+      map.on("click", (e) => {
+        const layers = MARKER_LAYERS.filter((l) => map.getLayer(l))
+        if (!map.queryRenderedFeatures(e.point, { layers }).length) {
+          cb.current.onBackground?.()
+        }
       })
       map.on("click", "roses", (e) => {
         const f = e.features?.[0]

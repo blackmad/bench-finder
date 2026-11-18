@@ -257,6 +257,12 @@ export default function HomePage() {
     [openBench]
   )
 
+  // A click on bare map closes the open bench and drops any rail highlight.
+  const clearFromMap = useCallback(() => {
+    setHoverId(null)
+    if (openId !== null) closeBench()
+  }, [openId, closeBench])
+
   const flyToPlace = useCallback((center: [number, number]) => {
     setFlyTo({ center, key: Date.now() })
   }, [])
@@ -331,6 +337,7 @@ export default function HomePage() {
                 visible={filteredIds}
                 selectedId={selectedId}
                 onSelect={selectFromMap}
+                onBackground={clearFromMap}
                 onView={onView}
                 initialView={initialView}
                 viewport={urlViewport}
