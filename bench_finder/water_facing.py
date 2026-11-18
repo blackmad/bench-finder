@@ -97,16 +97,31 @@ def angle(a: float, b: float) -> float:
     return min(d, 360 - d)
 
 
+def into_water(edge, poly, q, step: float = 1.5) -> float | None:
+    """Bearing of the edge normal at ``q`` that points into ``poly`` (water)."""
+    t = edge.project(q)
+    a, b = edge.interpolate(max(t - 1, 0)), edge.interpolate(t + 1)
+    dx, dy = b.x - a.x, b.y - a.y
+    n = math.hypot(dx, dy)
+    if n == 0:
+        return None
+    for nx, ny in ((-dy / n, dx / n), (dy / n, -dx / n)):
+        if poly.contains(Point(q.x + nx * step, q.y + ny * step)):
+            return bearing(nx, ny)
+    return None
+
+
 def apply(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
     lat0 = (AMSTERDAM_BBOX[1] + AMSTERDAM_BBOX[3]) / 2
     to = _local(lat0)
-    shapes = []
+    shapes, polys = [], []
     for ring in json.loads(cache.read_text()):
         p = Polygon([to(x, y) for x, y in ring])
         if not p.is_valid:
             p = p.buffer(0)
         if not p.is_empty:
             shapes.append(p.boundary)
+            polys.append(p)
     tree = STRtree(shapes)
     conn = sqlite3.connect(db, timeout=120)
     conn.execute(
@@ -130,8 +145,10 @@ def apply(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
         near += 1
         _, q = nearest_points(here, edge)
         to_water = bearing(q.x - here.x, q.y - here.y)
-        if d < 0.5:  # on the edge itself: face out of the land side is unknown
-            continue
+        if d < 0.5:  # on the edge: face along the edge normal into the water
+            to_water = into_water(edge, polys[i], q)
+            if to_water is None:
+                continue
         if cat != "water" and (facing is None or angle(facing, to_water) > ROUGHLY_DEG):
             continue
         old = conn.execute(
