@@ -419,6 +419,9 @@ def _box_score(box: dict | None, size: tuple[int, int] | None) -> float:
     return 0.5 * min(1.0, area / 0.12) + 0.5 * centre
 
 
+SMALL_BOX = 0.5  # _box_score below this: the bench is small or off to the side
+
+
 def image_rank(
     img: dict, facing: float | None, size: tuple[int, int] | None = None
 ) -> tuple:
@@ -453,13 +456,18 @@ def image_rank(
     else:
         tier = UNKNOWN_VIEW_TIER
     digits = re.sub(r"\D", "", img.get("pano_date") or "")[:6]
+    box_score = _box_score(box, size)
     return (
         gate,
         bool(img.get("occluded")),  # a bench hidden behind a hedge or car loses
         _winter(img),  # snow, bare trees and grey skies lose to a summer view
+        # A small or off-centre bench loses to a clear one before the sitter's
+        # view counts: a square rear view through an advertising column
+        # (Lauriergracht 146) is worse than a clear side view.
+        box_score < SMALL_BOX,
         tier,
         diff / 180 if diff is not None else 0.5,
-        -round(_box_score(box, size), 3),
+        -round(box_score, 3),
         -round(conf, 3),
         -int(digits or 0),
         img["id"],
