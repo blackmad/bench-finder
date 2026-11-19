@@ -242,12 +242,21 @@ export default function HomePage() {
 
   // A bench opened from a link may be off the map: bring it into view once.
   const shownOpen = useRef<number | null>(null)
+  const zoomToLinked = useRef(urlViewport === null && openId !== null)
   useEffect(() => {
     if (openId === null || !view || shownOpen.current === openId) return
     const b = byId.get(openId)
     if (!b) return
     shownOpen.current = openId
-    if (!inBounds(b, view)) {
+    // A link with only `?bench=` (no map position) zooms in on the bench.
+    if (zoomToLinked.current) {
+      zoomToLinked.current = false
+      setFlyTo({
+        center: b.geometry.coordinates,
+        key: Date.now(),
+        radiusM: 120,
+      })
+    } else if (!inBounds(b, view)) {
       setFlyTo({ center: b.geometry.coordinates, key: Date.now() })
     }
   }, [openId, view, byId])
