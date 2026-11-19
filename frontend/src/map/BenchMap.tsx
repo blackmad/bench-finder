@@ -674,6 +674,8 @@ export default function BenchMap({
   useEffect(() => {
     const map = mapRef.current
     if (!ready || !map || !viewport) return
+    // Mid-flight (a fly-to just started), the URL still holds where it began.
+    if (map.isMoving()) return
     const c = map.getCenter()
     if (!sameView(viewport, { lat: c.lat, lng: c.lng, z: map.getZoom() })) {
       map.jumpTo({ center: [viewport.lng, viewport.lat], zoom: viewport.z })
