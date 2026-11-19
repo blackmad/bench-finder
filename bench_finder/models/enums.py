@@ -4,6 +4,7 @@ from enum import StrEnum
 class DataSource(StrEnum):
     OSM = "OSM"
     BGT = "BGT"  # the city's street-furniture register (import_bgt)
+    REPORT = "REPORT"  # a visitor's missing-bench report (bench_finder.reports)
 
 
 class DetectionSource(StrEnum):

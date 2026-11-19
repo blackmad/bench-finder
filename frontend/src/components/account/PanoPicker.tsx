@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   useEffect,
   useLayoutEffect,
@@ -39,6 +40,12 @@ export default function PanoPicker({
   const [index, setIndex] = useState(0)
   const [zoom, setZoom] = useState(0)
   const [heading, setHeading] = useState(0)
+  // Only a view the reporter turned or zoomed counts as pointing at the bench.
+  const [aimed, setAimed] = useState(false)
+  const turn: typeof setHeading = (v) => {
+    setAimed(true)
+    setHeading(v)
+  }
   const [width, setWidth] = useState(480)
   const box = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; heading: number } | null>(null)
@@ -75,7 +82,7 @@ export default function PanoPicker({
 
   useEffect(() => {
     cb.current(
-      pano
+      pano && (aimed || zoom > 0)
         ? {
             source: "amsterdam",
             id: pano.id,
@@ -83,7 +90,7 @@ export default function PanoPicker({
           }
         : null
     )
-  }, [pano, heading])
+  }, [pano, heading, aimed, zoom])
 
   useLayoutEffect(() => {
     const el = box.current
@@ -129,17 +136,21 @@ export default function PanoPicker({
   }
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return
-    setHeading(
-      norm(drag.current.heading - (e.clientX - drag.current.x) * degPerPx)
-    )
+    turn(norm(drag.current.heading - (e.clientX - drag.current.x) * degPerPx))
   }
   const onUp = () => {
     drag.current = null
   }
+  // Double-click: turn to that spot and zoom in a step (from the closest, back out).
+  const onDouble = (e: MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    turn(norm(heading + (e.clientX - r.left - width / 2) * degPerPx))
+    setZoom((n) => (n + 1) % ZOOMS.length)
+  }
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = e.shiftKey ? 15 : 3
-    if (e.key === "ArrowLeft") setHeading((h) => norm(h - step))
-    else if (e.key === "ArrowRight") setHeading((h) => norm(h + step))
+    if (e.key === "ArrowLeft") turn((h) => norm(h - step))
+    else if (e.key === "ArrowRight") turn((h) => norm(h + step))
     else if (e.key === "+" || e.key === "=")
       setZoom((n) => Math.min(n + 1, ZOOMS.length - 1))
     else if (e.key === "-") setZoom((n) => Math.max(n - 1, 0))
@@ -164,6 +175,7 @@ export default function PanoPicker({
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onUp}
+        onDoubleClick={onDouble}
         onKeyDown={onKey}
       >
         {lefts.map((l) => (
@@ -184,7 +196,7 @@ export default function PanoPicker({
         <button
           type="button"
           className="btn"
-          onClick={() => setHeading((h) => norm(h - 10))}
+          onClick={() => turn((h) => norm(h - 10))}
           aria-label="Turn left"
         >
           ←
@@ -192,7 +204,7 @@ export default function PanoPicker({
         <button
           type="button"
           className="btn"
-          onClick={() => setHeading((h) => norm(h + 10))}
+          onClick={() => turn((h) => norm(h + 10))}
           aria-label="Turn right"
         >
           →
@@ -235,7 +247,7 @@ export default function PanoPicker({
       </div>
       <p className="form-note">
         Drag the picture (or use the arrows) until the bench is under the red
-        line. City of Amsterdam panoramas.
+        line; double-click to zoom in there. City of Amsterdam panoramas.
       </p>
     </div>
   )

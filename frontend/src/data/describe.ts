@@ -127,9 +127,11 @@ export function lede(d: BenchDetail): string {
   // Without a photo every fact comes from the map data: say whose.
   const source = hero
     ? null
-    : (d.tags ?? {}).source
-      ? "As recorded by the City of Amsterdam."
-      : "As mapped on OpenStreetMap."
+    : (d.tags ?? {}).report_id
+      ? "Reported by a visitor."
+      : (d.tags ?? {}).source
+        ? "As recorded by the City of Amsterdam."
+        : "As mapped on OpenStreetMap."
   return [
     bodySentence(d),
     looks ? `${looks.replace(/\.$/, "")}.` : null,

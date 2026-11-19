@@ -246,7 +246,7 @@ export function MissingBenchDialog({
   const [accuracy, setAccuracy] = useState<number | undefined>()
   const [note, setNote] = useState("")
   const [locError, setLocError] = useState<string | null>(null)
-  const [picking, setPicking] = useState(false)
+  const [picking, setPicking] = useState(true)
   const [cityPick, setCityPick] = useState<PanoPick | null>(null)
   const [link, setLink] = useState("")
   const linked = link.trim() ? parseStreetViewLink(link) : null
