@@ -121,9 +121,19 @@ def _hero_jobs(
     return jobs, boxes
 
 
-def run_all(db: str, images_root: Path, min_conf: float, concurrency: int) -> dict:
-    """Re-aim every hero with a sure target box into ``images/centred`` (publish prefers it)."""
+def run_all(
+    db: str,
+    images_root: Path,
+    min_conf: float,
+    concurrency: int,
+    bench: int | None = None,
+) -> dict:
+    """Re-aim every hero with a sure target box into ``images/centred`` (publish prefers it).
+
+    ``bench``: only that candidate's hero (e.g. a newly reported bench)."""
     jobs, boxes = _hero_jobs(db, images_root, min_conf)
+    if bench is not None:
+        jobs = [j for j in jobs if j.bench_id == bench]
     out = images_root / CENTRED_DIRNAME
     out.mkdir(parents=True, exist_ok=True)
     new = [recentred_job(j, boxes[j.image_id]) for j in jobs]
@@ -234,9 +244,10 @@ def main() -> None:
     r = sub.add_parser("run", help="re-aim every hero into images/centred")
     r.add_argument("--min-conf", type=float, default=0.5)
     r.add_argument("--concurrency", type=int, default=1)
+    r.add_argument("--bench", type=int, help="only this candidate's hero")
     a = ap.parse_args()
     if a.cmd == "run":
-        print(run_all(a.db, a.images_root, a.min_conf, a.concurrency))
+        print(run_all(a.db, a.images_root, a.min_conf, a.concurrency, a.bench))
     else:
         print(pilot(a.db, a.images_root, a.out, a.n, a.seed))
 

@@ -274,6 +274,9 @@ def main() -> None:
         action="store_true",
         help="only benches no labeller has seen (SAM 3-confirmed photos)",
     )
+    r.add_argument(
+        "--bench", type=int, help="only this candidate's photos with a bench in them"
+    )
     p = sub.add_parser("plan", help="how many photos/benches are left to label")
     p.add_argument("--sam3-only", action="store_true")
     f = sub.add_parser("fuse")
@@ -295,7 +298,9 @@ def main() -> None:
                 a.backend,
                 a.model,
                 a.effort,
-                unlabelled_bench_images(store.connect(a.db))
+                [i for i, c in gated_images(store.connect(a.db), False) if c == a.bench]
+                if a.bench
+                else unlabelled_bench_images(store.connect(a.db))
                 if a.unlabelled_benches
                 else None,
             )
