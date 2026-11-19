@@ -748,6 +748,32 @@ h1[tabindex="-1"]:focus {
   background: var(--color-ink);
   color: var(--color-card);
 }
+/* Report a missing bench: bottom-left of the map (credits are bottom-right). */
+.addbench {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--color-card);
+  color: var(--color-ink);
+  border: 0;
+  box-shadow: var(--shadow-card);
+  padding: 8px 12px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.addbench:hover {
+  background: var(--color-ink);
+  color: var(--color-card);
+}
+.addbench:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
 .nearme-note {
   position: absolute;
   right: 52px;

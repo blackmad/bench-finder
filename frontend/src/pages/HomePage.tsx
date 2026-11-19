@@ -8,6 +8,7 @@ import {
   useState,
 } from "react"
 import { useSearchParams } from "react-router-dom"
+import { MissingBenchDialog } from "../components/account/ReportDialogs"
 import { BenchPreview } from "../components/BenchPreview"
 import { FiltersPanel } from "../components/FiltersPanel"
 import { RailRow } from "../components/RailRow"
@@ -103,6 +104,7 @@ export default function HomePage() {
   // A bench picked on the map leads the first row even if it is not nearest.
   const [mapPick, setMapPick] = useState<number | null>(null)
   const [view, setView] = useState<MapView | null>(null)
+  const [adding, setAdding] = useState(false)
   const [flyTo, setFlyTo] = useState<{
     center: [number, number]
     key: number
@@ -380,6 +382,35 @@ export default function HomePage() {
             </svg>
             {locating === "busy" ? "Locating…" : "Near me"}
           </button>
+          {data ? (
+            <button
+              className="addbench"
+              type="button"
+              onClick={() => setAdding(true)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Report a missing bench
+            </button>
+          ) : null}
+          {adding ? (
+            <MissingBenchDialog
+              center={
+                view ? { lng: view.center[0], lat: view.center[1] } : START_VIEW
+              }
+              onClose={() => setAdding(false)}
+            />
+          ) : null}
           {locating === "denied" ? (
             <p className="nearme-note" role="status">
               Location is unavailable. Search for a place instead.
