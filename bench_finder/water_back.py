@@ -10,8 +10,8 @@ the water, at least one had it behind.
 Here Opus sees up to four views of each such bench (red box on the bench) and
 says whether a sitter looks out over the water or has it behind them, and if
 behind, what they do look at. Verdicts go to ``data/water_back.jsonl``.
-``apply`` restores the model's facing for "behind" benches and sets what they
-face; ``water_facing.apply`` skips them from then on.
+``apply`` turns "behind" benches straight away from the water edge (method
+``water_back``) and sets what they face; ``water_facing.apply`` skips them.
 
     uv run python -m bench_finder.water_back run --limit 30 --max-usd 2   # pilot
     uv run python -m bench_finder.water_back run --max-usd 20
@@ -175,26 +175,35 @@ def run(
 
 
 def apply(db: str, dry_run: bool) -> dict:
-    """Behind-the-back benches: the model's facing back, and what they face."""
+    """Behind-the-back benches face straight away from the water edge (the snap
+    reversed; method ``water_back``) and get what Opus says they look at. A
+    visitor's facing (``human``) is never touched."""
     conn = sqlite3.connect(db, timeout=120)
-    old = dict(flipped(conn))
+    snap = dict(
+        conn.execute(
+            "SELECT w.bench_candidate_id, w.new_facing FROM water_facing w "
+            "JOIN bench_attributes a ON a.bench_candidate_id = w.bench_candidate_id "
+            "WHERE a.facing_method IN ('vlm', 'water_edge', 'water_back')"
+        )
+    )
     verdicts = cached()
     now = datetime.now(UTC).isoformat()
     n = 0
-    for bid in sorted(behind() & set(old)):
+    for bid in sorted(behind() & set(snap)):
         v = verdicts[bid]
         cat = v.get("looks_at") if v.get("looks_at") in CATEGORIES else "other"
         n += 1
         if dry_run:
             continue
         conn.execute(
-            "UPDATE bench_attributes SET facing_deg = ?, facing_method = 'vlm', "
-            "faces_category = ?, faces_text = ?, updated_at = ? WHERE bench_candidate_id = ?",
-            (round(old[bid], 1), cat, v.get("text"), now, bid),
+            "UPDATE bench_attributes SET facing_deg = ?, facing_confidence = 0.6, "
+            "facing_method = 'water_back', faces_category = ?, faces_text = ?, updated_at = ? "
+            "WHERE bench_candidate_id = ?",
+            (round((snap[bid] + 180) % 360, 1), cat, v.get("text"), now, bid),
         )
     conn.commit()
     conn.close()
-    return {"restored": n, "dry_run": dry_run}
+    return {"backs_to_water": n, "dry_run": dry_run}
 
 
 def main() -> None:

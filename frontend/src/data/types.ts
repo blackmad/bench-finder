@@ -3,7 +3,15 @@
  * Reads come from these files; nothing here talks to the Worker.
  */
 
-export type FacingMethod = "osm_tag" | "vlm" | "geometry" | "human"
+export type FacingMethod =
+  | "osm_tag"
+  | "vlm"
+  | "geometry"
+  | "human"
+  /** Turned toward the nearest water edge. */
+  | "water_edge"
+  /** Water behind the backrest (checked by a vision model): faces away from it. */
+  | "water_back"
 export type BenchType = "backrest" | "backless" | "picnic" | "other"
 export type FacesCategory =
   | "water"

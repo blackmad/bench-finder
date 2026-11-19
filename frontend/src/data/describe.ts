@@ -84,6 +84,12 @@ export function facingSentence(
       ? `Faces ${long}, confirmed by a visitor.`
       : `Faces ${long}, as mapped in OpenStreetMap.`
   }
+  if (p.facing_method === "water_edge") {
+    return `Probably faces ${long}, out over the water.`
+  }
+  if (p.facing_method === "water_back") {
+    return `Probably faces ${long}, with the water behind it.`
+  }
   const pct = Math.round((p.facing_confidence ?? 0) * 100)
   return `Probably faces ${long} (estimated from street views, ${pct}%).`
 }

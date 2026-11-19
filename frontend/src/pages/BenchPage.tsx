@@ -235,6 +235,10 @@ function HeroPhoto({
 }
 
 function facingSource(b: BenchDetail): string {
+  if (b.facing_method === "water_edge") return "estimated: turned to the water"
+  if (b.facing_method === "water_back") {
+    return "estimated: back to the water, checked in the photos"
+  }
   if (facingKind(b) === "estimated") {
     return `estimated from street views, ${Math.round((b.facing_confidence ?? 0) * 100)}%`
   }

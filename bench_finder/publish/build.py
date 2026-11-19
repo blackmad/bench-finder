@@ -82,6 +82,9 @@ class PublishResult:
         return self.image_bytes + self.json_bytes + self.geojson_bytes
 
 
+# Facings publish shows: OSM direction tags, visitors, and the water-edge rules.
+SHOWN_FACINGS = {"osm_tag", "human", "water_edge", "water_back"}
+
 def parse_direction(value: Any) -> float | None:
     """OSM ``direction`` tag: degrees ("120") or 16-wind letters ("SSW")."""
     if value is None:
@@ -771,6 +774,10 @@ def publish(
         )
         if facing is None and tag_deg is not None:
             facing, conf, method = tag_deg, 1.0, "osm_tag"
+        if method not in SHOWN_FACINGS:
+            # Flash-Lite's per-photo facings are barely better than chance (49%
+            # within 45 degrees, bake-off 3.2b): kept in the database, not shown.
+            facing, conf, method = None, None, None
         if masks_by_image is None:
             masks_by_image = _hero_masks(db_path)
             from bench_finder.addresses import address as street_address
