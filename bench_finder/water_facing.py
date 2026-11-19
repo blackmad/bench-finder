@@ -139,7 +139,12 @@ def apply(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
     ).fetchall()
     changed, near, moved = 0, 0, []
     now = datetime.now(UTC).isoformat()
+    from bench_finder.water_back import behind  # Opus: water at the bench's back
+
+    backs = behind()
     for bid, lat, lng, facing, method, cat in rows:
+        if bid in backs:
+            continue
         here = Point(to(lng, lat))
         i = tree.nearest(here)
         edge = shapes[i]

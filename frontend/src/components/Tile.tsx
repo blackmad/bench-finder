@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom"
 import { focusStyle } from "../data/api"
 import { headline, seatText } from "../data/describe"
-import { facingKind, facingShort, looksAt } from "../data/facing"
+import { looksAt } from "../data/facing"
 import type { BenchProps } from "../data/types"
 import { Away } from "./Away"
 import { Photo } from "./Photo"
@@ -14,40 +14,17 @@ interface Props {
   onOpen?: (id: number) => void
 }
 
-/**
- * "Looks out over the water · S 180°", else "≈ Faces NE 52° · estimated ·
- * Backrest", leaving out what is not known.
- */
+/** What the bench looks at ("Looks out over the water"), else its seat. */
 export function caption(bench: BenchProps) {
-  const facing = facingShort(bench)
-  const kind = facingKind(bench)
-  const seat = seatText(bench.backrest)
   const looks = looksAt(bench.faces_category)
   if (looks) {
     return (
-      <>
-        <span className="looks" data-cat={bench.faces_category ?? undefined}>
-          {looks}
-        </span>
-        {facing ? (
-          <span className={kind === "estimated" ? "est" : undefined}>
-            {" "}
-            · {facing}
-          </span>
-        ) : null}
-      </>
+      <span className="looks" data-cat={bench.faces_category ?? undefined}>
+        {looks}
+      </span>
     )
   }
-  if (!facing) return seat ?? "Seat not recorded"
-  const est = kind === "estimated"
-  return (
-    <>
-      <span className={est ? "est" : undefined}>
-        {est ? "≈ " : ""}Faces {facing.replace(/^≈ /, "")}
-      </span>
-      {seat ? ` · ${seat}` : null}
-    </>
-  )
+  return seatText(bench.backrest) ?? "Seat not recorded"
 }
 
 /** A photo tile on the rail: the view, its compass seal, the address. */
@@ -88,12 +65,7 @@ export function Tile({ bench, selected = false, onSelect, onOpen }: Props) {
       </div>
       <div className="cap">
         <span className="caps">{name}</span>
-        <small>
-          {(bench.count ?? 1) > 1 ? (
-            <span className="many">{bench.count} benches · </span>
-          ) : null}
-          {caption(bench)}
-        </small>
+        <small>{caption(bench)}</small>
       </div>
     </Link>
   )

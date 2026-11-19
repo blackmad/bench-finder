@@ -6,6 +6,7 @@ import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
 import { useSwipe } from "../lib/useSwipe"
 import { Away } from "./Away"
+import { ReportRow } from "./account/BenchSocial"
 import { PinIcon } from "./Icons"
 import { Lightbox } from "./Lightbox"
 import { Photo } from "./Photo"
@@ -141,6 +142,9 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
           ) : null}
         </div>
       ) : null}
+      <div className="pvreport">
+        <ReportRow benchId={b.id} lat={b.lat} lng={b.lng} />
+      </div>
     </section>
   )
 }

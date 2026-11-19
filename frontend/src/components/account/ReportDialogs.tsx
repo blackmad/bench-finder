@@ -13,9 +13,9 @@ import { Turnstile, turnstileSiteKey } from "./Turnstile"
 const MapPicker = lazy(() => import("./MapPicker"))
 
 export const REASONS = [
-  ["not_a_bench", "There is no bench here"],
+  ["not_a_bench", "There is no bench here, or it is not a bench"],
   ["wrong_location", "The pin is in the wrong place"],
-  ["wrong_facing", "The facing direction is wrong"],
+  ["wrong_facing", "The facing, or what it looks out on, is wrong"],
   ["bad_image", "The photo is unusable"],
   ["other", "Something else"],
 ] as const

@@ -9,6 +9,7 @@ import { EyeIcon, PinIcon } from "../components/Icons"
 import { Lightbox } from "../components/Lightbox"
 import { Photo } from "../components/Photo"
 import { RailRow } from "../components/RailRow"
+import { SiteFooter } from "../components/SiteFooter"
 import { TopBar } from "../components/TopBar"
 import { ViewFigure } from "../components/ViewFigure"
 import { focusStyle, hasPhoto } from "../data/api"
@@ -186,6 +187,7 @@ function Spread({ bench: b }: { bench: BenchDetail }) {
 
         <BenchNotes benchId={b.id} />
         <ReportRow benchId={b.id} lat={b.lat} lng={b.lng} />
+        <SiteFooter center={{ lat: b.lat, lng: b.lng }} missing={false} />
       </div>
     </>
   )

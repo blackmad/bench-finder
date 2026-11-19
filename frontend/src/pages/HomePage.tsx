@@ -11,6 +11,7 @@ import { useSearchParams } from "react-router-dom"
 import { BenchPreview } from "../components/BenchPreview"
 import { FiltersPanel } from "../components/FiltersPanel"
 import { RailRow } from "../components/RailRow"
+import { SiteFooter } from "../components/SiteFooter"
 import { TopBar } from "../components/TopBar"
 import { hasPhoto } from "../data/api"
 import {
@@ -425,6 +426,15 @@ export default function HomePage() {
                   onOpen={openBench}
                 />
               ))}
+              {data ? (
+                <SiteFooter
+                  center={
+                    view
+                      ? { lng: view.center[0], lat: view.center[1] }
+                      : START_VIEW
+                  }
+                />
+              ) : null}
             </>
           )}
         </section>

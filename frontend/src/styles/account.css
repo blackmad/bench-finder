@@ -431,3 +431,29 @@
     gap: 0;
   }
 }
+
+/* Report row inside the rail preview: closer than on the full page. */
+.pvreport .report {
+  margin-top: 24px;
+}
+
+/* Foot of the rail and the bench page: missing-bench report, data, code. */
+.sitefoot {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule, currentColor);
+  color: var(--ink-2);
+  font-size: 14px;
+  display: grid;
+  gap: 6px;
+}
+.sitefoot p {
+  margin: 0;
+}
+.sitefoot .small {
+  font-size: 13px;
+}
+.sitefoot a {
+  color: var(--airmail);
+  text-underline-offset: 3px;
+}

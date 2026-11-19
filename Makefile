@@ -117,6 +117,9 @@ docs: ## Generate documentation (if applicable)
 	@echo "Documentation generation not yet implemented"
 
 # Database commands
+export-csv: ## Write benches.csv and the pipeline tables to export/ (after publish)
+	uv run python tools/export_csv.py
+
 db-migrate: ## Run database migrations
 	@echo "🗄️ Running database migrations..."
 	uv run python -m bench_finder.migrate

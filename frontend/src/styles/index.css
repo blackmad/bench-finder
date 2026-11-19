@@ -1240,11 +1240,6 @@ h1[tabindex="-1"]:focus {
 picture {
   display: contents;
 }
-/* "6 benches ·" on a tile whose place holds several. */
-.tile .cap .many {
-  color: var(--color-ink);
-  font-weight: 600;
-}
 
 /* Category colour: row headings carry a swatch, captions say it in colour. */
 [data-cat="water"] { --cat: var(--color-cat-water); --cat-wash: var(--color-cat-water-wash); }
