@@ -214,37 +214,20 @@ export function BenchNotes({ benchId }: { benchId: number }) {
   )
 }
 
-/** "Report this card" row + the dialogs it opens. */
-export function ReportRow({
-  benchId,
-  lat,
-  lng,
-}: {
-  benchId: number
-  lat: number
-  lng: number
-}) {
-  const [open, setOpen] = useState<"bench" | "missing" | null>(null)
+/** "Report this bench" row + its dialog. Missing benches are reported from the map. */
+export function ReportRow({ benchId }: { benchId: number }) {
+  const [open, setOpen] = useState(false)
   return (
     <>
       <div className="report">
         <FlagIcon />
         <span>Wrong bench, wrong facing, or no bench at all?</span>
-        <button type="button" onClick={() => setOpen("bench")}>
-          Report this card
-        </button>
-        <button type="button" onClick={() => setOpen("missing")}>
-          Report a missing bench nearby
+        <button type="button" onClick={() => setOpen(true)}>
+          Report this bench
         </button>
       </div>
-      {open === "bench" ? (
-        <ReportBenchDialog benchId={benchId} onClose={() => setOpen(null)} />
-      ) : null}
-      {open === "missing" ? (
-        <MissingBenchDialog
-          center={{ lat, lng }}
-          onClose={() => setOpen(null)}
-        />
+      {open ? (
+        <ReportBenchDialog benchId={benchId} onClose={() => setOpen(false)} />
       ) : null}
     </>
   )

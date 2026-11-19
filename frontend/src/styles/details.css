@@ -1,0 +1,52 @@
+/* A bench's facts and Street View, in the map's side panel. */
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 18px;
+  font-size: 14.5px;
+}
+.facts dt {
+  font-size: 11px;
+  color: var(--ink-3);
+  padding-top: 3px;
+  white-space: nowrap;
+}
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+.facts dd small {
+  font-weight: 400;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.dblock {
+  margin-top: 32px;
+  scroll-margin-top: 80px;
+}
+.embed {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 0;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.embed.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--card) 0 14px,
+    color-mix(in oklab, var(--card), var(--ink) 4%) 14px 28px
+  );
+}
+.embedlink {
+  margin: 0;
+}
+.embedlink a {
+  color: var(--airmail);
+  font-weight: 600;
+}

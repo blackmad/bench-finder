@@ -150,7 +150,7 @@ function Queue() {
             <li key={r.id} className="qitem">
               <div>
                 <p className="qtitle">
-                  <Link to={`/bench/${r.bench_id}`}>
+                  <Link to={`/?bench=${r.bench_id}`}>
                     Bench No. {r.bench_id}
                   </Link>
                   <span className="tagpill">
@@ -290,7 +290,7 @@ function Queue() {
                 <p className="cbody">{c.body}</p>
                 <p className="cmeta">
                   {c.display_name} on{" "}
-                  <Link to={`/bench/${c.bench_id}`}>
+                  <Link to={`/?bench=${c.bench_id}`}>
                     bench No. {c.bench_id}
                   </Link>
                 </p>

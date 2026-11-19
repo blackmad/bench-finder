@@ -385,7 +385,7 @@
   display: block;
 }
 
-/* Section heads (also defined in bench.css for the bench page) */
+/* Section heads */
 .block {
   margin-top: 40px;
 }
@@ -434,8 +434,13 @@
 }
 
 /* Report row inside the rail preview: closer than on the full page. */
-.pvrate {
+.pvfacts {
   margin-top: 20px;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  padding: 18px 20px;
+  display: grid;
+  gap: 18px;
 }
 .pvreport .report {
   margin-top: 24px;

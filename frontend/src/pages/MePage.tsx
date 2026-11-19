@@ -115,7 +115,7 @@ function BenchList({
             const p = byId.get(id)?.properties
             return (
               <li key={id}>
-                <Link to={`/bench/${id}`}>
+                <Link to={`/?bench=${id}`}>
                   <span className="caps">{p?.address ?? "Unnamed path"}</span>
                   <span className="serial">No.&nbsp;{id}</span>
                 </Link>

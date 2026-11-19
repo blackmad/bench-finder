@@ -1,12 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { Link } from "react-router-dom"
 import { focusStyle } from "../data/api"
-import { headline, heroImage, lede } from "../data/describe"
+import { headline, heroImage, lede, monthYear } from "../data/describe"
 import { useBench } from "../data/hooks"
-import type { BenchProps } from "../data/types"
+import type { BenchDetail, BenchProps } from "../data/types"
 import { useSwipe } from "../lib/useSwipe"
 import { Away } from "./Away"
-import { BenchActions, ReportRow } from "./account/BenchSocial"
+import { BenchActions, BenchNotes, ReportRow } from "./account/BenchSocial"
+import { Facts, ViewFromBench } from "./BenchDetails"
 import { PinIcon } from "./Icons"
 import { Lightbox } from "./Lightbox"
 import { Photo } from "./Photo"
@@ -22,8 +22,8 @@ interface Props {
 }
 
 /**
- * A bench opened in the rail: its photo large, the title card, what it looks
- * at, the other views, and the way on to the full page. The map stays beside
+ * A bench opened in the rail: its photo large, the title card, its facts and
+ * rating, the other views, Street View, notes and the report link. The map stays beside
  * it with the bench marked in vermilion; the URL carries `?bench=ID`.
  */
 export function BenchPreview({ bench, id, onClose, onStep }: Props) {
@@ -91,12 +91,8 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         <Away lat={b.lat} lng={b.lng} />
       </div>
       <div className="titlecard">
-        {/* The title is the way to the rest (notes, the panorama);
-            there is no separate "open the page" button. */}
         <h2 id={titleId} tabIndex={-1}>
-          <Link className="titlelink" to={`/bench/${b.id}`}>
-            {name}
-          </Link>
+          {name}
         </h2>
         <p className="lede">{detail ? lede(detail) : " "}</p>
         <div className="ctas">
@@ -111,9 +107,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
           </a>
         </div>
       </div>
-      <div className="pvrate">
-        <BenchActions benchId={b.id} />
-      </div>
+      <FactsCard bench={detail} id={b.id} />
       {views.length ? (
         <div className="pvviews">
           <div className="rowhead">
@@ -145,9 +139,38 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
           ) : null}
         </div>
       ) : null}
+      <StreetView bench={detail} name={name} />
+      <BenchNotes benchId={b.id} />
       <div className="pvreport">
-        <ReportRow benchId={b.id} lat={b.lat} lng={b.lng} />
+        <ReportRow benchId={b.id} />
       </div>
     </section>
+  )
+}
+
+/** What it looks at, which way it faces, the seat, the photo date; the rating. */
+function FactsCard({ bench: d, id }: { bench?: BenchDetail; id: number }) {
+  return (
+    <div className="pvfacts">
+      {d ? (
+        <Facts
+          bench={d}
+          photographed={monthYear((heroImage(d) ?? d.gallery[0])?.pano_date)}
+        />
+      ) : null}
+      <BenchActions benchId={id} />
+    </div>
+  )
+}
+
+function StreetView({ bench: d, name }: { bench?: BenchDetail; name: string }) {
+  if (!d?.embed_pano_id) return null
+  return (
+    <ViewFromBench
+      pano={d.embed_pano_id}
+      heading={d.embed_heading_deg ?? 0}
+      facing={d.facing}
+      street={name}
+    />
   )
 }

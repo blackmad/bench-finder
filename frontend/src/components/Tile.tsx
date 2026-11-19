@@ -33,7 +33,7 @@ export function Tile({ bench, selected = false, onSelect, onOpen }: Props) {
   return (
     <Link
       className="tile"
-      to={`/bench/${bench.id}`}
+      to={`/?bench=${bench.id}`}
       data-id={bench.id}
       aria-current={selected ? "true" : undefined}
       onClick={
