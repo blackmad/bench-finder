@@ -434,6 +434,9 @@
 }
 
 /* Report row inside the rail preview: closer than on the full page. */
+.pvrate {
+  margin-top: 20px;
+}
 .pvreport .report {
   margin-top: 24px;
 }

@@ -6,7 +6,7 @@ import { useBench } from "../data/hooks"
 import type { BenchProps } from "../data/types"
 import { useSwipe } from "../lib/useSwipe"
 import { Away } from "./Away"
-import { ReportRow } from "./account/BenchSocial"
+import { BenchActions, ReportRow } from "./account/BenchSocial"
 import { PinIcon } from "./Icons"
 import { Lightbox } from "./Lightbox"
 import { Photo } from "./Photo"
@@ -91,7 +91,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         <Away lat={b.lat} lng={b.lng} />
       </div>
       <div className="titlecard">
-        {/* The title is the way to the rest (notes, ratings, the panorama);
+        {/* The title is the way to the rest (notes, the panorama);
             there is no separate "open the page" button. */}
         <h2 id={titleId} tabIndex={-1}>
           <Link className="titlelink" to={`/bench/${b.id}`}>
@@ -110,6 +110,9 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
             Take me there
           </a>
         </div>
+      </div>
+      <div className="pvrate">
+        <BenchActions benchId={b.id} />
       </div>
       {views.length ? (
         <div className="pvviews">
