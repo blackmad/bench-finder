@@ -181,7 +181,8 @@
 }
 .notes textarea,
 .modal textarea,
-.modal input[type="email"] {
+.modal input[type="email"],
+.modal input[type="url"] {
   font: inherit;
   width: 100%;
   border: 1.5px solid var(--ink);
@@ -456,4 +457,59 @@
 .sitefoot a {
   color: var(--airmail);
   text-underline-offset: 3px;
+}
+
+/* Missing-bench report: drag a city panorama until the bench is under the line. */
+.panostrip {
+  position: relative;
+  overflow: hidden;
+  background: var(--rule, #ddd);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.panostrip:active {
+  cursor: grabbing;
+}
+.panostrip:focus-visible {
+  outline: 2px solid var(--airmail);
+  outline-offset: 2px;
+}
+.panostrip img {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+}
+.panoline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: #d8432b;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.6);
+}
+.panohead {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgb(20 20 20 / 0.7);
+  color: #fff;
+  font-size: 12px;
+  padding: 1px 6px;
+}
+.panoctl {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.panoctl .btn {
+  min-width: 40px;
+  padding-inline: 10px;
+}
+.panometa {
+  font-size: 13px;
+  color: var(--ink-2);
 }

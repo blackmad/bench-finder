@@ -339,6 +339,15 @@ export function createApp(deps: Deps = {}) {
           lat: z.number().min(-90).max(90),
           lng: z.number().min(-180).max(180),
           accuracyMeters: z.number().min(0).max(100_000).optional(),
+          // Where the bench shows in a street panorama (optional).
+          pano: z
+            .object({
+              source: z.enum(["amsterdam", "google"]),
+              id: z.string().min(1).max(200),
+              heading: z.number().min(0).lt(360),
+              url: z.string().url().max(2048).optional(),
+            })
+            .optional(),
           note,
           photoKey,
           turnstileToken,
@@ -356,10 +365,23 @@ export function createApp(deps: Deps = {}) {
         await assertPhotoExists(c, b.photoKey);
         const row = await c.env.DB
           .prepare(
-            `INSERT INTO missing_bench_reports (lat, lng, accuracy_meters, note, photo_key, user_id, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id`,
+            `INSERT INTO missing_bench_reports (lat, lng, accuracy_meters, note, photo_key, user_id, created_at,
+               pano_source, pano_id, pano_heading, pano_url)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) RETURNING id`,
           )
-          .bind(b.lat, b.lng, b.accuracyMeters ?? null, b.note || null, b.photoKey ?? null, user?.uid ?? null, now())
+          .bind(
+            b.lat,
+            b.lng,
+            b.accuracyMeters ?? null,
+            b.note || null,
+            b.photoKey ?? null,
+            user?.uid ?? null,
+            now(),
+            b.pano?.source ?? null,
+            b.pano?.id ?? null,
+            b.pano?.heading ?? null,
+            b.pano?.url ?? null,
+          )
           .first<{ id: number }>();
         return c.json({ id: row?.id ?? 0, status: "pending" as const }, 201);
       },

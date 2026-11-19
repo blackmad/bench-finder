@@ -195,7 +195,7 @@ def _load(v):
     return json.loads(v) if isinstance(v, str) and v else v
 
 
-def fuse(db: str, annotator: str = ANNOTATOR) -> dict:
+def fuse(db: str, annotator: str = ANNOTATOR, new_only: bool = False) -> dict:
     conn = store.connect(db)
     conn.execute("PRAGMA busy_timeout = 120000")
     rows = conn.execute(
@@ -231,8 +231,20 @@ def fuse(db: str, annotator: str = ANNOTATOR) -> dict:
         cid: _load(t) or {}
         for cid, t in conn.execute("SELECT id, tags FROM bench_candidates")
     }
+    # Never overwrite a visitor's/owner's facing. With new_only, leave every bench
+    # that already has a looks-at answer alone (it may carry water snaps and
+    # water_back fixes that a re-fuse would undo).
+    keep = {
+        cid
+        for (cid,) in conn.execute(
+            "SELECT bench_candidate_id FROM bench_attributes WHERE facing_method = 'human'"
+            + (" OR faces_category IS NOT NULL" if new_only else "")
+        )
+    }
     n = faces = 0
     for cid, vs in views.items():
+        if cid in keep:
+            continue
         fused = fuse_views(vs, osm_direction=tags.get(cid, {}).get("direction"))
         fused.hero_image_id = None  # the publish ranking picks the hero
         write_bench_attributes(conn, cid, fused)
@@ -266,6 +278,9 @@ def main() -> None:
     p.add_argument("--sam3-only", action="store_true")
     f = sub.add_parser("fuse")
     f.add_argument("--model", default=MODEL)
+    f.add_argument(
+        "--new-only", action="store_true", help="only benches with no looks-at yet"
+    )
     a = ap.parse_args()
     if a.cmd == "run":
         print(
@@ -291,7 +306,7 @@ def main() -> None:
         cids = {c for i, c in gated_images(conn, a.sam3_only) if i in todo}
         print({"photos": len(todo), "benches": len(cids)})
     else:
-        print(fuse(a.db, annotator_for(a.model)))
+        print(fuse(a.db, annotator_for(a.model), a.new_only))
 
 
 if __name__ == "__main__":

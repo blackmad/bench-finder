@@ -187,6 +187,17 @@ describe("reports", () => {
     expect(await env.DB.prepare("SELECT user_id FROM missing_bench_reports").first()).toEqual({ user_id: "u9" });
   });
 
+  it("stores the panorama a missing bench shows in", async () => {
+    const pano = { source: "amsterdam", id: "2025_09_26_10_36_44_00869", heading: 212.5 };
+    const res = await makeClient().json("POST", "/api/reports/missing", { lat: 52.3645, lng: 4.8578, pano }, { ...ip, ...(await bearer({ uid: "u9" })) });
+    expect(res.status).toBe(201);
+    expect(
+      await env.DB.prepare("SELECT pano_source, pano_id, pano_heading FROM missing_bench_reports").first(),
+    ).toEqual({ pano_source: "amsterdam", pano_id: pano.id, pano_heading: 212.5 });
+    const bad = await makeClient().json("POST", "/api/reports/missing", { lat: 1, lng: 2, pano: { ...pano, heading: 360 } }, { ...ip, ...(await bearer({ uid: "u9" })) });
+    expect(bad.status).toBe(400);
+  });
+
   it("refuses everything anonymous when the Turnstile secret is not configured (default verifier)", async () => {
     const api = makeClient({ verifyTurnstile });
     const res = await api.json("POST", "/api/reports/bench", { benchId: 1, reason: "other", turnstileToken: "x" }, ip);

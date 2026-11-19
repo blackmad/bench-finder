@@ -22,6 +22,10 @@ interface MissingReport {
   id: number
   lat: number
   lng: number
+  pano_source: "amsterdam" | "google" | null
+  pano_id: string | null
+  pano_heading: number | null
+  pano_url: string | null
   note: string | null
   photo_key: string | null
   user_id: string | null
@@ -215,6 +219,23 @@ function Queue() {
                   </a>
                 </p>
                 {r.note ? <p className="cbody">{r.note}</p> : null}
+                {r.pano_id ? (
+                  <p className="cmeta">
+                    <a
+                      href={
+                        r.pano_url ??
+                        `https://api.data.amsterdam.nl/panorama/panoramas/${r.pano_id}/`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {r.pano_source === "google"
+                        ? "Street View"
+                        : "City panorama"}
+                    </a>
+                    , bench at {Math.round(r.pano_heading ?? 0)}°
+                  </p>
+                ) : null}
                 <p className="cmeta">
                   {r.user_id ? "Signed-in user" : "Anonymous"} ·{" "}
                   {new Date(r.created_at).toLocaleString()}

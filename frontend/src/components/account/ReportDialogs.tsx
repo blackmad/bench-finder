@@ -1,6 +1,7 @@
 import { type FormEvent, lazy, type ReactNode, Suspense, useState } from "react"
 import { api, unwrap, uploadPhoto } from "../../lib/api"
 import { useAuth } from "../../lib/auth"
+import { type PanoPick, parseStreetViewLink } from "../../lib/pano"
 import {
   captureImage,
   getCurrentLocation,
@@ -11,6 +12,7 @@ import { Modal } from "./Modal"
 import { Turnstile, turnstileSiteKey } from "./Turnstile"
 
 const MapPicker = lazy(() => import("./MapPicker"))
+const PanoPicker = lazy(() => import("./PanoPicker"))
 
 export const REASONS = [
   ["not_a_bench", "There is no bench here, or it is not a bench"],
@@ -244,6 +246,21 @@ export function MissingBenchDialog({
   const [accuracy, setAccuracy] = useState<number | undefined>()
   const [note, setNote] = useState("")
   const [locError, setLocError] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [cityPick, setCityPick] = useState<PanoPick | null>(null)
+  const [link, setLink] = useState("")
+  const linked = link.trim() ? parseStreetViewLink(link) : null
+  // A pasted link wins over the city panorama.
+  const pano = linked
+    ? {
+        source: linked.source,
+        id: linked.id,
+        heading: linked.heading,
+        url: linked.url,
+      }
+    : picking
+      ? cityPick
+      : null
 
   const locate = async () => {
     setLocError(null)
@@ -261,7 +278,7 @@ export function MissingBenchDialog({
       title="Report a missing bench"
       intro="Know a bench that is not on the map? Put the pin where it stands."
       onClose={onClose}
-      canSubmit
+      canSubmit={!link.trim() || linked !== null}
       send={async (photoKey, turnstileToken) => {
         await unwrap(
           await api.api.reports.missing.$post({
@@ -270,6 +287,7 @@ export function MissingBenchDialog({
               lng: point.lng,
               accuracyMeters:
                 accuracy === undefined ? undefined : Math.round(accuracy),
+              pano: pano ?? undefined,
               note: note.trim() || undefined,
               photoKey,
               turnstileToken,
@@ -300,6 +318,59 @@ export function MissingBenchDialog({
           {locError}
         </p>
       ) : null}
+      <div className="stack">
+        <span className="caps">Show us in a street panorama (optional)</span>
+        {picking ? (
+          <>
+            <Suspense fallback={<p className="form-note">Loading…</p>}>
+              <PanoPicker point={point} onChange={setCityPick} />
+            </Suspense>
+            <button
+              type="button"
+              className="linkbtn"
+              onClick={() => {
+                setPicking(false)
+                setCityPick(null)
+              }}
+            >
+              Remove the panorama
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setPicking(true)}
+          >
+            Find it in a panorama
+          </button>
+        )}
+        <label className="stack" htmlFor="missing-link">
+          <span className="form-note">
+            Or paste a Google Street View link, looking at the bench
+          </span>
+          <input
+            id="missing-link"
+            type="url"
+            inputMode="url"
+            placeholder="https://www.google.com/maps/@52.36…"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+          />
+        </label>
+        {link.trim() ? (
+          linked ? (
+            <p className="form-ok" role="status">
+              Street View link read: looking {Math.round(linked.heading)}°.
+            </p>
+          ) : (
+            <p className="form-error" role="alert">
+              That does not look like a Street View link. Open Street View, turn
+              to the bench, and copy the address bar.
+            </p>
+          )
+        ) : null}
+      </div>
       <label className="stack" htmlFor="missing-note">
         <span className="caps">Note (optional)</span>
         <textarea
