@@ -31,7 +31,7 @@ import { benchCount, useBenches } from "../data/hooks"
 import { buildRows } from "../data/rows"
 import type { BenchFeature } from "../data/types"
 import { setHere } from "../lib/here"
-import { FAR_M, reachMetres } from "../lib/nearZoom"
+import { FAR_M, nearRadius, reachMetres } from "../lib/nearZoom"
 import {
   type Viewport,
   viewportFromParams,
@@ -292,11 +292,11 @@ export default function HomePage() {
             setLocating("idle")
             return
           }
-          // Reach out until about eight places are in view, however sparse.
+          // About eight places, within a five-minute walk where there are any.
           const pts = benches.map(
             (b) => b.geometry.coordinates as [number, number]
           )
-          const radiusM = reachMetres(here, pts)
+          const radiusM = nearRadius(here, pts)
           if (reachMetres(here, pts, 1) > FAR_M) {
             setLocating(quiet ? "idle" : "far")
             return

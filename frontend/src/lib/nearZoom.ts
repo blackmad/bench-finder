@@ -3,6 +3,8 @@
 const EARTH_M = 40_075_016.686
 export const NEAR_COUNT = 8
 export const FAR_M = 5_000 // nearest bench farther than this: outside coverage
+/** About a five-minute walk (5 km/h). */
+export const WALK_M = 400
 
 export function metresBetween(
   a: [number, number],
@@ -22,6 +24,20 @@ export function reachMetres(
 ): number {
   const d = points.map((p) => metresBetween(here, p)).sort((a, b) => a - b)
   return d.length ? d[Math.min(n, d.length) - 1] : Number.POSITIVE_INFINITY
+}
+
+/**
+ * How far "Near me" shows: out to about eight places, but no further than a
+ * five-minute walk, unless that would leave no bench in view at all.
+ */
+export function nearRadius(
+  here: [number, number],
+  points: [number, number][]
+): number {
+  return Math.max(
+    Math.min(reachMetres(here, points), WALK_M),
+    reachMetres(here, points, 1)
+  )
 }
 
 /** Zoom at which a circle of `radiusM` fits in `px` pixels (the map's short side). */
