@@ -129,8 +129,12 @@ def apply(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
         "old_facing REAL, old_method TEXT, new_facing REAL, distance_m REAL, created_at TEXT)"
     )
     rows = conn.execute(
-        "SELECT a.bench_candidate_id, c.lat, c.lng, a.facing_deg, a.facing_method, a.faces_category "
+        # Triangulated pins where publish uses them (bench_finder.triangulate).
+        "SELECT a.bench_candidate_id, coalesce(m.lat, c.lat), coalesce(m.lng, c.lng), "
+        "a.facing_deg, a.facing_method, a.faces_category "
         "FROM bench_attributes a JOIN bench_candidates c ON c.id = a.bench_candidate_id "
+        "LEFT JOIN bench_positions m ON m.bench_candidate_id = c.id "
+        "AND m.rays >= 3 AND m.shift_m > 2 AND m.err_m <= 1 "
         "WHERE a.facing_method = 'vlm' OR a.facing_method = 'water_edge'"
     ).fetchall()
     changed, near, moved = 0, 0, []
