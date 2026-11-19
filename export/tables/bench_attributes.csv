@@ -20,8 +20,8 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 19,293,242.90893884918862,1.0,vlm,0,backrest,1,park,a garden or park area,,backrest_no_rear_best_front,k0Nn4oqB2y1oxC5Kl6k9lA,242.90893884918862,2026-11-16 08:04:04.698206
 20,302,122.3,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,a0_fNuzl5aJgDn4HuHUpnw,107.25977485402052,2026-11-16 08:04:04.698584
 21,367,23.5,1.0,water_edge,1,backless,0,water,canal,,best_front_view,TjKJdWQu5-Au6FU40J4ucQ,,2026-11-16 08:04:04.698962
-22,368,134.2,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
-23,375,134.2,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+22,368,,,,0,,,,,,,,,2026-11-19 18:40:36.858290
+23,375,,,,0,,,,,,,,,2026-11-19 18:40:36.859465
 24,331,222.1348292647664,1.0,vlm,0,backrest,1,residential_street,residential street,,backrest_no_rear_best_front,HlC9pGECGJID3kuWl-XYIg,222.1348292647664,2026-11-16 08:04:04.700319
 25,351,323.45831192580334,1.0,vlm,0,backrest,1,other,dense foliage and bushes,,backrest_no_rear_best_front,caIHTuQ_Yqff2ptGNmB6wQ,323.45831192580334,2026-11-16 08:04:04.700708
 26,341,256.91133706676874,1.0,vlm,0,backrest,1,park,a garden or park area,,backrest_rear_view,16494226483117790690,256.91133706676874,2026-11-16 08:04:04.701066
@@ -35,7 +35,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 34,386,263.5114065265758,1.0,vlm,0,backrest,1,residential_street,a quiet residential street with houses,,backrest_rear_view,PqKiSbcmgdvosdpl3uNu9g,263.5114065265758,2026-11-16 08:04:04.704048
 35,387,52.57221433261242,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,4823975974219205533,52.57221433261242,2026-11-16 08:04:04.704417
 36,422,316.9,0.9999999999999999,water_edge,0,backrest,1,water,canal,,backrest_rear_view,l4em_P1eT44Qi7mAg7dAVA,57.81033692574107,2026-11-16 08:04:04.704800
-37,402,24.7,0.9999999999999999,vlm,0,backrest,1,street,street and parked cars,,backrest_no_rear_best_front,H-epCi3BkKQfxxdvgLmeqA,24.727510130685573,2026-11-19T12:45:26.741172+00:00
+37,402,16.2,0.6,water_back,0,backrest,1,street,street and parked cars,,backrest_no_rear_best_front,H-epCi3BkKQfxxdvgLmeqA,24.727510130685573,2026-11-19T15:09:19.583013+00:00
 38,437,162.28385107918047,1.0,vlm,0,backrest,1,park,park path and playground structure,,backrest_no_rear_best_front,3611386202406412034,162.28385107918047,2026-11-16 08:04:04.705535
 39,427,167.3,1.0,water_edge,0,backrest,1,water,canal or river,,backrest_rear_view,P_2ZmxRwrZPC9SBivA9KDQ,286.8693785142043,2026-11-16 08:04:04.705883
 40,425,52.768726081315954,0.9999999999999998,vlm,0,backrest,1,park,a grassy park area,,backrest_no_rear_best_front,394OGHZ7SiKR9ZbcDTAxOw,52.768726081315954,2026-11-16 08:04:04.706232
@@ -56,7 +56,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 55,588,25.719203884327843,1.0,vlm,0,backrest,1,busy_street,a busy intersection with traffic,,backrest_rear_view,x1TGFtgbN2zCRoySq80f0w,25.719203884327843,2026-11-16 08:04:04.720129
 56,573,13.028681901728076,1.0,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,3611386201807053482,13.028681901728076,2026-11-16 08:04:04.720870
 57,559,5.701420617915915,1.0,vlm,0,backrest,1,other,parking lot and building,,backrest_no_rear_best_front,RHzkS5PshOgg60YLh4xtkw,5.701420617915915,2026-11-16 08:04:04.721365
-58,594,,,,0,,,,,,,,,2026-11-16 08:04:04.721830
+58,594,62.77497145167706,1.0,vlm,1,backless,0,busy_street,a street corner,,best_front_view,TMX7316010203-001709_pano_0000_000124,,2026-11-19 18:40:36.859875
 59,599,18.1,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,EFOWv77Gh6VPjuXX8yk7UQ,171.54451543877946,2026-11-16 08:04:04.722248
 60,633,157.89427969696567,1.0,vlm,1,picnic,0,courtyard,a small courtyard or garden area,,best_front_view,sUbT_rd1FLAUqnnh5b2GGg,,2026-11-16 08:04:04.722741
 61,603,334.4,1.0,water_edge,0,backrest,1,residential_street,residential street area,,backrest_no_rear_best_front,hgt5FbSfnQstDWShzK3k1A,304.5543557969182,2026-11-16 08:04:04.723166
@@ -64,7 +64,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 63,606,15.855065180353563,1.0,vlm,0,backrest,1,square,a paved square or plaza,,backrest_no_rear_best_front,w9qeLbuW4KDWr6mLOC-Q1w,15.855065180353563,2026-11-16 08:04:04.724608
 64,640,68.7,1.0,water_edge,0,backrest,1,water,canal or lake,,backrest_rear_view,17994821125096526079,13.056401868879107,2026-11-16 08:04:04.726444
 65,643,258.9,1.0,water_edge,1,backless,0,water,canal,,best_quality_fallback,ccM8xyGotZFgRxFau3dp0w,,2026-11-16 08:04:04.727148
-66,705,,,,0,,,,,,,,,2026-11-16 08:04:04.727649
+66,705,,,,0,,,,,,,,,2026-11-19 18:40:36.860248
 67,638,78.5,0.9999999999999999,water_edge,0,backrest,1,water,canal or river,,backrest_rear_view,rNLWFebib0QFA0evhexGHw,27.59028984867803,2026-11-16 08:04:04.728099
 68,661,259.3,1.0,water_edge,0,backrest,1,water,canal with boats,,backrest_no_rear_best_front,lUwMCindMYuMNMPDXggiQA,349.09250845231793,2026-11-16 08:04:04.728635
 69,709,175.2,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,QT-mrTLJ_WFHFgZeAHsJzw,197.96816059282162,2026-11-16 08:04:04.729270
@@ -98,13 +98,13 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 97,1056,39.3,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,zyvxWXwGvAoT1LzTHLmFkw,297.89695185704215,2026-11-16 08:04:04.754754
 98,1060,5.8,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,qJuWuHmlr8QhSlxViQOrcA,198.48580492158166,2026-11-16 08:04:04.755136
 99,1088,174.0,1.0,water_edge,0,backrest,1,water,canal with boat sheds,,backrest_no_rear_best_front,DrWt4amb-P0ldwXbhCKWGw,3.2404224039207743,2026-11-16 08:04:04.755502
-100,1062,198.2,1.0,vlm,0,backrest,1,street,sidewalk and street traffic,,backrest_no_rear_best_front,uMMbADuRL7YAJPkb4BQQgw,198.19340842117754,2026-11-19T12:45:26.741172+00:00
+100,1062,185.8,0.6,water_back,0,backrest,1,street,sidewalk and street traffic,,backrest_no_rear_best_front,uMMbADuRL7YAJPkb4BQQgw,198.19340842117754,2026-11-19T15:09:19.583013+00:00
 101,1076,195.41505787432033,1.0,vlm,0,backrest,1,park,wooded park area,,backrest_no_rear_best_front,3611386204997219654,195.41505787432033,2026-11-16 08:04:04.757659
 102,1070,7.1,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,RLZCWfN5herU0NgapGfByQ,91.02397310613384,2026-11-16 08:04:04.758090
 103,1083,90.37992310909078,1.0,vlm,1,backless,0,park,park area with playground,,best_front_view,PQbgkDNq3TzqRHPZFE_c8Q,,2026-11-16 08:04:04.758598
 104,1086,14.7,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,Qiqsr500soCAirHat-iXqg,68.05414589743526,2026-11-16 08:04:04.759000
 105,1079,326.56216283761796,1.0,vlm,0,backrest,1,park,park path,,backrest_rear_view,17042754035993065511,326.56216283761796,2026-11-16 08:04:04.759397
-106,1112,110.9,1.0,vlm,0,backrest,1,street,sidewalk and bike lane,,backrest_no_rear_best_front,JeTELghmOtBmwCut5AOfFg,110.86545824432199,2026-11-19T12:45:26.741172+00:00
+106,1112,66.4,0.6,water_back,0,backrest,1,street,sidewalk and bike lane,,backrest_no_rear_best_front,JeTELghmOtBmwCut5AOfFg,110.86545824432199,2026-11-19T15:09:19.583013+00:00
 107,1121,49.75636348668479,1.0,vlm,1,backless,0,other,a brick wall with graffiti,,best_front_view,17994821125009704004,,2026-11-16 08:04:04.760129
 108,1123,169.88294202520638,1.0,vlm,0,backrest,1,residential_street,a quiet residential street,,backrest_no_rear_best_front,Pwf6PK-tBc6uUo37L6jhyg,169.88294202520638,2026-11-16 08:04:04.760525
 109,1154,174.7,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,U-If_FGa1kPeWLeCVKMUiw,220.18386687526333,2026-11-16 08:04:04.761092
@@ -173,14 +173,14 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 172,1617,301.6244713787597,1.0,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,RxhabeCqyemZyzh84Vp7SA,301.6244713787597,2026-11-16 08:04:04.812557
 173,1633,29.410593913168608,1.0,vlm,0,backrest,1,park,a park or wooded area,,backrest_rear_view,9207999213964787180,29.410593913168608,2026-11-16 08:04:04.813049
 174,1632,154.88465074345515,1.0,vlm,0,backrest,1,park,a park area with trees and a canal,,backrest_no_rear_best_front,Sd41eP0wafmWPwjbrKWZfQ,154.88465074345515,2026-11-16 08:04:04.813521
-175,1634,,,,0,,,,,,,,,2026-11-16 08:04:04.814369
+175,1634,,,,0,,,,,,,,,2026-11-19 18:40:36.860643
 176,1639,103.93893608621403,1.0,vlm,0,backrest,1,other,a large building and a fenced area,,backrest_no_rear_best_front,6mlGFJpjCUx-ctF-5C1n4w,103.93893608621403,2026-11-16 08:04:04.814932
 177,1635,35.899243005625415,1.0,vlm,0,backrest,1,park,a park or garden area,,backrest_no_rear_best_front,FlsEJrbA-bD7MV5K_xWsfg,35.899243005625415,2026-11-16 08:04:04.815614
 178,1647,68.7255978068182,0.9999999999999999,vlm,0,backrest,1,park,a park path and trees,,backrest_rear_view,3611386202396084046,68.7255978068182,2026-11-16 08:04:04.815997
 179,1649,154.2540531776167,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_no_rear_best_front,3611386202326218641,154.2540531776167,2026-11-16 08:04:04.816397
 180,1659,199.80030390541413,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_rear_view,3611386202320829654,199.80030390541413,2026-11-16 08:04:04.820163
 181,1660,125.82708523452625,1.0,vlm,0,backrest,1,park,park lawn and trees,,backrest_rear_view,3611386202326114642,125.82708523452625,2026-11-16 08:04:04.820766
-182,1663,,,,0,,,,,,,,,2026-11-16 08:04:04.821230
+182,1663,,,,0,,,,,,,,,2026-11-19 18:40:36.861023
 183,1691,74.1453270297929,1.0,vlm,0,backrest,1,park,park lawn and trees,,backrest_no_rear_best_front,Zn6FZYbEeh7fjPWrMZvq6A,74.1453270297929,2026-11-16 08:04:04.821728
 184,1675,242.1303899468343,1.0,vlm,0,backrest,1,park,a small park or green space,,backrest_no_rear_best_front,tXyfpqGLr1P65XR9EM71pQ,242.1303899468343,2026-11-16 08:04:04.822241
 185,1703,341.6,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,sitWhnvvL8mycjbRIQXLAg,83.53687576790156,2026-11-16 08:04:04.824026
@@ -210,7 +210,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 209,1853,18.347139861205335,1.0,vlm,0,backrest,1,park,trees and greenery,,backrest_no_rear_best_front,JE5cQNP5XX78kH6F7n9eAw,18.347139861205335,2026-11-16 08:04:04.847406
 210,1854,266.0,0.9999999999999998,water_edge,0,backrest,1,water,a canal or waterway,,backrest_no_rear_best_front,7297218437494291905,352.5766338647338,2026-11-16 08:04:04.847945
 211,1873,80.2,1.0,water_edge,0,backrest,1,park,a park path and greenery,,backrest_no_rear_best_front,3611386205417573956,110.43383032991363,2026-11-16 08:04:04.848897
-212,1883,137.0,1.0,osm_tag,0,,,,,,,,137.0,2026-11-16 08:04:04.849301
+212,1883,137.0,1.0,osm_tag,0,,,,,,,,137.0,2026-11-19 18:40:36.861366
 213,1885,225.0,1.0,osm_tag,0,backrest,1,park,a park path,,backrest_no_rear_best_front,chItcayQcrQAH4gWBe2lZQ,225.0,2026-11-16 08:04:04.849717
 214,1886,212.0,1.0,osm_tag,0,backrest,1,park,a large open park area,,backrest_rear_view,3611386201800466778,212.0,2026-11-16 08:04:04.850158
 215,1906,351.3,1.0,water_edge,0,backrest,1,park,wooded park area,,backrest_no_rear_best_front,16225678357475746566,339.69300811177084,2026-11-16 08:04:04.850668
@@ -223,7 +223,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 222,2056,71.50324286640611,1.0,vlm,0,backrest,1,park,trees and open space,,backrest_no_rear_best_front,DsOAIQkpeEEFIry4C0lC4A,71.50324286640611,2026-11-16 08:04:04.856463
 223,2059,98.92122630969638,1.0,vlm,0,backrest,1,park,a park path and trees,,backrest_no_rear_best_front,nnMJece3PYlsbKgcXlnC4Q,98.92122630969638,2026-11-16 08:04:04.856870
 224,2078,233.6,1.0,water_edge,0,backrest,1,park,trees and greenery,,backrest_no_rear_best_front,BzjJoYAcLYAB2DnHNbfP2Q,170.31919202726834,2026-11-16 08:04:04.857298
-225,2084,,,,0,,,,,,,,,2026-11-16 08:04:04.857717
+225,2084,,,,0,,,,,,,,,2026-11-19 18:40:36.861644
 226,2096,349.4,1.0,water_edge,1,other,0,residential_street,residential street,,best_front_view,khjjVvluEqUi2gGkn7br9w,,2026-11-16 08:04:04.858282
 227,2098,275.8,1.0,water_edge,1,backless,0,water,canal,,best_front_view,M2X6yasqd9XFIPwz1OIXyw,,2026-11-16 08:04:04.860310
 228,2100,296.4,1.0,water_edge,0,backrest,1,park,a path and trees,,backrest_no_rear_best_front,9207999213965337188,277.79212427960414,2026-11-16 08:04:04.861254
@@ -256,8 +256,8 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 255,2330,120.03026579787924,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,3611386201788058414,120.03026579787924,2026-11-16 08:04:04.875343
 256,2334,290.4939623899029,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_no_rear_best_front,16225678357403296550,290.4939623899029,2026-11-16 08:04:04.875712
 257,2355,186.61271460981658,1.0,vlm,0,backrest,1,playground,playground and sports area,,backrest_no_rear_best_front,zWz7Wgmh8V_WseXhsBc1EA,186.61271460981658,2026-11-16 08:04:04.876100
-258,2378,59.8,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
-259,2335,,,,0,,,,,,,,,2026-11-16 08:04:04.877247
+258,2378,,,,0,,,,,,,,,2026-11-19 18:40:36.861900
+259,2335,,,,0,,,,,,,,,2026-11-19 18:40:36.862136
 260,2357,155.18178261121716,1.0,vlm,0,backrest,1,playground,sports court and playground area,,backrest_no_rear_best_front,3jcn5asYmdh3YgpWTKeebw,155.18178261121716,2026-11-16 08:04:04.878185
 261,2381,76.20019912332555,0.9999999999999999,vlm,0,backrest,1,playground,playground equipment,,backrest_no_rear_best_front,3611386202408846032,76.20019912332555,2026-11-16 08:04:04.878595
 262,2382,58.957378360507285,1.0,vlm,0,backrest,1,park,a small park or garden area,,backrest_no_rear_best_front,3611386202408802032,58.957378360507285,2026-11-16 08:04:04.878986
@@ -355,9 +355,9 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 354,3097,62.137167059197154,1.0,vlm,1,backless,0,park,garden area with trees,,best_front_view,13497312926761809329,,2026-11-16 08:04:04.958708
 355,3111,34.08770473732011,1.0,vlm,0,backrest,1,playground,a fenced sports court,,backrest_rear_view,3611386204741734225,34.08770473732011,2026-11-16 08:04:04.959042
 356,3129,178.1,1.0,water_edge,0,backrest,1,water,canal and apartment buildings,,backrest_rear_view,3611386205252851160,209.6702995718832,2026-11-16 08:04:04.959389
-357,3171,314.4,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+357,3171,,,,0,,,,,,,,,2026-11-19 18:40:36.862376
 358,3160,15.0,1.0,osm_tag,0,backrest,1,park,grassy area with trees and apartment building,,backrest_rear_view,wKaitK7__SRcCpw4XqJ8Lg,15.0,2026-11-16 08:04:04.960027
-359,3170,105.4,1.0,vlm,0,backrest,1,street,building passage walkway,,backrest_rear_view,10584715316505576765,105.35432859356291,2026-11-19T12:45:26.741172+00:00
+359,3170,134.4,0.6,water_back,0,backrest,1,street,building passage walkway,,backrest_rear_view,10584715316505576765,105.35432859356291,2026-11-19T15:09:19.583013+00:00
 360,3184,299.3,1.0,water_edge,1,backless,0,water,a canal,,best_front_view,rvbL3tAMVYh2mFwdmgA6YQ,,2026-11-16 08:04:04.960676
 361,3151,69.48265253589311,1.0,vlm,0,backrest,1,park,a park or garden area with trees and bushes,,backrest_no_rear_best_front,3611386205246481752,69.48265253589311,2026-11-16 08:04:04.960992
 362,3201,132.39954607620396,1.0,vlm,0,backrest,1,park,park and trees,,backrest_no_rear_best_front,3611386205251436722,132.39954607620396,2026-11-16 08:04:04.961308
@@ -385,7 +385,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 384,3374,168.17340732762358,1.0,vlm,0,backrest,1,other,building entrance and walkway,,backrest_no_rear_best_front,vPwmMyis9VLkyi-anvce3A,168.17340732762358,2026-11-16 08:04:04.978224
 385,3385,178.54438460315464,1.0,vlm,0,backrest,1,park,a park or green space,,backrest_no_rear_best_front,4337796147586554957,178.54438460315464,2026-11-16 08:04:04.978850
 386,3400,17.792748173390923,1.0,vlm,1,backless,0,other,parking lot and trees,,best_front_view,TsRdGJ5ZSTlys-QViYBiJg,,2026-11-16 08:04:04.979313
-387,3418,18.9,1.0,vlm,0,backrest,1,park,gravel path and greenery,,backrest_no_rear_best_front,7tmXbsc61SKJtFOtLQJIsQ,18.86147355496149,2026-11-19T12:45:26.741172+00:00
+387,3418,359.6,0.6,water_back,0,backrest,1,park,gravel path and greenery,,backrest_no_rear_best_front,7tmXbsc61SKJtFOtLQJIsQ,18.86147355496149,2026-11-19T15:09:19.583013+00:00
 388,3402,283.79358591351235,1.0,vlm,0,backrest,1,square,a paved plaza area in front of a building,,backrest_no_rear_best_front,GT0ajVNBPV5cM2E4YbxEZg,283.79358591351235,2026-11-16 08:04:04.981008
 389,3409,56.501987873011764,1.0,vlm,1,backless,0,square,a paved plaza area near a large building,,best_front_view,eNYPDfxRbc0SLfOgqAkGbA,,2026-11-16 08:04:04.981881
 390,3421,128.64164636156698,1.0,vlm,1,backless,0,square,a paved plaza area,,best_front_view,WkrvI1nKPPhirxLQO9VM1g,,2026-11-16 08:04:04.982468
@@ -404,7 +404,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 403,3523,344.16820814001585,0.3265391255321111,vlm,0,backrest,1,residential_street,residential street and trees,,backrest_no_rear_best_front,mxSl2Dd01zHbCxnqZ0r4dg,344.16820814001585,2026-11-16 08:04:04.988276
 404,3528,137.92752421588665,0.9285636164322834,vlm,0,backrest,1,park,a park or green space,,backrest_no_rear_best_front,lN9Phy2d-MC9-Vkc1oqAHg,137.92752421588665,2026-11-16 08:04:04.988715
 405,3538,75.1,1.0,water_edge,1,backless,0,park,reeds and open field,,best_front_view,wwMfporT6Mn2oTQfhMRFkQ,,2026-11-16 08:04:04.989070
-406,3550,,,,0,,,,,,,,,2026-11-16 08:04:04.989457
+406,3550,,,,0,,,,,,,,,2026-11-19 18:40:36.863747
 407,3551,166.4,1.0,water_edge,1,backless,0,water,waterfront,,best_front_view,XrIzWe-XcliAgny97iDRug,,2026-11-16 08:04:04.989832
 408,3563,120.97131193109881,1.0,vlm,0,backrest,1,park,a wooded path,,backrest_no_rear_best_front,4980159374006958615,120.97131193109881,2026-11-16 08:04:04.990215
 409,3593,101.94042628877548,1.0,vlm,0,backrest,1,residential_street,residential street and apartment building,,backrest_no_rear_best_front,h4HELltH7yPHJd8dHSKtjQ,101.94042628877548,2026-11-16 08:04:04.991068
@@ -423,14 +423,14 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 422,3652,122.75303283657752,0.4644131689435923,vlm,1,backless,0,residential_street,residential houses,,best_front_view,b2S5PYCwJArG7QLetnvoNw,,2026-11-16 08:04:04.998667
 423,3662,158.3,0.9745618507856341,water_edge,0,backrest,1,water,canal and houseboats,,backrest_rear_view,EXea7AL442ySvlxOeERfEg,197.03158077719866,2026-11-16 08:04:04.999758
 424,3659,179.6,1.0,water_edge,1,backless,0,water,a canal or pond,,best_quality_fallback,3611386202485093660,,2026-11-16 08:04:05.003101
-425,3671,336.8,1.0,vlm,0,backrest,1,square,paved quayside plaza,,backrest_rear_view,7IFBvAD6ON93G4rnVm1eVQ,336.78567609884465,2026-11-19T12:45:26.741172+00:00
+425,3671,319.1,0.6,water_back,0,backrest,1,square,paved quayside plaza,,backrest_rear_view,7IFBvAD6ON93G4rnVm1eVQ,336.78567609884465,2026-11-19T15:09:19.583013+00:00
 426,3674,88.4654055483109,0.3372765679697072,vlm,1,backless,0,busy_street,a HEMA store front,,best_front_view,ha45tX1tapqQhBbqIcDbKw,,2026-11-16 08:04:05.004574
 427,3675,75.04494846183462,0.4239787092784323,vlm,1,backless,0,square,a large public square,,best_front_view,Av_ckFxoxgxz1vBDU34Aug,,2026-11-16 08:04:05.007041
 428,3647,333.9271512061018,1.0,vlm,0,backrest,1,park,a grassy park area,,backrest_rear_view,3611386202400844042,333.9271512061018,2026-11-16 08:04:05.007924
 429,3646,236.8,0.9918036675537439,water_edge,0,backrest,1,water,a pond with reeds and a large building in the background,,backrest_rear_view,4980159373754491041,177.21297682205375,2026-11-16 08:04:05.009103
 430,3698,75.24851998735645,1.0,vlm,1,backless,0,other,bicycle parking area,,best_front_view,kwAbajcexIczpEZyy4TLmg,,2026-11-16 08:04:05.009561
 431,3681,188.7175527600657,0.9966880851242234,vlm,0,backrest,1,park,a park garden with a fountain,,backrest_no_rear_best_front,k0Nn4oqB2y1oxC5Kl6k9lA,188.7175527600657,2026-11-16 08:04:05.011353
-432,3760,,,,0,,,,,,,,,2026-11-16 08:04:05.011967
+432,3760,,,,0,,,,,,,,,2026-11-19 18:40:36.864115
 433,3768,108.9,1.0,water_edge,0,backrest,1,park,park area with trees and grass,,backrest_no_rear_best_front,3611386204641547456,99.36236956893333,2026-11-16 08:04:05.012848
 434,182,81.6659478006954,0.2656046813617431,vlm,0,backrest,1,park,a park path and green space,,backrest_rear_view,3611386202394123053,81.6659478006954,2026-11-16 08:04:05.014005
 435,185,81.1,0.1371162946144597,water_edge,0,backrest,1,water,a pond or small lake,,backrest_rear_view,3611386202394158052,47.42977440722415,2026-11-16 08:04:05.014592
@@ -516,7 +516,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 515,684,157.6,0.6188489344781309,water_edge,0,backrest,1,park,a park path and greenery,,backrest_no_rear_best_front,3611386202323981652,103.52094238764458,2026-11-16 08:04:05.106994
 516,687,117.4474601941053,0.3717238660446139,vlm,1,backless,0,playground,playground area,,best_front_view,YXek_rPD-Rbyex1KyiQyKQ,,2026-11-16 08:04:05.107418
 517,690,195.9,0.2667672809096805,water_edge,0,backrest,1,water,canal,,backrest_rear_view,Q56_pf-mA2eqgNdCPTdrNg,162.03746666826282,2026-11-16 08:04:05.107951
-518,707,209.0,0.7912689668325676,vlm,0,backrest,1,square,brick paved plaza,,backrest_no_rear_best_front,qWJ_mhmMACgNzxfuWlU7IQ,209.02966116807391,2026-11-19T12:45:26.741172+00:00
+518,707,209.5,0.6,water_back,0,backrest,1,square,brick paved plaza,,backrest_no_rear_best_front,qWJ_mhmMACgNzxfuWlU7IQ,209.02966116807391,2026-11-19T15:09:19.583013+00:00
 519,702,326.4,0.2186388538373105,water_edge,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,3611386205417633956,288.84346183307264,2026-11-16 08:04:05.108825
 520,712,169.97930676390345,0.1470047126599323,vlm,1,backless,0,playground,playground equipment,,best_front_view,wTi1-ciXKfVkSQtdtLNK5g,,2026-11-16 08:04:05.109276
 521,713,208.2,0.17448374585825044,water_edge,1,backless,0,water,canal,,best_front_view,ZXAxApdHwGQnXUBYRqN3hA,,2026-11-16 08:04:05.110066
@@ -576,7 +576,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 575,1084,290.5,0.5912855826821547,water_edge,0,backrest,1,residential_street,residential street with canal,,backrest_rear_view,3611386202235177340,14.164510222703752,2026-11-16 08:04:05.138179
 576,1091,94.2,0.6979304108826311,water_edge,0,backrest,1,water,canal with boats,,backrest_no_rear_best_front,Poyd6qJGAV3a3edYyax1dg,305.35161755310594,2026-11-16 08:04:05.138551
 577,1124,333.86886937003567,0.3866926813148893,vlm,0,backrest,1,residential_street,a quiet street or walkway,,backrest_no_rear_best_front,664mRH9astfqrmlXyoCzRw,333.86886937003567,2026-11-16 08:04:05.139131
-578,1126,314.3,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+578,1126,,,,0,,,,,,,,,2026-11-19 18:40:36.864407
 579,1127,49.908543937128464,0.515821808498432,vlm,0,backrest,1,park,a small garden or green space,,backrest_no_rear_best_front,0T7Uxsytyna6Tyb5tW6dOw,49.908543937128464,2026-11-16 08:04:05.139900
 580,1130,296.3579236627832,0.9182472643286611,vlm,0,backrest,1,park,a small park or green space,,backrest_rear_view,7_aDjyByW2NiVN_BmEuNOg,296.3579236627832,2026-11-16 08:04:05.140263
 581,1128,120.40481041678582,0.9861686896984765,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,q8rVNerR-DtieaOHokPv-Q,120.40481041678582,2026-11-16 08:04:05.140643
@@ -591,7 +591,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 590,1202,46.95714675327551,0.8368420946236806,vlm,0,backrest,1,playground,basketball court and playground area,,backrest_no_rear_best_front,eIKcRWDLzAVp5VRlV2HmeA,46.95714675327551,2026-11-16 08:04:05.147921
 591,1207,231.74200216383613,0.9803083176584575,vlm,0,backrest,1,park,a small park or garden area,,backrest_no_rear_best_front,ED1t7vOcyVPgp1O95ymvag,231.74200216383613,2026-11-16 08:04:05.148286
 592,1209,124.59538531528399,0.9854797616294931,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,wvTrh6i5s21QcE5z-h8cPA,124.59538531528399,2026-11-16 08:04:05.149370
-593,1220,28.1,0.9972920482411792,vlm,0,backrest,1,square,"brick square, sculpture",,backrest_no_rear_best_front,8053475820970917102,28.093391697138387,2026-11-19T12:45:26.741172+00:00
+593,1220,25.6,0.6,water_back,0,backrest,1,square,"brick square, sculpture",,backrest_no_rear_best_front,8053475820970917102,28.093391697138387,2026-11-19T15:09:19.583013+00:00
 594,1228,132.79182255217066,0.8515440023782841,vlm,0,backrest,1,park,a park path and trees,,backrest_no_rear_best_front,7NyUbOgGFZkdg2cZ1UPuVQ,132.79182255217066,2026-11-16 08:04:05.150142
 595,1229,209.83461377534925,0.9569328691862786,vlm,0,backrest,1,water,a canal,,backrest_no_rear_best_front,U5-skfyr-PZ3IGpdwnaN5w,209.83461377534925,2026-11-16 08:04:05.150552
 596,1230,72.10722860067244,0.9798962284705834,vlm,0,backrest,1,residential_street,a residential street,,backrest_no_rear_best_front,wGfxP71e5TGP3KEny5hgSg,72.10722860067244,2026-11-16 08:04:05.152535
@@ -618,7 +618,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 617,1322,29.7,0.9560261510325971,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,16494226483118076694,125.57466452424454,2026-11-16 08:04:05.169058
 618,1323,29.7,0.39196086328305324,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,16494226483118085694,303.2272114076633,2026-11-16 08:04:05.169517
 619,1324,55.24722195134755,0.7477465860797787,vlm,0,backrest,1,other,stone wall,,backrest_no_rear_best_front,16494226483114383056,55.24722195134755,2026-11-16 08:04:05.169937
-620,1325,253.5,0.98763319144274,vlm,0,backrest,1,other,paved canal-side promenade,,backrest_no_rear_best_front,16494226483114286057,253.5321143237371,2026-11-19T12:45:26.741172+00:00
+620,1325,209.6,0.6,water_back,0,backrest,1,other,paved canal-side promenade,,backrest_no_rear_best_front,16494226483114286057,253.5321143237371,2026-11-19T15:09:19.583013+00:00
 621,1327,29.7,0.9931354780930677,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,16494226483114317057,99.07041920232803,2026-11-16 08:04:05.170803
 622,1334,299.3,0.3772456494856113,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,ymegYZcbVsjhrERHCfsB7w,6.866558428844554,2026-11-16 08:04:05.171180
 623,1328,343.3,0.11561251315451569,water_edge,0,backrest,1,water,a river or stream,,backrest_rear_view,3611386201966798436,162.03885610125946,2026-11-16 08:04:05.171574
@@ -650,15 +650,15 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 649,1461,134.5,0.14011434427360242,water_edge,0,backrest,1,water,canal and bridge,,backrest_rear_view,cmYrnPXkOykv_9d6XNRxkg,26.836402880847025,2026-11-16 08:04:05.192614
 650,1463,45.4,0.9965493804718596,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,Y0KsAZ1z-C_F0uHSHlh6JA,350.26114956320976,2026-11-16 08:04:05.192995
 651,1468,198.15586739992006,0.7273964542909408,vlm,0,backrest,1,park,a grassy park area with trees,,backrest_rear_view,3611386205252734161,198.15586739992006,2026-11-16 08:04:05.193440
-652,1477,114.7,1.0,vlm,0,backrest,1,square,"paved square, waste bins",,backrest_no_rear_best_front,MCtWsnAhE-ah0mVgocFeiw,114.73336231830638,2026-11-19T12:45:26.741172+00:00
+652,1477,134.6,0.6,water_back,0,backrest,1,square,"paved square, waste bins",,backrest_no_rear_best_front,MCtWsnAhE-ah0mVgocFeiw,114.73336231830638,2026-11-19T15:09:19.583013+00:00
 653,1488,137.63004651872558,0.1181855184529044,vlm,1,backless,0,square,a public square,,best_front_view,10584715316499032623,,2026-11-16 08:04:05.194223
 654,1489,30.962931566726194,0.9331028913575696,vlm,1,backless,0,square,a paved square with trees and buildings,,best_front_view,zl2M1QVPO3JHHUxpbW-dEQ,,2026-11-16 08:04:05.198387
 655,1490,173.5,0.8680465580894783,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,EcopW2TEvvN4iuojCUc3iQ,179.20129274526735,2026-11-16 08:04:05.198885
-656,1494,160.2,0.9241328001681302,vlm,0,backrest,1,street,paved canal-side promenade,,backrest_no_rear_best_front,10584715315645595332,160.24569001659398,2026-11-19T12:45:26.741172+00:00
+656,1494,162.2,0.6,water_back,0,backrest,1,street,paved canal-side promenade,,backrest_no_rear_best_front,10584715315645595332,160.24569001659398,2026-11-19T15:09:19.583013+00:00
 657,1503,200.03868369357778,0.7710274673237132,vlm,0,backrest,1,playground,playground climbing frame,,backrest_no_rear_best_front,CCxTFmJTCbBTjkC1ULxn6w,200.03868369357778,2026-11-16 08:04:05.199739
 658,1505,223.75958106027005,0.79143339343593,vlm,0,backrest,1,park,a small park or courtyard area with a pyramid structure,,backrest_rear_view,-3QwiPFRPxXjlDL1QH2Vrw,223.75958106027005,2026-11-16 08:04:05.200128
 659,1508,158.64874762019596,0.9884846803684824,vlm,1,backless,0,square,a paved public square,,best_front_view,SXICOpK1irDdbS8IhOewew,,2026-11-16 08:04:05.200743
-660,1509,169.5,0.9552000448491565,vlm,0,backrest,1,square,"cafe terrace, bikes",,backrest_no_rear_best_front,8VQMHT6eA_lckgWub4q8CA,169.50674226005444,2026-11-19T12:45:26.741172+00:00
+660,1509,136.9,0.6,water_back,0,backrest,1,square,"cafe terrace, bikes",,backrest_no_rear_best_front,8VQMHT6eA_lckgWub4q8CA,169.50674226005444,2026-11-19T15:09:19.583013+00:00
 661,1516,174.5,0.9508250239494264,water_edge,0,backrest,1,park,park lawn and trees,,backrest_no_rear_best_front,3611386204994266649,196.73394273778422,2026-11-16 08:04:05.204869
 662,1517,179.5,0.3806562610405428,water_edge,0,backrest,1,park,a park lawn and trees,,backrest_rear_view,3611386204994170650,253.71941239830537,2026-11-16 08:04:05.205382
 663,1518,58.68665670460013,0.887981296819192,vlm,0,backrest,1,park,park and path,,backrest_rear_view,3611386205252789160,58.68665670460013,2026-11-16 08:04:05.207261
@@ -685,11 +685,11 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 684,1646,97.82713360801003,0.4152255427234623,vlm,0,backrest,1,park,a park with trees and a pond,,backrest_rear_view,3611386205417353957,97.82713360801003,2026-11-16 08:04:05.215573
 685,1636,298.72402961631207,0.9836026114901705,vlm,0,backrest,1,courtyard,a courtyard or residential building grounds,,backrest_no_rear_best_front,aEsD1XO63QcXI20IINP94w,298.72402961631207,2026-11-16 08:04:05.215929
 686,1631,243.16048825161437,0.5153225981504215,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,Sd41eP0wafmWPwjbrKWZfQ,243.16048825161437,2026-11-16 08:04:05.216362
-687,1652,300.4,0.46318026419952474,vlm,0,backrest,1,street,cycle path,,backrest_rear_view,sX4-r035YVNnTY9kyjQswA,300.4252111066981,2026-11-19T12:45:26.741172+00:00
+687,1652,261.7,0.6,water_back,0,backrest,1,street,cycle path,,backrest_rear_view,sX4-r035YVNnTY9kyjQswA,300.4252111066981,2026-11-19T15:09:19.583013+00:00
 688,1650,334.9686363060527,0.5539185447398691,vlm,0,backrest,1,park,grassy park area,,backrest_rear_view,3611386202412688031,334.9686363060527,2026-11-16 08:04:05.217071
 689,1656,291.8150161629338,1.0,vlm,0,backrest,1,park,grassy park area,,backrest_no_rear_best_front,4980159372963602257,291.8150161629338,2026-11-16 08:04:05.217414
 690,1661,345.5,0.5242295291067657,water_edge,0,backrest,1,park,park path and trees,,backrest_rear_view,3611386202395861047,341.648256220916,2026-11-16 08:04:05.218535
-691,1667,327.9,0.9180314069941234,vlm,0,backrest,1,street,sidewalk and street,,backrest_no_rear_best_front,RfbeDxx0oSYtrDXnYfN7CA,327.92141312258565,2026-11-19T12:45:26.741172+00:00
+691,1667,340.5,0.6,water_back,0,backrest,1,street,sidewalk and street,,backrest_no_rear_best_front,RfbeDxx0oSYtrDXnYfN7CA,327.92141312258565,2026-11-19T15:09:19.583013+00:00
 692,1662,149.98736609687228,0.33840124865413257,vlm,0,backrest,1,park,park path and trees,,backrest_rear_view,3611386202323828653,149.98736609687228,2026-11-16 08:04:05.219503
 693,1671,234.0,0.2879994371225013,water_edge,0,backrest,1,other,city skyline and open area,,backrest_rear_view,X1kD-L-_H1iSeUNWzqM_Pg,333.3601482004113,2026-11-16 08:04:05.219920
 694,1672,187.1,0.9765571514838592,water_edge,0,backrest,1,other,open grassy area,,backrest_rear_view,Y_jVkxAgyMJ6ETs4aDlZxg,189.9942631766899,2026-11-16 08:04:05.220302
@@ -724,7 +724,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 723,1777,61.6,0.9622997726225301,water_edge,0,backrest,1,water,a small pond or canal,,backrest_rear_view,12865378408714044603,48.72393842544062,2026-11-16 08:04:05.292556
 724,1787,313.5,0.12450891881475339,water_edge,0,backrest,1,water,canal and buildings,,backrest_rear_view,iZdmcZOCSlgLarWJWLhgwA,6.0253595190460185,2026-11-16 08:04:05.292970
 725,1811,309.7952794541746,0.6473706422640573,vlm,0,backrest,1,park,trees and greenery,,backrest_rear_view,3611386201791203408,309.7952794541746,2026-11-16 08:04:05.293812
-726,1793,181.5,0.6230544990247793,vlm,0,backrest,1,other,"paved walkway, buildings",,backrest_rear_view,fZ1bKBott3VnbfmRHgio5Q,181.48980031927866,2026-11-19T12:45:26.741172+00:00
+726,1793,180.5,0.6,water_back,0,backrest,1,other,"paved walkway, buildings",,backrest_rear_view,fZ1bKBott3VnbfmRHgio5Q,181.48980031927866,2026-11-19T15:09:19.583013+00:00
 727,1816,355.68221969469835,0.08880153493607065,vlm,0,backrest,1,park,a park path,,backrest_rear_view,3611386201791198408,355.68221969469835,2026-11-16 08:04:05.294643
 728,1814,273.381728255518,0.4200497036540061,vlm,0,backrest,1,other,dense bushes and trees,,backrest_no_rear_best_front,W7kRT0kfoajR4N-ipz9ulQ,273.381728255518,2026-11-16 08:04:05.295045
 729,1829,359.0,0.3287002564703821,water_edge,1,backless,0,water,harbour with boats,,best_quality_fallback,10949901580145179175,,2026-11-16 08:04:05.295441
@@ -750,7 +750,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 749,1907,83.4,0.4661872064883921,water_edge,0,backrest,1,park,park with trees and lawn,,backrest_rear_view,16225678357475527566,158.40451116905928,2026-11-16 08:04:05.310861
 750,1910,269.60681387556383,0.9742550520904927,vlm,0,backrest,1,park,park area with trees and a fence,,backrest_rear_view,16225678357475459562,269.60681387556383,2026-11-16 08:04:05.311609
 751,1908,350.1940080549329,0.9651208104956763,vlm,0,backrest,1,park,park area with trees and a fence,,backrest_rear_view,16225678357475531569,350.1940080549329,2026-11-16 08:04:05.312324
-752,1909,337.3,0.8735674127888339,vlm,0,backrest,1,park,gravel park path,,backrest_rear_view,16225678357403475551,337.29465245389554,2026-11-19T12:45:26.741172+00:00
+752,1909,293.2,0.6,water_back,0,backrest,1,park,gravel park path,,backrest_rear_view,16225678357403475551,337.29465245389554,2026-11-19T15:09:19.583013+00:00
 753,1911,228.4368713436457,0.26732374599354153,vlm,0,backrest,1,park,park with trees,,backrest_rear_view,16225678357475475561,228.4368713436457,2026-11-16 08:04:05.313203
 754,1919,148.41410049405607,0.9804656710373861,vlm,0,backrest,1,playground,fenced sports or play area,,backrest_no_rear_best_front,oZh8w7gFNmlI92UFVs4IPg,148.41410049405607,2026-11-16 08:04:05.313730
 755,1929,353.0,0.9815031944464678,water_edge,0,backrest,1,park,park area with trees and greenery,,backrest_rear_view,3611386201881818634,261.51411316488196,2026-11-16 08:04:05.314238
@@ -760,7 +760,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 759,1989,94.24020127650823,0.2698243088119124,vlm,0,backrest,1,residential_street,a quiet residential street,,backrest_no_rear_best_front,Lx3GK0UbtIZhaaPdw1DC4w,94.24020127650823,2026-11-16 08:04:05.316158
 760,1992,274.8,0.7666277307247698,water_edge,0,backrest,1,other,a tree and a fence,,backrest_no_rear_best_front,h5D7rlhBP6U3vc_GlX2oRQ,226.111270074371,2026-11-16 08:04:05.316672
 761,1994,274.5,0.8785663304950465,water_edge,0,backrest,1,park,a park or green area,,backrest_no_rear_best_front,foSL4ibb8Cau2AQBrM-NyQ,277.5909006027325,2026-11-16 08:04:05.317418
-762,2007,37.5,0.6259994242317661,vlm,0,backrest,1,street,cycle path,,backrest_rear_view,WdBjr48gIkQvu9fnoUf4pw,37.47355098818595,2026-11-19T12:45:26.741172+00:00
+762,2007,36.5,0.6,water_back,0,backrest,1,street,cycle path,,backrest_rear_view,WdBjr48gIkQvu9fnoUf4pw,37.47355098818595,2026-11-19T15:09:19.583013+00:00
 763,2011,61.996207481045296,0.46357706842671453,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,uRyFXKc3nHccpuFO47WavA,61.996207481045296,2026-11-16 08:04:05.318347
 764,2018,154.96711591338936,0.9976905013466952,vlm,0,backrest,1,other,paved area and street,,backrest_no_rear_best_front,W4KNFkN8SqCLDhr5QekA6g,154.96711591338936,2026-11-16 08:04:05.318857
 765,2019,74.6,0.9956423831416096,water_edge,0,backrest,1,water,a small canal or waterway,,backrest_no_rear_best_front,UtgUOmv7SDxejSgcU2Svog,230.18551106374764,2026-11-16 08:04:05.319363
@@ -779,7 +779,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 778,2101,358.2,0.8399917820049917,water_edge,0,backrest,1,water,a pond or small canal,,backrest_no_rear_best_front,Mc1viXGKik-4eoiuo5qL1Q,264.3678821933393,2026-11-16 08:04:05.332032
 779,2104,343.4,0.14792741424626507,water_edge,0,backrest,1,water,a small pond or canal,,backrest_rear_view,12865378408723667018,230.26574102188684,2026-11-16 08:04:05.332753
 780,2105,308.5991108490468,0.8301017447581113,vlm,0,backrest,1,park,a grassy park area with a small stream,,backrest_no_rear_best_front,12865378408723973022,308.5991108490468,2026-11-16 08:04:05.333211
-781,2107,31.9,0.7242654436194436,vlm,0,backrest,1,street,sidewalk and road,,backrest_no_rear_best_front,naG8h8cWeBrkUTsiK5Tnew,31.927063574154424,2026-11-19T12:45:26.741172+00:00
+781,2107,347.9,0.6,water_back,0,backrest,1,street,sidewalk and road,,backrest_no_rear_best_front,naG8h8cWeBrkUTsiK5Tnew,31.927063574154424,2026-11-19T15:09:19.583013+00:00
 782,2109,257.0,0.9322656841040399,water_edge,1,backless,0,water,a canal or pond,,best_front_view,E4S-BSZsIsU6_M5aH4c4sQ,,2026-11-16 08:04:05.333997
 783,2118,298.5,0.9151636226014843,water_edge,1,backless,0,water,canal,,best_front_view,920319394908246640,,2026-11-16 08:04:05.334468
 784,2120,236.8,0.9176004574338514,water_edge,1,backless,0,water,river or canal,,best_front_view,XDLeQwF9ABaRzJxEfs-T_Q,,2026-11-16 08:04:05.335284
@@ -838,7 +838,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 837,2315,184.9,0.771373281658863,water_edge,0,backrest,1,water,a canal or pond,,backrest_rear_view,16225678357402492543,223.61436995109173,2026-11-16 08:04:05.430502
 838,2316,8.230033413193125,0.963435518817628,vlm,0,backrest,1,other,a paved area and a wooden fence,,backrest_no_rear_best_front,16225678357403069553,8.230033413193125,2026-11-16 08:04:05.431241
 839,2318,142.2,0.36133837397276974,water_edge,0,backrest,1,park,park path and trees,,backrest_no_rear_best_front,16225678357474128556,99.16150848027782,2026-11-16 08:04:05.432022
-840,2317,104.7,0.20670258346434212,vlm,0,backrest,1,park,path and millstone tables,,backrest_rear_view,16225678357474818557,104.65860483630271,2026-11-19T12:45:26.741172+00:00
+840,2317,140.9,0.6,water_back,0,backrest,1,park,path and millstone tables,,backrest_rear_view,16225678357474818557,104.65860483630271,2026-11-19T15:09:19.583013+00:00
 841,2326,231.6055043554693,0.9866414107595859,vlm,0,backrest,1,park,a park with a tennis court,,backrest_rear_view,3611386201874660655,231.6055043554693,2026-11-16 08:04:05.432818
 842,2329,192.38570865314662,0.9759338984209058,vlm,0,backrest,1,park,a park or wooded area,,backrest_no_rear_best_front,3611386201788072414,192.38570865314662,2026-11-16 08:04:05.433249
 843,2333,4.5062727849060025,0.05504840041183182,vlm,0,backrest,1,water,a small canal or pond in a park,,backrest_rear_view,16225678357403355549,4.5062727849060025,2026-11-16 08:04:05.433668
@@ -875,7 +875,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 874,2467,45.68343460462467,0.37203391489830073,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,14722210555618239334,45.68343460462467,2026-11-16 08:04:05.446163
 875,2466,90.0,0.6053832797754164,water_edge,0,backrest,1,water,canal or pond,,backrest_rear_view,14722210555618202329,48.13358514489664,2026-11-16 08:04:05.446617
 876,2468,0.6,0.8846903151187322,water_edge,0,backrest,1,park,a park area with trees,,backrest_rear_view,14722210555618325339,310.26810452864237,2026-11-16 08:04:05.447112
-877,2469,0.8,0.059927303725686304,vlm,0,backrest,1,square,"paved square, canopy pavilion",,backrest_no_rear_best_front,14722210555618214334,0.8364233576879272,2026-11-19T12:45:26.741172+00:00
+877,2469,359.4,0.6,water_back,0,backrest,1,square,"paved square, canopy pavilion",,backrest_no_rear_best_front,14722210555618214334,0.8364233576879272,2026-11-19T15:09:19.583013+00:00
 878,2470,238.4812334304533,0.4775019382634769,vlm,0,backrest,1,park,park area with bushes and trees,,backrest_rear_view,14722210555619491496,238.4812334304533,2026-11-16 08:04:05.447949
 879,2471,165.87753494558632,0.8455733812179805,vlm,0,backrest,1,park,park area with trees and bushes,,backrest_no_rear_best_front,14722210555619643505,165.87753494558632,2026-11-16 08:04:05.448344
 880,2472,186.20992841737086,0.9717857407502939,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,14722210555619139488,186.20992841737086,2026-11-16 08:04:05.448747
@@ -979,7 +979,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 978,2883,77.43407951280176,0.8173128685594945,vlm,0,backrest,1,park,wooded park area,,backrest_rear_view,16225678357475813558,77.43407951280176,2026-11-16 08:04:05.499664
 979,2887,296.8,0.6532446812002023,water_edge,0,backrest,1,busy_street,a busy street intersection,,backrest_no_rear_best_front,H11BRadfqTYw-8VF049mYA,275.7940410611728,2026-11-16 08:04:05.500104
 980,2891,291.7,0.03440952356610009,water_edge,1,backless,0,water,a canal,,best_front_view,KPu6Ki-pdywsOWwW368Aqg,,2026-11-16 08:04:05.500481
-981,2918,20.1,0.9986357312099672,vlm,0,backrest,1,street,sidewalk and parked cars,,backrest_no_rear_best_front,bEvu4_tk_1QaDs9VX0Pi0Q,20.10636911711959,2026-11-19T12:45:26.741172+00:00
+981,2918,346.9,0.6,water_back,0,backrest,1,street,sidewalk and parked cars,,backrest_no_rear_best_front,bEvu4_tk_1QaDs9VX0Pi0Q,20.10636911711959,2026-11-19T15:09:19.583013+00:00
 982,2909,258.4265292577548,0.9337362746717643,vlm,0,backrest,1,residential_street,a paved path and residential area,,backrest_rear_view,TIHBQa__rSJwcs6iFj-rtQ,258.4265292577548,2026-11-16 08:04:05.501227
 983,2920,53.3130149257361,0.9864542971586832,vlm,0,backrest,1,park,park with water tower,,backrest_rear_view,16776625042779381946,53.3130149257361,2026-11-16 08:04:05.501640
 984,2937,209.02627030408894,0.26307542420713015,vlm,0,backrest,1,other,a sandy area and the building wall,,backrest_no_rear_best_front,-4k8UZVdQ8SpsoiC26-DJA,209.02627030408894,2026-11-16 08:04:05.502058
@@ -1019,7 +1019,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1018,3103,277.0,1.0,osm_tag,0,backrest,1,busy_street,a busy street with traffic,,backrest_no_rear_best_front,cOMZ5uvNbWDVcoSMBfZ8DQ,277.0,2026-11-16 08:04:05.529593
 1019,3102,251.4,0.9999996517109028,water_edge,0,backrest,1,water,a small pond or canal,,backrest_no_rear_best_front,n2TkeZODusMlHn2LIZ-vXw,88.55418103239256,2026-11-16 08:04:05.529940
 1020,3114,269.1,0.7682586230170522,water_edge,0,backrest,1,water,a lake or river,,backrest_no_rear_best_front,xDZujFctrdfw9kjFQZErvA,111.2856723003717,2026-11-16 08:04:05.530264
-1021,3106,83.4,0.5371939407315931,vlm,0,backrest,1,street,paved quay sidewalk,,backrest_rear_view,6mJ3swSRon4SD6RA3hbpxQ,83.35148002051592,2026-11-19T12:45:26.741172+00:00
+1021,3106,54.8,0.6,water_back,0,backrest,1,street,paved quay sidewalk,,backrest_rear_view,6mJ3swSRon4SD6RA3hbpxQ,83.35148002051592,2026-11-19T15:09:19.583013+00:00
 1022,3125,286.34009148272384,0.8765316976798816,vlm,0,backrest,1,park,a park area with trees and greenery,,backrest_rear_view,3611386205252670160,286.34009148272384,2026-11-16 08:04:05.530897
 1023,3118,169.91665588018688,0.6255584713302068,vlm,1,backless,0,park,park and path,,best_quality_fallback,3611386202483777658,,2026-11-16 08:04:05.531225
 1024,3126,237.9,0.6353888028131108,water_edge,0,backrest,1,park,park lawn and trees,,backrest_no_rear_best_front,3611386205251235723,206.17850210460458,2026-11-16 08:04:05.531556
@@ -1103,7 +1103,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1102,3417,179.6,0.5803380049807219,water_edge,0,backrest,1,water,a canal or river,,backrest_rear_view,Ic76OE1TrerajrnS2hpcEQ,341.98330252175947,2026-11-16 08:04:05.558240
 1103,3410,74.22604870324272,0.07771529365464877,vlm,1,backless,0,square,paved plaza area under a bridge,,best_front_view,u4Md56fGklws08VIJ8vITQ,,2026-11-16 08:04:05.558542
 1104,3420,172.0448299742285,0.2815907212898326,vlm,1,backless,0,park,a park or green space with trees,,best_front_view,WkrvI1nKPPhirxLQO9VM1g,,2026-11-16 08:04:05.558851
-1105,3425,195.9,0.9851137347903581,vlm,0,backrest,1,park,lawn with daffodils,,backrest_no_rear_best_front,4337796147516379714,195.9102499517493,2026-11-19T12:45:26.741172+00:00
+1105,3425,203.3,0.6,water_back,0,backrest,1,park,lawn with daffodils,,backrest_no_rear_best_front,4337796147516379714,195.9102499517493,2026-11-19T15:09:19.583013+00:00
 1106,3422,88.09336410402209,0.4455993427708678,vlm,1,backless,0,square,a paved plaza area,,best_front_view,sc9CnfMUkWl79iqiM1LtLQ,,2026-11-16 08:04:05.559446
 1107,3435,317.26067021812446,0.3454233932536187,vlm,0,backrest,1,park,park area with trees and greenery,,backrest_no_rear_best_front,eodk1CnVj7neYbe-q1F7yg,317.26067021812446,2026-11-16 08:04:05.559745
 1108,3441,18.822630405281124,0.6226174555342581,vlm,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,3436359215680189179,18.822630405281124,2026-11-16 08:04:05.560026
@@ -1117,7 +1117,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1116,3491,144.24920729627837,0.477942989757662,vlm,0,backrest,1,park,park and path,,backrest_rear_view,3611386202413110029,144.24920729627837,2026-11-16 08:04:05.562450
 1117,3492,335.9,0.16008124056447176,water_edge,0,backrest,1,park,park and path,,backrest_rear_view,3611386202413114029,315.70958699831374,2026-11-16 08:04:05.562788
 1118,3493,175.5,0.25002244316712574,water_edge,0,backrest,1,park,green park area with trees,,backrest_rear_view,3611386202406605033,159.71806081554473,2026-11-16 08:04:05.563129
-1119,3504,298.4,0.7630666730963893,vlm,0,backrest,1,street,footpath and cycle lane,,backrest_rear_view,SJEX99OEGnykdZlrIQG0sQ,298.3761540962,2026-11-19T12:45:26.741172+00:00
+1119,3504,268.4,0.6,water_back,0,backrest,1,street,footpath and cycle lane,,backrest_rear_view,SJEX99OEGnykdZlrIQG0sQ,298.3761540962,2026-11-19T15:09:19.583013+00:00
 1120,3495,213.2,0.23746278623253544,water_edge,0,backrest,1,water,canal,,backrest_rear_view,ebV24z0BPLj4Wzv8kbbUDA,283.0378543559631,2026-11-16 08:04:05.563889
 1121,3506,23.0,0.8569877751754442,water_edge,1,backless,0,water,a lake or river,,best_front_view,3611386205343307137,,2026-11-16 08:04:05.564235
 1122,3507,23.0,0.9493374419211502,water_edge,1,backless,0,water,a lake or river,,best_front_view,3611386205343305137,,2026-11-16 08:04:05.564604
@@ -1172,7 +1172,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1171,179,241.30301525010628,0.7341071587946425,vlm,0,backrest,1,other,fenced area with shipping containers,,backrest_rear_view,iegI73MxCGLPq7mDL-6Ejw,241.30301525010628,2026-11-16 08:04:05.580564
 1172,189,20.98566119094696,0.5030164154037524,vlm,0,backrest,1,park,a grassy park area,,backrest_rear_view,zT5MarpGmQEV1plEU2xYxQ,20.98566119094696,2026-11-16 08:04:05.580866
 1173,200,347.4051649939865,0.13799682757873716,vlm,0,backrest,1,playground,playground equipment,,backrest_no_rear_best_front,rs-yZzRnNVkLOkEroQU85A,347.4051649939865,2026-11-16 08:04:05.581195
-1174,218,164.6,0.2962528986317207,vlm,0,backrest,1,square,"paved plaza, apartment buildings",,backrest_no_rear_best_front,A1Foi5ZdMmUZGjjcayTp6g,164.55595670340523,2026-11-19T12:45:26.741172+00:00
+1174,218,158.5,0.6,water_back,0,backrest,1,square,"paved plaza, apartment buildings",,backrest_no_rear_best_front,A1Foi5ZdMmUZGjjcayTp6g,164.55595670340523,2026-11-19T15:09:19.583013+00:00
 1175,245,139.81350809424,0.32586316214362837,vlm,1,backless,0,playground,playground area,,best_front_view,HXY7k1sW77aJQ-i4pbCKsg,,2026-11-16 08:04:05.581844
 1176,230,252.7786306865836,0.8175720268987261,vlm,0,backrest,1,park,playground,,backrest_rear_view,gYoLms-bJ5jtLZ5i67_03g,252.7786306865836,2026-11-16 08:04:05.582186
 1177,246,41.69969685548754,0.9971508403176711,vlm,1,picnic,0,park,restaurant patio,,best_front_view,nY8lFoCznZD_ubnBztWu2w,,2026-11-16 08:04:05.582504
@@ -1180,7 +1180,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1179,263,72.6,0.18040935394198457,water_edge,0,backrest,1,water,canal,,backrest_rear_view,0xySlg_JgwY_4oNrMrRfUA,324.3736624762553,2026-11-16 08:04:05.583072
 1180,265,71.9,0.5340849571510641,water_edge,0,backrest,1,water,canal,,backrest_rear_view,iOFy7T6XQe0BscS64Utatg,29.208049749403106,2026-11-16 08:04:05.583348
 1181,275,268.1,0.6749661806106833,water_edge,0,backrest,1,residential_street,residential street with buildings,,backrest_rear_view,DYa16_d5mp9oRaQmOhdboA,202.86047303379334,2026-11-16 08:04:05.583653
-1182,284,43.6,0.8240248605402652,vlm,0,backrest,1,street,road with construction barriers,,backrest_rear_view,PzSKL4YO3xi9VdI35PUNPA,43.62039974260838,2026-11-19T12:45:26.741172+00:00
+1182,284,72.3,0.6,water_back,0,backrest,1,street,road with construction barriers,,backrest_rear_view,PzSKL4YO3xi9VdI35PUNPA,43.62039974260838,2026-11-19T15:09:19.583013+00:00
 1183,287,322.3,0.49518022122325,water_edge,0,backrest,1,water,canal or river,,backrest_rear_view,hQZdnw2cQQd56EUdna0NYA,217.56702875137785,2026-11-16 08:04:05.584357
 1184,312,326.3,0.2848072480297865,water_edge,1,other,0,water,canal,,best_front_view,XgVcKkOX8aSw98D2hooh6Q,,2026-11-16 08:04:05.584726
 1185,314,112.86758046301038,0.9793798917697993,vlm,0,backrest,1,square,a paved square area,,backrest_no_rear_best_front,sFw4pD1v0TrsrARUrPeqEg,112.86758046301038,2026-11-16 08:04:05.585069
@@ -1199,7 +1199,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1198,396,195.8,0.4929008749188895,water_edge,0,backrest,1,water,a canal or river,,backrest_rear_view,8cJi0AG-5gBkyswC8lFUNg,15.132557104085388,2026-11-16 08:04:05.589695
 1199,397,196.0,0.9549625793798948,water_edge,0,backrest,1,water,river or canal,,backrest_rear_view,TZMMYONSR6wW0OX3CrpbKg,297.5647180157267,2026-11-16 08:04:05.589989
 1200,417,148.85962797072705,0.821744499047152,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,0tkBoOZ2PgjhKh1L_exU5w,148.85962797072705,2026-11-16 08:04:05.590279
-1201,421,137.4,0.7110885228119996,vlm,0,backrest,1,street,"paved path, bike lane",,backrest_no_rear_best_front,01Ap3MvX7szSobFCHDl-ug,137.3984690031765,2026-11-19T12:45:26.741172+00:00
+1201,421,170.2,0.6,water_back,0,backrest,1,street,"paved path, bike lane",,backrest_no_rear_best_front,01Ap3MvX7szSobFCHDl-ug,137.3984690031765,2026-11-19T15:09:19.583013+00:00
 1202,441,336.448177925746,0.9507784562440558,vlm,0,backrest,1,park,a canal or pond,,backrest_no_rear_best_front,pl4lifIkRNmmRwIGt07GXQ,336.448177925746,2026-11-16 08:04:05.590875
 1203,449,68.7,0.4082305400887291,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,wNxxdZygOOD0M0bFlbGpYA,201.3901035907597,2026-11-16 08:04:05.591216
 1204,444,156.6,0.2565626137356289,water_edge,0,backrest,1,water,a canal or river with boats,,backrest_rear_view,TFCTnPWzvf_qDbt8fsOlNQ,74.27129096234569,2026-11-16 08:04:05.591536
@@ -1240,7 +1240,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1239,757,178.12946847308848,0.444348618118433,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,M-ZiwMsuZub6HZkrXwY_ug,178.12946847308848,2026-11-16 08:04:05.603996
 1240,763,47.478787125827075,0.4169645181708093,vlm,1,backless,0,park,grassy park area,,best_front_view,Fz7M9_f5WwNCuJHz_3LZeQ,,2026-11-16 08:04:05.604364
 1241,769,164.4461276540074,0.8632708799248098,vlm,0,backrest,1,courtyard,a courtyard area with a tree and some tables,,backrest_no_rear_best_front,KWvwgcERp4lEfDHGNCzSbA,164.4461276540074,2026-11-16 08:04:05.604716
-1242,772,47.6,0.8366237898930283,vlm,0,backrest,1,street,bridge approach street,,backrest_rear_view,Pf4tyftywmlTsUvI9_nC2g,47.598229296818985,2026-11-19T12:45:26.741172+00:00
+1242,772,72.6,0.6,water_back,0,backrest,1,street,bridge approach street,,backrest_rear_view,Pf4tyftywmlTsUvI9_nC2g,47.598229296818985,2026-11-19T15:09:19.583013+00:00
 1243,774,252.6,0.6722508884595273,water_edge,0,backrest,1,water,canal,,backrest_rear_view,nIw8fwnSV1Gca-rOmlqM8A,153.6567884587435,2026-11-16 08:04:05.605402
 1244,777,21.5,0.2702452568170303,water_edge,1,backless,0,park,park area with trees and bushes,,best_front_view,5O0HHFf52rXdOZD5flJ_CA,,2026-11-16 08:04:05.605771
 1245,782,121.1,0.22267123468069325,water_edge,0,backrest,1,water,canal or waterway,,backrest_rear_view,0GW1_U1J-aHUaEsdClWMCQ,44.74384647301196,2026-11-16 08:04:05.606194
@@ -1283,7 +1283,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1282,1014,139.6,0.4529350821053606,water_edge,1,backless,0,park,a grassy area with trees and apartment buildings,,best_front_view,9mfWNbjPnMkVf-9p34Snew,,2026-11-16 08:04:05.619029
 1283,1016,139.6,0.5011465721228032,water_edge,0,backrest,1,water,waterfront,,backrest_rear_view,d16TkbwM4hlYR7PRYrY8Sw,137.33655779408073,2026-11-16 08:04:05.619343
 1284,1026,128.0,0.7010482582262112,water_edge,0,backrest,1,water,canal,,backrest_rear_view,M1MviIY4pP7KUE3CgVPLKw,341.8526602605902,2026-11-16 08:04:05.619658
-1285,1027,127.9,0.7913515478574916,vlm,0,backrest,1,street,sidewalk and bike parking,,backrest_no_rear_best_front,SrR-dMUUIG-Sq9rz_0rqiA,127.85922671798602,2026-11-19T12:45:26.741172+00:00
+1285,1027,121.1,0.6,water_back,0,backrest,1,street,sidewalk and bike parking,,backrest_no_rear_best_front,SrR-dMUUIG-Sq9rz_0rqiA,127.85922671798602,2026-11-19T15:09:19.583013+00:00
 1286,1032,257.533140568237,0.9370950730103925,vlm,0,backrest,1,busy_street,a street with a bus stop,,backrest_no_rear_best_front,vAWihUMZWfVi_Y8lIrg9GA,257.533140568237,2026-11-16 08:04:05.620302
 1287,1042,102.2,0.48575929052921435,water_edge,1,backless,0,water,canal,,best_front_view,fru6gR9J8YrsshfbX18FHw,,2026-11-16 08:04:05.620639
 1288,1043,104.85752530494999,0.4392863798805296,vlm,1,backless,0,square,a paved square near a historic tower,,best_front_view,5Aye6etQBQg6RzH1s2XH6Q,,2026-11-16 08:04:05.620975
@@ -1348,31 +1348,31 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1347,1422,217.10266924629616,0.6559272071827816,vlm,0,backrest,1,playground,sandy playground area,,backrest_rear_view,YjK86XpvgoTwbwUJtSgTLg,217.10266924629616,2026-11-16 08:04:05.643231
 1348,1423,310.9079823756853,0.9619058180964314,vlm,0,backrest,1,playground,playground,,backrest_no_rear_best_front,zjJxLT4-EYXF2lN4_EmRZg,310.9079823756853,2026-11-16 08:04:05.643718
 1349,1428,131.7,0.38133733169328643,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,pRC6al9c6aHxsgWP1cA9Pw,146.56370599851317,2026-11-16 08:04:05.644208
-1350,1430,311.4,0.40095958644918256,vlm,0,backrest,1,street,quay promenade and street,,backrest_rear_view,LuyLbNR_1E4FOGa2AIyIPg,311.43614980625983,2026-11-19T12:45:26.741172+00:00
+1350,1430,297.7,0.6,water_back,0,backrest,1,street,quay promenade and street,,backrest_rear_view,LuyLbNR_1E4FOGa2AIyIPg,311.43614980625983,2026-11-19T15:09:19.583013+00:00
 1351,1432,340.8587289159873,0.9289551609439,vlm,0,backrest,1,square,a paved plaza area,,backrest_no_rear_best_front,w1yiYqhvhjIwYwxDotAc1w,340.8587289159873,2026-11-16 08:04:05.644993
 1352,1433,73.8,0.9185343535585746,water_edge,0,backrest,1,water,a swimming pool or water feature,,backrest_no_rear_best_front,VFL2tfDcaAf0XUaUHkvdLg,241.89962061822916,2026-11-16 08:04:05.645367
 1353,1434,86.9,0.5155292895476083,water_edge,1,backless,0,park,a park or green space,,best_front_view,O9lgytw5cirYnhZRoPMcyg,,2026-11-16 08:04:05.645704
 1354,1438,286.3877512879658,0.3962066751047186,vlm,0,backrest,1,park,a small park or green space,,backrest_no_rear_best_front,1Gnf_gcyevGdufl1GjMrhQ,286.3877512879658,2026-11-16 08:04:05.646069
 1355,1439,104.08457688938712,0.3216694577264967,vlm,1,backless,0,square,a paved square or plaza area,,best_front_view,SY4FtTuwiIkvaUc4su1zHw,,2026-11-16 08:04:05.646416
-1356,1440,193.0,0.9554435045779825,vlm,0,backrest,1,other,parking lot,,backrest_no_rear_best_front,KakKi0g6vnK70xTsFH6GBA,192.9514958180354,2026-11-19T12:45:26.741172+00:00
+1356,1440,221.0,0.6,water_back,0,backrest,1,other,parking lot,,backrest_no_rear_best_front,KakKi0g6vnK70xTsFH6GBA,192.9514958180354,2026-11-19T15:09:19.583013+00:00
 1357,1450,86.21053958842495,0.9419190004404536,vlm,0,backrest,1,park,canal or waterway,,backrest_no_rear_best_front,wPJkRwwEUv7-DZ1j9HE8Xw,86.21053958842495,2026-11-16 08:04:05.647066
 1358,1462,134.5,0.4304801045647071,water_edge,0,backrest,1,water,a canal with boats,,backrest_rear_view,SjvFt1LiBcVkkDwfWJQS7A,175.41015314408514,2026-11-16 08:04:05.647409
 1359,1473,223.6,0.7418515758827987,water_edge,0,backrest,1,water,canal,,backrest_rear_view,IPVsnERYAX9uIMdZM4nfWg,270.2929211455973,2026-11-16 08:04:05.647770
 1360,1474,208.64689831232056,0.8674463314997969,vlm,0,backrest,1,square,parking garage entrance and hotel,,backrest_no_rear_best_front,WuhrIlU_glAy0JRLZGQwfw,208.64689831232056,2026-11-16 08:04:05.648131
 1361,1475,45.88775121294279,0.9303269187285469,vlm,1,backless,0,square,a paved plaza area near a train station,,best_front_view,CC804iipxechXu4e0kQEQQ,,2026-11-16 08:04:05.648493
 1362,1476,30.18468744204192,0.7794891460290311,vlm,1,backless,0,other,a parking garage entrance and hotel,,best_front_view,0XaZck1k7Vi5EKU6RJHMdA,,2026-11-16 08:04:05.648929
-1363,1481,55.1,0.6245800607712177,vlm,0,backrest,1,street,Damrak street and shops,,backrest_no_rear_best_front,a3oxXEi3a-v5w5Jft_I9DQ,55.133381064449516,2026-11-19T12:45:26.741172+00:00
+1363,1481,45.6,0.6,water_back,0,backrest,1,street,Damrak street and shops,,backrest_no_rear_best_front,a3oxXEi3a-v5w5Jft_I9DQ,55.133381064449516,2026-11-19T15:09:19.583013+00:00
 1364,1504,178.79754512405668,0.6335849669867518,vlm,0,backrest,1,other,a pyramid-shaped building,,backrest_rear_view,CCxTFmJTCbBTjkC1ULxn6w,178.79754512405668,2026-11-16 08:04:05.649591
 1365,1507,102.48991314388246,0.895542901166746,vlm,1,backless,0,square,a paved square or plaza,,best_front_view,lTGFY8__WO-8AABYmOT5pg,,2026-11-16 08:04:05.649913
 1366,1512,219.8,0.39273493666859893,water_edge,0,backrest,1,water,canal and bridge,,backrest_rear_view,9ZxUMPTPugpX62U_mGe6qw,249.75141261359846,2026-11-16 08:04:05.650239
-1367,1513,112.3,0.4857625582015506,vlm,0,backrest,1,street,canal-side street and houses,,backrest_rear_view,nKa4mlcJ5Iy6YyqogrOGlw,112.28954542950592,2026-11-19T12:45:26.741172+00:00
+1367,1513,119.0,0.6,water_back,0,backrest,1,street,canal-side street and houses,,backrest_rear_view,nKa4mlcJ5Iy6YyqogrOGlw,112.28954542950592,2026-11-19T15:09:19.583013+00:00
 1368,1537,274.3,0.8706768541279147,water_edge,0,backrest,1,water,canal with houseboats,,backrest_rear_view,lKc-u2BZSSq3Av4B9W7Mug,21.761185650454845,2026-11-16 08:04:05.651032
 1369,1555,195.5,0.7019765595364873,water_edge,1,backless,0,water,canal,,best_front_view,QbSsR-3AsAbfOLQ9BoX7dw,,2026-11-16 08:04:05.651406
 1370,1562,166.6660928652745,0.572196598485529,vlm,0,backrest,1,square,a market square,,backrest_no_rear_best_front,cwnQcN_csLjn3DDsZPwypA,166.6660928652745,2026-11-16 08:04:05.651760
 1371,1564,102.0406907604424,0.1751339093609077,vlm,1,backless,0,square,a paved plaza area,,best_front_view,ih4iQwTbMK5u0ErPLZruRQ,,2026-11-16 08:04:05.652150
 1372,1567,6.100121392887835,0.4763638425139337,vlm,1,backless,0,other,paved area in front of a building,,best_front_view,v34sQfBejN3oOvzsQhN6LQ,,2026-11-16 08:04:05.652712
 1373,1572,34.12082881350288,0.929942906782205,vlm,1,picnic,0,square,paved plaza area,,best_front_view,ITi0HHjWw6yerfldE0pnpw,,2026-11-16 08:04:05.653072
-1374,1576,308.0,0.5703526681943403,vlm,0,backrest,1,street,wide brick promenade,,backrest_rear_view,1me6cJjLmmNioerQzdtITw,308.0294058404217,2026-11-19T12:45:26.741172+00:00
+1374,1576,323.5,0.6,water_back,0,backrest,1,street,wide brick promenade,,backrest_rear_view,1me6cJjLmmNioerQzdtITw,308.0294058404217,2026-11-19T15:09:19.583013+00:00
 1375,1582,51.9463642568981,0.4107029449865178,vlm,1,backless,0,park,river or canal,,best_quality_fallback,6JaSgDdW_t8hvfJ7si2org,,2026-11-16 08:04:05.653810
 1376,1587,255.4,0.3778805359779821,water_edge,1,backless,0,water,river or canal,,best_front_view,1NJPqQC9TvnGolLw0c5PHQ,,2026-11-16 08:04:05.654172
 1377,1588,185.8,0.9074313623832472,water_edge,1,backless,0,water,a river or canal,,best_front_view,XMsO_rquc3wxSI18rkSS0w,,2026-11-16 08:04:05.654534
@@ -1448,7 +1448,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1447,2221,171.13418723539468,0.4762186491154962,vlm,0,backrest,1,park,grass and trees,,backrest_rear_view,zFmsLATw2Wy2AsZPEcTXFw,171.13418723539468,2026-11-16 08:04:05.683230
 1448,2223,349.6348444817771,0.8187499950909344,vlm,0,backrest,1,park,a grassy park area with a skate ramp,,backrest_no_rear_best_front,P-rPI9cD76Ziq5vsSs5GfA,349.6348444817771,2026-11-16 08:04:05.683658
 1449,2226,342.1,0.19651605568000768,water_edge,1,picnic,0,park,open grassy area,,best_front_view,V_ySE0JyO9tujQjpX1d1uw,,2026-11-16 08:04:05.684061
-1450,2240,87.6,0.8928199505098231,vlm,0,backrest,1,square,paved brick plaza,,backrest_no_rear_best_front,AD8pfgo25Z2AeZugIielDQ,87.61034464535717,2026-11-19T12:45:26.741172+00:00
+1450,2240,75.8,0.6,water_back,0,backrest,1,square,paved brick plaza,,backrest_no_rear_best_front,AD8pfgo25Z2AeZugIielDQ,87.61034464535717,2026-11-19T15:09:19.583013+00:00
 1451,2241,257.5,0.7241366559561142,water_edge,0,backrest,1,water,a canal with a boat,,backrest_rear_view,7hGV2Is8ldBteX6N65PkyQ,86.84667996187369,2026-11-16 08:04:05.684866
 1452,2245,167.4,0.6286059144242091,water_edge,0,backrest,1,water,canal with boats,,backrest_no_rear_best_front,5t6PdbU-ZRRNJRqfbb9OZg,247.08836956058735,2026-11-16 08:04:05.685639
 1453,2248,187.49789753480542,0.8696612779043947,vlm,0,backrest,1,park,a grassy park area,,backrest_no_rear_best_front,GCI0XMB0g2RBzS-8fKH1bg,187.49789753480542,2026-11-16 08:04:05.686436
@@ -1472,7 +1472,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1471,2363,119.19295178823013,0.8239373348781411,vlm,0,backrest,1,playground,a paved area with exercise equipment and a fence,,backrest_no_rear_best_front,meds7WjX0t_V9k49oBxhMg,119.19295178823013,2026-11-16 08:04:05.694635
 1472,2364,70.87118485535277,0.852776714111373,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,Bz_IvTuHi2HHDOyPzBeRqw,70.87118485535277,2026-11-16 08:04:05.694966
 1473,2366,182.5,0.28097991392804417,water_edge,0,backrest,1,water,a pond or canal,,backrest_rear_view,5rTmmQc4fQERkUsw80X3Fg,249.61202910624831,2026-11-16 08:04:05.695294
-1474,2373,177.2,0.4324531116750265,vlm,0,backrest,1,square,"paved plaza, gravel strip",,backrest_rear_view,djCHZpWY-EyALx_CvhPP7w,177.15588599164928,2026-11-19T12:45:26.741172+00:00
+1474,2373,195.1,0.6,water_back,0,backrest,1,square,"paved plaza, gravel strip",,backrest_rear_view,djCHZpWY-EyALx_CvhPP7w,177.15588599164928,2026-11-19T15:09:19.583013+00:00
 1475,2375,15.1,0.643253081717448,water_edge,0,backrest,1,water,a canal or pond,,backrest_rear_view,GIuyWY2XgZof6lD9QGgwwQ,45.45498952390861,2026-11-16 08:04:05.695981
 1476,2401,47.419291710788094,0.12747242837007428,vlm,0,backrest,1,park,a canal or river,,backrest_rear_view,ZTTRZFiQpvUwnFe5wRm1VA,47.419291710788094,2026-11-16 08:04:05.696368
 1477,2416,167.01555331374576,0.6824590584231575,vlm,0,backrest,1,park,a park or green space,,backrest_rear_view,TgMIAfMbOgOi52BZszi8sQ,167.01555331374576,2026-11-16 08:04:05.696756
@@ -1492,7 +1492,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1491,2559,149.53227360319866,0.5217914415766742,vlm,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,0HBJMF6FAokhk8dxgvFmbg,149.53227360319866,2026-11-16 08:04:05.703390
 1492,2560,241.3,0.4054256142698055,water_edge,0,backrest,1,water,park area with trees and fence,,backrest_rear_view,ZmGSQ4yGhGCCvgzAMvpGKA,38.10807575989644,2026-11-16 08:04:05.703750
 1493,2578,76.2,0.3392151339785914,water_edge,0,backrest,1,water,a river or canal,,backrest_rear_view,I3vGgvtykwjPQDsQxfN90A,34.43431491179692,2026-11-16 08:04:05.704166
-1494,2582,305.0,0.9684658936147149,vlm,0,backrest,1,street,cycle path and lawn,,backrest_no_rear_best_front,16519570120723900229,304.9785229685306,2026-11-19T12:45:26.741172+00:00
+1494,2582,302.0,0.6,water_back,0,backrest,1,street,cycle path and lawn,,backrest_no_rear_best_front,16519570120723900229,304.9785229685306,2026-11-19T15:09:19.583013+00:00
 1495,2604,6.466789894389922,0.8816828271012576,vlm,1,picnic,0,other,a fenced area with a blue car and a canal in the distance,,best_front_view,oO7VpmsGnAdEbHBTSPBwkw,,2026-11-16 08:04:05.704944
 1496,2605,142.570739692988,0.608763871960338,vlm,0,backrest,1,other,building entrance,,backrest_rear_view,Xspw8Eif6YikVVJJIAwILQ,142.570739692988,2026-11-16 08:04:05.705299
 1497,2608,126.1,0.28788666809902613,water_edge,0,backrest,1,water,marina with boats,,backrest_rear_view,Pvbwg5l1I5l7aSobShSTjw,183.86103320933984,2026-11-16 08:04:05.705662
@@ -1587,9 +1587,9 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1586,3295,298.1,0.5358691286989506,water_edge,0,backrest,1,water,a construction site or industrial area,,backrest_rear_view,j-VfC_L8lDQBzY0lsvdaJA,234.7545909479271,2026-11-16 08:04:05.750479
 1587,3297,70.9,0.5838153741654544,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,J3g3DV5mEd78CZqN9_AOrA,173.16087049853786,2026-11-16 08:04:05.750851
 1588,3299,313.4667377170135,0.5638208369189921,vlm,0,backrest,1,park,a canal with boats,,backrest_no_rear_best_front,krJLhBIIQcXrLuy3qtTW-w,313.4667377170135,2026-11-16 08:04:05.751844
-1589,3301,147.7,0.8329846829566242,vlm,0,backrest,1,park,brick path and lawn,,backrest_no_rear_best_front,6ucMxzaI11ijAPmmjR4xsQ,147.67333478429248,2026-11-19T12:45:26.741172+00:00
-1590,3303,257.6,0.9891454344569691,vlm,0,backrest,1,park,footpath and grass lawn,,backrest_no_rear_best_front,oIgTtQnyepsReTla698WHQ,257.61796006275074,2026-11-19T12:45:26.741172+00:00
-1591,3304,235.5,0.6865367566919066,vlm,0,backrest,1,park,paved path and lawn,,backrest_no_rear_best_front,VvSgJbcoIwAH-Zp7GtXAIA,235.46482276024756,2026-11-19T12:45:26.741172+00:00
+1589,3301,160.8,0.6,water_back,0,backrest,1,park,brick path and lawn,,backrest_no_rear_best_front,6ucMxzaI11ijAPmmjR4xsQ,147.67333478429248,2026-11-19T15:09:19.583013+00:00
+1590,3303,252.2,0.6,water_back,0,backrest,1,park,footpath and grass lawn,,backrest_no_rear_best_front,oIgTtQnyepsReTla698WHQ,257.61796006275074,2026-11-19T15:09:19.583013+00:00
+1591,3304,252.4,0.6,water_back,0,backrest,1,park,paved path and lawn,,backrest_no_rear_best_front,VvSgJbcoIwAH-Zp7GtXAIA,235.46482276024756,2026-11-19T15:09:19.583013+00:00
 1592,3306,76.9153763794067,0.9142095625904855,vlm,1,backless,0,other,building entrance,,best_front_view,1XZjrs0u8ZA0MDjxe6L7ZA,,2026-11-16 08:04:05.754580
 1593,3307,143.2063199409646,0.41487490415353584,vlm,1,backless,0,other,building entrance,,best_front_view,npWrcWKwzDdOxEP1u5w9TA,,2026-11-16 08:04:05.756198
 1594,3308,84.78388407193819,0.36121885685110716,vlm,1,backless,0,other,building facade,,best_front_view,URge1qmubf_De87TMmr-9w,,2026-11-16 08:04:05.756987
@@ -1632,7 +1632,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1631,3587,211.00709602472932,0.32617297842037996,vlm,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,9tilNltmx1sjpDJkTHz5eg,211.00709602472932,2026-11-16 08:04:05.836445
 1632,3617,307.2195599574215,0.7319934170225958,vlm,0,backrest,1,park,a park or green field,,backrest_no_rear_best_front,l0bTJVpTaZsAbRFtB83xLw,307.2195599574215,2026-11-16 08:04:05.840816
 1633,3608,63.6,0.4283618818080791,water_edge,0,backrest,1,water,canal and bridge,,backrest_rear_view,vk6K30NnWQttGG7N6bW-pQ,331.84096928413373,2026-11-16 08:04:05.841393
-1634,3621,185.5,0.41675804502143676,vlm,0,backrest,1,park,"lawn, path, office building",,backrest_rear_view,10647698609537619437,185.52013521882623,2026-11-19T12:45:26.741172+00:00
+1634,3621,181.3,0.6,water_back,0,backrest,1,park,"lawn, path, office building",,backrest_rear_view,10647698609537619437,185.52013521882623,2026-11-19T15:09:19.583013+00:00
 1635,3630,130.231950953696,0.342877905043633,vlm,0,backrest,1,square,park path and trees,,backrest_no_rear_best_front,0tkBoOZ2PgjhKh1L_exU5w,130.231950953696,2026-11-16 08:04:05.842955
 1636,3636,329.3,0.7906479948643271,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,7zqpZ_doxBpc4viEKGFhmA,136.94031842949224,2026-11-16 08:04:05.843538
 1637,3637,21.154531417952064,0.32608606553036446,vlm,0,backrest,1,park,dense foliage and trees,,backrest_no_rear_best_front,ajqE9nEj81u7jl0lrE-_Tg,21.154531417952064,2026-11-16 08:04:05.843948
@@ -1653,11 +1653,11 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1652,264,72.6,0.5385858053948945,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,rpJuwFOu8xagBncrXp-TqA,341.68540160402904,2026-11-16 08:04:05.862683
 1653,281,280.2,0.3129122585996992,water_edge,0,backrest,1,water,canal and road,,backrest_rear_view,Z36fSerk4Ko7g5gcjDO0WA,302.2106705684692,2026-11-16 08:04:05.863048
 1654,285,252.3,0.45157090808584277,water_edge,0,backrest,1,water,a canal or river,,backrest_rear_view,pK2Bh8a3Jj0VF4k8HQ-o2w,14.761552032467684,2026-11-16 08:04:05.863426
-1655,286,103.6,0.43483435418461813,vlm,0,backrest,1,street,promenade and bike path,,backrest_rear_view,FS2nGz8izfCgIeRooreiDQ,103.56723923910033,2026-11-19T12:45:26.741172+00:00
+1655,286,72.3,0.6,water_back,0,backrest,1,street,promenade and bike path,,backrest_rear_view,FS2nGz8izfCgIeRooreiDQ,103.56723923910033,2026-11-19T15:09:19.583013+00:00
 1656,295,329.3,0.7153981079614514,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,7zqpZ_doxBpc4viEKGFhmA,142.35110577399146,2026-11-16 08:04:05.864150
 1657,305,346.7877122275018,0.491155960849727,vlm,0,backrest,1,park,a park or green space,,backrest_no_rear_best_front,SKnogN1aSSN0VvUUSZ3HVw,346.7877122275018,2026-11-16 08:04:05.864511
 1658,306,220.798353743002,0.24198871954519996,vlm,0,backrest,1,park,green space and trees,,backrest_rear_view,iLGpLrYitl1Hd4TGnQfqxQ,220.798353743002,2026-11-16 08:04:05.864899
-1659,323,193.0,0.9859746996142774,vlm,0,backrest,1,street,sidewalk and road,,backrest_no_rear_best_front,PjxJlJHXY5lZwi8vRlQTnQ,192.97378429586817,2026-11-19T12:45:26.741172+00:00
+1659,323,183.0,0.6,water_back,0,backrest,1,street,sidewalk and road,,backrest_no_rear_best_front,PjxJlJHXY5lZwi8vRlQTnQ,192.97378429586817,2026-11-19T15:09:19.583013+00:00
 1660,332,11.68856607841367,0.3319239160329479,vlm,1,backless,0,playground,a playground area with a fence,,best_front_view,11C0VpmgpAKclaGgVlp3CQ,,2026-11-16 08:04:05.865582
 1661,337,97.62509352015907,0.7107850195509688,vlm,0,backrest,1,residential_street,residential street with parked cars and apartment buildings,,backrest_rear_view,NB9yVv820RQkedVzeFjEVw,97.62509352015907,2026-11-16 08:04:05.866166
 1662,348,252.0,0.3421099879097982,water_edge,0,backrest,1,water,a canal,,backrest_rear_view,H3bgK5EEV1T2ReblRIJoRQ,121.88100360617871,2026-11-16 08:04:05.867009
@@ -1719,21 +1719,21 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1718,809,169.0,0.590445915834912,water_edge,0,backrest,1,water,a canal,,backrest_rear_view,YUN1F88GhccSUbogvfbboQ,261.4263570388489,2026-11-16 08:04:05.887261
 1719,819,265.6653648513388,0.6140421996305373,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,nuLKCa86GXq_gtO17sbw0w,265.6653648513388,2026-11-16 08:04:05.887626
 1720,822,293.6451338681279,0.3724363882043448,vlm,0,backrest,1,park,park with trees and greenery,,backrest_rear_view,3611386201968365430,293.6451338681279,2026-11-16 08:04:05.887947
-1721,823,104.8,0.6418465609378143,vlm,0,backrest,1,street,parking lot and street,,backrest_no_rear_best_front,gBqDOfDlBwj0GQ_mdnlBbQ,104.77802489688857,2026-11-19T12:45:26.741172+00:00
+1721,823,105.5,0.6,water_back,0,backrest,1,street,parking lot and street,,backrest_no_rear_best_front,gBqDOfDlBwj0GQ_mdnlBbQ,104.77802489688857,2026-11-19T15:09:19.583013+00:00
 1722,830,217.08956273042227,0.7671337089770265,vlm,0,backrest,1,residential_street,residential street with buildings,,backrest_no_rear_best_front,QqwYLTqipTB8_1Hysg-XcQ,217.08956273042227,2026-11-16 08:04:05.888619
 1723,844,213.09099953472733,0.5126630504406431,vlm,0,backrest,1,park,trees and bushes,,backrest_rear_view,fbbpP3iMKet30otPXkqx2Q,213.09099953472733,2026-11-16 08:04:05.888973
 1724,849,124.7,0.3504658498830126,water_edge,0,backrest,1,water,canal,,backrest_rear_view,X3lx0q99pkgHSWEKJL-aqA,136.92449990876455,2026-11-16 08:04:05.889332
-1725,3454,,,,0,,,,,,,,,2026-11-16 08:04:05.889631
+1725,3454,,,,0,,,,,,,,,2026-11-19 18:40:36.864830
 1726,3442,36.75509290904097,1.0,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,pXwB27hAe-7MLTemCtp0ZQ,36.75509290904097,2026-11-16 08:04:05.889947
 1727,3466,112.22695703217362,1.0,vlm,1,backless,0,square,paved plaza area,,best_front_view,G19-3NBpd-4qYSC9aGMA9Q,,2026-11-16 08:04:05.890306
 1728,3486,38.8,1.0,water_edge,1,backless,0,park,a path through a green area,,best_front_view,16876712458907702985,,2026-11-16 08:04:05.890648
 1729,3474,37.7,1.0,water_edge,1,backless,0,other,a grassy field and trees,,best_quality_fallback,3611386205341528135,,2026-11-16 08:04:05.890985
 1730,3515,229.0,1.0,water_edge,0,backrest,1,water,harbour or water,,backrest_rear_view,kYPyaUkd01zf9HZcnSQwOQ,178.7971572274487,2026-11-16 08:04:05.891309
 1731,3569,49.4,1.0,water_edge,1,backless,0,water,a canal or river with a boat,,best_front_view,17994821125008416151,,2026-11-16 08:04:05.891616
-1732,3578,,,,0,,,,,,,,,2026-11-16 08:04:05.891930
+1732,3578,,,,0,,,,,,,,,2026-11-19 18:40:36.865272
 1733,3603,336.7,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,L8rotauSjmSUh9lBJ-2hQA,107.38985995903067,2026-11-16 08:04:05.892255
 1734,3626,359.0,1.0,water_edge,0,backrest,1,water,harbour with boats,,backrest_rear_view,aAcoPVAUNf_g3XEqj0fE8Q,121.05684838060546,2026-11-16 08:04:05.892646
-1735,3665,,,,0,,,,,,,,,2026-11-16 08:04:05.893008
+1735,3665,,,,0,,,,,,,,,2026-11-19 18:40:36.865565
 1736,3653,31.433724524199476,1.0,vlm,0,backrest,1,park,park lawn,,backrest_rear_view,13497312926342983863,31.433724524199476,2026-11-16 08:04:05.893334
 1737,3666,116.13147084510899,1.0,vlm,1,backless,0,other,building facade,,best_front_view,GiiAwmG4J8ImTySNSBYnyg,,2026-11-16 08:04:05.893653
 1738,3699,239.3,1.0,water_edge,0,backrest,1,other,a parking area under an overpass,,backrest_no_rear_best_front,Y4suwfpgy3lQfWHgDWue_A,274.9546159043384,2026-11-16 08:04:05.893960
@@ -1773,7 +1773,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1772,1012,139.6,0.2686241852930014,water_edge,0,backrest,1,water,a canal,,backrest_rear_view,E_NpDdbbnbw8NHeGGzsuoQ,44.35609051755794,2026-11-16 08:04:05.908056
 1773,1013,139.6,0.4725656210714604,water_edge,0,backrest,1,water,canal,,backrest_rear_view,BeMWk_F7870pKnYh1OsFpw,133.56466247039123,2026-11-16 08:04:05.908942
 1774,1015,139.6,0.613347191050232,water_edge,0,backrest,1,water,a canal,,backrest_rear_view,B6ubZVOXu0X0euFEBz_fqA,180.00133951512393,2026-11-16 08:04:05.909326
-1775,1028,267.9,0.07385418855142428,vlm,0,backrest,1,street,"canal-side street, bike lane",,backrest_rear_view,KZA0cU4nJoND-2_ddQJ9dA,267.8994340554915,2026-11-19T12:45:26.741172+00:00
+1775,1028,247.0,0.6,water_back,0,backrest,1,street,"canal-side street, bike lane",,backrest_rear_view,KZA0cU4nJoND-2_ddQJ9dA,267.8994340554915,2026-11-19T15:09:19.583013+00:00
 1776,1029,67.0,0.09998860676155999,water_edge,0,backrest,1,water,canal,,backrest_rear_view,9YvT2Z-xjgyG9bd6e4XOuw,321.70800294469245,2026-11-16 08:04:05.910452
 1777,1031,67.0,0.1404343864150853,water_edge,0,backrest,1,water,canal,,backrest_rear_view,Hb0EZiOrK8Lisa-RVX-jDw,331.19551875360787,2026-11-16 08:04:05.910847
 1778,1037,252.5,0.4092162998770861,water_edge,1,backless,0,water,a river or canal,,best_front_view,2N9pWoDXhDEIMe2JLy058Q,,2026-11-16 08:04:05.911243
@@ -1797,16 +1797,16 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1796,1196,156.3,0.48941399792453144,water_edge,0,backrest,1,water,canal,,backrest_rear_view,oN0BwI1OvaZibdj4_Xu4sw,165.51208935014486,2026-11-16 08:04:05.920002
 1797,1198,156.3,0.7718268137377919,water_edge,0,backrest,1,water,canal,,backrest_rear_view,oN0BwI1OvaZibdj4_Xu4sw,86.16652601210642,2026-11-16 08:04:05.920414
 1798,1199,336.7,0.8917806741723255,water_edge,0,backrest,1,water,canal,,backrest_rear_view,Ch2yx_DzESmeE37ybvUhQg,278.44270081312857,2026-11-16 08:04:05.920795
-1799,1224,3.8,0.6008789849441079,vlm,0,backrest,1,square,paved circle with millstone,,backrest_no_rear_best_front,uB7Zg8lj0WdPgiqQADQi0A,3.787602295516608,2026-11-19T12:45:26.741172+00:00
+1799,1224,344.4,0.6,water_back,0,backrest,1,square,paved circle with millstone,,backrest_no_rear_best_front,uB7Zg8lj0WdPgiqQADQi0A,3.787602295516608,2026-11-19T15:09:19.583013+00:00
 1800,1227,82.7881026478209,0.2629467375315263,vlm,0,backrest,1,park,a park or garden area,,backrest_rear_view,55tHy2TThQC2KRFGnxFjOQ,82.7881026478209,2026-11-16 08:04:05.921502
 1801,1245,53.0,0.6998410131108561,water_edge,1,backless,0,water,canal,,best_front_view,y6Z-D_XdqdyeJpSJSG7_Jg,,2026-11-16 08:04:05.921832
 1802,1246,53.0,0.30605226754872433,water_edge,1,backless,0,water,canal,,best_front_view,X3-qRU4oq6IeN77JUmxdAA,,2026-11-16 08:04:05.922177
 1803,1250,27.9,0.5589370737947944,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,vvGC39jao91A41aJeQK7-A,281.906839003068,2026-11-16 08:04:05.922499
-1804,1251,233.5,0.808957302256635,vlm,0,backrest,1,park,park lawn,,backrest_rear_view,Y9r_b-RWdpFNnInasvNUMw,233.51450212793802,2026-11-19T12:45:26.741172+00:00
+1804,1251,210.7,0.6,water_back,0,backrest,1,park,park lawn,,backrest_rear_view,Y9r_b-RWdpFNnInasvNUMw,233.51450212793802,2026-11-19T15:09:19.583013+00:00
 1805,1257,96.94728419325261,0.46478688995561007,vlm,1,backless,0,busy_street,a busy street with bicycle parking,,best_front_view,ECUmVcaA5e53tA5x9X7_hw,,2026-11-16 08:04:05.923209
 1806,1284,108.81126053099585,0.6360303025777326,vlm,1,backless,0,park,a park area with trees,,best_front_view,PHw0fzhiMhuf5xcHx5ywbg,,2026-11-16 08:04:05.923648
 1807,1296,239.1,0.8394262918756645,water_edge,0,backrest,1,water,canal or river,,backrest_rear_view,WDdRqR-3vrX7i74JELOmBA,242.50217389379975,2026-11-16 08:04:05.924089
-1808,1316,42.1,0.45718469654483734,vlm,0,backrest,1,playground,square with play equipment,,backrest_rear_view,hcpSvLAm_WjCKr1wKxXaMw,42.141495421006944,2026-11-19T12:45:26.741172+00:00
+1808,1316,16.9,0.6,water_back,0,backrest,1,playground,square with play equipment,,backrest_rear_view,hcpSvLAm_WjCKr1wKxXaMw,42.141495421006944,2026-11-19T15:09:19.583013+00:00
 1809,1338,13.1,1.0,human,0,backrest,1,street,the pavement and Hoofdweg,,backrest_no_rear_best_front,ay-CXpc9AnXzLF7pD6IQDA,13.135586850570736,2026-11-19 12:25:50
 1810,1342,193.98642781237473,0.614324870541171,vlm,0,backrest,1,square,a paved square in front of a building,,backrest_no_rear_best_front,OWXP9SVClomcx079CdaKBw,193.98642781237473,2026-11-16 08:04:05.925363
 1811,1346,35.39660313254595,0.34256217145307044,vlm,0,backrest,1,residential_street,residential street with houses,,backrest_no_rear_best_front,6OI5P1ota-LetJR7JwsRag,35.39660313254595,2026-11-16 08:04:05.926789
@@ -1819,7 +1819,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1818,1416,134.3,0.7084044711402695,water_edge,0,backrest,1,residential_street,residential building and street,,backrest_no_rear_best_front,7LvxHRbMz_8hzeiN1smG-Q,146.0285880767116,2026-11-16 08:04:05.929372
 1819,1417,115.53197073731157,0.296828265380829,vlm,1,backless,0,courtyard,a paved square or courtyard area,,best_front_view,y96kc1fYnjrtPnepUYP9Hw,,2026-11-16 08:04:05.929719
 1820,1421,126.43294628357782,0.20542645911101587,vlm,0,backrest,1,playground,a fenced sports court,,backrest_rear_view,epiXtnDmpgh5wD6se1VAmA,126.43294628357782,2026-11-16 08:04:05.930059
-1821,1429,268.9,0.42937332438035936,vlm,0,backrest,1,street,bike path and street,,backrest_rear_view,_zJlvHxp6rFBjPsJwuVC9Q,268.9199290331941,2026-11-19T12:45:26.741172+00:00
+1821,1429,298.1,0.6,water_back,0,backrest,1,street,bike path and street,,backrest_rear_view,_zJlvHxp6rFBjPsJwuVC9Q,268.9199290331941,2026-11-19T15:09:19.583013+00:00
 1822,1441,161.2,0.45328039251062296,water_edge,1,backless,0,park,a park area with trees and a small pool,,best_front_view,C9TgnGWTPQDfRwBmv1lRuw,,2026-11-16 08:04:05.930852
 1823,1449,157.80735558860422,0.9170137830128056,vlm,0,backrest,1,park,a canal or waterway,,backrest_no_rear_best_front,SnGrG5uAlJD3L2RZVaEuXg,157.80735558860422,2026-11-16 08:04:05.931185
 1824,1453,319.7368429407532,0.7476692705682927,vlm,0,backrest,1,residential_street,residential building,,backrest_no_rear_best_front,BfRh02xsqMMQsTtFHXtHRw,319.7368429407532,2026-11-16 08:04:05.931534
@@ -1844,7 +1844,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1843,1638,3.7551640870473375,0.28406022544104437,vlm,1,backless,0,square,a paved square or plaza area,,best_front_view,d6OnLJQbaCIFNWoSg-CWeA,,2026-11-16 08:04:05.938329
 1844,1640,144.68188947271727,0.634793652185449,vlm,0,backrest,1,park,a grassy park area with trees,,backrest_rear_view,85OBV9-2iPdV1thDszKjwg,144.68188947271727,2026-11-16 08:04:05.938698
 1845,1651,51.4,0.3476532860623357,water_edge,0,backrest,1,water,river or lake,,backrest_rear_view,Vpv4FijIe0kTl9gqrmfrKA,340.77652394596964,2026-11-16 08:04:05.940500
-1846,1654,205.0,0.5775810102059094,vlm,0,backrest,1,park,path and tree lane,,backrest_no_rear_best_front,mCPRn2dgrTLx6O2bT0tk4g,204.96958955997908,2026-11-19T12:45:26.741172+00:00
+1846,1654,196.2,0.6,water_back,0,backrest,1,park,path and tree lane,,backrest_no_rear_best_front,mCPRn2dgrTLx6O2bT0tk4g,204.96958955997908,2026-11-19T15:09:19.583013+00:00
 1847,1655,17.2,0.38066647645396323,water_edge,0,backrest,1,water,river or canal,,backrest_rear_view,OpSVuIbxssHj4ThHkob7sA,93.55929551394847,2026-11-16 08:04:05.941369
 1848,1665,127.5,0.8842485956676385,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,13497312927368587845,267.46186790872054,2026-11-16 08:04:05.941758
 1849,1668,122.6,0.3432520904202876,water_edge,0,backrest,1,water,a small canal or pond,,backrest_rear_view,8_8KTpf4bG2TQWgFSrxtnw,53.09471336917536,2026-11-16 08:04:05.942149
@@ -1956,11 +1956,11 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1955,2339,122.5,0.2747722121602911,water_edge,0,backrest,1,water,canal and bridge,,backrest_rear_view,Y_MJmI_xY0Ypa58z9LGq4w,154.16199482745577,2026-11-16 08:04:06.000953
 1956,2341,160.28054538944792,0.38854437015913607,vlm,0,backrest,1,park,a bank building,,backrest_rear_view,1eo2j_dXfUhGKwglZkybhQ,160.28054538944792,2026-11-16 08:04:06.001336
 1957,2342,275.3443258400393,0.9713849262190786,vlm,0,backrest,1,other,a small building or kiosk,,backrest_rear_view,1P7AYLWKMWwSyUA-05FAOw,275.3443258400393,2026-11-16 08:04:06.001724
-1958,2344,43.6,0.22785560960699155,vlm,0,backrest,1,park,path and park lawn,,backrest_rear_view,iyTuscP3WLRNwgfWcFcpEw,43.57697810948785,2026-11-19T12:45:26.741172+00:00
+1958,2344,359.7,0.6,water_back,0,backrest,1,park,path and park lawn,,backrest_rear_view,iyTuscP3WLRNwgfWcFcpEw,43.57697810948785,2026-11-19T15:09:19.583013+00:00
 1959,2346,179.7,0.3732206015244667,water_edge,0,backrest,1,park,grassy park area with trees,,backrest_rear_view,RdUDbDrALoQpGCZNhl3uqQ,160.54642201247918,2026-11-16 08:04:06.002449
 1960,2361,192.79028660675942,0.3489986347709657,vlm,0,backrest,1,playground,trees and green space,,backrest_no_rear_best_front,-IhOQyd6ddItV9yIGh8UEQ,192.79028660675942,2026-11-16 08:04:06.002794
 1961,2369,234.3,0.9415475246988035,water_edge,0,backrest,1,park,a paved area and green space,,backrest_no_rear_best_front,6uvJRAQzK8lB6tzV-RrWuQ,158.17160118875012,2026-11-16 08:04:06.003151
-1962,2374,198.8,0.5396954455521316,vlm,0,backrest,1,square,paved plaza with planters,,backrest_no_rear_best_front,YEj7tN6gIBYkVA4_IxXYAA,198.80854811811605,2026-11-19T12:45:26.741172+00:00
+1962,2374,195.1,0.6,water_back,0,backrest,1,square,paved plaza with planters,,backrest_no_rear_best_front,YEj7tN6gIBYkVA4_IxXYAA,198.80854811811605,2026-11-19T15:09:19.583013+00:00
 1963,2376,132.43866509902307,0.2796326328852824,vlm,1,backless,0,residential_street,playground area,,best_front_view,mSaC-S1fYkoUb3giXX1Gnw,,2026-11-16 08:04:06.003915
 1964,2396,322.91375555186,0.40171755822445093,vlm,0,backrest,1,park,a canal or small waterway,,backrest_no_rear_best_front,m6o8iqluiKu3U43w0TgdWA,322.91375555186,2026-11-16 08:04:06.004274
 1965,2410,323.5571971942372,0.16464674258599593,vlm,0,backrest,1,square,a paved square with a fountain,,backrest_rear_view,aJomSMEGOgoNUsOAvVdJlA,323.5571971942372,2026-11-16 08:04:06.004647
@@ -1983,7 +1983,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 1982,2610,56.45653368210784,0.07138427642732846,vlm,1,backless,0,playground,playground area,,best_front_view,W7kJDQobw2KIsjF6m65nkA,,2026-11-16 08:04:06.011103
 1983,2640,120.9,0.638610073736512,water_edge,0,backrest,1,water,a canal or river,,backrest_rear_view,LttIZ27Vl6IsggDEFzsaKQ,129.0860525381438,2026-11-16 08:04:06.011453
 1984,2649,252.1,0.7684105461250208,water_edge,0,backrest,1,water,canal or river,,backrest_rear_view,GATMbd-VXtoU8hVokvsi7A,209.742839163021,2026-11-16 08:04:06.011803
-1985,2655,254.1,0.756356298372076,vlm,0,backrest,1,square,paved plaza with grasses,,backrest_no_rear_best_front,x4WKBAXEPEozmd69pK6Qlw,254.0688889051214,2026-11-19T12:45:26.741172+00:00
+1985,2655,269.5,0.6,water_back,0,backrest,1,square,paved plaza with grasses,,backrest_no_rear_best_front,x4WKBAXEPEozmd69pK6Qlw,254.0688889051214,2026-11-19T15:09:19.583013+00:00
 1986,2658,270.0,0.39248482178282124,water_edge,1,backless,0,water,a canal,,best_front_view,BWwzgD3KIT9q-DbMVXOsQQ,,2026-11-16 08:04:06.012497
 1987,2656,50.4259751860737,0.29413943989450947,vlm,0,backrest,1,park,green space and trees,,backrest_rear_view,ENbYOyxCOuKzYw8NTxeRWA,50.4259751860737,2026-11-16 08:04:06.012880
 1988,2666,0.9374238020612874,0.6294615693627325,vlm,1,backless,0,other,building entrance,,best_front_view,oTZ2wuf8kxP6KUqONKksOQ,,2026-11-16 08:04:06.013247
@@ -2011,21 +2011,21 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2010,2797,225.7,0.35509215141416695,water_edge,0,backrest,1,park,trees and bushes,,backrest_rear_view,tcmR8psMbP8-FvVBSpjOgA,167.97607609748223,2026-11-16 08:04:06.024813
 2011,2800,98.29738876728042,0.39757500168185017,vlm,1,backless,0,residential_street,residential street and parking area,,best_front_view,IyJRiVyZqtPNzlO0TI_AdQ,,2026-11-16 08:04:06.025146
 2012,2856,73.62402714515244,0.5954748927509829,vlm,1,picnic,0,square,paved square,,best_front_view,oDQUXyzHNqMdmAE-xmfUjA,,2026-11-16 08:04:06.025494
-2013,2870,123.7,0.6926941783776968,vlm,0,backrest,1,street,sidewalk and cycle path,,backrest_no_rear_best_front,Rt5oImvG29XeLeicpwtfVg,123.71828582333151,2026-11-19T12:45:26.741172+00:00
+2013,2870,137.9,0.6,water_back,0,backrest,1,street,sidewalk and cycle path,,backrest_no_rear_best_front,Rt5oImvG29XeLeicpwtfVg,123.71828582333151,2026-11-19T15:09:19.583013+00:00
 2014,2871,119.2545272516441,0.5639057497595872,vlm,0,backrest,1,busy_street,a busy street with shops and traffic,,backrest_rear_view,Nbf1H__dav_ln8LuXFq0OQ,119.2545272516441,2026-11-16 08:04:06.026258
 2015,2876,215.2408719123301,0.8271265517030827,vlm,0,backrest,1,playground,park area with trees and bushes,,backrest_rear_view,UD1yCa2AenNS29UfE4uKRw,215.2408719123301,2026-11-16 08:04:06.026564
 2016,2892,138.3,0.4067520953067558,water_edge,0,backrest,1,water,canal,,backrest_rear_view,qhuzFwWN8GV2gyz2iwWhXQ,157.8507771163648,2026-11-16 08:04:06.026854
 2017,2893,212.64602320867945,0.8857410015990854,vlm,0,backrest,1,other,a bike path and train station,,backrest_rear_view,PXTo7h3e-Z0EOQTvj8xCpg,212.64602320867945,2026-11-16 08:04:06.027147
 2018,2894,121.75548315790294,0.40110111749006944,vlm,0,backrest,1,other,train tracks and office buildings,,backrest_rear_view,_zH48KdBBaG49DvGlFJmgA,121.75548315790294,2026-11-16 08:04:06.027439
 2019,2916,76.1939309956314,0.6454090993424068,vlm,1,backless,0,busy_street,a residential street with parked cars and buildings,,best_front_view,zqItFn_0YSWj49RYzVKAGg,,2026-11-16 08:04:06.027725
-2020,2917,9.2,0.42148992157973214,vlm,0,backrest,1,street,sidewalk and parked cars,,backrest_no_rear_best_front,5DHtX-FaXBVjcKHjf6kIvA,9.201335959571956,2026-11-19T12:45:26.741172+00:00
+2020,2917,344.8,0.6,water_back,0,backrest,1,street,sidewalk and parked cars,,backrest_no_rear_best_front,5DHtX-FaXBVjcKHjf6kIvA,9.201335959571956,2026-11-19T15:09:19.583013+00:00
 2021,2923,281.2104999742378,0.20333885378081512,vlm,0,backrest,1,playground,playground area,,backrest_rear_view,OoIvuwJzGn6XeVCnnV5NTQ,281.2104999742378,2026-11-16 08:04:06.028299
 2022,2932,134.98793518235664,0.5541633319195098,vlm,0,backrest,1,park,grassy hill and trees,,backrest_no_rear_best_front,UlwNR3OUpTP-qtP5KfLMBQ,134.98793518235664,2026-11-16 08:04:06.028602
 2023,2933,105.11903082849315,0.9238288630666097,vlm,0,backrest,1,park,grassy hill and trees,,backrest_no_rear_best_front,7iyE3s2ptvLuO7RNlUOG-w,105.11903082849315,2026-11-16 08:04:06.028972
 2024,2963,48.78918135174578,0.2020900022851957,vlm,1,backless,0,square,a paved square with a fountain,,best_front_view,al8QquElD9x9HgK5Iq4ITg,,2026-11-16 08:04:06.029298
-2025,2966,211.2,0.9652528522796079,vlm,0,backrest,1,street,"brick promenade, buildings",,backrest_no_rear_best_front,o_YMGXY5t3EjAJJuuP1PLQ,211.24788621289392,2026-11-19T12:45:26.741172+00:00
+2025,2966,178.8,0.6,water_back,0,backrest,1,street,"brick promenade, buildings",,backrest_no_rear_best_front,o_YMGXY5t3EjAJJuuP1PLQ,211.24788621289392,2026-11-19T15:09:19.583013+00:00
 2026,2971,204.41336221564197,0.9768976453684397,vlm,0,backrest,1,park,a small green space with trees,,backrest_rear_view,ZfXZEQ-FUoPV3cRJ3IYTOw,204.41336221564197,2026-11-16 08:04:06.029925
-2027,3012,239.9,0.28869038501309785,vlm,0,backrest,1,street,brick path and street,,backrest_no_rear_best_front,2Q8HVWVp7PDe3bDOkXGA0A,239.93119826056858,2026-11-19T12:45:26.741172+00:00
+2027,3012,252.9,0.6,water_back,0,backrest,1,street,brick path and street,,backrest_no_rear_best_front,2Q8HVWVp7PDe3bDOkXGA0A,239.93119826056858,2026-11-19T15:09:19.583013+00:00
 2028,3027,44.5,0.38848240586133176,water_edge,0,backrest,1,water,a canal or river with boats,,backrest_rear_view,SZKdAYaZ9jsEHM4Q3xLniA,67.60196636159174,2026-11-16 08:04:06.030594
 2029,3022,174.2568037075787,0.9888776149990387,vlm,0,backrest,1,park,a park or green space,,backrest_no_rear_best_front,RcOgG0VQFP_Q6lGqa9eipg,174.2568037075787,2026-11-16 08:04:06.030934
 2030,3037,156.33962377854894,0.7546253132046352,vlm,0,backrest,1,playground,a fenced playground area,,backrest_rear_view,dXKEkMHyVZ6noqBaN58YjQ,156.33962377854894,2026-11-16 08:04:06.031451
@@ -2068,11 +2068,11 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2067,3283,154.9,0.1765245438897791,water_edge,0,backrest,1,water,canal,,backrest_rear_view,bgr-aBU1Uz3qP1Ail-MUBQ,277.1571761786937,2026-11-16 08:04:06.055105
 2068,3286,172.86732655242753,0.25244545952987446,vlm,0,backrest,1,square,a busy street with a market,,backrest_rear_view,WsOapAtymNLLSfYA4g4_0w,172.86732655242753,2026-11-16 08:04:06.055425
 2069,3289,101.2261540108151,0.1305971785954403,vlm,1,backless,0,square,a paved square or plaza area,,best_front_view,XDP_gZhFupY6yC23n8xj8A,,2026-11-16 08:04:06.055736
-2070,3290,257.8,0.45880090588697436,vlm,0,backrest,1,street,paved path and street,,backrest_rear_view,WXVucT6ihhbtIr1E10afug,257.80047457278584,2026-11-19T12:45:26.741172+00:00
-2071,3293,89.1,0.4526464749525787,vlm,0,backrest,1,street,paved footpath and hedges,,backrest_rear_view,U1aj7SygvPW2yB2rkwdT3w,89.1189692357254,2026-11-19T12:45:26.741172+00:00
+2070,3290,256.5,0.6,water_back,0,backrest,1,street,paved path and street,,backrest_rear_view,WXVucT6ihhbtIr1E10afug,257.80047457278584,2026-11-19T15:09:19.583013+00:00
+2071,3293,77.5,0.6,water_back,0,backrest,1,street,paved footpath and hedges,,backrest_rear_view,U1aj7SygvPW2yB2rkwdT3w,89.1189692357254,2026-11-19T15:09:19.583013+00:00
 2072,3298,71.0,0.3939790238053218,water_edge,0,backrest,1,water,river with boats,,backrest_rear_view,_hxwHdbW87P2eM6KFYnxcw,185.27358271556724,2026-11-16 08:04:06.056639
 2073,3300,340.1,0.28886558214781194,water_edge,0,backrest,1,water,a body of water,,backrest_rear_view,vQ0eIT61wDd7s__oN-B7Zg,199.7782045531557,2026-11-16 08:04:06.056930
-2074,3302,168.8,0.6396260548238608,vlm,0,backrest,1,park,paved path and lawn,,backrest_no_rear_best_front,xEhYv8z2LDQ-kVZaawoR4A,168.84150440220546,2026-11-19T12:45:26.741172+00:00
+2074,3302,159.1,0.6,water_back,0,backrest,1,park,paved path and lawn,,backrest_no_rear_best_front,xEhYv8z2LDQ-kVZaawoR4A,168.84150440220546,2026-11-19T15:09:19.583013+00:00
 2075,3305,113.71289386649993,0.3569665733664813,vlm,1,backless,0,other,building facade,,best_front_view,ECsvhwRk-KqllttuaBLgbw,,2026-11-16 08:04:06.057539
 2076,3309,115.98543017017148,0.3668906781679592,vlm,1,backless,0,other,a street with buildings,,best_front_view,b8vLGhrKLLq5Va6aLU43xw,,2026-11-16 08:04:06.057841
 2077,3310,106.69780589704784,0.34643212408063423,vlm,1,backless,0,other,office building entrance,,best_front_view,2Q8HVWVp7PDe3bDOkXGA0A,,2026-11-16 08:04:06.058147
@@ -2115,7 +2115,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2114,3694,181.6,0.40620611330506157,water_edge,0,backrest,1,water,canal,,backrest_rear_view,7p8IPWHnDjsOMoirgfM__A,157.31382497518334,2026-11-16 08:04:06.075109
 2115,3761,286.9,0.5191693616141555,water_edge,0,backrest,1,water,canal,,backrest_rear_view,-e-WIX0U4Mh3lW_BdDdcLg,341.02023912523055,2026-11-16 08:04:06.075480
 2116,3763,184.27163148114786,0.8122048536014872,vlm,0,backrest,1,park,a grassy area and a fence with bushes,,backrest_no_rear_best_front,oHKP-bLgj7FJaWbILuaVKg,184.27163148114786,2026-11-16 08:04:06.075933
-2117,3766,122.3,0.22977732443912263,vlm,0,backrest,1,square,"paved plaza, buildings",,backrest_rear_view,13497312927367547847,122.32165079575765,2026-11-19T12:45:26.741172+00:00
+2117,3766,124.4,0.6,water_back,0,backrest,1,square,"paved plaza, buildings",,backrest_rear_view,13497312927367547847,122.32165079575765,2026-11-19T15:09:19.583013+00:00
 2118,169,218.05092177056133,0.3209142532544243,vlm,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,WYi4iNWOeNrSV9eMsFkJmA,218.05092177056133,2026-11-16 08:04:06.076783
 2119,180,143.32893723417047,0.5244062320918159,vlm,0,backrest,1,busy_street,a busy street intersection,,backrest_no_rear_best_front,o4MHHPKxrHiNACc0I0T5AQ,143.32893723417047,2026-11-16 08:04:06.077179
 2120,199,112.09640585323984,0.5446027811276092,vlm,0,backrest,1,playground,a playground area,,backrest_rear_view,uXylAHjMPK-1EDYq8-UnCw,112.09640585323984,2026-11-16 08:04:06.077570
@@ -2131,14 +2131,14 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2130,394,196.0,0.10908275093237113,water_edge,0,backrest,1,water,a canal or harbour with boats,,backrest_rear_view,Nn-NdZPkJw6juqSq1eA9tA,153.02234584302064,2026-11-16 08:04:06.081146
 2131,411,88.71907603130488,0.38288587064579027,vlm,0,backrest,1,square,a paved square area,,backrest_rear_view,ycUa6UgjCjHzBc6iaw6Uig,88.71907603130488,2026-11-16 08:04:06.081505
 2132,412,349.881705199022,0.3125231115275242,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,KfVYzyjXV4i6ZZs-tr1jnA,349.881705199022,2026-11-16 08:04:06.081836
-2133,419,191.1,0.3321971893836493,vlm,0,backrest,1,street,sidewalk and bike path,,backrest_rear_view,oaKLo1iQXc24uIVfUcF6hg,191.10322465561254,2026-11-19T12:45:26.741172+00:00
-2134,420,158.2,0.6395404490032454,vlm,0,backrest,1,street,bike path and road,,backrest_no_rear_best_front,Ftx9Rxnt7w6ZsIPDLAKVNQ,158.21452114251565,2026-11-19T12:45:26.741172+00:00
+2133,419,172.7,0.6,water_back,0,backrest,1,street,sidewalk and bike path,,backrest_rear_view,oaKLo1iQXc24uIVfUcF6hg,191.10322465561254,2026-11-19T15:09:19.583013+00:00
+2134,420,172.7,0.6,water_back,0,backrest,1,street,bike path and road,,backrest_no_rear_best_front,Ftx9Rxnt7w6ZsIPDLAKVNQ,158.21452114251565,2026-11-19T15:09:19.583013+00:00
 2135,443,318.45031782239226,0.7503516686174578,vlm,0,backrest,1,busy_street,a busy street intersection,,backrest_rear_view,8O9fzw0TVro-7YA9OYqq7Q,318.45031782239226,2026-11-16 08:04:06.082938
 2136,446,148.52839182587576,0.5446594046351205,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,kRM_3d2tr7uQ1G9jmMBfFA,148.52839182587576,2026-11-16 08:04:06.083366
 2137,452,299.7,0.5671997797418944,water_edge,0,backrest,1,water,canal and bridge,,backrest_rear_view,TWUQqQRAGVoeBhbpvdQRcw,301.7277981605359,2026-11-16 08:04:06.083758
 2138,455,127.7,0.33259859497772915,water_edge,0,backrest,1,water,canal,,backrest_rear_view,a742_SnmkBfwJ0O5UJT45g,86.43455020210254,2026-11-16 08:04:06.084158
 2139,489,205.5239501158685,0.34590594711373973,vlm,0,backrest,1,playground,a paved square or open area,,backrest_rear_view,L4ZpoFW_3uiB6zBSFGxhcw,205.5239501158685,2026-11-16 08:04:06.084514
-2140,502,119.9,0.2363230939615897,vlm,0,backrest,1,square,"paved square, buildings",,backrest_rear_view,n2MupkqjvRl9DSqAS5J0ig,119.89663654968784,2026-11-19T12:45:26.741172+00:00
+2140,502,132.1,0.6,water_back,0,backrest,1,square,"paved square, buildings",,backrest_rear_view,n2MupkqjvRl9DSqAS5J0ig,119.89663654968784,2026-11-19T15:09:19.583013+00:00
 2141,552,117.55431339567004,0.33997286195650417,vlm,0,backrest,1,residential_street,a park or green space,,backrest_rear_view,7-uSl9t_ijhTHP4rtay9Qw,117.55431339567004,2026-11-16 08:04:06.085362
 2142,555,175.66207877547208,0.20647450559810232,vlm,1,backless,0,park,a small park or green space with trees,,best_front_view,ZXvhNfBTcPIMpv_MPPy0ww,,2026-11-16 08:04:06.085773
 2143,560,281.3,0.774234640885771,water_edge,0,backrest,1,water,canal,,backrest_rear_view,TytmaEJbhZE6CiQJishrNQ,279.9743565850134,2026-11-16 08:04:06.086178
@@ -2203,7 +2203,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2202,1267,170.6775559676694,0.2984936364558977,vlm,1,picnic,0,playground,playground,,best_front_view,4KJAymRVgWim7sTKdNO4DQ,,2026-11-16 08:04:06.121437
 2203,1269,73.40783739820857,0.26927353426803613,vlm,1,picnic,0,playground,playground area,,best_front_view,ytGOoJ4k1SnUDQchFkS20g,,2026-11-16 08:04:06.121876
 2204,1273,154.65529023157447,0.833805702869703,vlm,0,backrest,1,other,dense bushes and trees,,backrest_no_rear_best_front,77F3QN5evQPq7L_2HRxCeg,154.65529023157447,2026-11-16 08:04:06.123199
-2205,1276,120.4,0.6286782786038753,vlm,0,backrest,1,street,bike path and sidewalk,,backrest_no_rear_best_front,87F8vDEUIhEak2DOX5Pe6w,120.42343659371757,2026-11-19T12:45:26.741172+00:00
+2205,1276,136.6,0.6,water_back,0,backrest,1,street,bike path and sidewalk,,backrest_no_rear_best_front,87F8vDEUIhEak2DOX5Pe6w,120.42343659371757,2026-11-19T15:09:19.583013+00:00
 2206,1297,11.003385612231016,0.5829380981297942,vlm,0,backrest,1,residential_street,a quiet residential street,,backrest_no_rear_best_front,PbjVJnXn-Pdwy3PGfHbsAw,11.003385612231016,2026-11-16 08:04:06.124140
 2207,1314,228.37217662363818,0.30218784594808723,vlm,0,backrest,1,square,a paved square,,backrest_rear_view,uUpXK-dm9e0gdf4K-xOp4g,228.37217662363818,2026-11-16 08:04:06.124624
 2208,1315,169.62110223431588,0.5191614287278978,vlm,0,backrest,1,park,a tree-lined park or square,,backrest_rear_view,BI14K1_uEJyiJhX85zmj9A,169.62110223431588,2026-11-16 08:04:06.125111
@@ -2253,9 +2253,9 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2252,2112,346.1,0.18728057863781974,water_edge,0,backrest,1,playground,trees and greenery,,backrest_rear_view,J9-avfEVHu4tE5yIxwL0lg,251.64330686109173,2026-11-16 08:04:06.145143
 2253,2116,4.507317699954346,0.6087611078892774,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,zziu5j7Gpz1CcqxLE6NF1Q,4.507317699954346,2026-11-16 08:04:06.145568
 2254,2119,187.689801517227,0.8428977956166782,vlm,0,backrest,1,square,a paved square with a building and a food stall,,backrest_no_rear_best_front,DbrXVaY4WIXoM6dzXPM6wA,187.689801517227,2026-11-16 08:04:06.145959
-2255,2124,108.2,0.5463563692655818,vlm,0,backrest,1,street,path and parked cars,,backrest_rear_view,nRTTLxbyvIGeV_EQzOvjQg,108.24732066658788,2026-11-19T12:45:26.741172+00:00
+2255,2124,72.4,0.6,water_back,0,backrest,1,street,path and parked cars,,backrest_rear_view,nRTTLxbyvIGeV_EQzOvjQg,108.24732066658788,2026-11-19T15:09:19.583013+00:00
 2256,2136,301.7949049546726,0.2623440207442661,vlm,0,backrest,1,playground,a paved square or plaza area,,backrest_rear_view,Bcmq_a2YQ7W7kJ6_q3criQ,301.7949049546726,2026-11-16 08:04:06.146719
-2257,2141,215.1,0.875079364328118,vlm,0,backrest,1,park,paved path and lawn,,backrest_no_rear_best_front,lzzygpXrjsOYbu8ZsTixsA,215.1087174239375,2026-11-19T12:45:26.741172+00:00
+2257,2141,217.6,0.6,water_back,0,backrest,1,park,paved path and lawn,,backrest_no_rear_best_front,lzzygpXrjsOYbu8ZsTixsA,215.1087174239375,2026-11-19T15:09:19.583013+00:00
 2258,2162,33.05853870567789,0.05600652911705984,vlm,0,backrest,1,residential_street,residential street with apartment building,,backrest_no_rear_best_front,cuxFUW5y5E-gC0njdNpb8Q,33.05853870567789,2026-11-16 08:04:06.147535
 2259,2169,248.6471186601516,0.5664018049674752,vlm,0,backrest,1,other,office building facade,,backrest_no_rear_best_front,rME3kJhtdQiAdDl1ajKtLw,248.6471186601516,2026-11-16 08:04:06.148153
 2260,2199,304.54329778607286,0.31351876941746226,vlm,0,backrest,1,square,a paved plaza area,,backrest_rear_view,HFx5ROsWG8QNpOxE7BlOyQ,304.54329778607286,2026-11-16 08:04:06.149193
@@ -2280,7 +2280,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2279,2370,17.5,0.719157205587596,water_edge,0,backrest,1,water,a pond or canal,,backrest_rear_view,zt8Ol03X1fT57QB3Hp-y2Q,333.48350086176555,2026-11-16 08:04:06.158404
 2280,2395,95.19423919209362,0.20830114302047206,vlm,1,backless,0,residential_street,a paved square or plaza area,,best_front_view,qwtKzmJT9ZmoIoesSsQV8A,,2026-11-16 08:04:06.158817
 2281,2397,201.9,0.9499896703813049,water_edge,0,backrest,1,busy_street,a road,,backrest_no_rear_best_front,n7NpufqV6b-YvcO_B5_Lfg,110.2202344929686,2026-11-16 08:04:06.159212
-2282,2398,177.6,0.9185669109425436,vlm,0,backrest,1,square,"paved square, waste containers",,backrest_no_rear_best_front,vaeM_p2LUznFtoLfXY0rUA,177.63461926394746,2026-11-19T12:45:26.741172+00:00
+2282,2398,201.6,0.6,water_back,0,backrest,1,square,"paved square, waste containers",,backrest_no_rear_best_front,vaeM_p2LUznFtoLfXY0rUA,177.63461926394746,2026-11-19T15:09:19.583013+00:00
 2283,2427,358.9,0.5531335532424133,water_edge,0,backrest,1,water,a canal with a boat,,backrest_rear_view,vqameCzR4Ozw1s1Dum2DYg,291.4309300290994,2026-11-16 08:04:06.161132
 2284,2431,59.22049949355366,0.47919103902007554,vlm,0,backrest,1,other,a gate and entrance area,,backrest_rear_view,nZBMSD1HwQHHY7BAXZyiHA,59.22049949355366,2026-11-16 08:04:06.161553
 2285,2434,157.3,0.46124670205604,water_edge,0,backrest,1,park,playground with skate ramp,,backrest_no_rear_best_front,eGcHdz6Oq7_JeIQRzKQSoA,154.7293392405543,2026-11-16 08:04:06.161989
@@ -2387,7 +2387,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2386,493,168.5,0.25281791424741684,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,rWSHRBqSl6Cc-_8CZaF_ew,181.96491404074195,2026-11-16 08:04:06.218725
 2387,549,340.7,0.17074931419233214,water_edge,0,backrest,1,water,canal,,backrest_rear_view,-dSf2L_Lnwrvd51n-YV-mQ,335.32432794328935,2026-11-16 08:04:06.219072
 2388,553,226.8006918403118,0.1474599240681438,vlm,0,backrest,1,residential_street,residential street with parked cars and houses,,backrest_rear_view,7-uSl9t_ijhTHP4rtay9Qw,226.8006918403118,2026-11-16 08:04:06.219404
-2389,557,105.5,0.8065821020125955,vlm,0,backrest,1,other,promenade and bike ramp,,backrest_rear_view,GtgJxEmnXXLfFMjPwxR18g,105.51516631774165,2026-11-19T12:45:26.741172+00:00
+2389,557,105.1,0.6,water_back,0,backrest,1,other,promenade and bike ramp,,backrest_rear_view,GtgJxEmnXXLfFMjPwxR18g,105.51516631774165,2026-11-19T15:09:19.583013+00:00
 2390,579,94.8289643621005,0.6074988237849368,vlm,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,_PEdJhBNgxZw-XrYaIb0mQ,94.8289643621005,2026-11-16 08:04:06.221104
 2391,580,175.2,0.41596338536751265,water_edge,1,picnic,0,park,a grassy park area with a red picnic table,,best_front_view,PyaplxjhXZd3d2cWO-nlhg,,2026-11-16 08:04:06.221449
 2392,585,201.91974561875608,0.6650323268590101,vlm,0,backrest,1,park,a park or green space,,backrest_rear_view,cqvhjHC-l0zRJxICgeN0Rg,201.91974561875608,2026-11-16 08:04:06.221777
@@ -2401,7 +2401,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2400,737,144.79533414117205,0.2570882432462661,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,bDR588x-CeIdTRuiQGG9Fg,144.79533414117205,2026-11-16 08:04:06.227275
 2401,742,323.4,0.33882222364076076,water_edge,0,backrest,1,water,a canal,,backrest_rear_view,lfqcpItFy-dekgufPITYBA,85.26228192239923,2026-11-16 08:04:06.227755
 2402,768,169.3311519160166,0.6996408795515991,vlm,0,backrest,1,playground,playground with slide,,backrest_rear_view,Hp_PVNiRpGHJRonaw9sE9g,169.3311519160166,2026-11-16 08:04:06.228161
-2403,825,70.3,0.46434779074565885,vlm,0,backrest,1,square,open brick bridge plaza,,backrest_rear_view,owRZYzrb3MKA_AMztq0saw,70.30938117592582,2026-11-19T12:45:26.741172+00:00
+2403,825,90.4,0.6,water_back,0,backrest,1,square,open brick bridge plaza,,backrest_rear_view,owRZYzrb3MKA_AMztq0saw,70.30938117592582,2026-11-19T15:09:19.583013+00:00
 2404,832,221.51861352041257,0.2156836861435056,vlm,0,backrest,1,busy_street,a road with cars,,backrest_rear_view,_cqa5ALCduKx7-2bc-yCvw,221.51861352041257,2026-11-16 08:04:06.228917
 2405,834,204.56145244875407,0.5197827055755642,vlm,0,backrest,1,park,park area,,backrest_rear_view,nYAcpYdgd9O2cynGAfIZOw,204.56145244875407,2026-11-16 08:04:06.229363
 2406,882,297.6434753289774,0.7385767764999794,vlm,0,backrest,1,busy_street,residential street with apartment building,,backrest_rear_view,cQLMc--Fc4vJGU-jeKpZZw,297.6434753289774,2026-11-16 08:04:06.230160
@@ -2466,8 +2466,8 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2465,2338,122.5,0.2555583509524915,water_edge,0,backrest,1,water,a canal or river,,backrest_rear_view,wvces7pwFiwMcTiPgCQ_ag,216.98361418115766,2026-11-16 08:04:06.256891
 2466,2345,179.7,0.16687454644057212,water_edge,0,backrest,1,park,a pond or canal and a bridge,,backrest_rear_view,2PDN23yfETNyvBqqksaRcw,248.25659803252995,2026-11-16 08:04:06.257600
 2467,2362,31.091610478056538,0.241804052907137,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,GxxisYQ4OgpTHmU8-ztiKg,31.091610478056538,2026-11-16 08:04:06.257932
-2468,2371,257.6,0.618057165052367,vlm,0,backrest,1,street,footpath and bike lane,,backrest_rear_view,MyIhRd2RUsWf5pwtHGcIdQ,257.5994739112252,2026-11-19T12:45:26.741172+00:00
-2469,2372,244.0,0.4534224878919115,vlm,0,backrest,1,street,path and parking lot,,backrest_rear_view,TeHZsng_vPdmN539OR_LjA,243.95861869151958,2026-11-19T12:45:26.741172+00:00
+2468,2371,240.8,0.6,water_back,0,backrest,1,street,footpath and bike lane,,backrest_rear_view,MyIhRd2RUsWf5pwtHGcIdQ,257.5994739112252,2026-11-19T15:09:19.583013+00:00
+2469,2372,256.5,0.6,water_back,0,backrest,1,street,path and parking lot,,backrest_rear_view,TeHZsng_vPdmN539OR_LjA,243.95861869151958,2026-11-19T15:09:19.583013+00:00
 2470,2399,145.28047156307767,0.16847661225648333,vlm,0,backrest,1,busy_street,park and trees,,backrest_no_rear_best_front,jCXXeP0OFmmfO_p-vMMrDw,145.28047156307767,2026-11-16 08:04:06.258880
 2471,2411,163.60754942518525,0.32636607833189324,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,BRNd9bS0BlXaFGkfjqxC8Q,163.60754942518525,2026-11-16 08:04:06.259205
 2472,2412,64.64747135142223,0.16872026955987351,vlm,0,backrest,1,square,a paved square with shops,,backrest_rear_view,NSLGSaUimzA_Vv7v7zH2jA,64.64747135142223,2026-11-16 08:04:06.259548
@@ -2537,9 +2537,9 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2536,3783,113.11058626786972,1.0,vlm,1,backless,0,other,office building plaza,,best_front_view,17042754037109710998,,2026-11-16 08:04:06.290297
 2537,3835,56.827457881712014,1.0,vlm,1,backless,0,residential_street,residential street,,best_front_view,88dEP7iPjKDCgbSuFsXGlA,,2026-11-16 08:04:06.290724
 2538,3837,6.227749215260977,1.0,vlm,1,backless,0,park,a small green space or lawn,,best_front_view,7hhwVn1ubWe_I44U_sG9LA,,2026-11-16 08:04:06.291136
-2539,3850,13.2,1.0,vlm,0,backrest,1,square,paved cobblestone square,,backrest_no_rear_best_front,Jk8hYZs3gyAulwcm_VLCGg,13.18240132869704,2026-11-19T12:45:26.741172+00:00
+2539,3850,50.3,0.6,water_back,0,backrest,1,square,paved cobblestone square,,backrest_no_rear_best_front,Jk8hYZs3gyAulwcm_VLCGg,13.18240132869704,2026-11-19T15:09:19.583013+00:00
 2540,3865,139.2164185840205,1.0,vlm,1,backless,0,park,trees and greenery,,best_front_view,89hFWsaZBqdOx1QBoF71Gw,,2026-11-16 08:04:06.291957
-2541,3872,,,,0,,,,,,,,,2026-11-16 08:04:06.292298
+2541,3872,,,,0,,,,,,,,,2026-11-19 18:40:36.865981
 2542,3867,48.1,1.0,water_edge,1,backless,0,water,harbour and water,,best_front_view,0LlqJ3Mogan8lK-Sk9XJwA,,2026-11-16 08:04:06.292631
 2543,3874,229.8,0.9999999999999999,water_edge,0,backrest,1,water,a canal,,backrest_no_rear_best_front,16494226483038450924,117.38215461129363,2026-11-16 08:04:06.292977
 2544,3920,154.32870953020165,0.9999999999999998,vlm,0,backrest,1,square,a small square or plaza with a monument,,backrest_no_rear_best_front,xEyRyZxF6XuCyoP0OWGcng,154.32870953020165,2026-11-16 08:04:06.293384
@@ -2631,7 +2631,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2630,4773,29.042444270610186,1.0,vlm,1,backless,0,park,park area,,best_front_view,dIzxjKrEshSpX6XvgBenqQ,,2026-11-16 08:04:06.357357
 2631,4774,130.2011341267367,0.9999999999999999,vlm,1,picnic,0,park,grassy park area,,best_front_view,Kz5aRRhCI7KEUR_5JhUcTQ,,2026-11-16 08:04:06.357783
 2632,4792,126.39102898343674,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,16225678357397370512,126.39102898343674,2026-11-16 08:04:06.360200
-2633,4798,99.8,1.0,vlm,0,backrest,1,street,street and parked bicycles,,backrest_no_rear_best_front,yYlnA4d7bIH5AvPwpeN74w,99.83003040577495,2026-11-19T12:45:26.741172+00:00
+2633,4798,94.3,0.6,water_back,0,backrest,1,street,street and parked bicycles,,backrest_no_rear_best_front,yYlnA4d7bIH5AvPwpeN74w,99.83003040577495,2026-11-19T15:09:19.583013+00:00
 2634,4810,247.40044400148997,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,P8NagGzE0_3FaHW4xXFrdQ,247.40044400148997,2026-11-16 08:04:06.361828
 2635,4812,264.2,1.0,water_edge,0,backrest,1,park,wooded park area,,backrest_no_rear_best_front,16225678357401629539,253.66701779858357,2026-11-16 08:04:06.362352
 2636,4802,170.9863992666131,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_no_rear_best_front,16225678357400789536,170.9863992666131,2026-11-16 08:04:06.363132
@@ -2640,7 +2640,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2639,4831,174.79022314023905,1.0,vlm,0,backrest,1,residential_street,a quiet residential street,,backrest_no_rear_best_front,YVx9K6u-q3wGzEmH2NfKuw,174.79022314023905,2026-11-16 08:04:06.370223
 2640,4849,212.7330993679364,1.0,vlm,0,backrest,1,park,a large green park with trees,,backrest_rear_view,3611386202394164052,212.7330993679364,2026-11-16 08:04:06.374464
 2641,4851,246.4,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,85hRhAKLQGhj70jtyNH0nQ,94.5776110197628,2026-11-16 08:04:06.375049
-2642,4843,11.9,1.0,vlm,0,backrest,1,street,canal-side street,,backrest_no_rear_best_front,U-If_FGa1kPeWLeCVKMUiw,11.949948677544056,2026-11-19T12:45:26.741172+00:00
+2642,4843,354.7,0.6,water_back,0,backrest,1,street,canal-side street,,backrest_no_rear_best_front,U-If_FGa1kPeWLeCVKMUiw,11.949948677544056,2026-11-19T15:09:19.583013+00:00
 2643,4844,174.7,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,U-If_FGa1kPeWLeCVKMUiw,110.58469454421703,2026-11-16 08:04:06.375973
 2644,4898,261.46896105600206,0.9999999999999999,vlm,0,backrest,1,other,building wall and entrance,,backrest_no_rear_best_front,bje0X1NoJR0Fl2tJj5tk2Q,261.46896105600206,2026-11-16 08:04:06.376393
 2645,4855,356.1629726328242,1.0,vlm,0,backrest,1,park,a garden or park area,,backrest_no_rear_best_front,k2SvJv2WM1KBJsxw8h5JVg,356.1629726328242,2026-11-16 08:04:06.376831
@@ -2661,7 +2661,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2660,4974,70.63616831490481,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_rear_view,3611386204741284223,70.63616831490481,2026-11-16 08:04:06.389640
 2661,4961,230.6210869893348,1.0,vlm,0,backrest,1,other,a grassy area and a fence,,backrest_no_rear_best_front,iP0gpq3xY2REMGIii18jWA,230.6210869893348,2026-11-16 08:04:06.390027
 2662,4989,152.77815648709236,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_rear_view,3611386202483473659,152.77815648709236,2026-11-16 08:04:06.390407
-2663,5060,160.0,1.0,vlm,0,backrest,1,street,"red bike path, street",,backrest_no_rear_best_front,7SSdeCVap8f3Tnr7uEHKCg,160.0461633807376,2026-11-19T12:45:26.741172+00:00
+2663,5060,143.6,0.6,water_back,0,backrest,1,street,"red bike path, street",,backrest_no_rear_best_front,7SSdeCVap8f3Tnr7uEHKCg,160.0461633807376,2026-11-19T15:09:19.583013+00:00
 2664,5036,94.52109844288972,1.0,vlm,1,backless,0,park,school grounds or park area,,best_front_view,e8s7zZFF8EzsUMVKsAYxjQ,,2026-11-16 08:04:06.391168
 2665,5026,196.57185975966883,1.0,vlm,0,backrest,1,park,park path and enclosure,,backrest_rear_view,16494226483111261829,196.57185975966883,2026-11-16 08:04:06.391504
 2666,5047,295.7626934636246,1.0,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,q1kuSe16yVTMDAhLtRe6cg,295.7626934636246,2026-11-16 08:04:06.391851
@@ -2670,7 +2670,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2669,5028,91.0,1.0,osm_tag,0,other,0,park,a grassy park area with a seesaw,,best_front_view,tOPYT0EfIJlpeMoTBMIzaQ,91.0,2026-11-16 08:04:06.393552
 2670,5065,310.8725921672051,1.0,vlm,0,backrest,1,park,a garden or park area,,backrest_rear_view,16494226483113319060,310.8725921672051,2026-11-16 08:04:06.393983
 2671,5072,277.0,1.0,osm_tag,0,backrest,1,busy_street,a busy street with tram tracks,,backrest_no_rear_best_front,VTmes6pQSPgfGlMMp2_LDQ,277.0,2026-11-16 08:04:06.394402
-2672,5074,253.0,1.0,osm_tag,0,,,,,,,,253.0,2026-11-16 08:04:06.394828
+2672,5074,253.0,1.0,osm_tag,0,,,,,,,,253.0,2026-11-19 18:40:36.866316
 2673,5093,161.07526976449878,1.0,vlm,0,backrest,1,park,trees and park area,,backrest_no_rear_best_front,bzDcwmu6CN_7MVh2hrSY_w,161.07526976449878,2026-11-16 08:04:06.395246
 2674,5118,6.95329660537077,1.0,vlm,1,backless,0,other,a brick building wall,,best_front_view,NeKnCgVGHnTWsXjUM0v_7A,,2026-11-16 08:04:06.395962
 2675,5131,5.314789944296081,1.0,vlm,0,backrest,1,square,a paved square or plaza,,backrest_no_rear_best_front,w1yiYqhvhjIwYwxDotAc1w,5.314789944296081,2026-11-16 08:04:06.396363
@@ -2740,7 +2740,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2739,5661,181.75560166046623,1.0,vlm,0,backrest,1,residential_street,residential street,,backrest_no_rear_best_front,17455353570593052402,181.75560166046623,2026-11-16 08:04:06.443124
 2740,5662,231.3,1.0,water_edge,0,backrest,1,water,harbour with boats,,backrest_rear_view,FAf0X0hc4uPDQrMs0PXfyQ,274.2524456794432,2026-11-16 08:04:06.443548
 2741,5691,81.4,1.0,water_edge,0,backrest,1,water,a river or canal,,backrest_no_rear_best_front,XUj1BGkYvclfz5LdNAd1eg,321.19594290915757,2026-11-16 08:04:06.443939
-2742,5681,338.3,1.0,vlm,0,backrest,1,street,"paved quay, parked cars",,backrest_no_rear_best_front,WfNdARE0SfKguR4yN_NuiA,338.293783815676,2026-11-19T12:45:26.741172+00:00
+2742,5681,357.8,0.6,water_back,0,backrest,1,street,"paved quay, parked cars",,backrest_no_rear_best_front,WfNdARE0SfKguR4yN_NuiA,338.293783815676,2026-11-19T15:09:19.583013+00:00
 2743,5730,359.2,1.0,water_edge,0,backrest,1,water,a river or canal,,backrest_no_rear_best_front,2fNnuPFlgeT1HO9DKpClTA,234.25651182416004,2026-11-16 08:04:06.444723
 2744,5671,42.6,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,W7opa37rrpY9FRhRsgLw_A,171.11946316646487,2026-11-16 08:04:06.445134
 2745,5676,239.2099525879675,1.0,vlm,0,backrest,1,courtyard,apartment complex courtyard,,backrest_no_rear_best_front,kDd5cMAo6zbq4EwaHmdCng,239.2099525879675,2026-11-16 08:04:06.445507
@@ -2779,7 +2779,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2778,5953,136.55759387199964,1.0,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,4980159373499279373,136.55759387199964,2026-11-16 08:04:06.471171
 2779,5954,87.34619087457992,0.9999999999999998,vlm,1,backless,0,playground,climbing wall,,best_front_view,4980159373499286374,,2026-11-16 08:04:06.471507
 2780,5962,52.94888337757143,0.9999999999999999,vlm,1,backless,0,courtyard,a paved courtyard area with stairs and landscaping,,best_front_view,3WXX0qtL-EDR9L-Vy4Go_Q,,2026-11-16 08:04:06.471871
-2781,5956,,,,0,,,,,,,,,2026-11-16 08:04:06.472244
+2781,5956,,,,0,,,,,,,,,2026-11-19 18:40:36.866578
 2782,5963,56.919791863699956,1.0,vlm,1,backless,0,square,a paved plaza area with stairs,,best_front_view,3WXX0qtL-EDR9L-Vy4Go_Q,,2026-11-16 08:04:06.472749
 2783,5964,234.37593756273867,0.9999999999999999,vlm,0,backrest,1,courtyard,a paved courtyard with stairs and landscaping,,backrest_no_rear_best_front,3WXX0qtL-EDR9L-Vy4Go_Q,234.37593756273867,2026-11-16 08:04:06.473123
 2784,6001,265.71224012939035,0.9999999999999998,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_no_rear_best_front,c6LBUItIjnoG2lETisbJ4Q,265.71224012939035,2026-11-16 08:04:06.473483
@@ -2828,7 +2828,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2827,3898,161.29463894796075,0.9145215487766948,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,Cahx1P6Eo1X7t82Bo3d3lw,161.29463894796075,2026-11-16 08:04:06.500374
 2828,3915,37.80654988585443,0.9993253791945904,vlm,0,backrest,1,park,a park or green space with trees and houses in the distance,,backrest_rear_view,12865378408723807015,37.80654988585443,2026-11-16 08:04:06.500740
 2829,3940,264.1,0.9993796308231954,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,b7zkNVAoRFT5Ee8RDUhBgw,83.09580203842452,2026-11-16 08:04:06.501080
-2830,3941,87.0,0.9192287472588889,vlm,0,backrest,1,street,sidewalk and residential street,,backrest_no_rear_best_front,ccM8xyGotZFgRxFau3dp0w,87.02783688864152,2026-11-19T12:45:26.741172+00:00
+2830,3941,78.9,0.6,water_back,0,backrest,1,street,sidewalk and residential street,,backrest_no_rear_best_front,ccM8xyGotZFgRxFau3dp0w,87.02783688864152,2026-11-19T15:09:19.583013+00:00
 2831,3942,258.9,0.6720372002587222,water_edge,0,backrest,1,water,canal and boats,,backrest_rear_view,rXvWCz_joBmza4OfIU0nYA,250.06052102812046,2026-11-16 08:04:06.501858
 2832,3943,259.4,0.6529329926443099,water_edge,0,backrest,1,water,a canal with boats,,backrest_rear_view,kB2MClmTu2CXIkuSLQPJaw,112.27289711195245,2026-11-16 08:04:06.502201
 2833,3956,259.3,0.9048369493592873,water_edge,0,backrest,1,water,canal,,backrest_rear_view,6OK-RRJMRKqHJUCfJyMJvA,37.39245050083241,2026-11-16 08:04:06.502547
@@ -2924,7 +2924,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 2923,4297,56.13407035434161,0.28914750747772267,vlm,0,backrest,1,park,park path and trees,,backrest_rear_view,12865378408630041087,56.13407035434161,2026-11-16 08:04:06.584811
 2924,4298,90.18808984210665,0.6612321824581158,vlm,0,backrest,1,park,dense trees and bushes,,backrest_no_rear_best_front,2363503118365967546,90.18808984210665,2026-11-16 08:04:06.585860
 2925,4304,298.9383298486422,0.42007462804658985,vlm,0,backrest,1,park,park lawn and trees,,backrest_rear_view,3611386205252999159,298.9383298486422,2026-11-16 08:04:06.592404
-2926,4314,229.1,0.9957156264022798,vlm,0,backrest,1,square,sandy open square,,backrest_no_rear_best_front,3611386203002048894,229.05116786533384,2026-11-19T12:45:26.741172+00:00
+2926,4314,223.6,0.6,water_back,0,backrest,1,square,sandy open square,,backrest_no_rear_best_front,3611386203002048894,229.05116786533384,2026-11-19T15:09:19.583013+00:00
 2927,4337,181.45549529777705,0.730865914160151,vlm,0,backrest,1,playground,playground equipment,,backrest_no_rear_best_front,8YOlJnEBlfsSFe9ny0jZOw,181.45549529777705,2026-11-16 08:04:06.593179
 2928,4348,143.97684734757559,0.8362618928655156,vlm,0,backrest,1,park,a wooded park area,,backrest_rear_view,3611386201968142431,143.97684734757559,2026-11-16 08:04:06.593557
 2929,4349,344.5493582183409,0.5709766944147433,vlm,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,9pzQK6aJMIh0Icv0fi74qQ,344.5493582183409,2026-11-16 08:04:06.593972
@@ -3081,7 +3081,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3080,4946,290.23828729338845,0.12835047540255268,vlm,0,backrest,1,park,a grassy park area with trees,,backrest_rear_view,3611386202394603052,290.23828729338845,2026-11-16 08:04:06.705052
 3081,4947,286.2474139904776,0.1286850693340743,vlm,0,backrest,1,park,a grassy park area with trees,,backrest_rear_view,3611386202394605052,286.2474139904776,2026-11-16 08:04:06.705432
 3082,4952,96.58317512756895,0.93108108219293,vlm,1,picnic,0,playground,playground area,,best_front_view,ytGOoJ4k1SnUDQchFkS20g,,2026-11-16 08:04:06.705780
-3083,4960,162.9,0.41209338182523864,vlm,0,backrest,1,other,paved pedestrian promenade,,backrest_no_rear_best_front,9aHt88rEDRknzfSKzGaplg,162.93967698894875,2026-11-19T12:45:26.741172+00:00
+3083,4960,204.1,0.6,water_back,0,backrest,1,other,paved pedestrian promenade,,backrest_no_rear_best_front,9aHt88rEDRknzfSKzGaplg,162.93967698894875,2026-11-19T15:09:19.583013+00:00
 3084,4979,129.0,1.0,osm_tag,0,backrest,1,park,park greenery,,backrest_rear_view,13497312926345361864,129.0,2026-11-16 08:04:06.706482
 3085,4980,314.7681263702916,0.9743980706335723,vlm,0,backrest,1,courtyard,a paved courtyard area between apartment buildings,,backrest_no_rear_best_front,Izvtx_tlxa0K6qlj9icfbQ,314.7681263702916,2026-11-16 08:04:06.709417
 3086,4987,102.45589169643696,0.31503487440356454,vlm,0,backrest,1,park,park and walking path,,backrest_rear_view,3611386202483493659,102.45589169643696,2026-11-16 08:04:06.709940
@@ -3098,7 +3098,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3097,5020,29.7,0.9048752388326501,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,16494226483118073694,297.63412154788244,2026-11-16 08:04:06.715486
 3098,5021,135.955235900749,0.9996246640288797,vlm,0,backrest,1,park,a park or garden path,,backrest_no_rear_best_front,16494226483118127694,135.955235900749,2026-11-16 08:04:06.715855
 3099,5022,106.28488561476578,0.9872139161259493,vlm,0,backrest,1,park,a park path,,backrest_no_rear_best_front,16494226483118124694,106.28488561476578,2026-11-16 08:04:06.716196
-3100,5023,153.9,0.36121357384696395,vlm,0,backrest,1,park,path and park trees,,backrest_rear_view,3611386201966796436,153.8835251266226,2026-11-19T12:45:26.741172+00:00
+3100,5023,163.3,0.6,water_back,0,backrest,1,park,path and park trees,,backrest_rear_view,3611386201966796436,153.8835251266226,2026-11-19T15:09:19.583013+00:00
 3101,5025,219.06815942476413,0.7509603434532268,vlm,0,backrest,1,park,greenhouse and garden,,backrest_rear_view,16494226483113829058,219.06815942476413,2026-11-16 08:04:06.716865
 3102,5030,149.7874677407334,0.7127226214236708,vlm,0,backrest,1,park,a large open green field,,backrest_rear_view,4980159374001867308,149.7874677407334,2026-11-16 08:04:06.717202
 3103,5031,122.10699710347387,0.7482947028065866,vlm,0,backrest,1,park,a large grassy field and trees,,backrest_no_rear_best_front,4980159374001850308,122.10699710347387,2026-11-16 08:04:06.718052
@@ -3116,7 +3116,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3115,5088,173.09261462125076,0.9718920943040186,vlm,0,backrest,1,other,building facade,,backrest_no_rear_best_front,14722210555973272200,173.09261462125076,2026-11-16 08:04:06.724117
 3116,5104,178.1,0.3571729799261354,water_edge,0,backrest,1,water,canal,,backrest_rear_view,3611386205252867160,284.3664552001239,2026-11-16 08:04:06.724455
 3117,5106,216.8158789909506,0.803257587715218,vlm,0,backrest,1,park,a park lawn and trees,,backrest_no_rear_best_front,3611386205251156724,216.8158789909506,2026-11-16 08:04:06.724810
-3118,5107,324.0,0.5732844828163979,vlm,0,backrest,1,park,footpath and grass,,backrest_no_rear_best_front,3611386204994317649,323.9952255560903,2026-11-19T12:45:26.741172+00:00
+3118,5107,358.1,0.6,water_back,0,backrest,1,park,footpath and grass,,backrest_no_rear_best_front,3611386204994317649,323.9952255560903,2026-11-19T15:09:19.583013+00:00
 3119,5108,178.1,0.8484677444010807,water_edge,0,backrest,1,water,canal,,backrest_rear_view,3611386204994300649,290.1682020393188,2026-11-16 08:04:06.725559
 3120,5109,35.46774364912673,0.5128390016136326,vlm,0,backrest,1,park,a grassy park area with trees and a building,,backrest_rear_view,3611386204994229649,35.46774364912673,2026-11-16 08:04:06.725929
 3121,5115,7.819197631543088,0.5918873945491998,vlm,1,backless,0,other,building wall,,best_front_view,y4gh9BQdFCfW7oKyQmMVAA,,2026-11-16 08:04:06.726305
@@ -3136,7 +3136,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3135,5147,358.0838297906165,0.3481128776730185,vlm,0,backrest,1,park,a grassy park area with trees and apartment buildings,,backrest_rear_view,10584715316499523633,358.0838297906165,2026-11-16 08:04:06.746174
 3136,5158,354.27920018719277,0.37863677345542207,vlm,0,backrest,1,park,a grassy park area with trees,,backrest_rear_view,10584715316499468637,354.27920018719277,2026-11-16 08:04:06.748068
 3137,5159,311.0569181153902,0.994062163724343,vlm,0,backrest,1,park,a grassy park area with trees and apartment buildings,,backrest_rear_view,10584715316499498639,311.0569181153902,2026-11-16 08:04:06.748574
-3138,5167,1.4,0.5313417785282684,vlm,0,backrest,1,street,street and cafe terrace,,backrest_no_rear_best_front,8Rj7EwbN8N0gfhUZCsyLAQ,1.422458878191106,2026-11-19T12:45:26.741172+00:00
+3138,5167,45.6,0.6,water_back,0,backrest,1,street,street and cafe terrace,,backrest_no_rear_best_front,8Rj7EwbN8N0gfhUZCsyLAQ,1.422458878191106,2026-11-19T15:09:19.583013+00:00
 3139,5164,120.76937520820213,0.9506537687070888,vlm,0,backrest,1,park,a grassy park with trees,,backrest_rear_view,3611386205252709161,120.76937520820213,2026-11-16 08:04:06.749707
 3140,5163,233.8014713250432,0.38987614546679494,vlm,0,backrest,1,park,a park with trees and grass,,backrest_rear_view,3611386205252732161,233.8014713250432,2026-11-16 08:04:06.750173
 3141,5170,295.72108146899245,0.838730383563525,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_no_rear_best_front,bWbbDk1VaRgP3v4a7ck50w,295.72108146899245,2026-11-16 08:04:06.750653
@@ -3242,7 +3242,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3241,5642,36.84657083166702,0.9349025240526606,vlm,1,backless,0,square,public plaza area,,best_front_view,wQGQmA5AP640EXz-DmG1BA,,2026-11-16 08:04:06.834078
 3242,5629,179.0,0.2632908222333361,water_edge,0,backrest,1,park,wooded park area,,backrest_no_rear_best_front,uFiDs90g9kl93TcYf5u_yQ,125.83386028276684,2026-11-16 08:04:06.834499
 3243,5643,310.7,0.48999951976266704,water_edge,0,backrest,1,water,a small canal and a wooden bridge,,backrest_rear_view,9207999214329108227,318.58954639619515,2026-11-16 08:04:06.834928
-3244,5647,345.3,0.9386546119134168,vlm,0,backrest,1,street,"sidewalk, parked bikes",,backrest_no_rear_best_front,f8SkIXOEyI-RZKPu6G9hvg,345.2787198609732,2026-11-19T12:45:26.741172+00:00
+3244,5647,347.1,0.6,water_back,0,backrest,1,street,"sidewalk, parked bikes",,backrest_no_rear_best_front,f8SkIXOEyI-RZKPu6G9hvg,345.2787198609732,2026-11-19T15:09:19.583013+00:00
 3245,5665,38.8,0.8949489648769385,water_edge,0,backrest,1,park,a dirt path and trees,,backrest_no_rear_best_front,UV5Qs_HQ5zCBd0pYPnDpEQ,38.33020424358555,2026-11-16 08:04:06.835805
 3246,5657,66.9,0.9969345211136621,water_edge,0,backrest,1,water,canal with houseboats,,backrest_no_rear_best_front,FsA1_afOH5GaBHKTF1YbIQ,88.61236224940785,2026-11-16 08:04:06.839757
 3247,5674,272.8987904741531,0.8523703869947442,vlm,0,backrest,1,courtyard,apartment complex courtyard,,backrest_no_rear_best_front,FMvHjPrn0M8OpN_3nrmtcQ,272.8987904741531,2026-11-16 08:04:06.840268
@@ -3403,7 +3403,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3402,4092,202.12093662704925,0.7981154434360365,vlm,0,backrest,1,park,a small park or green space with a playground structure,,backrest_no_rear_best_front,luj2Lgh3CBoZxtu_DQVlqQ,202.12093662704925,2026-11-16 08:04:06.944732
 3403,4095,13.01446582687724,0.5505010373866139,vlm,0,backrest,1,square,a paved pedestrian square,,backrest_no_rear_best_front,JxOAwQ7LylcZQtYLQ5E8qw,13.01446582687724,2026-11-16 08:04:06.945174
 3404,4096,70.22169762584872,0.8476647636679246,vlm,0,backrest,1,square,a paved area in front of a building,,backrest_no_rear_best_front,JxOAwQ7LylcZQtYLQ5E8qw,70.22169762584872,2026-11-16 08:04:06.945627
-3405,4102,95.5,0.41851611144112316,vlm,0,backrest,1,street,cycle path and building,,backrest_rear_view,hE1QFI81zU_0EGZawG7tbQ,95.51889507080915,2026-11-19T12:45:26.741172+00:00
+3405,4102,76.8,0.6,water_back,0,backrest,1,street,cycle path and building,,backrest_rear_view,hE1QFI81zU_0EGZawG7tbQ,95.51889507080915,2026-11-19T15:09:19.583013+00:00
 3406,4109,195.22432489555408,0.2748576827348646,vlm,0,backrest,1,park,a park lawn and trees,,backrest_rear_view,450AxphbfjtF2l4xfl28ew,195.22432489555408,2026-11-16 08:04:06.953995
 3407,4110,349.36032827183755,0.9565269853103093,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,o6geWRVxFwRCvllNazVs0Q,349.36032827183755,2026-11-16 08:04:06.954472
 3408,4113,119.0,0.15805348287845844,water_edge,0,backrest,1,water,a small stream or canal,,backrest_rear_view,judIGOJnb8XGX2oC5vOenA,89.76389738802652,2026-11-16 08:04:06.954965
@@ -3461,7 +3461,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3460,4446,80.6669789410503,0.9820236900403501,vlm,0,backrest,1,park,park or green space,,backrest_no_rear_best_front,B0LTScKTKxsdUkSjnkncoQ,80.6669789410503,2026-11-16 08:04:07.024379
 3461,4461,241.3,0.4467640325923038,water_edge,0,backrest,1,park,park area with trees and grass,,backrest_rear_view,ZmGSQ4yGhGCCvgzAMvpGKA,206.15240915074895,2026-11-16 08:04:07.026124
 3462,4488,19.860136012065666,0.7460137459329775,vlm,1,backless,0,playground,playground and sports field,,best_front_view,16519570120472195133,,2026-11-16 08:04:07.032930
-3463,4489,268.7,0.25587195890213815,vlm,0,backrest,1,park,"cycle path, lawn",,backrest_rear_view,16519570120723902229,268.69856462721737,2026-11-19T12:45:26.741172+00:00
+3463,4489,302.0,0.6,water_back,0,backrest,1,park,"cycle path, lawn",,backrest_rear_view,16519570120723902229,268.69856462721737,2026-11-19T15:09:19.583013+00:00
 3464,4509,184.3,0.3466765447565228,water_edge,0,backrest,1,water,a pond or small lake,,backrest_rear_view,SetQBLdt6OG2e04i9OmX7Q,169.43178928483712,2026-11-16 08:04:07.070520
 3465,4518,111.29540105141879,0.21636601031541208,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,d7co13OrXHtHmP1FHm4lmQ,111.29540105141879,2026-11-16 08:04:07.071014
 3466,4519,28.419929680778203,0.36571122021131175,vlm,0,backrest,1,residential_street,a paved school or building courtyard,,backrest_no_rear_best_front,aSfeTmS3jlNbvkk4pqozGQ,28.419929680778203,2026-11-16 08:04:07.071487
@@ -3491,7 +3491,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3490,4765,36.8,0.36135530567650803,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,9GhqD7y7Tmr-Rzskm0V3OA,223.3649778945044,2026-11-16 08:04:07.093985
 3491,4784,147.41221482829755,0.7041503806144328,vlm,0,backrest,1,other,restaurant terrace,,backrest_no_rear_best_front,GEwrmp8QkYHWrgzUXjO8YA,147.41221482829755,2026-11-16 08:04:07.094445
 3492,4788,70.05436337861539,0.983849428418548,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,WGoSr3Xn49p5MMbEQqMDhg,70.05436337861539,2026-11-16 08:04:07.095036
-3493,4789,133.3,0.6825755608959998,vlm,0,backrest,1,square,"paved square, bike path",,backrest_no_rear_best_front,XNPUjxJqjA15NKhKQE-Z3g,133.26902434289156,2026-11-19T12:45:26.741172+00:00
+3493,4789,137.9,0.6,water_back,0,backrest,1,square,"paved square, bike path",,backrest_no_rear_best_front,XNPUjxJqjA15NKhKQE-Z3g,133.26902434289156,2026-11-19T15:09:19.583013+00:00
 3494,4793,28.5,0.4401825895528056,water_edge,0,backrest,1,water,busy street with cyclists and pedestrians,,backrest_no_rear_best_front,N0OVfNi7O0f3ZlalQtXNrQ,145.02093892107473,2026-11-16 08:04:07.097028
 3495,4796,254.6,0.45806559574886524,water_edge,0,backrest,1,water,canal with houseboats,,backrest_rear_view,dxikOrk_EG9w8PoYeWGt-Q,274.74564997355156,2026-11-16 08:04:07.097570
 3496,4797,274.3,0.6618438172895422,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,8163030033189479909,322.091732105457,2026-11-16 08:04:07.098151
@@ -3517,14 +3517,14 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3516,4962,258.6,0.44301002966643516,water_edge,0,backrest,1,water,a pond,,backrest_rear_view,GJvYLobhE_ZlVuB5i8hHSg,250.87580449402793,2026-11-16 08:04:07.172618
 3517,4963,264.3,0.5330242809985741,water_edge,0,backrest,1,water,a canal or pond,,backrest_rear_view,D_uNZzHiq6LHzONIbN0qIQ,231.21008449041145,2026-11-16 08:04:07.173068
 3518,4964,177.19434441913506,0.7887470331945805,vlm,0,backrest,1,park,park and apartment buildings,,backrest_rear_view,IicIu7J-fJMx9OieNaiCEQ,177.19434441913506,2026-11-16 08:04:07.173527
-3519,4970,174.9,0.5688541883270282,vlm,0,backrest,1,park,lawn and footpath,,backrest_no_rear_best_front,lis_P6YSPnEvUV0gHxrCHw,174.86492188232168,2026-11-19T12:45:26.741172+00:00
+3519,4970,175.0,0.6,water_back,0,backrest,1,park,lawn and footpath,,backrest_no_rear_best_front,lis_P6YSPnEvUV0gHxrCHw,174.86492188232168,2026-11-19T15:09:19.583013+00:00
 3520,4977,37.43928612762101,0.5124768510493951,vlm,1,backless,0,residential_street,a grassy area and apartment buildings,,best_front_view,p9P_SOl9VwJ6_McFQRJbzA,,2026-11-16 08:04:07.174423
 3521,4985,32.063384646886064,0.9139075624913054,vlm,0,backrest,1,playground,park area with skate ramps,,backrest_no_rear_best_front,sKZxzv8Oi6Y7Cnmy6_x_Fg,32.063384646886064,2026-11-16 08:04:07.177580
 3522,4994,170.18482612436108,0.9660535626700998,vlm,0,backrest,1,park,a grassy park area,,backrest_no_rear_best_front,RcOgG0VQFP_Q6lGqa9eipg,170.18482612436108,2026-11-16 08:04:07.178218
 3523,5000,201.7,0.7454454972670416,water_edge,0,backrest,1,water,a river or canal,,backrest_rear_view,kDwfLSXfBAuXqWNM4zYc1g,185.15731239008505,2026-11-16 08:04:07.178661
 3524,5004,183.0,0.03310467122451962,water_edge,1,backless,0,water,canal,,best_front_view,2_KFOBrbcEt1Wiypm55tPQ,,2026-11-16 08:04:07.179179
 3525,5014,196.9,0.9231420177384984,water_edge,1,backless,0,water,canal,,best_front_view,ECb23kT_s7MhZVLgeRjz1Q,,2026-11-16 08:04:07.179605
-3526,5015,16.4,0.9796140470207643,vlm,0,backrest,1,square,paved square with trees,,backrest_no_rear_best_front,74uhPSmZGCbCr9r3yM49DQ,16.38990817382519,2026-11-19T12:45:26.741172+00:00
+3526,5015,16.9,0.6,water_back,0,backrest,1,square,paved square with trees,,backrest_no_rear_best_front,74uhPSmZGCbCr9r3yM49DQ,16.38990817382519,2026-11-19T15:09:19.583013+00:00
 3527,5016,289.2,0.9316746071535266,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,74uhPSmZGCbCr9r3yM49DQ,11.433641840072317,2026-11-16 08:04:07.180504
 3528,5037,77.82682694226122,0.3825408388830276,vlm,0,backrest,1,other,building entrance,,backrest_rear_view,ocvVJkOJffvH6enTXoWmtg,77.82682694226122,2026-11-16 08:04:07.180943
 3529,5039,200.57028468702723,0.9360527458783696,vlm,0,backrest,1,other,building wall,,backrest_no_rear_best_front,-ERQ3S-uxzgRHcVFrqONVA,200.57028468702723,2026-11-16 08:04:07.181390
@@ -3591,7 +3591,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3590,5457,141.0,0.7462774739894638,water_edge,0,backrest,1,water,a canal,,backrest_rear_view,zlzbZVfLumYE7gSx914Dnw,139.01906512097716,2026-11-16 08:04:07.275553
 3591,5462,223.5,0.3609290926693341,water_edge,0,backrest,1,courtyard,brick building wall,,backrest_no_rear_best_front,u_TsfC3P8aaznFTU9qMEZg,139.65395932922442,2026-11-16 08:04:07.276054
 3592,5489,152.4778641457213,0.8157837376044956,vlm,0,backrest,1,other,apartment courtyard,,backrest_no_rear_best_front,hdsZkwNyxsFycyMOGyAeTg,152.4778641457213,2026-11-16 08:04:07.276582
-3593,5496,93.4,0.482701238752716,vlm,0,backrest,1,square,paved cobblestone square,,backrest_rear_view,lxf9KqxUlAn4tdT3OczpIQ,93.39784860494943,2026-11-19T12:45:26.741172+00:00
+3593,5496,61.2,0.6,water_back,0,backrest,1,square,paved cobblestone square,,backrest_rear_view,lxf9KqxUlAn4tdT3OczpIQ,93.39784860494943,2026-11-19T15:09:19.583013+00:00
 3594,5507,210.1993835209758,0.9373666813340963,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,8dI-fZpJDJ3IC7lVpba5Jw,210.1993835209758,2026-11-16 08:04:07.277606
 3595,5513,219.9047359997755,0.930428481546279,vlm,0,backrest,1,park,apartment building,,backrest_no_rear_best_front,u8UCan5SaUqRz9BJjhY7BA,219.9047359997755,2026-11-16 08:04:07.278173
 3596,5526,117.6952883137578,0.8526089909684708,vlm,0,backrest,1,playground,playground area,,backrest_rear_view,HZrwYcvfJaf9GegPUiJPPA,117.6952883137578,2026-11-16 08:04:07.281845
@@ -3666,7 +3666,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3665,3795,167.06281944120266,0.8246499180322421,vlm,0,backrest,1,park,trees and bushes,,backrest_rear_view,Nf0uRlrESmFhRSlZfxGfXw,167.06281944120266,2026-11-16 08:04:07.327532
 3666,3808,249.02869103675243,0.2955469021017917,vlm,0,backrest,1,park,a park with trees and grass,,backrest_rear_view,aqTEnPhhg4ff2anheWUuvw,249.02869103675243,2026-11-16 08:04:07.327917
 3667,3815,218.4,0.1129988376587082,water_edge,0,backrest,1,water,a canal and a field,,backrest_rear_view,kcz4kM44qSfgNRIxZDm7KA,335.98703931585743,2026-11-16 08:04:07.328299
-3668,3816,2.9,0.7770257744008566,vlm,0,backrest,1,street,path and road,,backrest_no_rear_best_front,38N6PhjDTu9AfLIJ-P1KBg,2.8635083626445916,2026-11-19T12:45:26.741172+00:00
+3668,3816,28.5,0.6,water_back,0,backrest,1,street,path and road,,backrest_no_rear_best_front,38N6PhjDTu9AfLIJ-P1KBg,2.8635083626445916,2026-11-19T15:09:19.583013+00:00
 3669,3817,321.1670888160361,0.3523855359819962,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,nhl8gHjxzzy3pYS0KE3ZCg,321.1670888160361,2026-11-16 08:04:07.329115
 3670,3818,249.11423032548345,0.2524980796154124,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,WOZfxK8gp1HjnZ6lk4V41g,249.11423032548345,2026-11-16 08:04:07.329589
 3671,3821,356.09212588076116,0.47856791630589274,vlm,0,backrest,1,playground,playground area,,backrest_rear_view,VkS27vNqbBD15-AhuzRQDQ,356.09212588076116,2026-11-16 08:04:07.330060
@@ -3689,10 +3689,10 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3688,3960,260.1,0.6888671338573937,water_edge,0,backrest,1,water,canal,,backrest_rear_view,GbNKfwLBXD6-K2h5qWrosQ,28.47896344923941,2026-11-16 08:04:07.337334
 3689,3964,172.60587703083985,0.4740379309353223,vlm,0,backrest,1,busy_street,a busy street and sidewalk area,,backrest_rear_view,IZS7oRNewLO2XIcgoXhPTg,172.60587703083985,2026-11-16 08:04:07.337740
 3690,3966,29.994942781865436,0.7021401979815562,vlm,0,backrest,1,other,a building with shop windows,,backrest_no_rear_best_front,3611386202998057525,29.994942781865436,2026-11-16 08:04:07.338110
-3691,3969,87.2,0.7785999560183934,vlm,0,backrest,1,street,"grass, bike path, road",,backrest_rear_view,nRTTLxbyvIGeV_EQzOvjQg,87.24260036457807,2026-11-19T12:45:26.741172+00:00
+3691,3969,72.4,0.6,water_back,0,backrest,1,street,"grass, bike path, road",,backrest_rear_view,nRTTLxbyvIGeV_EQzOvjQg,87.24260036457807,2026-11-19T15:09:19.583013+00:00
 3692,3970,253.5,0.2248023814314824,water_edge,0,backrest,1,water,a canal with boats,,backrest_rear_view,EGGkKmFj1Gw6PWu_pNNXUw,167.25535372540887,2026-11-16 08:04:07.339437
 3693,3983,274.1,0.6187155932298768,water_edge,0,backrest,1,water,canal with boats,,backrest_rear_view,ybG7FQrRchnBs71iQwqr0g,217.4864947752174,2026-11-16 08:04:07.339889
-3694,3989,216.7,0.9804962221295994,vlm,0,backrest,1,park,"paved path, lawn",,backrest_no_rear_best_front,lzzygpXrjsOYbu8ZsTixsA,216.72426270830584,2026-11-19T12:45:26.741172+00:00
+3694,3989,217.6,0.6,water_back,0,backrest,1,park,"paved path, lawn",,backrest_no_rear_best_front,lzzygpXrjsOYbu8ZsTixsA,216.72426270830584,2026-11-19T15:09:19.583013+00:00
 3695,3990,287.89802367351365,0.24310653685363082,vlm,0,backrest,1,playground,playground area,,backrest_rear_view,1iFkFbV1qUlvdhMhXW7p_A,287.89802367351365,2026-11-16 08:04:07.342670
 3696,4012,303.33555504272135,0.5681828338810474,vlm,0,backrest,1,courtyard,apartment building courtyard,,backrest_no_rear_best_front,qWfSrTxO0fg3GbqiW9pRHg,303.33555504272135,2026-11-16 08:04:07.343792
 3697,4022,104.69847257099649,0.6906189333945704,vlm,0,backrest,1,park,a park or green space,,backrest_rear_view,tI4SBwKLUqzFBdtnY8Dj1Q,104.69847257099649,2026-11-16 08:04:07.344268
@@ -3759,8 +3759,8 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3758,4421,49.004395582268465,0.821264795356212,vlm,1,backless,0,other,a large brick building,,best_front_view,3611386204985681057,,2026-11-16 08:04:07.387819
 3759,4441,339.2,0.31190125519948636,water_edge,0,backrest,1,water,canal,,backrest_rear_view,5a3yFNW3m3dglJ7iwsey1g,249.0935976532783,2026-11-16 08:04:07.388216
 3760,4460,241.3,0.4629858274064835,water_edge,0,backrest,1,park,park area with trees,,backrest_rear_view,KWznRyhyPsRW1s0uSzV7Yw,157.18359118251817,2026-11-16 08:04:07.388592
-3761,4462,104.1,0.3158447655829635,vlm,0,backrest,1,square,"paved quay, street barriers",,backrest_rear_view,FS2nGz8izfCgIeRooreiDQ,104.05414952598973,2026-11-19T12:45:26.741172+00:00
-3762,4463,40.2,0.6573828848749614,vlm,0,backrest,1,street,cycle path and road,,backrest_rear_view,FS2nGz8izfCgIeRooreiDQ,40.20080529459849,2026-11-19T12:45:26.741172+00:00
+3761,4462,72.3,0.6,water_back,0,backrest,1,square,"paved quay, street barriers",,backrest_rear_view,FS2nGz8izfCgIeRooreiDQ,104.05414952598973,2026-11-19T15:09:19.583013+00:00
+3762,4463,72.3,0.6,water_back,0,backrest,1,street,cycle path and road,,backrest_rear_view,FS2nGz8izfCgIeRooreiDQ,40.20080529459849,2026-11-19T15:09:19.583013+00:00
 3763,4464,252.3,0.5384003076550022,water_edge,0,backrest,1,water,canal or river,,backrest_rear_view,PXy7vZguHT8FMMfiKo59Zg,31.874891992871717,2026-11-16 08:04:07.389728
 3764,4485,223.80833386412903,0.6715524586670918,vlm,0,backrest,1,park,trees and greenery,,backrest_no_rear_best_front,dbf3aIsu5TPcp55AQm_0_A,223.80833386412903,2026-11-16 08:04:07.390082
 3765,4487,298.6929517473503,0.31278767121157125,vlm,0,backrest,1,park,a park area with a sculpture,,backrest_no_rear_best_front,8sBHuWdIy8xzBwW5PKroSw,298.6929517473503,2026-11-16 08:04:07.390415
@@ -3775,7 +3775,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3774,4542,96.71458123775592,0.6076399056459443,vlm,1,backless,0,square,a paved square with a fountain,,best_front_view,_GlumWjOBS69uHrCcqAGZg,,2026-11-16 08:04:07.393682
 3775,4554,251.1,0.5138519670198585,water_edge,0,backrest,1,water,canal with houseboats,,backrest_rear_view,GATMbd-VXtoU8hVokvsi7A,198.4897628702619,2026-11-16 08:04:07.394016
 3776,4556,262.7856117759858,0.8888111857536852,vlm,0,backrest,1,park,green space and trees,,backrest_no_rear_best_front,BWwzgD3KIT9q-DbMVXOsQQ,262.7856117759858,2026-11-16 08:04:07.394348
-3777,4558,46.1,0.7463266425844328,vlm,0,backrest,1,square,paved plaza with plantings,,backrest_no_rear_best_front,9iYXFDA7BgfwHf9JE0Hacg,46.112247357372006,2026-11-19T12:45:26.741172+00:00
+3777,4558,90.0,0.6,water_back,0,backrest,1,square,paved plaza with plantings,,backrest_no_rear_best_front,9iYXFDA7BgfwHf9JE0Hacg,46.112247357372006,2026-11-19T15:09:19.583013+00:00
 3778,4559,19.32366500382464,0.5704452867578882,vlm,0,backrest,1,park,a park area with trees and grass,,backrest_rear_view,BWwzgD3KIT9q-DbMVXOsQQ,19.32366500382464,2026-11-16 08:04:07.397610
 3779,4567,182.56993368779214,0.6209654703148989,vlm,0,backrest,1,square,a paved plaza or square area,,backrest_rear_view,yZ2o_Wm9TQluUlifpZq6hw,182.56993368779214,2026-11-16 08:04:07.398007
 3780,4568,182.254083873804,0.885320496880631,vlm,0,backrest,1,park,apartment complex courtyard,,backrest_no_rear_best_front,VdNaIn0Sc32SQ91GpWLRXQ,182.254083873804,2026-11-16 08:04:07.398368
@@ -3791,7 +3791,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3790,4608,55.3,0.12070469239392384,water_edge,0,backrest,1,park,green fields and a small canal,,backrest_rear_view,iEoWkpWv3jlwrxtJHRM86Q,72.96852663759663,2026-11-16 08:04:07.404073
 3791,4632,160.4,0.8917859482424207,water_edge,0,backrest,1,water,canal,,backrest_rear_view,hihtfsCrfYozNOKLgUN9aA,145.68611275848954,2026-11-16 08:04:07.404431
 3792,4641,115.8,0.5344555655856797,water_edge,0,backrest,1,water,a river or canal,,backrest_rear_view,k7WmWuQO10EShKlJ0SjkYA,359.3093265136484,2026-11-16 08:04:07.404836
-3793,4642,298.1,0.15841294380945778,vlm,0,backrest,1,square,paved brick plaza,,backrest_rear_view,k7WmWuQO10EShKlJ0SjkYA,298.10948755759034,2026-11-19T12:45:26.741172+00:00
+3793,4642,295.8,0.6,water_back,0,backrest,1,square,paved brick plaza,,backrest_rear_view,k7WmWuQO10EShKlJ0SjkYA,298.10948755759034,2026-11-19T15:09:19.583013+00:00
 3794,4650,192.76929756478543,0.8806872498634424,vlm,0,backrest,1,residential_street,residential street with parked cars and apartment building,,backrest_rear_view,PbpVTsc2adV1epZjFUm-Ig,192.76929756478543,2026-11-16 08:04:07.405688
 3795,4683,10.957555180843812,0.13789810775623054,vlm,0,backrest,1,park,greenery and trees,,backrest_rear_view,shW2OEkK7hAtCMPbqHWVJQ,10.957555180843812,2026-11-16 08:04:07.406585
 3796,4687,79.2,0.6580617874741894,water_edge,0,backrest,1,water,canal,,backrest_rear_view,ry9pvpGblphDxM2wzWztvg,120.14154972031045,2026-11-16 08:04:07.407068
@@ -3820,7 +3820,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3819,4840,13.816677492435007,0.8643436719083593,vlm,0,backrest,1,water,canal or street,,backrest_no_rear_best_front,CuHTsctDYbRCbp4L1igUPw,13.816677492435007,2026-11-16 08:04:07.416207
 3820,4869,253.7375049512596,0.22260653431310176,vlm,0,backrest,1,busy_street,a busy road with a truck,,backrest_no_rear_best_front,7fWZoG5ymiG7kbVikocX6w,253.7375049512596,2026-11-16 08:04:07.416604
 3821,4873,352.2692077224139,0.7034017181725144,vlm,0,backrest,1,courtyard,a paved courtyard or square,,backrest_rear_view,hW53yE84hsWbdy_xvfBmgw,352.2692077224139,2026-11-16 08:04:07.417026
-3822,4879,135.2,0.16558131922930694,vlm,0,backrest,1,park,grass lawn and path,,backrest_rear_view,l26uMMC3z2qS-FAO6vLqqg,135.22577921454558,2026-11-19T12:45:26.741172+00:00
+3822,4879,175.0,0.6,water_back,0,backrest,1,park,grass lawn and path,,backrest_rear_view,l26uMMC3z2qS-FAO6vLqqg,135.22577921454558,2026-11-19T15:09:19.583013+00:00
 3823,4885,147.81921641346065,0.5636590761891883,vlm,0,backrest,1,park,playground area,,backrest_no_rear_best_front,OoIvuwJzGn6XeVCnnV5NTQ,147.81921641346065,2026-11-16 08:04:07.417934
 3824,4919,163.3,0.8090039630213135,water_edge,0,backrest,1,water,canal and trees,,backrest_rear_view,r59qIdMmITUiMON6ifocEA,278.9872058888634,2026-11-16 08:04:07.418392
 3825,4951,84.06192964034223,0.5959224485925386,vlm,0,backrest,1,playground,playground area,,backrest_rear_view,d3brdY_JWfZDUfalfA-omQ,84.06192964034223,2026-11-16 08:04:07.418828
@@ -3853,7 +3853,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3852,5136,41.0,0.729235357316473,water_edge,0,backrest,1,water,canal or harbor,,backrest_no_rear_best_front,rx4blk1g6raQ80FY6AdPHA,203.5737937432751,2026-11-16 08:04:07.430251
 3853,5137,244.6938063368418,0.49842028055216336,vlm,0,backrest,1,playground,playground,,backrest_rear_view,Bcmq_a2YQ7W7kJ6_q3criQ,244.6938063368418,2026-11-16 08:04:07.430634
 3854,5140,96.30867523463284,0.8475464603030435,vlm,0,backrest,1,park,a small park or green space with trees,,backrest_rear_view,hBQNQl2Lc-VS6v5HJmi5eQ,96.30867523463284,2026-11-16 08:04:07.431909
-3855,5146,124.4,0.4137190305257002,vlm,0,backrest,1,park,paved path and greenery,,backrest_rear_view,2yBhdgzmuelG_cGhA_DWBw,124.40676694763141,2026-11-19T12:45:26.741172+00:00
+3855,5146,81.0,0.6,water_back,0,backrest,1,park,paved path and greenery,,backrest_rear_view,2yBhdgzmuelG_cGhA_DWBw,124.40676694763141,2026-11-19T15:09:19.583013+00:00
 3856,5150,339.3970735961034,0.5051761070484091,vlm,0,backrest,1,residential_street,residential apartment building,,backrest_no_rear_best_front,YwDyCo_kLm1lBuuJvYSl9g,339.3970735961034,2026-11-16 08:04:07.432733
 3857,5155,333.56960903212985,0.5111562539046085,vlm,0,backrest,1,residential_street,residential street and apartment building,,backrest_no_rear_best_front,BfRh02xsqMMQsTtFHXtHRw,333.56960903212985,2026-11-16 08:04:07.433100
 3858,5203,30.591064881686385,0.265943630787902,vlm,1,backless,0,square,a paved square in front of a historic building,,best_front_view,n5GF-fovKP-Oqf96hh4SVA,,2026-11-16 08:04:07.433474
@@ -3939,8 +3939,8 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 3938,5810,280.9,0.25815870826484466,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,6_GtLINs85_I0RUg7sMq7Q,70.40737476372003,2026-11-16 08:04:07.486687
 3939,5812,100.9,0.26376525461137934,water_edge,0,backrest,1,water,canal,,backrest_rear_view,KBx9dSFH7hqpXno4DeEH9w,342.6163976727142,2026-11-16 08:04:07.487170
 3940,5814,311.9,0.21566836859343166,water_edge,0,backrest,1,other,a paved area with trees and a railway viaduct in the background,,backrest_rear_view,yZ2o_Wm9TQluUlifpZq6hw,358.2538552102148,2026-11-16 08:04:07.492317
-3941,5815,124.9,0.2213958294771905,vlm,0,backrest,1,square,"paved square, office building",,backrest_rear_view,yZ2o_Wm9TQluUlifpZq6hw,124.8751078234919,2026-11-19T12:45:26.741172+00:00
-3942,5819,94.8,0.6792162021381858,vlm,0,backrest,1,square,"cobbled square, bike racks",,backrest_rear_view,CrYXGvSQj9Xj4E_6qi-mEA,94.83021939805899,2026-11-19T12:45:26.741172+00:00
+3941,5815,131.9,0.6,water_back,0,backrest,1,square,"paved square, office building",,backrest_rear_view,yZ2o_Wm9TQluUlifpZq6hw,124.8751078234919,2026-11-19T15:09:19.583013+00:00
+3942,5819,103.4,0.6,water_back,0,backrest,1,square,"cobbled square, bike racks",,backrest_rear_view,CrYXGvSQj9Xj4E_6qi-mEA,94.83021939805899,2026-11-19T15:09:19.583013+00:00
 3943,5820,106.9,0.6809776361160194,water_edge,0,backrest,1,water,canal,,backrest_rear_view,d1ID1BWguUA3Sct1y1q6FA,240.24477780497472,2026-11-16 08:04:07.497347
 3944,5821,286.9,0.6297654848161313,water_edge,0,backrest,1,water,canal,,backrest_rear_view,-e-WIX0U4Mh3lW_BdDdcLg,306.1018210831911,2026-11-16 08:04:07.498412
 3945,5822,224.0,1.0,osm_tag,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,FZfVSuHRZ_JtifwWWVtorA,224.0,2026-11-16 08:04:07.498927
@@ -4005,7 +4005,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4004,3796,148.83523796668297,0.7351668443021758,vlm,0,backrest,1,park,green space and trees,,backrest_no_rear_best_front,aoj71lDrkLovq6_Plju4nQ,148.83523796668297,2026-11-16 08:04:07.557785
 4005,3799,111.98291019271042,0.4747757587551161,vlm,1,picnic,0,residential_street,residential street with parked cars,,best_front_view,hEmURa_KZyrkKn2yAA3Fkg,,2026-11-16 08:04:07.558232
 4006,3807,79.67203686354453,0.40457050931428906,vlm,1,backless,0,playground,a park area with trees and a basketball hoop,,best_front_view,UGQZXzqZMH2uqbSWZSHeBg,,2026-11-16 08:04:07.558657
-4007,3810,257.7,0.6497775727585201,vlm,0,backrest,1,street,paved quay parking area,,backrest_rear_view,XRBg-VIW7aGwg9ZbPPrFzA,257.66483002179285,2026-11-19T12:45:26.741172+00:00
+4007,3810,222.4,0.6,water_back,0,backrest,1,street,paved quay parking area,,backrest_rear_view,XRBg-VIW7aGwg9ZbPPrFzA,257.66483002179285,2026-11-19T15:09:19.583013+00:00
 4008,3843,331.94617946140573,0.6191556061947746,vlm,0,backrest,1,park,park area with trees,,backrest_rear_view,nMj6YB8c8pqIsV6RY7JaTg,331.94617946140573,2026-11-16 08:04:07.562183
 4009,3844,329.8991821007192,0.41949769670124987,vlm,0,backrest,1,park,park area with trees and a sculpture,,backrest_rear_view,4WxI0cA-B2HoihrKLSXH8g,329.8991821007192,2026-11-16 08:04:07.562653
 4010,3846,175.2,0.6599185319961983,water_edge,0,backrest,1,park,a grassy park area with stairs and trees,,backrest_rear_view,lcXuXR7tG2TltGINwLVg0g,77.08717120092763,2026-11-16 08:04:07.563113
@@ -4102,7 +4102,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4101,5149,354.22794029237036,0.3706074949670616,vlm,0,backrest,1,residential_street,apartment building,,backrest_no_rear_best_front,HWFG17iPwzqcx68aPlsccA,354.22794029237036,2026-11-16 08:04:07.643663
 4102,5153,310.0470056936068,0.45239138426199155,vlm,0,backrest,1,residential_street,residential street and apartment building,,backrest_no_rear_best_front,BfRh02xsqMMQsTtFHXtHRw,310.0470056936068,2026-11-16 08:04:07.644089
 4103,5154,73.90605935846274,0.42640902916491874,vlm,0,backrest,1,residential_street,apartment building,,backrest_rear_view,BfRh02xsqMMQsTtFHXtHRw,73.90605935846274,2026-11-16 08:04:07.644518
-4104,5156,348.7,0.6161845121055022,vlm,0,backrest,1,street,"brick street, bike path",,backrest_rear_view,YagCcRnG_xJry-6vqszYbg,348.6510584990981,2026-11-19T12:45:26.741172+00:00
+4104,5156,28.7,0.6,water_back,0,backrest,1,street,"brick street, bike path",,backrest_rear_view,YagCcRnG_xJry-6vqszYbg,348.6510584990981,2026-11-19T15:09:19.583013+00:00
 4105,5157,208.7,0.25266816478089454,water_edge,0,backrest,1,water,a canal or waterway,,backrest_rear_view,b1-qbjUF9QLN-biizNC9rA,320.0239589234718,2026-11-16 08:04:07.645547
 4106,5162,300.91106295822226,0.4878696200958383,vlm,0,backrest,1,park,a park or open green space,,backrest_rear_view,Q4u4uJiKiarU8-XNCJpCnw,300.91106295822226,2026-11-16 08:04:07.645996
 4107,5168,209.97074967129532,0.6987306819780119,vlm,0,backrest,1,playground,a paved sports court,,backrest_no_rear_best_front,9Z1yY27fuBJMRhr4woi-gA,209.97074967129532,2026-11-16 08:04:07.646427
@@ -4128,7 +4128,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4127,5484,317.9266335302262,0.3775621683523708,vlm,0,backrest,1,residential_street,residential street with parked cars,,backrest_no_rear_best_front,oRxl51mVyrn6T4VnQGaUoA,317.9266335302262,2026-11-16 08:04:07.665226
 4128,5544,68.8873403991011,0.6755493667737854,vlm,1,backless,0,park,a small park or paved square area with trees,,best_front_view,2iwIPhHy8p3ZuFoaovI8jQ,,2026-11-16 08:04:07.665715
 4129,5545,196.921990596968,0.43479898082333335,vlm,0,backrest,1,park,park area with trees and greenery,,backrest_rear_view,SbTrR9kjGdHLg_N7xIyYmA,196.921990596968,2026-11-16 08:04:07.666726
-4130,5564,340.6,0.22954301050403583,vlm,0,backrest,1,park,"lawn, path, apartment buildings",,backrest_rear_view,5MkKLq30JrguIhuQrzM8Yw,340.58107737199134,2026-11-19T12:45:26.741172+00:00
+4130,5564,349.5,0.6,water_back,0,backrest,1,park,"lawn, path, apartment buildings",,backrest_rear_view,5MkKLq30JrguIhuQrzM8Yw,340.58107737199134,2026-11-19T15:09:19.583013+00:00
 4131,5567,166.86413894052487,0.12742794552937378,vlm,0,backrest,1,square,a paved square or plaza area,,backrest_rear_view,ycUa6UgjCjHzBc6iaw6Uig,166.86413894052487,2026-11-16 08:04:07.670402
 4132,5569,167.0,0.6176413958960885,water_edge,0,backrest,1,water,canal and residential buildings,,backrest_rear_view,OX6h90-c0Tsp-EiqGCWyrw,302.96117483763817,2026-11-16 08:04:07.670956
 4133,5574,328.3,0.8404127559975858,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,XgVcKkOX8aSw98D2hooh6Q,4.594406296235499,2026-11-16 08:04:07.671776
@@ -4208,13 +4208,13 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4207,4153,2.737197269915308,0.4206643559895954,vlm,1,backless,0,park,a large brick building,,best_front_view,tisAitorku4WRTKjDNZs5Q,,2026-11-16 08:04:07.738721
 4208,4207,356.2,0.04002757826300275,water_edge,0,backrest,1,water,a canal or pond,,backrest_rear_view,vyWOly8QaWgdZs-7_Qm6qA,316.2184926607817,2026-11-16 08:04:07.739165
 4209,4222,17.5,0.5178405081042667,water_edge,0,backrest,1,water,a canal or small waterway,,backrest_rear_view,OFGbpSTmvsQXzy8RrNT0VA,65.17081606324892,2026-11-16 08:04:07.739586
-4210,4223,198.6,0.7172674760231205,vlm,0,backrest,1,street,path and street,,backrest_rear_view,b9vjxRumSWzk7L928WyLyA,198.61389540358763,2026-11-19T12:45:26.741172+00:00
+4210,4223,240.8,0.6,water_back,0,backrest,1,street,path and street,,backrest_rear_view,b9vjxRumSWzk7L928WyLyA,198.61389540358763,2026-11-19T15:09:19.583013+00:00
 4211,4224,184.69190165604797,0.5490138124599989,vlm,0,backrest,1,park,a park or green space,,backrest_rear_view,FSJ2UjNiUaXMxz3SAxsHCw,184.69190165604797,2026-11-16 08:04:07.740523
 4212,4279,352.0239456849959,0.7119591068840134,vlm,0,backrest,1,playground,playground,,backrest_no_rear_best_front,9MIq9TdWaJMHWiMDbxSIVA,352.0239456849959,2026-11-16 08:04:07.740979
 4213,4280,154.66729383290786,0.20107690806308245,vlm,0,backrest,1,playground,playground,,backrest_rear_view,nYTuGGYJjY1QcLH7hfdB3g,154.66729383290786,2026-11-16 08:04:07.741463
 4214,4281,124.70576742962672,0.5689114916830984,vlm,0,backrest,1,playground,playground with slide,,backrest_no_rear_best_front,Hp_PVNiRpGHJRonaw9sE9g,124.70576742962672,2026-11-16 08:04:07.744394
 4215,4282,156.69603205300112,0.5540576958885102,vlm,0,backrest,1,playground,playground with slide,,backrest_rear_view,Hp_PVNiRpGHJRonaw9sE9g,156.69603205300112,2026-11-16 08:04:07.744898
-4216,4299,136.6,0.08031322306404348,vlm,0,backrest,1,street,footpath and bike path,,backrest_rear_view,XXCz_XfAz_dgjworFO6bEg,136.6366649751304,2026-11-19T12:45:26.741172+00:00
+4216,4299,179.9,0.6,water_back,0,backrest,1,street,footpath and bike path,,backrest_rear_view,XXCz_XfAz_dgjworFO6bEg,136.6366649751304,2026-11-19T15:09:19.583013+00:00
 4217,4326,189.51313338188032,0.6248027278726804,vlm,0,backrest,1,park,park area with trees and greenery,,backrest_rear_view,z9StxWRGgOde7wACK2nJ0w,189.51313338188032,2026-11-16 08:04:07.745728
 4218,4328,165.25529931998224,0.21049581177841636,vlm,0,backrest,1,park,park or green space,,backrest_rear_view,bt6PGDkMsaY0pPEcMcxhJA,165.25529931998224,2026-11-16 08:04:07.746176
 4219,4333,127.38124964172046,0.18637200223164196,vlm,0,backrest,1,park,a park with trees and a path,,backrest_rear_view,EyTQUqg3hRqQOGHCe0bE-w,127.38124964172046,2026-11-16 08:04:07.750072
@@ -4438,7 +4438,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4437,2941,126.9,0.9361447610842102,water_edge,0,backrest,1,water,brick path along canal,,backrest_rear_view,recording_2025-06-26_09-25-50_02924,89.64907979710546,2026-11-17 22:22:48.446403
 4438,2940,37.0,0.9563949646633665,water_edge,0,backrest,1,water,canal with reeds,,backrest_rear_view,recording_2025-06-26_09-25-50_02935,41.42510619004854,2026-11-17 22:22:48.446216
 4439,4913,37.0,0.9880338222183825,water_edge,0,backrest,1,water,river/canal,,backrest_rear_view,recording_2025-06-26_09-25-50_02938,34.755041429001665,2026-11-17 22:22:48.502318
-4440,1806,340.9,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4440,1806,340.9,1.0,water_edge,1,backless,0,busy_street,a street with traffic,,best_front_view,4075452673024962485,,2026-11-19 18:40:36.876816
 4441,4565,37.0,0.9813292290596238,water_edge,0,backrest,1,water,canal with moored boat,,backrest_rear_view,recording_2025-06-26_09-25-50_02946,41.63940906584604,2026-11-17 22:22:48.487656
 4442,2668,37.0,0.9537557129465563,water_edge,0,backrest,1,water,canal,,backrest_rear_view,recording_2025-06-26_09-25-50_02949,40.85797905302915,2026-11-17 22:22:48.434610
 4443,3899,283.9,1.0,water_edge,1,backless,0,water,canal,,best_front_view,TMX7316010203-001966_pano_0000_000464,,2026-11-17 22:22:48.468761
@@ -4465,7 +4465,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4464,4272,272.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4465,2408,272.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4466,4003,167.3,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,TMX7316010203-001968_pano_0000_000514,174.14085501435216,2026-11-17 22:22:48.474212
-4467,686,184.3,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4467,686,184.3,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,TMX7316010203-001793_pano_0000_004809,263.51136586031873,2026-11-19 18:40:36.871502
 4468,4004,184.3,1.0,water_edge,0,backrest,1,water,canal with covered boat,,backrest_no_rear_best_front,TMX7316010203-001968_pano_0000_000528,182.70258608372998,2026-11-17 22:22:48.474875
 4469,1839,346.6,1.0,water_edge,0,backrest,1,water,canal with moored boat,,backrest_no_rear_best_front,TMX7316010203-001968_pano_0000_000491,0.6483272460220633,2026-11-17 22:22:48.417735
 4470,1838,167.4,0.9762799082735242,water_edge,0,backrest,1,water,canal with moored boats,,backrest_no_rear_best_front,TMX7316010203-000355_pano_0000_001913,178.4618718566676,2026-11-17 22:22:48.417250
@@ -4475,8 +4475,8 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4474,463,346.8,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4475,634,166.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4476,3934,165.1,0.9998020241814105,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,TMX7316010203-001968_pano_0000_000485,169.0864681013524,2026-11-17 22:22:48.471654
-4477,810,167.0,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
-4478,429,264.2,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4477,810,167.0,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,recording_2024-09-04_09-37-25_01214,162.61659369330357,2026-11-19 18:40:36.871744
+4478,429,264.2,1.0,water_edge,0,backrest,1,water,a river or canal,,backrest_rear_view,recording_2025-07-15_12-19-22_00760,270.53575485255624,2026-11-19 18:40:36.869876
 4479,1864,167.6,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,TMX7316010203-001968_pano_0000_000467,171.56171019201656,2026-11-17 22:22:48.417990
 4480,3654,167.6,0.9534528702674971,water_edge,0,backrest,1,water,canal,,backrest_rear_view,4337796147585904493,191.0906994316395,2026-11-17 22:22:48.464419
 4481,2126,135.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
@@ -4491,13 +4491,13 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4490,4187,323.4,1.0,water_edge,0,backrest,1,water,canal across grass,,backrest_no_rear_best_front,recording_2025-09-30_08-33-50_00616,318.4320577488231,2026-11-17 22:22:48.479619
 4491,5906,105.8,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4492,3980,337.8113633224618,0.9872702179938861,vlm,0,backrest,1,park,park path and greenery,,backrest_no_rear_best_front,TMX7316010203-001153_pano_0000_001931,337.8113633224618,2026-11-17 22:22:48.473163
-4493,250,140.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4493,250,305.0359168327557,1.0,vlm,0,backrest,1,park,park area with trees and greenery,,backrest_no_rear_best_front,TMX7316010203-001792_pano_0000_001547,305.0359168327557,2026-11-19 18:40:36.868510
 4494,3979,294.4406744842574,0.9995155278673382,vlm,0,backrest,1,park,park footpath and greenery,,backrest_no_rear_best_front,TMX7316010203-001792_pano_0000_001545,294.4406744842574,2026-11-17 22:22:48.473973
 4495,244,136.7,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4496,2305,227.65972942219278,0.5413368035372779,vlm,0,backrest,1,playground,blue climbing-frame playground,,backrest_rear_view,s8KX4IRa7JgMIYXWI1vprw,227.65972942219278,2026-11-17 22:22:48.428780
 4497,3419,179.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4498,1658,343.2,0.26357027049436277,water_edge,0,backrest,1,water,pond in park,,backrest_rear_view,TMX7316010203-002062_pano_0000_001300,257.37776993160435,2026-11-17 22:22:48.409956
-4499,210,335.9,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4499,210,335.9,1.0,water_edge,0,backrest,1,water,a canal or stream,,backrest_rear_view,TMX7316010203-002062_pano_0000_001294,319.4722065238043,2026-11-19 18:40:36.868071
 4500,4379,180.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4501,442,153.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4502,5366,26.1,1.0,water_edge,0,backrest,1,water,canal,,backrest_rear_view,TMX7316010203-002913_pano_0003_000074,36.4320765483476,2026-11-17 22:22:48.516175
@@ -4514,7 +4514,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4513,4177,277.7,0.9825910753639392,water_edge,0,backrest,1,water,pond with wooded bank,,backrest_rear_view,16876712458044402799,286.31734371023964,2026-11-17 22:22:48.479138
 4514,4766,5.8,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4515,1064,63.0,0.9982258346908521,water_edge,0,backrest,1,square,paved pedestrian plaza,,backrest_no_rear_best_front,13497312927356483007,357.3125647850078,2026-11-17 22:22:48.395808
-4516,447,158.7,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4516,447,158.7,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,18044057293112753059,317.6732473725326,2026-11-19 18:40:36.870111
 4517,696,209.4,0.950702778103203,water_edge,0,backrest,1,water,Amsterdam canal,,backrest_rear_view,TMX7316010203-002966_pano_0004_000043,215.70322075575334,2026-11-17 22:22:48.387382
 4518,5578,46.8,0.9542470536166374,water_edge,0,backrest,1,water,canal with canal houses,,backrest_rear_view,920319394898797548,46.078657878289164,2026-11-17 22:22:48.524818
 4519,5579,47.2,0.26179141417441704,water_edge,0,backrest,1,residential_street,canal-side street with roadworks barriers,,backrest_rear_view,920319394898790666,313.13400353387624,2026-11-17 22:22:48.525006
@@ -4560,7 +4560,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4559,2967,194.46188911965132,1.0,vlm,0,backrest,1,square,paved waterfront promenade,,backrest_no_rear_best_front,TMX7316010203-002416_pano_0005_000025,194.46188911965132,2026-11-17 22:22:48.447119
 4560,5723,193.41440060036246,0.943944069989675,vlm,0,backrest,1,square,paved quayside plaza and office building,,backrest_no_rear_best_front,TMX7316010203-002416_pano_0003_000093,193.41440060036246,2026-11-17 22:22:48.536649
 4561,3021,165.15851169436726,0.6405046514918651,vlm,0,backrest,1,park,"grass strip and path, away from the water",,backrest_no_rear_best_front,TMX7316010203-002136_pano_0000_000619,165.15851169436726,2026-11-17 22:22:48.448874
-4562,1931,359.7,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4562,1931,359.7,1.0,water_edge,0,backrest,1,water,waterfront,,backrest_rear_view,TMX7316010203-001013_pano_0001_000203,359.99401582827215,2026-11-19 18:40:36.877682
 4563,5727,179.2,0.9999734029981143,water_edge,0,backrest,1,water,harbour / open water,,backrest_rear_view,TMX7316010203-002416_pano_0003_000109,12.333782677587896,2026-11-17 22:22:48.536843
 4564,5726,179.2,1.0,water_edge,0,backrest,1,water,harbour water,,backrest_no_rear_best_front,TMX7316010203-002416_pano_0003_000107,89.43237078472362,2026-11-17 22:22:48.537771
 4565,5720,179.0,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
@@ -4585,7 +4585,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4584,584,220.9,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4585,3863,220.9,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,TMX7316010203-001981_pano_0000_000567,229.65803152769953,2026-11-17 22:22:48.467953
 4586,583,220.9,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
-4587,1139,273.2,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
+4587,1139,273.2,1.0,water_edge,1,backless,0,water,canal,,best_quality_fallback,TMX7316010203-002985_pano_0010_000182,,2026-11-19 18:40:36.872472
 4588,639,343.6,0.5,water_edge,0,,,,,,,,,2026-11-17T18:00:48.427560+00:00
 4589,6232,170.7,0.34032869795435555,water_edge,0,backrest,1,water,canal,,backrest_rear_view,W5--ajubA931dc4f98bfpg,36.2872764890675,2026-11-17 22:22:48.557623
 4590,5084,247.6,0.9614336125904833,water_edge,0,backrest,1,water,canal with trees and houses beyond,,backrest_rear_view,3611386202238606011,253.69595605211202,2026-11-17 22:22:48.506037
@@ -4794,10 +4794,10 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4793,1435,359.6,1.0,water_edge,1,backless,0,water,wading pool with fountain,,best_front_view,MS_26112024_845_Track40_Sphere_00001,,2026-11-17 22:22:48.406355
 4794,1444,229.4,0.9707959677825416,water_edge,0,backrest,1,park,footpath and green space,,backrest_no_rear_best_front,TMX7316010203-001132_pano_0000_001093,233.11037306705987,2026-11-17 22:22:48.406635
 4795,1478,314.6,1.0,water_edge,0,backrest,1,water,canal beyond bridge railing,,backrest_no_rear_best_front,recording_2025-06-16_04-42-37_00090,348.8373997149389,2026-11-17 22:22:48.406897
-4796,1455,,,,0,,,,,,,,,2026-11-17 22:22:48.407130
+4796,1455,,,,0,,,,,,,,,2026-11-19 18:40:36.875598
 4797,1492,313.7,0.8870137093648083,water_edge,0,backrest,1,park,park path with canal beyond,,backrest_no_rear_best_front,10584715315647763381,290.35529622603065,2026-11-17 22:22:48.407620
 4798,1524,172.73829981764675,1.0,vlm,0,backrest,1,playground,playground with sandpits,,backrest_rear_view,TMX7316010203-001128_pano_0000_003920,172.73829981764675,2026-11-17 22:22:48.407851
-4799,1542,,,,0,,,,,,,,,2026-11-17 22:22:48.408081
+4799,1542,172.44187588443538,0.9999999999999999,vlm,1,backless,0,other,a parking area and building interior,,best_front_view,b_20241211_1256_Track10_Sphere_00472,,2026-11-19 18:40:36.876240
 4800,1539,44.543669286807834,0.7871624595577967,vlm,1,backless,0,water,IJ river with EYE Film Museum and A'DAM tower,,best_front_view,TMX7316010203-001587_pano_0000_000194,,2026-11-17 22:22:48.408439
 4801,1538,226.880059631967,0.9989353479015254,vlm,0,backrest,1,square,"paved waterfront pier/promenade, back to the IJ",,backrest_rear_view,TMX7316010203-001587_pano_0000_000204,226.880059631967,2026-11-17 22:22:48.408752
 4802,1548,34.08111202098064,0.9999999999999998,vlm,1,backless,0,water,IJ waterfront behind the station,,best_quality_fallback,16494226482935963695,,2026-11-17 22:22:48.409000
@@ -4812,7 +4812,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4811,1762,,,,0,backless,0,square,paved station square at Amsterdam Zuid,,best_quality_fallback,TMX7316010203-001789_pano_0002_003923,,2026-11-17 22:22:48.413642
 4812,1800,39.47337792838084,1.0,vlm,1,backless,0,playground,playground lawn with seesaw,,best_front_view,recording_2025-06-20_12-46-03_00620,,2026-11-17 22:22:48.415590
 4813,1765,86.13746373333493,0.9900107655007024,vlm,0,backrest,1,other,paved sidewalk and brick building with garage door,,backrest_rear_view,4823975974224517609,86.13746373333493,2026-11-17 22:22:48.416102
-4814,1808,,,,0,,,,,,,,,2026-11-17 22:22:48.416325
+4814,1808,130.2,1.0,water_edge,1,backless,0,park,trees and greenery,,best_front_view,TMX7316010203-002914_pano_0013_000048,,2026-11-19 18:40:36.877068
 4815,1817,184.6830120355685,1.0,vlm,0,backrest,1,park,green median strip with young trees between residential streets,,backrest_rear_view,recording_2024-09-04_05-35-54_01908,184.6830120355685,2026-11-17 22:22:48.416553
 4816,1807,23.712905704896443,0.9691124024420374,vlm,0,backrest,1,busy_street,bridge road and sidewalk with traffic light,,backrest_no_rear_best_front,4075452673024960487,23.712905704896443,2026-11-17 22:22:48.416787
 4817,1822,132.08068084996557,1.0,vlm,1,backless,0,residential_street,street corner with parked cars,,best_front_view,TMX7316010203-002114_pano_0000_004620,,2026-11-17 22:22:48.417024
@@ -4857,7 +4857,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4856,2451,185.97451869404662,1.0,vlm,0,backrest,1,park,park footpath,,backrest_no_rear_best_front,TMX7316010203-001733_pano_0000_000084,185.97451869404662,2026-11-17 22:22:48.430405
 4857,2452,30.790938803715107,1.0,vlm,0,backrest,1,park,park footpath and lawn with trees,,backrest_no_rear_best_front,TMX7316010203-000871_pano_0000_004213,30.790938803715107,2026-11-17 22:22:48.430636
 4858,2489,102.63208486512859,1.0,vlm,1,backless,0,square,paved walkway,,best_front_view,XmFChw9E4AWdJJsQVgiWyQ,,2026-11-17 22:22:48.430869
-4859,2501,,,,0,,,,,,,,,2026-11-17 22:22:48.431113
+4859,2501,26.91419287189956,1.0,vlm,0,backrest,1,park,a small green space or courtyard,,backrest_no_rear_best_front,TMX7316010203-002834_pano_0011_000087,26.91419287189956,2026-11-19 18:40:36.880876
 4860,2456,202.2477931646021,0.7966546272013117,vlm,0,backrest,1,park,paved path through wooded park,,backrest_no_rear_best_front,recording_2025-07-29_08-31-59_00001,202.2477931646021,2026-11-17 22:22:48.431349
 4861,2531,268.88205239466924,1.0,vlm,0,backrest,1,park,park lawn with trees,,backrest_rear_view,recording_2025-07-14_11-54-16_01709,268.88205239466924,2026-11-17 22:22:48.431580
 4862,2496,65.63935207851712,1.0,vlm,1,backless,0,park,footpath and green space,,best_front_view,dThgC9XYgqODlePzvgiUCQ,,2026-11-17 22:22:48.431837
@@ -4869,7 +4869,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4868,2635,273.9483405034097,0.5771371546276516,vlm,0,backrest,1,other,paved footpath / cycle path,,backrest_no_rear_best_front,recording_2025-06-26_09-25-50_01243,273.9483405034097,2026-11-17 22:22:48.433490
 4869,2642,115.53594109893838,0.9699982027190225,vlm,1,backless,0,playground,wooden play structure on sand,,best_front_view,recording_2025-06-30_08-45-16_00657,,2026-11-17 22:22:48.433716
 4870,2664,354.59179852727095,0.9451132048523729,vlm,0,backrest,1,residential_street,paved footpath and street,,backrest_no_rear_best_front,TMX7316010203-001165_pano_0000_003673,354.59179852727095,2026-11-17 22:22:48.433945
-4871,2699,,,,0,,,,,,,,,2026-11-17 22:22:48.434163
+4871,2699,100.94476128723284,1.0,vlm,0,backrest,1,other,building courtyard area,,backrest_no_rear_best_front,TMX7316010203-002116_pano_0000_003344,100.94476128723284,2026-11-19 18:40:36.881549
 4872,2672,299.6,0.9613933873706626,water_edge,1,backless,0,square,paved pedestrian plaza between buildings,,best_front_view,recording_2025-07-14_11-01-54_01353,,2026-11-17 22:22:48.434381
 4873,2715,209.36093623471774,1.0,vlm,0,backrest,1,park,"large lawn with people, office buildings beyond",,backrest_rear_view,TMX7316010203-002422_pano_0013_000021,209.36093623471774,2026-11-17 22:22:48.434813
 4874,2740,149.8597033218797,1.0,vlm,0,backrest,1,park,park lawn with trees and path,,backrest_rear_view,3611386201787707416,149.8597033218797,2026-11-17 22:22:48.435045
@@ -4915,7 +4915,7 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 4914,3005,344.1510693843034,0.9948811144270485,vlm,0,backrest,1,playground,playground with swings,,backrest_rear_view,2025_09_25_08_37_35_00383,344.1510693843034,2026-11-17 22:22:48.447779
 4915,3002,43.058986983571515,1.0,vlm,0,backrest,1,park,park footpath and trees,,backrest_no_rear_best_front,recording_2025-09-26_14-09-48_01189,43.058986983571515,2026-11-17 22:22:48.447997
 4916,3008,249.38011962277307,0.9961936115190609,vlm,0,backrest,1,playground,playground with seesaw and steps,,backrest_rear_view,2025_09_25_08_37_35_00402,249.38011962277307,2026-11-17 22:22:48.448215
-4917,3028,,,,0,,,,,,,,,2026-11-17 22:22:48.448424
+4917,3028,259.8,1.0,water_edge,1,backless,0,water,river or canal,,best_quality_fallback,TMX7316010203-001587_pano_0000_001182,,2026-11-19 18:40:36.883239
 4918,3024,141.875823387268,0.9654902174453374,vlm,0,backrest,1,park,park footpath,,backrest_no_rear_best_front,recording_2025-09-26_14-09-48_00583,141.875823387268,2026-11-17 22:22:48.448640
 4919,3031,97.07424293634953,0.9566473725158634,vlm,0,backrest,1,playground,sports field / football and basketball court,,backrest_rear_view,TMX7316010203-002136_pano_0000_000106,97.07424293634953,2026-11-17 22:22:48.449060
 4920,3032,183.4,0.9905290227330357,water_edge,0,backrest,1,water,lawn with ornamental pond and brick sculpture,,backrest_rear_view,recording_2025-06-16_12-22-09_00561,188.2684255786244,2026-11-17 22:22:48.449285
@@ -5573,3 +5573,50 @@ id,bench_candidate_id,facing_deg,facing_confidence,facing_method,axis_only,bench
 5572,8432,58.2489587263926,0.9945106374117678,vlm,0,backrest,1,residential_street,cobbled street,,backrest_no_rear_best_front,fMId8V2c3fBcHBbVjOXT7Q,58.2489587263926,2026-11-17 22:22:48.741240
 5573,8428,,,,0,,,,,,,,,2026-11-17 22:22:48.741543
 5574,8434,274.6816628715028,0.9229350573844296,vlm,0,backrest,1,residential_street,paved sidewalk and brick street,,backrest_no_rear_best_front,17987681025762376101,274.6816628715028,2026-11-17 22:22:48.742678
+5575,251,164.9,1.0,water_edge,0,backrest,1,water,a pond or small lake,,backrest_rear_view,TMX7316010203-001792_pano_0000_001552,209.3403252020272,2026-11-19 18:40:36.868798
+5576,261,92.0,1.0,water_edge,0,backrest,1,water,canal,,backrest_no_rear_best_front,TMX7316010203-002310_pano_0001_001286,301.9339905138587,2026-11-19 18:40:36.869102
+5577,299,323.6,1.0,water_edge,1,picnic,0,water,canal or river,,best_front_view,3611386204831051508,,2026-11-19 18:40:36.869365
+5578,313,331.9988464087636,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,TMX7316060226-000020_pano_0000_000219,331.9988464087636,2026-11-19 18:40:36.869621
+5579,468,158.5523970477003,0.9999999999999999,vlm,1,backless,0,busy_street,a shop front,,best_front_view,TMX7316010203-001179_pano_0000_000138,,2026-11-19 18:40:36.870338
+5580,470,246.29458260071644,1.0,vlm,0,backrest,1,park,a park path and green space,,backrest_no_rear_best_front,3436359214572275845,246.29458260071644,2026-11-19 18:40:36.870680
+5581,528,280.4566982160512,1.0,vlm,0,backrest,1,other,train tracks and platform,,backrest_no_rear_best_front,16494226482950045399,280.4566982160512,2026-11-19 18:40:36.870939
+5582,668,324.55869815890867,1.0,vlm,0,backrest,1,park,a park or garden area,,backrest_no_rear_best_front,13497312926943715313,324.55869815890867,2026-11-19 18:40:36.871220
+5583,877,176.35920143459907,1.0,vlm,0,backrest,1,water,a body of water,,backrest_rear_view,recording_2024-10-22_09-10-27_00638,176.35920143459907,2026-11-19 18:40:36.871972
+5584,911,227.07131805799912,1.0,vlm,0,backrest,1,playground,playground,,backrest_no_rear_best_front,10949901580509360093,227.07131805799912,2026-11-19 18:40:36.872223
+5585,1173,144.26974234326633,1.0,vlm,0,backrest,1,residential_street,a quiet residential street,,backrest_no_rear_best_front,recording_2024-09-11_11-32-11_00872,144.26974234326633,2026-11-19 18:40:36.872711
+5586,1237,327.6396548119328,1.0,vlm,0,backrest,1,park,park area with trees and path,,backrest_no_rear_best_front,TMX7316010203-002025_pano_0000_000762,327.6396548119328,2026-11-19 18:40:36.873057
+5587,1270,306.0784017351969,1.0,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,TMX7316010203-001679_pano_0000_002688,306.0784017351969,2026-11-19 18:40:36.873322
+5588,1293,,,,0,,,,,,,,,2026-11-19 18:40:36.874356
+5589,1348,48.27974827014334,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,2363503118455289793,48.27974827014334,2026-11-19 18:40:36.874812
+5590,1361,26.652440560879654,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_no_rear_best_front,16494226483113221061,26.652440560879654,2026-11-19 18:40:36.875127
+5591,1540,131.6,1.0,water_edge,1,backless,0,water,a canal or harbor,,best_front_view,TMX7316010203-001587_pano_0000_000213,,2026-11-19 18:40:36.875903
+5592,1710,291.8,1.0,water_edge,0,backrest,1,playground,sports field and running track,,backrest_rear_view,TMX7316010203-000259_pano_0008_000587,260.80053727648027,2026-11-19 18:40:36.876531
+5593,1810,357.8535747241556,1.0,vlm,0,backrest,1,park,a park path,,backrest_rear_view,TMX7316010203-000760_pano_0000_000492,357.8535747241556,2026-11-19 18:40:36.877420
+5594,1954,193.7753259641375,1.0,vlm,0,backrest,1,other,train tracks,,backrest_no_rear_best_front,17987681025669746613,193.7753259641375,2026-11-19 18:40:36.877903
+5595,2029,95.56602097039121,1.0,vlm,0,backrest,1,park,a park or open green space,,backrest_no_rear_best_front,TMX7316010203-000755_pano_0000_003033,95.56602097039121,2026-11-19 18:40:36.878207
+5596,2088,141.874770325219,1.0,vlm,0,backrest,1,park,a park path and green space,,backrest_no_rear_best_front,2363503118365973541,141.874770325219,2026-11-19 18:40:36.878528
+5597,2130,42.73649380989002,1.0,vlm,0,backrest,1,park,green space and apartment building,,backrest_no_rear_best_front,TMX7316010203-001737_pano_0000_001245,42.73649380989002,2026-11-19 18:40:36.878813
+5598,2135,174.35782216808775,1.0,vlm,0,backrest,1,park,green space and trees,,backrest_no_rear_best_front,f7Pb4ReNfjk33shyF8WeAg,174.35782216808775,2026-11-19 18:40:36.879077
+5599,2186,161.29786373851084,1.0,vlm,0,backrest,1,park,park lawn,,backrest_no_rear_best_front,TMX7316010203-001687_pano_0000_002828,161.29786373851084,2026-11-19 18:40:36.879346
+5600,2183,52.20720337636254,0.9999999999999999,vlm,0,backrest,1,park,a wooded park path,,backrest_no_rear_best_front,3611386204219734713,52.20720337636254,2026-11-19 18:40:36.879640
+5601,2204,178.43772049020845,0.9999999999999999,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,4337796147429627209,178.43772049020845,2026-11-19 18:40:36.879914
+5602,2206,129.95135180138226,1.0,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,4337796147429638087,129.95135180138226,2026-11-19 18:40:36.880173
+5603,2295,249.71043127905452,1.0,vlm,0,backrest,1,park,trees and park path,,backrest_no_rear_best_front,TMX7316010203-002152_pano_0000_005810,249.71043127905452,2026-11-19 18:40:36.880422
+5604,2477,213.7029922660362,1.0,vlm,0,backrest,1,playground,playground area,,backrest_no_rear_best_front,11038160477947551688,213.7029922660362,2026-11-19 18:40:36.880651
+5605,2565,76.69386331586895,1.0,vlm,0,backrest,1,park,a park or wooded area,,backrest_no_rear_best_front,recording_2025-09-29_10-40-21_00898,76.69386331586895,2026-11-19 18:40:36.881247
+5606,2739,145.26973199570062,1.0,vlm,1,backless,0,park,park lawn and trees,,best_quality_fallback,recording_2025-07-14_09-44-02_02487,,2026-11-19 18:40:36.881822
+5607,2814,122.0,1.0,water_edge,0,backrest,1,water,a pond or canal,,backrest_rear_view,16225678357403226550,104.34464053467923,2026-11-19 18:40:36.882062
+5608,2945,286.0378865675002,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_no_rear_best_front,3611386201874255656,286.0378865675002,2026-11-19 18:40:36.882286
+5609,2955,330.39330634865627,1.0,vlm,0,backrest,1,park,a park with trees and a path,,backrest_rear_view,b_20250115_1006_Track01_Sphere_00071,330.39330634865627,2026-11-19 18:40:36.882538
+5610,3010,121.99065319274486,1.0,vlm,0,backrest,1,park,park area with trees,,backrest_no_rear_best_front,2025_09_25_08_37_35_00381,121.99065319274486,2026-11-19 18:40:36.882974
+5611,3081,20.603597638081965,1.0,vlm,0,backrest,1,park,park area,,backrest_no_rear_best_front,17156315994515835724,20.603597638081965,2026-11-19 18:40:36.883624
+5612,3087,303.13054299013993,1.0,vlm,0,backrest,1,park,woodland path,,backrest_no_rear_best_front,17156315994436416273,303.13054299013993,2026-11-19 18:40:36.883894
+5613,3082,135.4,1.0,water_edge,0,backrest,1,water,a canal or stream,,backrest_no_rear_best_front,17156315994435843267,185.6703058046519,2026-11-19 18:40:36.884149
+5614,3089,5.169903268893962,1.0,vlm,0,backrest,1,park,park path and trees,,backrest_rear_view,17156315994513841543,5.169903268893962,2026-11-19 18:40:36.884409
+5615,3104,277.0,1.0,osm_tag,0,backless,0,busy_street,a busy street with tram tracks,,best_quality_fallback,TMX7316010203-001479_pano_0012_000073,277.0,2026-11-19 18:40:36.884689
+5616,3203,12.259271418797258,1.0,vlm,1,backless,0,park,green space and trees,,best_front_view,3611386205251532722,,2026-11-19 18:40:36.884939
+5617,3378,,,,0,,,,,,,,,2026-11-19 18:40:36.885171
+5618,3413,331.15674547018835,1.0,vlm,0,backrest,1,park,park trees and greenery,,backrest_no_rear_best_front,TMX7316010203-001908_pano_0000_004887,331.15674547018835,2026-11-19 18:40:36.885411
+5619,3465,81.26818413299316,1.0,vlm,0,backrest,1,square,a paved public square,,backrest_no_rear_best_front,TMX7316010203-000253_pano_0000_003284,81.26818413299316,2026-11-19 18:40:36.885635
+5620,3470,,,,0,,,,,,,,,2026-11-19 18:40:36.885866
+5621,8435,250.0,0.8,human,0,backrest,1,water,the canal and the old brick building across the corner,,backrest_rear_view,b_20241206_0806_Track30_Sphere_00085,251.1,2026-11-19 18:41:16
