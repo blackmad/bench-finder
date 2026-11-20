@@ -43,20 +43,18 @@ export function Facts({
           </dd>
         </>
       ) : null}
-      <dt className="caps">Faces</dt>
-      <dd>
-        {kind && b.facing !== null ? (
-          <>
+      {kind && b.facing !== null ? (
+        <>
+          <dt className="caps">Faces</dt>
+          <dd>
             <span className="num">
               {kind === "estimated" ? "≈ " : ""}
               {windName(b.facing)} {Math.round(b.facing)}°
             </span>{" "}
             <small>· {facingSource(b)}</small>
-          </>
-        ) : (
-          "Not known yet"
-        )}
-      </dd>
+          </dd>
+        </>
+      ) : null}
       {build ? (
         <>
           <dt className="caps">Bench</dt>

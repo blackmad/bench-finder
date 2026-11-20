@@ -54,6 +54,8 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
     </div>
   )
 
+  useTabTitle(b)
+
   if (!b) {
     return (
       <section className="pv" ref={ref} aria-labelledby={titleId} {...swipe}>
@@ -173,4 +175,16 @@ function StreetView({ bench: d, name }: { bench?: BenchDetail; name: string }) {
       street={name}
     />
   )
+}
+
+/** The tab (and a shared link's title) names the open bench. */
+function useTabTitle(b: BenchProps | null) {
+  const name = b ? headline(b) : null
+  useEffect(() => {
+    if (!name) return
+    document.title = `${name} · Bench Finder`
+    return () => {
+      document.title = "Bench Finder"
+    }
+  }, [name])
 }
