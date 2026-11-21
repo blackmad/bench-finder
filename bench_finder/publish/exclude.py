@@ -201,18 +201,13 @@ def underground_images(conn) -> set[int]:
 
 
 def excluded() -> dict[str, set[int]]:
-    """Mark -> bench ids to hide: owner/stop marks, plus Opus terrace verdicts
-    (a bench the owner marked good stays)."""
-    from bench_finder.terrace import hidden
+    """Mark -> bench ids to hide: the owner's and the stop marks.
 
+    Opus's terrace verdicts (bench_finder.terrace: "business" / "private") are
+    not used: they hid too many public benches (dropped 2026-11-21).
+    """
     marks = feedback()
-    out = {m: {b for b, v in marks.items() if m in v} for m in HIDE}
-    for b, use in hidden().items():
-        # "private" is too loose to hide on (a third show no bench or a public
-        # strip outside flats): it is a review queue instead.
-        if use == "business" and "good" not in marks.get(b, ()):
-            out.setdefault(use, set()).add(b)
-    return out
+    return {m: {b for b, v in marks.items() if m in v} for m in HIDE}
 
 
 def mark_stops(db: str = "data/benches.db") -> dict[str, int]:

@@ -171,9 +171,10 @@ def test_publish_outputs(world):
     assert feats[2]["properties"]["hero_urls"] is None  # no detection -> no hero
     assert feats[2]["properties"]["facing"] is None
     p3 = feats[3]["properties"]
+    # The labeller's own facings are kept in the db but not published.
     assert (
-        p3["facing"] == 200
-        and p3["facing_method"] == "vlm"
+        p3["facing"] is None
+        and p3["facing_method"] is None
         and p3["bench_type"] == "backrest"
     )
     assert set(p3["hero_urls"]) == {"300"}  # small source is never upscaled

@@ -29,9 +29,11 @@ QUEUES = {
     "new": ("new_bench",),
     "changed": ("photo_changed", "photo_gained"),
     "photoless": (),
-    "private": (),  # Opus thinks these belong to a home; g keeps, x hides
     # No hero although SAM 3 is sure of a view: Flash-Lite vetoed it. Click the
     # view that shows the bench to make it the hero (overrides the veto).
+    # Opus's "business" verdicts (terrace.py; no longer hide anything): x hides
+    # one that really belongs to a cafe or shop, g keeps it.
+    "business": (),
     "vetoed": (),
     # Heroes just over SAM 3's cutoff (0.6-0.7): g if it is a bench, p if not.
     "borderline": (),
@@ -55,10 +57,10 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
         ids = [it["new"]["id"] for k in QUEUES[queue] for it in ch[k] if it.get("new")]
     elif queue == "photoless":
         ids = [i for i, b in new.items() if not b.get("hero_key")]
-    elif queue == "private":
+    elif queue == "business":
         from bench_finder.terrace import hidden
 
-        ids = [i for i, use in hidden().items() if use == "private" and i in new]
+        ids = sorted(i for i, use in hidden().items() if use == "business")
     else:
         ids = sorted(new)
     conn = sqlite3.connect("file:data/benches.db?mode=ro", uri=True)
@@ -92,7 +94,7 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
     conn.close()
     items = []
     for i in ids:
-        b = new[i]
+        b = new.get(i) or _unpublished(i)
         imgs, has_hero = chosen.get(i, ([], False))
         hero = imgs[0]["id"] if has_hero and imgs else None
         v = sorted(views.get(i, []), key=lambda x: -(x["score"] or 0))[:12]
@@ -120,6 +122,19 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
             }
         )
     return items
+
+
+def _unpublished(bid: int) -> dict:
+    """A hidden bench (not in the snapshot): position and address from the db."""
+    conn = sqlite3.connect("file:data/benches.db?mode=ro", uri=True)
+    row = conn.execute(
+        "SELECT c.lat, c.lng, g.formatted_address FROM bench_candidates c "
+        "LEFT JOIN reverse_geocodes g ON g.bench_candidate_id = c.id WHERE c.id = ?",
+        (bid,),
+    ).fetchone()
+    conn.close()
+    lat, lng, addr = row or (0.0, 0.0, "")
+    return {"lat": lat, "lng": lng, "address": (addr or "").split(",")[0]}
 
 
 def _sam3(img: dict) -> float:
@@ -158,7 +173,7 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 .on{background:var(--ink);color:var(--card)}.marks{min-height:24px}.marks span{background:var(--ink);color:var(--card);padding:2px 8px;margin-right:4px}
 @media(max-width:800px){main{grid-template-columns:1fr}.views{grid-template-columns:repeat(4,1fr)}}
 </style>
-<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=private>Maybe private<option value=vetoed>Vetoed by Flash-Lite<option value=borderline>Borderline heroes (SAM 3 0.6-0.7)<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
+<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=business>Business (Opus thought so)<option value=vetoed>Vetoed by Flash-Lite<option value=borderline>Borderline heroes (SAM 3 0.6-0.7)<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
 <main><section id=pics></section><aside>
 <h1 id=title></h1><div id=facts class=mute></div><div class=marks id=marks></div>
 <div class=keys>
