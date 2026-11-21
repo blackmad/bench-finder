@@ -17,6 +17,7 @@ import argparse
 import base64
 import html
 import json
+import os
 import random
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -94,7 +95,16 @@ class Picker:
     def __init__(self, max_usd: float):
         import anthropic
 
-        self.client = anthropic.Anthropic()
+        if os.environ.get("OPENROUTER_API_KEY"):  # the direct account is out of credit
+            self.model = "anthropic/claude-haiku-5.5"
+            self.client = anthropic.Anthropic(
+                api_key=None,
+                auth_token=os.environ["OPENROUTER_API_KEY"],
+                base_url="https://openrouter.ai/api",
+            )
+        else:
+            self.model = MODEL
+            self.client = anthropic.Anthropic()
         self.max_usd = max_usd
         self.usd = 0.0
         self.lock = threading.Lock()
@@ -122,13 +132,13 @@ class Picker:
             ]
         content.append({"type": "text", "text": PROMPT.format(n=len(order))})
         msg = self.client.messages.create(
-            model=MODEL,
+            model=self.model,
             max_tokens=400,
             tools=[TOOL],
             tool_choice={"type": "tool", "name": TOOL["name"]},
             messages=[{"role": "user", "content": content}],
         )
-        pin, pout = PRICES[MODEL]
+        pin, pout = PRICES[MODEL]  # OpenRouter passes Anthropic's prices through
         usd = (msg.usage.input_tokens * pin + msg.usage.output_tokens * pout) / 1e6
         with self.lock:
             self.usd += usd
