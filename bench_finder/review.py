@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
+from bench_finder.publish.images import render_source
 from bench_finder.whats_new import SNAPS, diff, load
 
 
@@ -85,7 +86,8 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
             views.setdefault(bid, []).append(
                 {
                     "id": iid,
-                    "src": fp,
+                    # The levelled re-render the site uses, when there is one.
+                    "src": str(render_source(Path(fp), faded=False)),
                     "score": score.get(iid),
                     "source": src,
                     "when": when,
