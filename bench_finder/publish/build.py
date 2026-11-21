@@ -347,7 +347,7 @@ def _source(img: dict, images_root: Path) -> str:
 # --------------------------------------------------------------------------- hero ranking
 
 TARGET_MODELS = ("sam3", "yolo11x-seg")
-SAM3_MIN = 0.6
+SAM3_MIN = 0.5  # owner review 2026-11-21: 153 of 196 benches at 0.5-0.6 were real
 YOLO_MIN = 0.25
 # Annotators trusted for view_relation, best first; the first real label wins.
 OCCLUSION_LOCAL_PREFIX = "ollama/"  # local_occlusion.py's annotator
@@ -402,7 +402,7 @@ def view_label(img: dict) -> str | None:
 def target_gate(img: dict) -> tuple[int, float, dict | None]:
     """(tier, confidence, bbox) for the bench the image was aimed at.
 
-    Tier 0: a target detection by sam3 >= 0.6 when sam3 has run on the image (it
+    Tier 0: a target detection by sam3 >= SAM3_MIN (0.5) when sam3 has run on the image (it
     is the stricter model, so its miss counts).
     Tier 1: no such target, but an older detector saw a bench (legacy images).
     Tier 1.5: a yolo11x-seg target >= 0.25 SAM 3 has not checked. Gallery only.

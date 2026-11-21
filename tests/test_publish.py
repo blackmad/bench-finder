@@ -306,8 +306,9 @@ def _img(iid, bearing, *, sam3=None, yolo=None, labels=None, box=None, date=None
 
 def test_target_gate_prefers_sam3_verdict():
     assert target_gate(_img(1, 0, sam3=0.7))[0] == 0
-    # sam3 ran and stayed under 0.6: its miss counts, whatever yolo said
-    assert target_gate(_img(1, 0, sam3=0.5, yolo=0.9))[0] == 2
+    assert target_gate(_img(1, 0, sam3=0.5))[0] == 0  # cutoff 0.5 since owner review
+    # sam3 ran and stayed under the cutoff: its miss counts, whatever yolo said
+    assert target_gate(_img(1, 0, sam3=0.45, yolo=0.9))[0] == 2
     assert target_gate(_img(1, 0, yolo=0.3))[0] == 1.5  # gallery until SAM 3 checks
     assert target_gate(_img(1, 0, yolo=0.1))[0] == 2
     assert target_gate({"id": 1, "conf": 0.4})[0] == 1  # legacy: older detector only
