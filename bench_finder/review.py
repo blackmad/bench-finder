@@ -3,7 +3,7 @@
     uv run python -m bench_finder.review [--queue new|changed|photoless|all]
     open http://localhost:8897
 
-Keys: g good · p wrong photo (veto it, keep the bench) · x no bench here (hide)
+Keys (each sets its mark and moves on; u clears): g good · p wrong photo (veto it, keep the bench) · x no bench here (hide)
 · w wrong spot · s bus/tram/train stop (hide) · ←/→ or j/k move · u undo.
 Marks go to ``data/feedback/review.json``: ``feedback`` {bench: [marks]} and
 ``wrong_photo`` [image ids], which ``publish`` reads (bench_finder.publish.exclude).
@@ -171,7 +171,7 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 const KEYS={g:"good",p:"wrong photo",x:"no bench",w:"wrong spot",s:"bus stop"},ADV=new Set("gpxs");
 let Q=[],S={feedback:{},wrong_photo:[],hero_pick:{}},i=0,sel=null;
 const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<'"]/g,c=>"&#"+c.charCodeAt(0)+";");
-async function boot(){const q=location.hash.slice(1)||"new";$("qsel").value=q;$("title").textContent="Loading…";
+async function boot(){const q=location.hash.slice(1)||new URLSearchParams(location.search).get("q")||"new";$("qsel").value=q;$("title").textContent="Loading…";
  [Q,S]=await Promise.all([fetch("queue?name="+q).then(r=>r.json()),fetch("state").then(r=>r.json())]);
  i=Q.findIndex(b=>!S.feedback[b.id]);if(i<0)i=0;show()}
 $("qsel").onchange=e=>{location.hash=e.target.value;boot()};
@@ -195,9 +195,9 @@ document.onkeydown=e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const b=Q[i],k=e
  else if(k==="u"&&b){fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[],pick:null})}).then(r=>r.json()).then(x=>{S=x;show()})}
  else if(k==="h"&&b&&sel){const m=new Set(S.feedback[b.id]||[]);m.delete("wrong photo");m.delete("no bench");m.add("good");
   fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[...m],pick:sel})}).then(r=>r.json()).then(x=>{S=x;if(i<Q.length-1)i++;show()})}
- else if(KEYS[k]&&b){const m=new Set(S.feedback[b.id]||[]);m.has(KEYS[k])?m.delete(KEYS[k]):m.add(KEYS[k]);
+ else if(KEYS[k]&&b){const m=new Set(S.feedback[b.id]||[]);m.add(KEYS[k]);
   if(k==="g"){m.delete("wrong photo");m.delete("no bench")}if(k!=="g"&&k!=="w")m.delete("good");
-  save(b,[...m]).then(()=>{if(ADV.has(k)&&m.has(KEYS[k])&&i<Q.length-1){i++;show()}})}};
+  save(b,[...m]).then(()=>{if(ADV.has(k)&&i<Q.length-1){i++;show()}})}};
 boot();
 </script>"""
 
