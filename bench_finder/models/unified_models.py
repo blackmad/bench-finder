@@ -904,7 +904,9 @@ def create_database_engine(
             connection_string,
             echo=False,
             json_serializer=json_serializer,
-            connect_args={"check_same_thread": False}
+            # Wait out other jobs' locks (a long read, another writer) instead
+            # of failing after SQLite's default 5 s.
+            connect_args={"check_same_thread": False, "timeout": 120}
             if "sqlite" in connection_string
             else {},
         )
