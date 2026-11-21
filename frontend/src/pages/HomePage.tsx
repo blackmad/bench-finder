@@ -115,7 +115,8 @@ export default function HomePage() {
   )
   const railRef = useRef<HTMLElement>(null)
 
-  const benches = useMemo(() => data ?? [], [data])
+  // Only benches with a photo are shown; the rest stay in the data and the CSV.
+  const benches = useMemo(() => (data ?? []).filter(hasPhoto), [data])
   const byId = useMemo(
     () => new Map(benches.map((b) => [b.properties.id, b])),
     [benches]
@@ -176,7 +177,7 @@ export default function HomePage() {
     [setSp]
   )
 
-  const { rows, total, photographed, unfiltered } = useMemo(() => {
+  const { rows, total, unfiltered } = useMemo(() => {
     const cx = view?.center[0] ?? START_VIEW.lng
     const cy = view?.center[1] ?? START_VIEW.lat
     const d = (b: BenchFeature) =>
@@ -184,14 +185,13 @@ export default function HomePage() {
       (b.geometry.coordinates[1] - cy) ** 2
     const here = (b: BenchFeature) => !view || inBounds(b, view)
     const vis = filtered.filter(here).sort((a, b) => d(a) - d(b))
-    const photos = vis.filter(hasPhoto)
+    const photos = [...vis]
     const i = photos.findIndex((b) => b.properties.id === mapPick)
     if (i > 0) photos.unshift(...photos.splice(i, 1))
     return {
       rows: buildRows(photos),
       // Features are places; counts are of benches.
       total: sumBenches(vis),
-      photographed: sumBenches(photos),
       unfiltered:
         filtered === benches
           ? sumBenches(vis)
@@ -444,7 +444,6 @@ export default function HomePage() {
               <RailCount
                 state={isPending ? "loading" : error ? "error" : "ok"}
                 total={total}
-                photographed={photographed}
                 unfiltered={unfiltered}
                 filters={filters}
                 onClear={() => setFilters(NO_FILTERS)}
@@ -452,8 +451,8 @@ export default function HomePage() {
               {data && !rows.length ? (
                 <p className="railnote">
                   {isFiltered(filters)
-                    ? "No photographed benches here match the filters. Zoom out, move the map or loosen the filters."
-                    : "No photographed benches in this part of the map. Zoom out or move the map."}
+                    ? "No benches here match the filters. Zoom out, move the map or loosen the filters."
+                    : "No benches in this part of the map yet. Zoom out or move the map."}
                 </p>
               ) : null}
               {rows.map((r) => (
@@ -486,14 +485,12 @@ export default function HomePage() {
 function RailCount({
   state,
   total,
-  photographed,
   unfiltered,
   filters,
   onClear,
 }: {
   state: "loading" | "error" | "ok"
   total: number
-  photographed: number
   unfiltered: number
   filters: Filters
   onClear: () => void
@@ -507,13 +504,6 @@ function RailCount({
       </p>
     )
   }
-  const photos =
-    total > 0 ? (
-      <>
-        , <b className="num">{photographed.toLocaleString("en")}</b> with a
-        photo
-      </>
-    ) : null
   return (
     <p className="railcount" role="status">
       {isFiltered(filters) ? (
@@ -529,7 +519,6 @@ function RailCount({
         <span>
           <b className="num">{total.toLocaleString("en")}</b>{" "}
           {total === 1 ? "bench" : "benches"} in view on the map
-          {photos}
         </span>
       )}
     </p>
