@@ -165,7 +165,7 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 <kbd>g</kbd><span>right as shown (also: no photo, and I see no bench in the views either)</span><kbd>p</kbd><span>wrong photo: veto it, keep the bench</span>
 <kbd>x</kbd><span>no bench here: hide it</span><kbd>w</kbd><span>wrong spot</span>
 <kbd>s</kbd><span>bus / tram / train stop: hide it</span><kbd>← →</kbd><span>previous / next</span>
-<kbd>h</kbd><span>use the selected view as the photo (click one first)</span><kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
+<kbd>↑ ↓</kbd><span>cycle this bench's views (or 1-9)</span><kbd>h</kbd><span>use the shown view as the photo</span><kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
 <div id=links></div><iframe id=map loading=lazy></iframe></aside></main>
 <script>
 const KEYS={g:"good",p:"wrong photo",x:"no bench",w:"wrong spot",s:"bus stop"},ADV=new Set("gpxs");
@@ -184,12 +184,18 @@ function show(){sel=null;const b=Q[i];if(!b){$("title").textContent="Queue empty
  $("pics").innerHTML=`<div id=big>${hero}</div>`+`<div class=views>${b.views.map(v=>`<a data-id=${v.id} class="${v.id===b.hero_id?"h":""}" href="${esc(v.src)}" target=_blank><img loading=lazy src="${esc(v.src)}"><i>${S.hero_pick[b.id]===v.id?"PICKED · ":v.id===b.hero_id?"HERO · ":""}${v.score==null?"–":v.score.toFixed(2)} ${esc((v.source||"").slice(0,5))} ${esc((v.when||"").slice(0,7))}</i></a>`).join("")}</div>`;
  $("links").innerHTML=`<a href="https://bench.blackmad.com/bench/${b.id}" target=_blank>live</a> · <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${b.lat},${b.lng}" target=_blank>street view</a> · <a href="https://www.openstreetmap.org/?mlat=${b.lat}&mlon=${b.lng}#map=19/${b.lat}/${b.lng}" target=_blank>OSM</a>`;
  const d=.0012;$("map").src=`https://www.openstreetmap.org/export/embed.html?bbox=${b.lng-d*1.6},${b.lat-d},${b.lng+d*1.6},${b.lat+d}&layer=mapnik&marker=${b.lat},${b.lng}`}
+function pickView(a){sel=+a.dataset.id;document.querySelectorAll(".views a").forEach(x=>x.classList.toggle("sel",x===a));
+ const all=[...document.querySelectorAll(".views a")],n=all.indexOf(a)+1;
+ $("big").innerHTML=`<img class=hero src="${esc(a.getAttribute("href"))}"><p class=cap>view ${n} of ${all.length} · ${a.classList.contains("h")?"the HERO view, uncropped":"press h to use it as the photo"} · ↑↓ or 1-9 for others</p>`}
+function stepView(d){const all=[...document.querySelectorAll(".views a")];if(!all.length)return;
+ const cur=all.findIndex(x=>+x.dataset.id===sel);pickView(all[(cur<0?(d>0?0:all.length-1):(cur+d+all.length)%all.length)])}
 document.addEventListener("click",e=>{const a=e.target.closest(".views a");if(!a||e.metaKey||e.ctrlKey)return;
- e.preventDefault();sel=+a.dataset.id;document.querySelectorAll(".views a").forEach(x=>x.classList.toggle("sel",x===a));
- $("big").innerHTML=`<img class=hero src="${esc(a.getAttribute("href"))}"><p class=cap>${a.classList.contains("h")?"the HERO view, uncropped":"another view · press h to use it as the photo"}</p>`});
+ e.preventDefault();pickView(a)});
 async function save(b,marks){const r=await fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks,hero_id:b.hero_id})});S=await r.json();show()}
 document.onkeydown=e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const b=Q[i],k=e.key;
- if(k==="ArrowRight"||k==="j"){i=Math.min(Q.length-1,i+1);show()}
+ if(k==="ArrowDown"||k==="ArrowUp"){e.preventDefault();stepView(k==="ArrowDown"?1:-1)}
+ else if(/^[1-9]$/.test(k)){const a=document.querySelectorAll(".views a")[+k-1];if(a)pickView(a)}
+ else if(k==="ArrowRight"||k==="j"){i=Math.min(Q.length-1,i+1);show()}
  else if(k==="ArrowLeft"||k==="k"){i=Math.max(0,i-1);show()}
  else if(k==="n"){const j=Q.findIndex((x,n)=>n>i&&!S.feedback[x.id]);if(j>=0){i=j;show()}}
  else if(k==="u"&&b){fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[],pick:null})}).then(r=>r.json()).then(x=>{S=x;show()})}
