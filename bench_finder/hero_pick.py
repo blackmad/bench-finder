@@ -8,6 +8,7 @@ the hero's fade would make it look washed out next to the others) and names the 
 
     uv run python -m bench_finder.hero_pick pilot [--n 50] [--seed 3] [--max-usd 0.5]
     open data/hero_pick/index.html     # current hero vs the pick, mark which is better
+    uv run python -m bench_finder.hero_pick agree   # vs the owner's picks from review
 """
 
 from __future__ import annotations
@@ -169,6 +170,70 @@ def pilot(n: int, seed: int, max_usd: float, workers: int = 8) -> dict:
     }
 
 
+def owner_picks() -> dict[int, int]:
+    """{bench id: image id} the owner chose as hero in the review page."""
+    out: dict[int, int] = {}
+    for f in sorted(Path("data/feedback").glob("*.json")):
+        out |= {
+            int(b): int(i)
+            for b, i in json.loads(f.read_text()).get("hero_pick", {}).items()
+        }
+    return out
+
+
+def agree(max_usd: float, workers: int = 8) -> dict:
+    """How often the model picks the photo the owner picked, from the same gallery."""
+    from bench_finder.publish.build import _resolve, select_images
+    from bench_finder.publish.images import render_source
+    from bench_finder.recut import connect_ro
+
+    picks = owner_picks()
+    _, _, chosen = select_images(
+        connect_ro("data/benches.db"), Path("images"), True, gallery_size=MAX_CANDIDATES
+    )
+    benches = []
+    for bid, want in sorted(picks.items()):
+        imgs = (chosen.get(bid) or ([], False))[0]
+        if len(imgs) < 2 or want not in {i["id"] for i in imgs}:
+            continue
+        benches.append(
+            {
+                "bench": bid,
+                "want": want,
+                "images": [
+                    {
+                        "id": i["id"],
+                        "src": str(
+                            render_source(_resolve(i, Path("images")), faded=False)
+                        ),
+                    }
+                    for i in imgs
+                ],
+            }
+        )
+    picker = Picker(max_usd)
+    results = []
+    with ThreadPoolExecutor(workers) as ex:
+        for f in as_completed([ex.submit(picker.pick, b) for b in benches]):
+            try:
+                results.append(f.result())
+            except Exception as e:  # one bad call should not lose the rest
+                results.append({"error": str(e)[:200]})
+    done = [r for r in results if "pick" in r]
+    hit = [r for r in done if r["images"][r["pick"]]["id"] == r["want"]]
+    chance = sum(1 / len(r["images"]) for r in done)
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "agree.json").write_text(json.dumps(results, indent=1))
+    return {
+        "owner_picks": len(picks),
+        "tested": len(done),
+        "agrees": len(hit),
+        "by_chance": round(chance),
+        "errors": len(results) - len(done),
+        "usd": round(picker.usd, 4),
+    }
+
+
 def _thumb(src: str, name: str) -> str:
     from PIL import Image
 
@@ -242,8 +307,13 @@ def main() -> None:
     p.add_argument("--n", type=int, default=50)
     p.add_argument("--seed", type=int, default=3)
     p.add_argument("--max-usd", type=float, default=0.5)
+    p = sub.add_parser("agree", help="agreement with the owner's hero picks")
+    p.add_argument("--max-usd", type=float, default=0.3)
     a = ap.parse_args()
-    print(pilot(a.n, a.seed, a.max_usd))
+    if a.cmd == "agree":
+        print(agree(a.max_usd))
+    else:
+        print(pilot(a.n, a.seed, a.max_usd))
 
 
 if __name__ == "__main__":

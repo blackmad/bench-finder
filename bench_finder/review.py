@@ -19,6 +19,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from bench_finder import duel
 from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
 from bench_finder.publish.images import render_source
 from bench_finder.whats_new import SNAPS, diff, load
@@ -259,6 +260,10 @@ def serve(base: str | None, port: int) -> None:
                 if q not in QUEUES:
                     return self.send_error(404)
                 return self._send(queue_body(q), "application/json")
+            if path == "duel":
+                return self._send(duel.PAGE.encode(), "text/html; charset=utf-8")
+            if path == "duel.json":
+                return self._send(json.dumps(duel.items()).encode(), "application/json")
             if path == "state":
                 return self._send(json.dumps(_state()).encode(), "application/json")
             for prefix, root in ROOTS.items():
@@ -276,6 +281,8 @@ def serve(base: str | None, port: int) -> None:
             self.send_error(404)
 
         def do_POST(self):
+            if self.path == "/duel":
+                return self._duel()
             if self.path != "/mark":
                 return self.send_error(404)
             req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -298,6 +305,22 @@ def serve(base: str | None, port: int) -> None:
             OUT.parent.mkdir(parents=True, exist_ok=True)
             OUT.write_text(json.dumps(s, indent=0))
             self._send(json.dumps(s).encode(), "application/json")
+
+        def _duel(self) -> None:
+            """A duel vote; a photo chosen as better becomes the bench's hero."""
+            req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            bid, vote = str(req["bench"]), req.get("vote")
+            old = next(
+                (x["vote"] for x in duel.items() if str(x["bench"]) == bid), None
+            )
+            s = _state()
+            if old and old.get("hero") and s["hero_pick"].get(bid) == old["hero"]:
+                s["hero_pick"].pop(bid)  # undo what this page set before
+            if vote and vote.get("hero"):
+                s["hero_pick"][bid] = vote["hero"]
+            OUT.write_text(json.dumps(s, indent=0))
+            duel.save(int(bid), vote)
+            self._send(b"{}", "application/json")
 
     print(f"http://localhost:{port}")
     ThreadingHTTPServer(("127.0.0.1", port), H).serve_forever()
