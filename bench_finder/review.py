@@ -30,6 +30,11 @@ QUEUES = {
     "changed": ("photo_changed", "photo_gained"),
     "photoless": (),
     "private": (),  # Opus thinks these belong to a home; g keeps, x hides
+    # No hero although SAM 3 is sure of a view: Flash-Lite vetoed it. Click the
+    # view that shows the bench to make it the hero (overrides the veto).
+    "vetoed": (),
+    # Heroes just over SAM 3's cutoff (0.6-0.7): g if it is a bench, p if not.
+    "borderline": (),
     "all": (),
 }
 
@@ -59,6 +64,8 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
     conn = sqlite3.connect("file:data/benches.db?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     _, _, chosen = select_images(conn, Path("images"), True, bbox=AMSTERDAM_BBOX)
+    if queue in ("vetoed", "borderline"):
+        ids = [i for i in sorted(new) if _in_band(queue, *chosen.get(i, ([], False)))]
     score = dict(
         conn.execute(
             "SELECT d.image_id, max(di.confidence) FROM detections d JOIN detection_items di "
@@ -115,6 +122,23 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
     return items
 
 
+def _sam3(img: dict) -> float:
+    return ((img.get("targets") or {}).get("sam3") or (0.0,))[0]
+
+
+def _in_band(queue: str, imgs: list[dict], has_hero: bool) -> bool:
+    from bench_finder.publish.build import SAM3_MIN, target_gate
+
+    if queue == "vetoed":
+        return not has_hero and any(
+            _sam3(i) >= SAM3_MIN and i.get("vetoed") for i in imgs
+        )
+    hero = imgs[0] if has_hero and imgs else None
+    return (
+        hero is not None and target_gate(hero)[0] == 0 and SAM3_MIN <= _sam3(hero) < 0.7
+    )
+
+
 PAGE = """<!doctype html><meta charset=utf-8><title>Bench review</title>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <style>
@@ -134,7 +158,7 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 .on{background:var(--ink);color:var(--card)}.marks{min-height:24px}.marks span{background:var(--ink);color:var(--card);padding:2px 8px;margin-right:4px}
 @media(max-width:800px){main{grid-template-columns:1fr}.views{grid-template-columns:repeat(4,1fr)}}
 </style>
-<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=private>Maybe private<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
+<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=private>Maybe private<option value=vetoed>Vetoed by Flash-Lite<option value=borderline>Borderline heroes (SAM 3 0.6-0.7)<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
 <main><section id=pics></section><aside>
 <h1 id=title></h1><div id=facts class=mute></div><div class=marks id=marks></div>
 <div class=keys>
