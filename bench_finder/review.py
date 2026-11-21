@@ -36,6 +36,10 @@ QUEUES = {
     # one that really belongs to a cafe or shop, g keeps it.
     "business": (),
     "vetoed": (),
+    # Hidden benches whose best view is just under SAM 3's cutoff (0.5-0.6):
+    # h on the view that shows the bench, g if none of them does. Measures
+    # whether the cutoff can drop to 0.5.
+    "nearmiss": (),
     # Heroes just over SAM 3's cutoff (0.6-0.7): g if it is a bench, p if not.
     "borderline": (),
     "all": (),
@@ -67,7 +71,7 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
     conn = sqlite3.connect("file:data/benches.db?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     _, _, chosen = select_images(conn, Path("images"), True, bbox=AMSTERDAM_BBOX)
-    if queue in ("vetoed", "borderline"):
+    if queue in ("vetoed", "borderline", "nearmiss"):
         ids = [i for i in sorted(new) if _in_band(queue, *chosen.get(i, ([], False)))]
     score = dict(
         conn.execute(
@@ -175,7 +179,7 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 .on{background:var(--ink);color:var(--card)}.marks{min-height:24px}.marks span{background:var(--ink);color:var(--card);padding:2px 8px;margin-right:4px}
 @media(max-width:800px){main{grid-template-columns:1fr}.views{grid-template-columns:repeat(4,1fr)}}
 </style>
-<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=business>Business (Opus thought so)<option value=vetoed>Vetoed by Flash-Lite<option value=borderline>Borderline heroes (SAM 3 0.6-0.7)<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
+<header><b>Bench review</b><select id=qsel style="margin-left:14px;font:inherit"><option value=new>New benches<option value=changed>Changed photos<option value=photoless>No photo<option value=business>Business (Opus thought so)<option value=nearmiss>Near misses (SAM 3 0.5-0.6)<option value=vetoed>Vetoed by Flash-Lite<option value=borderline>Borderline heroes (SAM 3 0.6-0.7)<option value=all>All benches</select><span id=pos class=mute></span><span id=done class=mute></span></header>
 <main><section id=pics></section><aside>
 <h1 id=title></h1><div id=facts class=mute></div><div class=marks id=marks></div>
 <div class=keys>
