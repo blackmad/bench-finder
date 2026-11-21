@@ -85,6 +85,7 @@ class PublishResult:
 # Facings publish shows: OSM direction tags, visitors, and the water-edge rules.
 SHOWN_FACINGS = {"osm_tag", "human", "water_edge", "water_back"}
 
+
 def parse_direction(value: Any) -> float | None:
     """OSM ``direction`` tag: degrees ("120") or 16-wind letters ("SSW")."""
     if value is None:
@@ -142,7 +143,12 @@ def check_capacity(
 
 
 # Launch coverage (owner decision 2026-11-14): Amsterdam only. (west, south, east, north)
-AMSTERDAM_BBOX = (4.62, 52.26, 5.15, 52.53)  # the municipality, incl. Weesp, Noord, the port
+AMSTERDAM_BBOX = (
+    4.62,
+    52.26,
+    5.15,
+    52.53,
+)  # the municipality, incl. Weesp, Noord, the port
 
 
 MOVE_MIN_RAYS = 3  # a triangulated pin needs this many agreeing panoramas
@@ -302,6 +308,9 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
         if image_id in by_id:
             by_id[image_id]["picked"] = True
             by_id[image_id].pop("vetoed", None)
+    for image_id in model_picks():  # bench_finder.hero_pick: Haiku's best lead photo
+        if image_id in by_id:
+            by_id[image_id]["model_pick"] = True
     for (image_id,) in conn.execute(
         "SELECT a.image_id FROM image_annotations a "
         "JOIN images i ON i.id = a.image_id JOIN _pub_ids p ON p.id = i.bench_candidate_id "
@@ -321,6 +330,16 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
             or (i["targets"].get("sam3") or (0, None))[0] >= SAM3_MIN
         ]
     return by_bench
+
+
+MODEL_PICKS = Path("data/hero_pick/picks.json")
+
+
+def model_picks(path: Path = MODEL_PICKS) -> set[int]:
+    """Image ids bench_finder.hero_pick chose to lead their bench's card."""
+    if not path.exists():
+        return set()
+    return {int(i) for i in json.loads(path.read_text()).values() if i}
 
 
 def _resolve(img: dict, images_root: Path) -> Path | None:
@@ -539,6 +558,11 @@ def _order_images(
         )
     ]
     hero = next((i for i in ranked if i["id"] == hero_id), None)
+    if hero is None and ranked and not ranked[0].get("picked"):
+        # The model's pick among the photos that may lead (never over the owner's).
+        hero = next(
+            (i for i in ranked if i.get("model_pick") and target_gate(i)[0] < 1.5), None
+        )
     if hero is None and ranked and target_gate(ranked[0])[0] < 1.5:
         hero = ranked[0]
     rest = [i for i in ranked if i is not hero]
