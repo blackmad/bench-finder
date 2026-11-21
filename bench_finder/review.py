@@ -183,10 +183,10 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 <main><section id=pics></section><aside>
 <h1 id=title></h1><div id=facts class=mute></div><div class=marks id=marks></div>
 <div class=keys>
-<kbd>g</kbd><span>right as shown (also: no photo, and I see no bench in the views either)</span><kbd>p</kbd><span>wrong photo: veto it, keep the bench</span>
+<kbd>g</kbd><span>right as shown (with no photo: I see no bench in any view)</span><kbd>p</kbd><span>wrong photo: veto it, keep the bench</span>
 <kbd>x</kbd><span>no bench here: hide it</span><kbd>w</kbd><span>wrong spot</span>
 <kbd>s</kbd><span>bus / tram / train stop: hide it</span><kbd>← →</kbd><span>previous / next</span>
-<kbd>↑ ↓</kbd><span>cycle this bench's views (or 1-9)</span><kbd>h</kbd><span>use the shown view as the photo</span><kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
+<kbd>↑ ↓</kbd><span>cycle this bench's views (or 1-9)</span><kbd>h</kbd><span>there is a bench: use the shown view as the photo</span><kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
 <div id=links></div><iframe id=map loading=lazy></iframe></aside></main>
 <script>
 const KEYS={g:"good",p:"wrong photo",x:"no bench",w:"wrong spot",s:"bus stop"},ADV=new Set("gpxs");
@@ -220,7 +220,7 @@ document.onkeydown=e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const b=Q[i],k=e
  else if(k==="ArrowLeft"||k==="k"){i=Math.max(0,i-1);show()}
  else if(k==="n"){const j=Q.findIndex((x,n)=>n>i&&!S.feedback[x.id]);if(j>=0){i=j;show()}}
  else if(k==="u"&&b){fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[],pick:null})}).then(r=>r.json()).then(x=>{S=x;show()})}
- else if(k==="h"&&b&&sel){const m=new Set(S.feedback[b.id]||[]);m.delete("wrong photo");m.delete("no bench");m.add("good");
+ else if(k==="h"&&b&&(sel=sel||b.hero_id||(b.views[0]||{}).id)){const m=new Set(S.feedback[b.id]||[]);m.delete("wrong photo");m.delete("no bench");m.add("good");
   fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[...m],pick:sel})}).then(r=>r.json()).then(x=>{S=x;if(i<Q.length-1)i++;show()})}
  else if(KEYS[k]&&b){const m=new Set(S.feedback[b.id]||[]);m.add(KEYS[k]);
   if(k==="g"){m.delete("wrong photo");m.delete("no bench")}if(k!=="g"&&k!=="w")m.delete("good");
