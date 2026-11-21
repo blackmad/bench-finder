@@ -74,7 +74,7 @@ footer{padding:6px 18px 12px;color:#aaa;font-size:13px;display:flex;gap:18px;fle
 <main><figure id=L><img><figcaption><span><kbd>←</kbd> current hero</span></figcaption></figure>
 <figure id=R><img><figcaption><span>model's pick <kbd>→</kbd></span></figcaption></figure></main>
 <div class=strip id=strip></div>
-<footer><span><kbd>←</kbd> current better</span><span><kbd>→</kbd> pick better (becomes the hero)</span>
+<footer><span><kbd>←</kbd> current better (stays the hero)</span><span><kbd>→</kbd> pick better (becomes the hero)</span>
 <span><kbd>↓</kbd> about the same</span><span><kbd>1</kbd>–<kbd>6</kbd> a different photo is best</span>
 <span><kbd>x</kbd> no photo shows a bench</span><span><kbd>⌫</kbd> back</span><span><kbd>n</kbd> next unvoted</span></footer>
 <div id=toast></div>
@@ -105,7 +105,7 @@ function show(){
 function toast(t){const e=$("toast");e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,450)}
 async function vote(v,k){
   if(busy||i>=items.length)return;busy=true;const b=items[i];
-  const hero=v==="pick"?b.images[b.pick].id:v==="other"?b.images[k].id:null;
+  const hero=v==="current"?b.images[0].id:v==="pick"?b.images[b.pick].id:v==="other"?b.images[k].id:null;
   b.vote={v,k,hero};show();toast(v==="other"?"photo "+(k+1):LABEL[v]);
   await fetch("/duel",{method:"POST",body:JSON.stringify({bench:b.bench,vote:b.vote})});
   setTimeout(()=>{busy=false;i++;show()},260);
