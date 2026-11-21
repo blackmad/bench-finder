@@ -54,7 +54,7 @@ const sameViewport = (a: Viewport, b: Viewport) =>
 
 // The area the data covers (Amsterdam): the start view only follows the
 // visitor's location when it falls inside, [west, south, east, north].
-const COVERED: [number, number, number, number] = [4.72, 52.27, 5.08, 52.44]
+const COVERED: [number, number, number, number] = [4.62, 52.26, 5.15, 52.53]
 const covered = ([lng, lat]: [number, number]) =>
   lng >= COVERED[0] &&
   lng <= COVERED[2] &&

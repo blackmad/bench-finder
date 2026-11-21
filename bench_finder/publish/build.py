@@ -142,7 +142,7 @@ def check_capacity(
 
 
 # Launch coverage (owner decision 2026-11-14): Amsterdam only. (west, south, east, north)
-AMSTERDAM_BBOX = (4.72, 52.27, 5.08, 52.44)
+AMSTERDAM_BBOX = (4.62, 52.26, 5.15, 52.53)  # the municipality, incl. Weesp, Noord, the port
 
 
 MOVE_MIN_RAYS = 3  # a triangulated pin needs this many agreeing panoramas
