@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
 import { headline } from "../data/describe"
 import { useBenchIndex } from "../data/hooks"
@@ -11,9 +12,9 @@ export function Feed({ onOpen }: { onOpen: (id: number) => void }) {
   // Any bench, not just the photographed place leaders on the map.
   const byId = useBenchIndex()
   // Benches the current data no longer has (hidden since) are left out.
-  const items = (data?.items ?? [])
-    .filter((i) => byId.has(i.benchId))
-    .slice(0, 8)
+  const [more, setMore] = useState(false)
+  const all = (data?.items ?? []).filter((i) => byId.has(i.benchId))
+  const items = all.slice(0, more ? 12 : 4)
   if (!items.length) return null
   return (
     <section className="feed" aria-labelledby="h-feed">
@@ -32,6 +33,16 @@ export function Feed({ onOpen }: { onOpen: (id: number) => void }) {
           </li>
         ))}
       </ul>
+      {all.length > 4 ? (
+        <button
+          type="button"
+          className="linkbtn feedmore"
+          aria-expanded={more}
+          onClick={() => setMore((m) => !m)}
+        >
+          {more ? "Less" : "More"}
+        </button>
+      ) : null}
     </section>
   )
 }

@@ -1,5 +1,4 @@
 import {
-  Fragment,
   lazy,
   Suspense,
   useCallback,
@@ -462,18 +461,16 @@ export default function HomePage() {
                     : "No benches in this part of the map yet. Zoom out or move the map."}
                 </p>
               ) : null}
-              {rows.map((r, n) => (
-                <Fragment key={r.key}>
-                  <RailRow
-                    grid
-                    row={r}
-                    selectedId={selectedId}
-                    onSelect={setHoverId}
-                    onOpen={openBench}
-                  />
-                  {/* Photos lead; the feed follows the first row. */}
-                  {n === 0 ? <Feed onOpen={openBench} /> : null}
-                </Fragment>
+              <Feed onOpen={openBench} />
+              {rows.map((r) => (
+                <RailRow
+                  grid
+                  key={r.key}
+                  row={r}
+                  selectedId={selectedId}
+                  onSelect={setHoverId}
+                  onOpen={openBench}
+                />
               ))}
               {data ? (
                 <SiteFooter

@@ -1388,7 +1388,7 @@ picture {
 
 /* Homepage feed: recent notes, ratings and public favourites. */
 .feed {
-  margin: 8px 0 28px;
+  margin: 0 0 20px;
   padding: 14px 18px 10px;
   background: var(--color-card);
   box-shadow: var(--shadow-card-lifted);
@@ -1431,4 +1431,8 @@ picture {
   flex: none;
   color: var(--color-ink-2);
   font-size: 12.5px;
+}
+.feed .feedmore {
+  margin-top: 4px;
+  font-size: 13px;
 }
