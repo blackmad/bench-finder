@@ -8,6 +8,8 @@ export interface Comment {
   body: string
   createdAt: string
   mine: boolean
+  /** Stars the author gave with the note. */
+  rating?: number | null
 }
 export interface Social {
   benchId: number
@@ -49,6 +51,7 @@ export type FeedItem =
       at: string
       who: string
       text: string
+      rating: number | null
     }
   | { kind: "rating"; key: string; benchId: number; at: string; rating: number }
   | {
@@ -177,14 +180,18 @@ export function useSetStatus(benchId: number) {
 export function useAddComment(benchId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (body: string) =>
+    mutationFn: async (v: { body: string; rating?: number }) =>
       unwrap<Comment>(
         await api.api.bench[":id"].comments.$post({
           param: { id: String(benchId) },
-          json: { body },
+          json: v,
         })
       ),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["social", benchId] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["social", benchId] })
+      qc.invalidateQueries({ queryKey: ["me"] })
+      qc.invalidateQueries({ queryKey: ["feed"] })
+    },
   })
 }
 

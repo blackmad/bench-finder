@@ -29,8 +29,11 @@ export function ViewFigure({
   name,
   sizes,
   onOpen,
+  action,
 }: {
   image: GalleryImage
+  /** Shown under the caption, e.g. a lead photo button. */
+  action?: React.ReactNode
   /** The bench's headline, for the alt text. */
   name: string
   sizes: string
@@ -70,6 +73,7 @@ export function ViewFigure({
           <span className="when"> · {photoDate(g.pano_date)}</span>
         ) : null}
       </figcaption>
+      {action}
     </figure>
   )
 }

@@ -129,6 +129,55 @@ export function BenchActions({ benchId }: { benchId: number }) {
   )
 }
 
+/** Read-only stars, e.g. beside a note. */
+export function Stars({ n }: { n: number }) {
+  return (
+    <span className="mestars" role="img" aria-label={`${n} of 5 stars`}>
+      {"★".repeat(n)}
+      <span aria-hidden="true">{"★".repeat(5 - n)}</span>
+    </span>
+  )
+}
+
+/** Five star radios that can be cleared again (clicking the chosen star). */
+function StarPicker({
+  value,
+  onChange,
+  legend,
+  name,
+}: {
+  value: number | null
+  onChange: (n: number | null) => void
+  legend: string
+  name: string
+}) {
+  const [hover, setHover] = useState<number | null>(null)
+  const shown = hover ?? value ?? 0
+  return (
+    <fieldset className="stars small" onMouseLeave={() => setHover(null)}>
+      <legend className="caps">{legend}</legend>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <label
+          key={n}
+          className={n <= shown ? "on" : undefined}
+          onMouseEnter={() => setHover(n)}
+        >
+          <input
+            type="radio"
+            name={name}
+            value={n}
+            checked={value === n}
+            onChange={() => onChange(n)}
+            onClick={() => (value === n ? onChange(null) : undefined)}
+          />
+          <StarIcon />
+          <span className="sr">{n === 1 ? "1 star" : `${n} stars`}</span>
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
 const when = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, {
     year: "numeric",
@@ -144,6 +193,7 @@ export function BenchNotes({ benchId }: { benchId: number }) {
   const del = useDeleteComment(benchId)
   const flag = useFlagComment()
   const [body, setBody] = useState("")
+  const [stars, setStars] = useState<number | null>(null)
   const [flagged, setFlagged] = useState<number[]>([])
   const comments = data?.comments ?? []
 
@@ -151,7 +201,15 @@ export function BenchNotes({ benchId }: { benchId: number }) {
     e.preventDefault()
     const text = body.trim()
     if (!text) return
-    add.mutate(text, { onSuccess: () => setBody("") })
+    add.mutate(
+      { body: text, ...(stars ? { rating: stars } : {}) },
+      {
+        onSuccess: () => {
+          setBody("")
+          setStars(null)
+        },
+      }
+    )
   }
 
   return (
@@ -175,6 +233,7 @@ export function BenchNotes({ benchId }: { benchId: number }) {
             <ul className="comments">
               {comments.map((c) => (
                 <li key={c.id}>
+                  {c.rating ? <Stars n={c.rating} /> : null}
                   <p className="cbody">{c.body}</p>
                   <p className="cmeta">
                     {c.displayName} · {when(c.createdAt)}
@@ -220,6 +279,12 @@ export function BenchNotes({ benchId }: { benchId: number }) {
               maxLength={2000}
               value={body}
               onChange={(e) => setBody(e.target.value)}
+            />
+            <StarPicker
+              value={stars}
+              onChange={setStars}
+              legend="Stars (optional, shown with your note)"
+              name={`note-stars-${benchId}`}
             />
             <button
               type="submit"

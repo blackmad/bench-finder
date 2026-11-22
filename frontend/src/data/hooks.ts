@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import { benchDetailQuery, benchesQuery, manifestQuery } from "./api"
+import { applyPick, useHeroPicks } from "./heroes"
 import type { BenchFeature } from "./types"
 
 export function useManifest() {
@@ -10,8 +11,22 @@ export function useManifest() {
 export function useBenches() {
   const manifest = useManifest()
   const benches = useQuery(benchesQuery(manifest.data))
+  // Moderators' lead photo picks show at once, before the next publish.
+  const { data: picks } = useHeroPicks()
+  const data = useMemo(
+    () =>
+      picks && benches.data
+        ? benches.data.map((f) => {
+            const pick = picks[f.properties.id]
+            return pick
+              ? { ...f, properties: applyPick(f.properties, pick) }
+              : f
+          })
+        : benches.data,
+    [benches.data, picks]
+  )
   return {
-    data: benches.data,
+    data,
     isPending: manifest.isPending || benches.isPending,
     error: manifest.error ?? benches.error,
   }
@@ -38,8 +53,14 @@ export function useBenchIndex() {
 export function useBench(id: number) {
   const manifest = useManifest()
   const detail = useQuery(benchDetailQuery(manifest.data, id))
+  const { data: picks } = useHeroPicks()
+  const pick = picks?.[id]
+  const data = useMemo(
+    () => (detail.data ? applyPick(detail.data, pick) : detail.data),
+    [detail.data, pick]
+  )
   return {
-    data: detail.data,
+    data,
     isPending: manifest.isPending || detail.isPending,
     error: manifest.error ?? detail.error,
   }

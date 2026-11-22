@@ -64,7 +64,15 @@ function FeedLine({
   if (i.kind === "note") {
     return (
       <p>
-        <b>{i.who}</b> on {bench}: <q>{i.text}</q>
+        <b>{i.who}</b>{" "}
+        {i.rating ? (
+          <>
+            <span role="img" aria-label={`${i.rating} of 5 stars`}>
+              {"★".repeat(i.rating)}
+            </span>{" "}
+          </>
+        ) : null}
+        on {bench}: <q>{i.text}</q>
       </p>
     )
   }

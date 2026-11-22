@@ -3093,6 +3093,13 @@ def publish_command(
     from bench_finder.publish.upload import wait_for_uploads
 
     wait_for_uploads()  # a background upload still reads the output directory
+    from bench_finder.publish.site_picks import sync as sync_site_picks
+
+    synced = sync_site_picks()  # lead photos moderators picked on the site
+    console.print(
+        "Site lead photo picks: "
+        + ("not synced (using the last file)" if synced is None else str(synced))
+    )
     try:
         result = publish(
             db,

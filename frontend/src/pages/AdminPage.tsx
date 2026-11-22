@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { Link } from "react-router-dom"
+import { Photo } from "../components/Photo"
 import { TopBar } from "../components/TopBar"
+import { useHeroSuggestions, useResolveSuggestion } from "../data/heroes"
+import { useBenchIndex } from "../data/hooks"
 import { useMe } from "../data/social"
 import { adminPhotoUrl, api, unwrap } from "../lib/api"
 import { useAuth } from "../lib/auth"
@@ -319,7 +322,100 @@ function Queue() {
           ))}
         </ul>
       </section>
+
+      <HeroSuggestions />
     </div>
+  )
+}
+
+/** Visitors' lead photo suggestions: the current lead beside the suggested one. */
+function HeroSuggestions() {
+  const { data, error } = useHeroSuggestions()
+  const resolve = useResolveSuggestion()
+  const byId = useBenchIndex()
+  const list = data?.suggestions ?? []
+  return (
+    <section className="block" aria-labelledby="q-heroes">
+      <div className="blockhead">
+        <h2 id="q-heroes">Lead photo suggestions</h2>
+        <p>{list.length} open</p>
+      </div>
+      {error || resolve.error ? (
+        <p role="alert" className="form-error">
+          {(error ?? resolve.error)?.message}
+        </p>
+      ) : null}
+      <ul className="qlist">
+        {data && list.length === 0 ? (
+          <li className="hint">No suggestions.</li>
+        ) : null}
+        {list.map((s) => {
+          const f = byId.get(s.benchId)?.properties
+          const now = s.current?.urls ?? f?.hero_urls
+          return (
+            <li key={s.id} className="qitem">
+              <div>
+                <div className="qheroes">
+                  <figure>
+                    {now ? (
+                      <Photo
+                        urls={now}
+                        sizes="220px"
+                        alt="Current lead photo"
+                        width={220}
+                        height={220}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="hint">No lead photo</span>
+                    )}
+                    <figcaption>Now</figcaption>
+                  </figure>
+                  <figure>
+                    <Photo
+                      urls={s.photo.urls}
+                      webp={s.photo.urls_webp}
+                      sizes="220px"
+                      alt="Suggested lead photo"
+                      width={220}
+                      height={220}
+                      loading="lazy"
+                    />
+                    <figcaption>Suggested</figcaption>
+                  </figure>
+                </div>
+                <p className="cmeta">
+                  {s.who} on{" "}
+                  <Link to={`/?bench=${s.benchId}`}>
+                    {f?.address ?? "bench"} No. {s.benchId}
+                  </Link>
+                </p>
+              </div>
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={resolve.isPending}
+                  onClick={() => resolve.mutate({ id: s.id, action: "accept" })}
+                >
+                  Use it
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={resolve.isPending}
+                  onClick={() =>
+                    resolve.mutate({ id: s.id, action: "dismiss" })
+                  }
+                >
+                  Dismiss
+                </button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

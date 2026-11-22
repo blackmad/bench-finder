@@ -446,6 +446,8 @@ VIEW_TIER = {
     "front": 4.0,
 }
 UNKNOWN_VIEW_TIER = 2.5
+# Tiers apart at which a model's view label is overruled by the camera geometry.
+LABEL_CONTRADICTS = 3.0
 BEHIND_DEG = 60.0
 
 
@@ -532,7 +534,9 @@ def image_rank(
        winter views (December to February: snow, bare trees) after the rest.
     2. View relation: the camera behind the bench (the sitter's view) beats the
        back corners, then the sides, then the front. A trusted label decides
-       (``VIEW_ANNOTATORS``, oracle first). Without one, when the bench's facing
+       (``VIEW_ANNOTATORS``, oracle first), unless it is a model's label that
+       contradicts the camera geometry by LABEL_CONTRADICTS tiers or more (a
+       "front" view looking along the facing): then geometry decides. Without one, when the bench's facing
        is known (attributes or the OSM ``direction`` tag), geometry decides: a
        camera looking within 60 deg of the facing stands behind the bench,
        within 120 deg beside it, otherwise in front. Unlabelled views of benches
@@ -548,10 +552,26 @@ def image_rank(
         _angle(bearing, facing) if bearing is not None and facing is not None else None
     )
     label = view_label(img)
-    if label is not None:
+    geo = (
+        None
+        if diff is None
+        else 0.0
+        if diff <= BEHIND_DEG
+        else 2.0
+        if diff <= 2 * BEHIND_DEG
+        else 4.0
+    )
+    if label is not None and (
+        geo is None
+        or any(a.startswith("oracle:") for a in img.get("view_labels") or {})
+        or abs(VIEW_TIER[label] - geo) < LABEL_CONTRADICTS
+    ):
         tier = VIEW_TIER[label]
-    elif diff is not None:
-        tier = 0.0 if diff <= BEHIND_DEG else 2.0 if diff <= 2 * BEHIND_DEG else 4.0
+    elif geo is not None:
+        # A model label that puts the camera on the other side of the bench
+        # from where the camera pose says it is loses to the pose (bench 2160:
+        # a view along the facing labelled "front"; 914 such views, 2026-11).
+        tier = geo
     else:
         tier = UNKNOWN_VIEW_TIER
     digits = re.sub(r"\D", "", img.get("pano_date") or "")[:6]
@@ -669,6 +689,8 @@ def _image_entry(res: ImageResult, img: dict) -> dict:
         ),
         "kind": img["kind"],
         "pano_date": img["pano_date"],
+        # Lead photo picks and suggestions on the site name the image by it.
+        "id": img["id"],
     }
 
 

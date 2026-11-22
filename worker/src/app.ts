@@ -43,6 +43,43 @@ const validationHook = (
 
 const now = () => new Date().toISOString();
 
+/** A published image rendition path, e.g. img/12276b213fb43d16-800.avif. */
+const IMG_PATH = /^img\/([0-9a-f]{16})-\d{2,4}\.(avif|webp)$/;
+const urlSet = z.record(z.string().regex(/^\d{2,4}$/), z.string().regex(IMG_PATH)).refine((u) => Object.keys(u).length > 0);
+const heroPhoto = z
+  .object({
+    urls: urlSet,
+    urls_webp: urlSet.optional(),
+    width: z.number().int().positive().max(10000),
+    height: z.number().int().positive().max(10000),
+  })
+  // All renditions are of one image.
+  .refine((p) => new Set([...Object.values(p.urls), ...Object.values(p.urls_webp ?? {})].map((u) => u.match(IMG_PATH)?.[1])).size === 1, {
+    message: "Photo URLs must all be one image",
+  });
+type HeroPhoto = z.infer<typeof heroPhoto>;
+const heroBody = z.object({ imageId: z.number().int().positive(), photo: heroPhoto });
+const heroKey = (p: HeroPhoto) => (Object.values(p.urls)[0].match(IMG_PATH) as RegExpMatchArray)[1];
+
+interface PickRow {
+  bench_id: number;
+  image_id: number;
+  image_key: string;
+  photo: string;
+}
+
+async function setPick(db: D1Database, benchId: number, imageId: number, photo: HeroPhoto, by: string) {
+  const clean = { urls: photo.urls, urls_webp: photo.urls_webp, width: photo.width, height: photo.height };
+  await db
+    .prepare(
+      `INSERT INTO hero_picks (bench_id, image_id, image_key, photo, picked_by, picked_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+       ON CONFLICT (bench_id) DO UPDATE SET image_id = excluded.image_id, image_key = excluded.image_key,
+         photo = excluded.photo, picked_by = excluded.picked_by, picked_at = excluded.picked_at`,
+    )
+    .bind(benchId, imageId, heroKey(photo), JSON.stringify(clean), by, now())
+    .run();
+}
+
 /** Favourites in the user's order, then the unranked ones newest first. */
 const FAVORITE_ORDER = "fav_rank IS NULL, fav_rank, favorited_at DESC, updated_at DESC";
 
@@ -60,8 +97,11 @@ const profileOut = (p: ProfileRow) => ({
   public: p.public === 1,
 });
 
+/** A rating this close to a starred note by the same person is that note's. */
+const NOTE_RATING_MS = 60 * 60 * 1000;
+
 export type FeedItem =
-  | { kind: "note"; key: string; benchId: number; at: string; who: string; text: string }
+  | { kind: "note"; key: string; benchId: number; at: string; who: string; text: string; rating: number | null }
   | { kind: "rating"; key: string; benchId: number; at: string; rating: number }
   | { kind: "fave"; key: string; benchId: number; at: string; who: string; page: string };
 
@@ -194,7 +234,7 @@ export function createApp(deps: Deps = {}) {
         c.env.DB.prepare("SELECT COUNT(*) AS count, AVG(rating) AS average FROM ratings WHERE bench_id = ?1").bind(id),
         c.env.DB
           .prepare(
-            `SELECT id, display_name, body, created_at, user_id FROM comments
+            `SELECT id, display_name, body, created_at, user_id, rating FROM comments
              WHERE bench_id = ?1 AND deleted_at IS NULL AND state IN ('visible','flagged')
              ORDER BY created_at DESC, id DESC LIMIT 200`,
           )
@@ -218,12 +258,14 @@ export function createApp(deps: Deps = {}) {
             body: string;
             created_at: string;
             user_id: string;
+            rating: number | null;
           }[]
         ).map((r) => ({
           id: r.id,
           displayName: r.display_name,
           body: r.body,
           createdAt: r.created_at,
+          rating: r.rating,
           mine: uid !== null && r.user_id === uid,
         })),
         me: user
@@ -300,23 +342,40 @@ export function createApp(deps: Deps = {}) {
     .post(
       "/api/bench/:id/comments",
       zValidator("param", idParam, validationHook),
-      zValidator("json", z.object({ body: z.string().trim().min(1).max(2000) }), validationHook),
+      zValidator(
+        "json",
+        // Stars sent with a note also set the user's rating, and show with the note.
+        z.object({ body: z.string().trim().min(1).max(2000), rating: z.number().int().min(1).max(5).optional() }),
+        validationHook,
+      ),
       async (c) => {
         const user = await requireUser(c);
         const { id } = c.req.valid("param");
-        const { body } = c.req.valid("json");
+        const { body, rating } = c.req.valid("json");
         const { allowed } = await hit(c.env.DB, "comment", user.uid, num(c.env.RATE_LIMIT_COMMENTS_PER_HOUR, 20));
         if (!allowed) throw new HTTPException(429, { message: "Too many comments, try again later" });
         const t = now();
         const displayName = user.name?.trim() || "Anonymous";
-        const row = await c.env.DB
-          .prepare(
-            `INSERT INTO comments (bench_id, user_id, display_name, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)
-             RETURNING id`,
-          )
-          .bind(id, user.uid, displayName, body, t)
-          .first<{ id: number }>();
-        return c.json({ id: row?.id ?? 0, displayName, body, createdAt: t, mine: true }, 201);
+        const [inserted] = await c.env.DB.batch([
+          c.env.DB
+            .prepare(
+              `INSERT INTO comments (bench_id, user_id, display_name, body, created_at, rating) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+               RETURNING id`,
+            )
+            .bind(id, user.uid, displayName, body, t, rating ?? null),
+          ...(rating
+            ? [
+                c.env.DB
+                  .prepare(
+                    `INSERT INTO ratings (bench_id, user_id, rating, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)
+                     ON CONFLICT(bench_id, user_id) DO UPDATE SET rating = excluded.rating, updated_at = excluded.updated_at`,
+                  )
+                  .bind(id, user.uid, rating, t),
+              ]
+            : []),
+        ]);
+        const newId = (inserted.results[0] as { id: number } | undefined)?.id ?? 0;
+        return c.json({ id: newId, displayName, body, createdAt: t, mine: true, rating: rating ?? null }, 201);
       },
     )
 
@@ -474,11 +533,13 @@ export function createApp(deps: Deps = {}) {
         const [notes, ratings, faves] = await c.env.DB.batch([
           c.env.DB
             .prepare(
-              `SELECT id, bench_id, display_name, body, created_at FROM comments
+              `SELECT id, bench_id, user_id, display_name, body, created_at, rating FROM comments
                WHERE state = 'visible' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?1`,
             )
             .bind(limit),
-          c.env.DB.prepare("SELECT bench_id, rating, updated_at FROM ratings ORDER BY updated_at DESC LIMIT ?1").bind(limit),
+          c.env.DB
+            .prepare("SELECT bench_id, user_id, rating, updated_at FROM ratings ORDER BY updated_at DESC LIMIT ?1")
+            .bind(limit),
           // Only from people who made their favourites public.
           c.env.DB
             .prepare(
@@ -488,8 +549,27 @@ export function createApp(deps: Deps = {}) {
             )
             .bind(limit),
         ]);
+        type NoteRow = {
+          id: number;
+          bench_id: number;
+          user_id: string;
+          display_name: string;
+          body: string;
+          created_at: string;
+          rating: number | null;
+        };
+        const noteRows = notes.results as NoteRow[];
+        // A rating given with a note is shown on the note's line, not again on its own.
+        const withNote = (r: { bench_id: number; user_id: string; updated_at: string }) =>
+          noteRows.some(
+            (n) =>
+              n.rating !== null &&
+              n.bench_id === r.bench_id &&
+              n.user_id === r.user_id &&
+              Math.abs(Date.parse(n.created_at) - Date.parse(r.updated_at)) < NOTE_RATING_MS,
+          );
         const items: FeedItem[] = [
-          ...(notes.results as { id: number; bench_id: number; display_name: string; body: string; created_at: string }[]).map(
+          ...noteRows.map(
             (r): FeedItem => ({
               kind: "note",
               key: `n${r.id}`,
@@ -497,11 +577,20 @@ export function createApp(deps: Deps = {}) {
               at: r.created_at,
               who: r.display_name,
               text: r.body.length > 180 ? `${r.body.slice(0, 177)}...` : r.body,
+              rating: r.rating,
             }),
           ),
-          ...(ratings.results as { bench_id: number; rating: number; updated_at: string }[]).map(
-            (r, i): FeedItem => ({ kind: "rating", key: `r${r.bench_id}-${i}`, benchId: r.bench_id, at: r.updated_at, rating: r.rating }),
-          ),
+          ...(ratings.results as { bench_id: number; user_id: string; rating: number; updated_at: string }[])
+            .filter((r) => !withNote(r))
+            .map(
+              (r, i): FeedItem => ({
+                kind: "rating",
+                key: `r${r.bench_id}-${i}`,
+                benchId: r.bench_id,
+                at: r.updated_at,
+                rating: r.rating,
+              }),
+            ),
           ...(faves.results as { bench_id: number; favorited_at: string; display_name: string; page: string }[]).map(
             (r): FeedItem => ({
               kind: "fave",
@@ -715,6 +804,129 @@ export function createApp(deps: Deps = {}) {
           .run();
         if (!r.meta.changes) throw new HTTPException(404, { message: "Comment not found" });
         return c.json({ id, state });
+      },
+    )
+
+    // ---- Lead photos: moderator picks and visitors' suggestions ------------------
+    // Every pick, for the site to apply before the next publish includes it.
+    .get("/api/heroes", async (c) => {
+      const rows = await c.env.DB.prepare("SELECT bench_id, image_id, image_key, photo FROM hero_picks").all<PickRow>();
+      c.header("Cache-Control", "public, max-age=60");
+      return c.json({
+        picks: Object.fromEntries(
+          rows.results.map((r) => [r.bench_id, { imageId: r.image_id, key: r.image_key, ...JSON.parse(r.photo) }]),
+        ) as Record<string, HeroPhoto & { imageId: number; key: string }>,
+      });
+    })
+
+    .put(
+      "/api/admin/bench/:id/hero",
+      zValidator("param", idParam, validationHook),
+      zValidator("json", heroBody, validationHook),
+      async (c) => {
+        const admin = await requireAdmin(c);
+        const { id } = c.req.valid("param");
+        const { imageId, photo } = c.req.valid("json");
+        await setPick(c.env.DB, id, imageId, photo, admin.uid);
+        return c.json({ benchId: id, imageId, key: heroKey(photo) });
+      },
+    )
+
+    // Back to the automatic choice.
+    .delete("/api/admin/bench/:id/hero", zValidator("param", idParam, validationHook), async (c) => {
+      await requireAdmin(c);
+      const { id } = c.req.valid("param");
+      await c.env.DB.prepare("DELETE FROM hero_picks WHERE bench_id = ?1").bind(id).run();
+      return c.json({ benchId: id });
+    })
+
+    .post(
+      "/api/bench/:id/hero-suggestions",
+      zValidator("param", idParam, validationHook),
+      zValidator("json", heroBody, validationHook),
+      async (c) => {
+        const user = await requireUser(c);
+        const { id } = c.req.valid("param");
+        const { imageId, photo } = c.req.valid("json");
+        const { allowed } = await hit(c.env.DB, "hero", user.uid, 30);
+        if (!allowed) throw new HTTPException(429, { message: "Too many suggestions, try again later" });
+        // Suggesting the same photo again re-opens it.
+        await c.env.DB
+          .prepare(
+            `INSERT INTO hero_suggestions (bench_id, image_id, image_key, photo, user_id, display_name, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT (bench_id, image_id, user_id) DO UPDATE SET
+               state = 'pending', created_at = excluded.created_at, resolved_at = NULL, resolved_by = NULL`,
+          )
+          .bind(id, imageId, heroKey(photo), JSON.stringify(photo), user.uid, user.name?.trim() || "Anonymous", now())
+          .run();
+        return c.json({ ok: true }, 201);
+      },
+    )
+
+    .get("/api/admin/hero-suggestions", async (c) => {
+      await requireAdmin(c);
+      const rows = await c.env.DB
+        .prepare(
+          `SELECT s.id, s.bench_id, s.image_id, s.image_key, s.photo, s.display_name, s.created_at,
+                  p.photo AS current_photo
+           FROM hero_suggestions s LEFT JOIN hero_picks p ON p.bench_id = s.bench_id
+           WHERE s.state = 'pending' ORDER BY s.created_at LIMIT 200`,
+        )
+        .all<{
+          id: number;
+          bench_id: number;
+          image_id: number;
+          image_key: string;
+          photo: string;
+          display_name: string;
+          created_at: string;
+          current_photo: string | null;
+        }>();
+      return c.json({
+        suggestions: rows.results.map((r) => ({
+          id: r.id,
+          benchId: r.bench_id,
+          imageId: r.image_id,
+          key: r.image_key,
+          photo: JSON.parse(r.photo) as HeroPhoto,
+          // A moderator pick already in place; else the published lead stands.
+          current: r.current_photo ? (JSON.parse(r.current_photo) as HeroPhoto) : null,
+          who: r.display_name,
+          createdAt: r.created_at,
+        })),
+      });
+    })
+
+    .post(
+      "/api/admin/hero-suggestions/:id/:action",
+      zValidator("param", commentIdParam.extend({ action: z.enum(["accept", "dismiss"]) }), validationHook),
+      async (c) => {
+        const admin = await requireAdmin(c);
+        const { id, action } = c.req.valid("param");
+        const s = await c.env.DB
+          .prepare("SELECT bench_id, image_id, photo FROM hero_suggestions WHERE id = ?1 AND state = 'pending'")
+          .bind(id)
+          .first<{ bench_id: number; image_id: number; photo: string }>();
+        if (!s) throw new HTTPException(404, { message: "Suggestion not found" });
+        const t = now();
+        if (action === "accept") {
+          await setPick(c.env.DB, s.bench_id, s.image_id, JSON.parse(s.photo) as HeroPhoto, admin.uid);
+          // The bench is settled: the rest of its open suggestions close with it.
+          await c.env.DB
+            .prepare(
+              `UPDATE hero_suggestions SET state = CASE WHEN image_id = ?2 THEN 'accepted' ELSE 'dismissed' END,
+               resolved_at = ?3, resolved_by = ?4 WHERE bench_id = ?1 AND state = 'pending'`,
+            )
+            .bind(s.bench_id, s.image_id, t, admin.uid)
+            .run();
+        } else {
+          await c.env.DB
+            .prepare("UPDATE hero_suggestions SET state = 'dismissed', resolved_at = ?2, resolved_by = ?3 WHERE id = ?1")
+            .bind(id, t, admin.uid)
+            .run();
+        }
+        return c.json({ id, state: action === "accept" ? "accepted" : "dismissed" });
       },
     )
 

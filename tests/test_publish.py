@@ -549,3 +549,62 @@ def test_embed_view_sources():
         None,
         None,
     )
+
+
+# --- 2026-11: label vs geometry, site picks ---------------------------
+
+BOX = {"x1": 380, "y1": 420, "x2": 640, "y2": 640}  # mid-frame, clear of the edges
+
+
+def test_rank_geometry_overrules_contradicting_label():
+    """Bench 2160: the view along the facing was labelled "front" by a model."""
+    flash = "gemini-3.1-flash-lite@v2"
+    along = _img(1, 229.0, sam3=0.95, box=BOX, labels={flash: "front"})
+    side = _img(2, 195.0 + 90, sam3=0.97, box=BOX, labels={flash: "right"})
+    assert sorted([side, along], key=lambda i: image_rank(i, 230.0))[0] is along
+    # A label that roughly agrees with geometry still decides (back-left vs geometry back).
+    corner = _img(3, 229.0, sam3=0.95, box=BOX, labels={flash: "back-left"})
+    assert image_rank(corner, 230.0)[4] == 1.0
+    # The owner's label always stands, even against geometry.
+    owner = _img(4, 229.0, sam3=0.95, box=BOX, labels={"oracle:owner": "front"})
+    assert image_rank(owner, 230.0)[4] == 4.0
+    # No facing: the label is all there is.
+    assert image_rank(along, None)[4] == 4.0
+
+
+def test_gallery_entries_carry_the_image_id():
+    from bench_finder.publish.build import _image_entry
+
+    res = type(
+        "R", (), {"hash": "ab" * 8, "widths": [400, 800], "width": 800, "height": 800}
+    )()
+    img = {
+        "id": 54438,
+        "heading": 229,
+        "camera_bearing_deg": 228.94,
+        "kind": "aimed",
+        "pano_date": "2023-04",
+    }
+    assert _image_entry(res, img)["id"] == 54438
+
+
+def test_picked_images_one_per_bench_site_wins(tmp_path):
+    from bench_finder.publish.exclude import picked_images
+
+    (tmp_path / "review.json").write_text(
+        json.dumps({"hero_pick": {"2160": 54437, "7": 70}})
+    )
+    (tmp_path / "site.json").write_text(json.dumps({"hero_pick": {"2160": 54438}}))
+    assert picked_images(tmp_path) == {54438, 70}
+
+
+def test_site_picks_parse_and_fallback(tmp_path):
+    from bench_finder.publish import site_picks
+
+    out = '[{"results": [{"bench_id": 2160, "image_id": 54438}], "success": true}]'
+    assert site_picks.parse(out) == {"2160": 54438}
+    path = tmp_path / "site.json"
+    path.write_text('{"hero_pick": {"1": 2}}')
+    # wrangler missing: the last synced file stands.
+    assert site_picks.sync(path, worker_dir=tmp_path / "nowhere") is None
+    assert json.loads(path.read_text()) == {"hero_pick": {"1": 2}}

@@ -61,7 +61,7 @@ export function makeClient(deps: Deps = {}, envOverrides: Partial<Env> = {}) {
 }
 
 export async function resetDb() {
-  for (const t of ["ratings", "user_status", "profiles", "comments", "bench_reports", "missing_bench_reports", "rate_limits"]) {
+  for (const t of ["ratings", "user_status", "profiles", "hero_picks", "hero_suggestions", "comments", "bench_reports", "missing_bench_reports", "rate_limits"]) {
     await env.DB.prepare(`DELETE FROM ${t}`).run();
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react"
 import { focusStyle } from "../data/api"
 import { headline, heroImage, lede, monthYear } from "../data/describe"
+import { useHeroPicks } from "../data/heroes"
 import { useBench } from "../data/hooks"
 import { streetViewTarget } from "../data/streetView"
 import type { BenchDetail, BenchProps } from "../data/types"
@@ -12,6 +13,7 @@ import {
   BenchScore,
   ReportRow,
 } from "./account/BenchSocial"
+import { ClearHero, HeroButton } from "./account/HeroButton"
 import { Facts, ViewFromBench } from "./BenchDetails"
 import { PinIcon } from "./Icons"
 import { Lightbox } from "./Lightbox"
@@ -39,6 +41,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
   const titleId = useId()
   const ref = useRef<HTMLElement>(null)
   const [viewing, setViewing] = useState<number | null>(null)
+  const { data: picks } = useHeroPicks()
 
   // Bring the preview into view and give keyboard users its heading. The
   // parent keys this component by bench id, so this runs once per bench.
@@ -98,6 +101,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         )}
         <Away lat={b.lat} lng={b.lng} />
       </div>
+      {picks?.[b.id] ? <ClearHero benchId={b.id} /> : null}
       <div className="titlecard">
         <h2 id={titleId} tabIndex={-1}>
           {name}
@@ -135,6 +139,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
                 name={name}
                 sizes="(max-width: 760px) 60vw, 220px"
                 onOpen={() => setViewing(i)}
+                action={<HeroButton benchId={b.id} image={g} />}
               />
             ))}
           </div>

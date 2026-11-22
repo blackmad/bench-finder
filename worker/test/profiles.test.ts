@@ -106,6 +106,28 @@ describe("homepage feed", () => {
     expect([...ats].sort().reverse()).toEqual(ats);
   });
 
+  it("a note posted with stars is one line; a rating on its own stays anonymous", async () => {
+    const api = makeClient();
+    const sam = await bearer({ uid: "sam", name: "Sam" });
+    const ann = await bearer({ uid: "ann", name: "Ann" });
+    expect((await api.json("POST", "/api/bench/5/comments", { body: "Quiet after 8", rating: 4 }, sam)).status).toBe(201);
+    await api.json("POST", "/api/bench/6/comments", { body: "No stars here" }, ann);
+    await api.json("PUT", "/api/bench/6/rating", { rating: 2 }, ann); // rated separately: not tied to her note
+    const { items } = (await (await api.request("/api/feed")).json()) as { items: Record<string, unknown>[] };
+    expect(items.filter((i) => i.benchId === 5)).toEqual([expect.objectContaining({ kind: "note", who: "Sam", rating: 4 })]);
+    expect(items.filter((i) => i.benchId === 6).map((i) => [i.kind, i.rating]).sort()).toEqual([
+      ["note", null],
+      ["rating", 2],
+    ]);
+    // The stars also count as Sam's rating, and show beside the note on the bench.
+    const social = (await (await api.request("/api/bench/5/social")).json()) as {
+      ratings: { count: number };
+      comments: { rating: number | null }[];
+    };
+    expect(social.ratings.count).toBe(1);
+    expect(social.comments[0].rating).toBe(4);
+  });
+
   it("hidden and deleted notes stay out", async () => {
     const api = makeClient();
     const h = await bearer({ uid: "u1" });

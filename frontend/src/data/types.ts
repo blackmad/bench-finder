@@ -117,6 +117,8 @@ export interface Manifest {
 }
 
 export interface GalleryImage {
+  /** The image's database id (publishes from Nov 2026 on): picks and suggestions name it. */
+  id?: number
   urls: ImageUrls
   urls_webp?: ImageUrls
   width: number

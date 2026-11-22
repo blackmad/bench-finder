@@ -148,11 +148,14 @@ def vetoed_images(folder: Path = FEEDBACK) -> set[int]:
 
 
 def picked_images(folder: Path = FEEDBACK) -> set[int]:
-    """Views the owner picked as a bench's hero in review (``h``), whatever SAM 3 said."""
-    out: set[int] = set()
+    """Views the owner picked as a bench's hero, whatever SAM 3 said: in review
+    (``h``) and on the site (``site.json``, from ``bench_finder.publish.site_picks``).
+    One per bench; a later file wins, and ``site.json`` sorts after ``review.json``."""
+    per_bench: dict[str, int] = {}
     for f in sorted(folder.glob("*.json")) if folder.exists() else []:
-        out |= {int(i) for i in json.loads(f.read_text()).get("hero_pick", {}).values()}
-    return out
+        for bench, image in json.loads(f.read_text()).get("hero_pick", {}).items():
+            per_bench[str(bench)] = int(image)
+    return set(per_bench.values())
 
 
 UNDER_M = 9.0  # a panorama this far below the street around it is in a tunnel
