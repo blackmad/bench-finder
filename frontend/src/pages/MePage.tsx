@@ -65,6 +65,12 @@ export default function MePage() {
                   byId={byId}
                 />
                 <BenchList
+                  title="Want to sit here"
+                  empty="Tick Want to sit here on a bench page to save it for later."
+                  ids={me.want}
+                  byId={byId}
+                />
+                <BenchList
                   title="Sat here"
                   empty="Benches you mark as visited show up here."
                   ids={me.visited}

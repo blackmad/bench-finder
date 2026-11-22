@@ -146,11 +146,11 @@ export function createApp(deps: Deps = {}) {
           )
           .bind(id),
         c.env.DB.prepare("SELECT rating FROM ratings WHERE bench_id = ?1 AND user_id = ?2").bind(id, uid),
-        c.env.DB.prepare("SELECT visited, favorite FROM user_status WHERE bench_id = ?1 AND user_id = ?2").bind(id, uid),
+        c.env.DB.prepare("SELECT visited, favorite, want FROM user_status WHERE bench_id = ?1 AND user_id = ?2").bind(id, uid),
       ]);
       const s = (summary.results[0] ?? {}) as { count?: number; average?: number | null };
       const myRating = (mine.results[0] as { rating: number } | undefined)?.rating ?? null;
-      const st = status.results[0] as { visited: number; favorite: number } | undefined;
+      const st = status.results[0] as { visited: number; favorite: number; want: number } | undefined;
       return c.json({
         benchId: id,
         ratings: {
@@ -173,7 +173,7 @@ export function createApp(deps: Deps = {}) {
           mine: uid !== null && r.user_id === uid,
         })),
         me: user
-          ? { rating: myRating, visited: st?.visited === 1, favorite: st?.favorite === 1 }
+          ? { rating: myRating, visited: st?.visited === 1, favorite: st?.favorite === 1, want: st?.want === 1 }
           : null,
       });
     })
@@ -204,27 +204,38 @@ export function createApp(deps: Deps = {}) {
       zValidator(
         "json",
         z
-          .object({ visited: z.boolean().optional(), favorite: z.boolean().optional() })
-          .refine((v) => v.visited !== undefined || v.favorite !== undefined, "visited or favorite required"),
+          .object({ visited: z.boolean().optional(), favorite: z.boolean().optional(), want: z.boolean().optional() })
+          .refine(
+            (v) => v.visited !== undefined || v.favorite !== undefined || v.want !== undefined,
+            "visited, favorite or want required",
+          ),
         validationHook,
       ),
       async (c) => {
         const user = await requireUser(c);
         const { id } = c.req.valid("param");
-        const { visited, favorite } = c.req.valid("json");
+        const { visited, favorite, want } = c.req.valid("json");
         const t = now();
         // Partial update: omitted fields keep their current value.
         const row = await c.env.DB
           .prepare(
-            `INSERT INTO user_status (bench_id, user_id, visited, favorite, created_at, updated_at)
-             VALUES (?1, ?2, COALESCE(?3, 0), COALESCE(?4, 0), ?5, ?5)
+            `INSERT INTO user_status (bench_id, user_id, visited, favorite, want, created_at, updated_at)
+             VALUES (?1, ?2, COALESCE(?3, 0), COALESCE(?4, 0), COALESCE(?6, 0), ?5, ?5)
              ON CONFLICT(bench_id, user_id) DO UPDATE SET
-               visited = COALESCE(?3, visited), favorite = COALESCE(?4, favorite), updated_at = excluded.updated_at
-             RETURNING visited, favorite`,
+               visited = COALESCE(?3, visited), favorite = COALESCE(?4, favorite), want = COALESCE(?6, want),
+               updated_at = excluded.updated_at
+             RETURNING visited, favorite, want`,
           )
-          .bind(id, user.uid, visited === undefined ? null : +visited, favorite === undefined ? null : +favorite, t)
-          .first<{ visited: number; favorite: number }>();
-        return c.json({ benchId: id, visited: row?.visited === 1, favorite: row?.favorite === 1 });
+          .bind(
+            id,
+            user.uid,
+            visited === undefined ? null : +visited,
+            favorite === undefined ? null : +favorite,
+            t,
+            want === undefined ? null : +want,
+          )
+          .first<{ visited: number; favorite: number; want: number }>();
+        return c.json({ benchId: id, visited: row?.visited === 1, favorite: row?.favorite === 1, want: row?.want === 1 });
       },
     )
 
@@ -280,11 +291,11 @@ export function createApp(deps: Deps = {}) {
         c.env.DB.prepare("SELECT bench_id, rating, updated_at FROM ratings WHERE user_id = ?1 ORDER BY updated_at DESC").bind(user.uid),
         c.env.DB
           .prepare(
-            "SELECT bench_id, visited, favorite FROM user_status WHERE user_id = ?1 AND (visited = 1 OR favorite = 1) ORDER BY updated_at DESC",
+            "SELECT bench_id, visited, favorite, want FROM user_status WHERE user_id = ?1 AND (visited = 1 OR favorite = 1 OR want = 1) ORDER BY updated_at DESC",
           )
           .bind(user.uid),
       ]);
-      const st = statuses.results as { bench_id: number; visited: number; favorite: number }[];
+      const st = statuses.results as { bench_id: number; visited: number; favorite: number; want: number }[];
       return c.json({
         uid: user.uid,
         isAdmin: csv(c.env.ADMIN_UIDS).includes(user.uid),
@@ -294,6 +305,7 @@ export function createApp(deps: Deps = {}) {
         })),
         visited: st.filter((r) => r.visited === 1).map((r) => r.bench_id),
         favorites: st.filter((r) => r.favorite === 1).map((r) => r.bench_id),
+        want: st.filter((r) => r.want === 1).map((r) => r.bench_id),
       });
     })
 

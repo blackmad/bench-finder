@@ -10,7 +10,7 @@ import {
 import { useAuth } from "../../lib/auth"
 import { CheckTick } from "../Icons"
 import { FlagIcon, StarIcon } from "./icons"
-import { MissingBenchDialog, ReportBenchDialog } from "./ReportDialogs"
+import { ReportBenchDialog } from "./ReportDialogs"
 
 /** Rating + visited/favourite, mounted inside the bench card. */
 export function BenchActions({ benchId }: { benchId: number }) {
@@ -68,6 +68,7 @@ export function BenchActions({ benchId }: { benchId: number }) {
           [
             ["visited", "I've sat here"],
             ["favorite", "Favourite"],
+            ["want", "Want to sit here"],
           ] as const
         ).map(([field, label]) => (
           <label key={field} className="check">

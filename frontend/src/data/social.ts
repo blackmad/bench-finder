@@ -13,7 +13,12 @@ export interface Social {
   benchId: number
   ratings: { count: number; average: number | null }
   comments: Comment[]
-  me: { rating: number | null; visited: boolean; favorite: boolean } | null
+  me: {
+    rating: number | null
+    visited: boolean
+    favorite: boolean
+    want: boolean
+  } | null
 }
 export interface Me {
   uid: string
@@ -21,6 +26,7 @@ export interface Me {
   ratings: { benchId: number; rating: number }[]
   visited: number[]
   favorites: number[]
+  want: number[]
 }
 
 export function useSocial(benchId: number) {
@@ -90,14 +96,18 @@ export function useRate(benchId: number) {
       return {
         ...s,
         ratings: { count, average: Math.round((sum / count) * 100) / 100 },
-        me: { visited: false, favorite: false, ...s.me, rating },
+        me: { visited: false, favorite: false, want: false, ...s.me, rating },
       }
     }
   )
 }
 
 export function useSetStatus(benchId: number) {
-  return useSocialMutation<{ visited?: boolean; favorite?: boolean }>(
+  return useSocialMutation<{
+    visited?: boolean
+    favorite?: boolean
+    want?: boolean
+  }>(
     benchId,
     async (json) =>
       unwrap(
@@ -108,7 +118,14 @@ export function useSetStatus(benchId: number) {
       ),
     (s, v) => ({
       ...s,
-      me: { rating: null, visited: false, favorite: false, ...s.me, ...v },
+      me: {
+        rating: null,
+        visited: false,
+        favorite: false,
+        want: false,
+        ...s.me,
+        ...v,
+      },
     })
   )
 }

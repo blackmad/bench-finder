@@ -85,14 +85,18 @@ describe("ratings and status", () => {
     await api.json("PUT", "/api/bench/4/status", { favorite: true }, h);
     await api.json("PUT", "/api/bench/4/status", { favorite: false }, h);
     await api.json("PUT", "/api/bench/5/rating", { rating: 5 }, h);
+    const w = await api.json("PUT", "/api/bench/6/status", { want: true }, h);
+    expect(await w.json()).toMatchObject({ visited: false, favorite: false, want: true });
 
     const me = (await (await api.request("/api/me", { headers: h })).json()) as {
       ratings: { benchId: number; rating: number }[];
       visited: number[];
       favorites: number[];
+      want: number[];
     };
     expect(me.visited).toEqual([3]);
     expect(me.favorites).toEqual([3]);
+    expect(me.want).toEqual([6]);
     expect(me.ratings).toEqual([{ benchId: 5, rating: 5 }]);
     expect((await api.json("PUT", "/api/bench/3/status", {}, h)).status).toBe(400);
   });

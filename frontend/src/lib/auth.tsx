@@ -145,11 +145,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [init])
 
+  // iOS Safari blocks a popup that is not opened synchronously inside the tap,
+  // so Firebase is preloaded when the dialog opens and the popup call below
+  // runs before any await. Only a tap made before the preload lands falls back
+  // to awaiting it (and may still be blocked; a second tap then works).
   const signInWithGoogle = useCallback(async () => {
-    const fb = await init()
+    const fb = authRef.current ?? (await init())
     const provider = new fb.mod.GoogleAuthProvider()
     await fb.mod.signInWithPopup(fb.auth, provider)
     setDialogOpen(false)
+  }, [init])
+
+  const openSignIn = useCallback(() => {
+    setDialogOpen(true)
+    if (firebaseConfigured()) init().catch(() => {})
   }, [init])
 
   const sendEmailLink = useCallback(
@@ -179,12 +188,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       configured: firebaseConfigured(),
-      openSignIn: () => setDialogOpen(true),
+      openSignIn,
       signInWithGoogle,
       sendEmailLink,
       signOut,
     }),
-    [user, ready, signInWithGoogle, sendEmailLink, signOut]
+    [user, ready, openSignIn, signInWithGoogle, sendEmailLink, signOut]
   )
 
   return (
