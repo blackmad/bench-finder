@@ -20,6 +20,11 @@ export const UserIcon = () => (
     <path d="M4.5 20c1.3-3.6 4.2-5.4 7.5-5.4s6.2 1.8 7.5 5.4" />
   </Icon>
 )
+export const HeartIcon = () => (
+  <Icon>
+    <path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.4a4.3 4.3 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z" />
+  </Icon>
+)
 export const SlidersIcon = () => (
   <Icon>
     <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />

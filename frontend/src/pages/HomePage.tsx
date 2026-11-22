@@ -29,6 +29,7 @@ import {
 } from "../data/filters"
 import { benchCount, useBenches } from "../data/hooks"
 import { buildRows } from "../data/rows"
+import { useMe } from "../data/social"
 import type { BenchFeature } from "../data/types"
 import { setHere } from "../lib/here"
 import { FAR_M, nearRadius, reachMetres } from "../lib/nearZoom"
@@ -37,6 +38,7 @@ import {
   viewportFromParams,
   viewportToParams,
 } from "../lib/viewport"
+import type { Mark } from "../map/sprites"
 import { type MapView, START_VIEW } from "../map/style"
 
 const BenchMap = lazy(() => import("../map/BenchMap"))
@@ -117,6 +119,13 @@ export default function HomePage() {
 
   // Only benches with a photo are shown; the rest stay in the data and the CSV.
   const benches = useMemo(() => (data ?? []).filter(hasPhoto), [data])
+  const { data: me } = useMe()
+  const marks = useMemo(() => {
+    const m = new Map<number, Mark>()
+    for (const id of me?.favorites ?? []) m.set(id, "fav")
+    for (const id of me?.want ?? []) m.set(id, m.has(id) ? "both" : "want")
+    return m
+  }, [me])
   const byId = useMemo(
     () => new Map(benches.map((b) => [b.properties.id, b])),
     [benches]
@@ -354,6 +363,7 @@ export default function HomePage() {
                 initialView={initialView}
                 viewport={urlViewport}
                 flyTo={flyTo}
+                marks={marks}
               />
             ) : null}
           </Suspense>

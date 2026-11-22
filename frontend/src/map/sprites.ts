@@ -92,6 +92,64 @@ export function roseSprite(
   return finish(cv, g)
 }
 
+/** What the signed-in user marked a bench as. */
+export type Mark = "fav" | "want" | "both"
+
+const heart = (g: CanvasRenderingContext2D, x: number, y: number) => {
+  // An 9px heart centred on (x, y).
+  g.beginPath()
+  g.moveTo(x, y + 4)
+  g.bezierCurveTo(x - 6, y, x - 5, y - 5.2, x, y - 2.4)
+  g.bezierCurveTo(x + 5, y - 5.2, x + 6, y, x, y + 4)
+  g.closePath()
+  g.fillStyle = VERMILION
+  g.fill()
+}
+const flag = (g: CanvasRenderingContext2D, x: number, y: number) => {
+  // A bookmark ribbon: "saved for later".
+  g.beginPath()
+  g.moveTo(x - 3.2, y - 4.5)
+  g.lineTo(x + 3.2, y - 4.5)
+  g.lineTo(x + 3.2, y + 4.5)
+  g.lineTo(x, y + 2)
+  g.lineTo(x - 3.2, y + 4.5)
+  g.closePath()
+  g.fillStyle = INK
+  g.fill()
+}
+
+/**
+ * The badge on a bench the user marked: a paper disc with a heart (favourite),
+ * a bookmark (want to sit here), or both in a pill.
+ */
+export function markSprite(mark: Mark): Sprite {
+  const R = 8.5
+  const pad = 2
+  const w = mark === "both" ? 2 * R + 14 : 2 * R
+  const { cv, g } = canvas(w + 2 * pad, 2 * R + 2 * pad + 1)
+  g.save()
+  g.shadowColor = "rgba(20, 20, 20, 0.3)"
+  g.shadowBlur = 2
+  g.shadowOffsetY = 1
+  g.beginPath()
+  g.roundRect(pad, pad, w, 2 * R, R)
+  g.fillStyle = PAPER
+  g.fill()
+  g.restore()
+  g.lineWidth = 1
+  g.strokeStyle = INK
+  g.beginPath()
+  g.roundRect(pad + 0.5, pad + 0.5, w - 1, 2 * R - 1, R - 0.5)
+  g.stroke()
+  const cy = pad + R
+  if (mark === "both") {
+    heart(g, pad + R, cy)
+    flag(g, pad + w - R, cy)
+  } else if (mark === "fav") heart(g, pad + R, cy)
+  else flag(g, pad + R, cy)
+  return finish(cv, g)
+}
+
 export type MarkerKind = "known" | "est" | "sel"
 
 // Thumbnail geometry (CSS px): a 58x42 photo in a 3px card border, a closed

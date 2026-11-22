@@ -15,7 +15,14 @@ import type { BenchFeature, ImageUrls } from "../data/types"
 import { zoomForRadius } from "../lib/nearZoom"
 import type { Viewport } from "../lib/viewport"
 import { markerSprite } from "./markers"
-import { roseSprite, type Sprite, thumbSprite } from "./sprites"
+import {
+  type Mark,
+  markSprite,
+  roseSprite,
+  type Sprite,
+  THUMB_H,
+  thumbSprite,
+} from "./sprites"
 import { type MapView, restyle, STYLE_URL } from "./style"
 
 // maplibre-gl 6 locates its worker next to its own module; once bundled that
@@ -35,6 +42,8 @@ interface Props {
   /** The URL's viewport; the map jumps there when it differs (back/forward). */
   viewport: Viewport | null
   flyTo: { center: [number, number]; key: number; radiusM?: number } | null
+  /** The signed-in user's favourite / want-to-sit benches, badged on the map. */
+  marks?: ReadonlyMap<number, Mark>
 }
 
 const sectorExpr = (i: number): ExpressionSpecification => [
@@ -153,6 +162,34 @@ function photos(
   }
 }
 
+/** One badge per marked bench; not clustered, so a mark never hides. */
+function markFeatures(
+  benches: BenchFeature[],
+  visible: ReadonlySet<number>,
+  marks: ReadonlyMap<number, Mark> | undefined
+) {
+  if (!marks?.size) return empty
+  return {
+    type: "FeatureCollection" as const,
+    features: benches
+      .filter((b) => marks.has(b.properties.id) && visible.has(b.properties.id))
+      .map((b) => ({
+        type: "Feature" as const,
+        geometry: b.geometry,
+        properties: {
+          id: b.properties.id,
+          mark: marks.get(b.properties.id) as Mark,
+          photo: hasPhoto(b),
+        },
+      })),
+  }
+}
+
+// Postcard geometry (see thumbSprite): the badge sits on the card's top-right
+// corner; on a plain dot it sits just above-right of the bench.
+const CARD_CORNER: [number, number] = [30, -(THUMB_H - 16)]
+const DOT_CORNER: [number, number] = [10, -12]
+
 /** Smallest rendition that still covers a 2x thumbnail, else the widest. */
 function thumbUrl(urls: ImageUrls): string {
   const widths = Object.keys(urls)
@@ -177,6 +214,7 @@ export default function BenchMap({
   initialView,
   viewport,
   flyTo,
+  marks,
 }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
@@ -197,6 +235,8 @@ export default function BenchMap({
   )
   const byIdRef = useRef(byId)
   byIdRef.current = byId
+  const marksRef = useRef(marks)
+  marksRef.current = marks
 
   // Create the map once.
   useEffect(() => {
@@ -396,6 +436,18 @@ export default function BenchMap({
         ),
       })
       map.addSource("sel", { type: "geojson", data: empty })
+      for (const m of ["fav", "want", "both"] as const) {
+        const sp = markSprite(m)
+        map.addImage(`mark-${m}`, sp.data, { pixelRatio: sp.pixelRatio })
+      }
+      map.addSource("marks", {
+        type: "geojson",
+        data: markFeatures(
+          benchesRef.current,
+          visibleRef.current,
+          marksRef.current
+        ),
+      })
       map.addLayer({
         id: "roses",
         type: "symbol",
@@ -528,6 +580,37 @@ export default function BenchMap({
         },
       })
 
+      // Above every marker. At photo zoom it rides the postcard's corner.
+      // Two layers, not a zoom step in icon-offset: layout is evaluated at
+      // tile zoom, which flips the offset early.
+      const markLayout = (
+        offset: ExpressionSpecification
+      ): SymbolLayerSpecification["layout"] => ({
+        "icon-image": ["concat", "mark-", ["get", "mark"]],
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "icon-offset": offset,
+      })
+      map.addLayer({
+        id: "marks",
+        type: "symbol",
+        source: "marks",
+        maxzoom: PHOTO_ZOOM,
+        layout: markLayout(["literal", DOT_CORNER]),
+      })
+      map.addLayer({
+        id: "marks-card",
+        type: "symbol",
+        source: "marks",
+        minzoom: PHOTO_ZOOM,
+        layout: markLayout([
+          "case",
+          ["get", "photo"],
+          ["literal", CARD_CORNER],
+          ["literal", DOT_CORNER],
+        ]),
+      })
+
       const pick = (layer: string) => {
         map.on("click", layer, (e) => {
           const id = e.features?.[0]?.properties?.id
@@ -539,6 +622,8 @@ export default function BenchMap({
       pick("near-bench")
       pick("near-dots-bench")
       pick("sel-thumb")
+      pick("marks")
+      pick("marks-card")
       map.on("click", "thumbs", async (e) => {
         const f = e.features?.[0]
         if (!f) return
@@ -565,6 +650,8 @@ export default function BenchMap({
         "roses",
         "sel-dot",
         "sel-thumb",
+        "marks",
+        "marks-card",
         ...NEAR_SOURCES.flatMap((src) => [`${src}-bench`, `${src}-roses`]),
       ]
       map.on("click", (e) => {
@@ -602,6 +689,8 @@ export default function BenchMap({
         "thumbs",
         "roses",
         "sel-thumb",
+        "marks",
+        "marks-card",
         ...NEAR_SOURCES.flatMap((src) => [`${src}-bench`, `${src}-roses`]),
       ]) {
         map.on("mouseenter", layer, () => {
@@ -642,6 +731,13 @@ export default function BenchMap({
       photos(benches, visible, selectedId)
     )
   }, [ready, benches, visible, selectedId])
+
+  useEffect(() => {
+    if (!ready) return
+    ;(mapRef.current?.getSource("marks") as GeoJSONSource | undefined)?.setData(
+      markFeatures(benches, visible, marks)
+    )
+  }, [ready, benches, visible, marks])
 
   // The one vermilion bench.
   useEffect(() => {

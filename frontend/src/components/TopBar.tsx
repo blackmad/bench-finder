@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { useMe } from "../data/social"
 import { useAuth } from "../lib/auth"
-import { UserIcon } from "./Icons"
+import { HeartIcon, UserIcon } from "./Icons"
 import { PlaceSearch } from "./PlaceSearch"
 
 interface TopBarProps {
@@ -27,11 +27,13 @@ export function TopBar({ onPlace }: TopBarProps) {
         </Link>
       ) : null}
       {user ? (
-        <Link className="textbtn" to="/me" aria-label="Your benches">
-          <UserIcon />
-          <span className="signin-label">
-            {user.name?.split(" ")[0] ?? "You"}
-          </span>
+        <Link
+          className="textbtn"
+          to="/me"
+          title={`Your lists (signed in as ${user.name ?? user.email ?? "you"})`}
+        >
+          <HeartIcon />
+          <span className="mine-label">My benches</span>
         </Link>
       ) : (
         <button
