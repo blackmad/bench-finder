@@ -82,11 +82,14 @@ const EMBED_KEY = import.meta.env.VITE_GOOGLE_MAPS_EMBED_KEY as
  */
 export function ViewFromBench({
   pano,
+  at,
   heading,
   facing,
   street,
 }: {
-  pano: string
+  /** A Google panorama id; else `at` opens the nearest Google panorama. */
+  pano: string | null
+  at: [number, number] | null
   /** Bearing from the panorama toward the bench. */
   heading: number
   facing: number | null
@@ -94,7 +97,17 @@ export function ViewFromBench({
 }) {
   const [open, setOpen] = useState(false)
   const h = Math.round(heading)
-  const outUrl = `https://www.google.com/maps/@?api=1&map_action=pano&pano=${encodeURIComponent(pano)}&heading=${h}&pitch=0&fov=80`
+  const where = pano
+    ? `pano=${encodeURIComponent(pano)}`
+    : at
+      ? `viewpoint=${at[0]},${at[1]}`
+      : ""
+  const outUrl = `https://www.google.com/maps/@?api=1&map_action=pano&${where}&heading=${h}&pitch=0&fov=80`
+  const embedWhere = pano
+    ? `pano=${encodeURIComponent(pano)}`
+    : at
+      ? `location=${at[0]},${at[1]}`
+      : ""
   return (
     <section className="dblock" aria-labelledby="h-view" id="look">
       <div className="blockhead">
@@ -116,7 +129,7 @@ export function ViewFromBench({
         <iframe
           className="embed"
           title={`Street View from the bench on ${street}`}
-          src={`https://www.google.com/maps/embed/v1/streetview?key=${EMBED_KEY}&pano=${encodeURIComponent(pano)}&heading=${h}&pitch=0&fov=80`}
+          src={`https://www.google.com/maps/embed/v1/streetview?key=${EMBED_KEY}&${embedWhere}&heading=${h}&pitch=0&fov=80`}
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
           allowFullScreen

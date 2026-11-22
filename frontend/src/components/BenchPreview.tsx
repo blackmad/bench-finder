@@ -166,10 +166,22 @@ function FactsCard({ bench: d, id }: { bench?: BenchDetail; id: number }) {
 }
 
 function StreetView({ bench: d, name }: { bench?: BenchDetail; name: string }) {
-  if (!d?.embed_pano_id) return null
+  if (!d) return null
+  const at: [number, number] | null =
+    d.embed_lat != null && d.embed_lng != null
+      ? [d.embed_lat, d.embed_lng]
+      : null
+  // Data published before embed_lat existed can still carry an Apple or city
+  // panorama id; only a Google-shaped id may reach Google's embed.
+  const pano =
+    d.embed_pano_id && /^[A-Za-z0-9_-]{22}$/.test(d.embed_pano_id)
+      ? d.embed_pano_id
+      : null
+  if (!pano && !at) return null
   return (
     <ViewFromBench
-      pano={d.embed_pano_id}
+      pano={pano}
+      at={at}
       heading={d.embed_heading_deg ?? 0}
       facing={d.facing}
       street={name}

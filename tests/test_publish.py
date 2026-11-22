@@ -91,7 +91,7 @@ def world(tmp_path):
     imgs = [
         (1, 1, "a.jpg", "legacy", None),
         (2, 1, "small.jpg", "legacy", None),
-        (3, 1, "aimed.jpg", "aimed", "PANO1"),
+        (3, 1, "aimed.jpg", "aimed", "PANO1PANO1PANO1PANO1AB"),
         (4, 2, "small.jpg", "legacy", None),
         (5, 3, "small.jpg", "legacy", None),
     ]
@@ -108,7 +108,7 @@ def world(tmp_path):
     c.execute(
         "INSERT INTO bench_attributes (bench_candidate_id, facing_deg, facing_confidence, facing_method, axis_only,"
         " bench_type, backrest, faces_category, hero_image_id, embed_pano_id, embed_heading_deg, updated_at)"
-        " VALUES (3, 200, 0.8, 'vlm', 0, 'backrest', 1, 'water', 5, 'P3', 10, '2024-01-01')"
+        " VALUES (3, 200, 0.8, 'vlm', 0, 'backrest', 1, 'water', 5, '9524987388017545573', 10, '2024-01-01')"
     )
     c.commit()
     c.close()
@@ -182,10 +182,13 @@ def test_publish_outputs(world):
     assert d1["material"] == "wood"
     assert d1["gallery"][0]["urls"] == p1["hero_urls"]
     assert [g["kind"] for g in d1["gallery"]][:2] == ["legacy", "aimed"]
-    assert d1["embed_pano_id"] == "PANO1" and d1["embed_heading_deg"] == 123.0
+    assert d1["embed_pano_id"] == "PANO1PANO1PANO1PANO1AB"
+    assert d1["embed_heading_deg"] == 123.0
     assert d1["address_full"]["street"] == "Main St"
     d3 = json.loads((out / "data" / "bench" / "3.json").read_text())
-    assert d3["embed_pano_id"] == "P3"
+    # An Apple panorama id never reaches Google's embed; without a camera
+    # position there is nothing to open.
+    assert d3["embed_pano_id"] is None and d3["embed_lat"] is None
     # incremental: second run writes no derivatives
     assert (
         publish(
@@ -521,3 +524,28 @@ def test_vetoed_view_is_never_a_hero():
 def test_confirmed_near_miss_can_be_hero():
     assert target_gate({**_img(1, 0, sam3=0.5), "confirmed": True})[0] == 0
     assert target_gate({**_img(1, 0, sam3=0.3), "confirmed": True})[0] == 2
+
+
+def test_embed_view_sources():
+    from bench_finder.publish.build import embed_view
+
+    g = "bQ0tE2V_7xLWaMmD3LYDTA"
+    # Google: keeps the pano id, heading from the camera to the bench (due east).
+    pano, at, h = embed_view(
+        g, 10.0, ("STREETVIEW_STREETLEVEL", 52.0, 4.9999), 52.0, 5.0
+    )
+    assert pano == g and at == (52.0, 4.9999) and round(h) == 90
+    # Apple / city panoramas: no pano id, camera position + heading instead.
+    for src, pid in (
+        ("APPLE_STREETLEVEL", "9524987388017545573"),
+        ("AMSTERDAM_PANORAMA", "TMX7316010203-001085_pano_0006_000012"),
+    ):
+        pano, at, h = embed_view(pid, 10.0, (src, 52.0001, 5.0), 52.0, 5.0)
+        assert pano is None and at == (52.0001, 5.0) and round(h) == 180
+    # Unknown source, no position: only a Google-shaped id survives.
+    assert embed_view(g, 10.0, None, 52.0, 5.0) == (g, None, 10.0)
+    assert embed_view("recording_2025-07-02_11-44-00_01950", 10.0, None, 52.0, 5.0) == (
+        None,
+        None,
+        None,
+    )

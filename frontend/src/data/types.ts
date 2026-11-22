@@ -144,6 +144,9 @@ export interface BenchDetail extends BenchProps {
   gallery: GalleryImage[]
   embed_pano_id: string | null
   embed_heading_deg: number | null
+  /** Camera position of the embed view; used when there is no Google pano id. */
+  embed_lat?: number | null
+  embed_lng?: number | null
   /** The place this bench belongs to; `benches` are the others there. */
   place?: { id: number; count: number; benches: PlaceMember[] }
 }

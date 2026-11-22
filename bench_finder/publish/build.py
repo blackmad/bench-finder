@@ -332,6 +332,61 @@ def _load_images(conn: sqlite3.Connection, ids: list[int]) -> dict[int, list[dic
     return by_bench
 
 
+GOOGLE_SOURCES = {"STREETVIEW_STREETLEVEL", "STREETVIEW_API"}
+GOOGLE_PANO_ID = re.compile(r"[A-Za-z0-9_-]{22}")
+
+
+def _pano_positions(
+    db_path,
+) -> dict[tuple[int, str], tuple[str | None, float | None, float | None]]:
+    """(bench, pano id) -> (image source, camera lat, camera lng) for every view."""
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        return {
+            (cid, str(pid)): (src, plat, plng)
+            for cid, pid, src, plat, plng in conn.execute(
+                "SELECT bench_candidate_id, pano_id, image_source, panorama_lat, "
+                "panorama_lng FROM images WHERE pano_id IS NOT NULL"
+            )
+        }
+    finally:
+        conn.close()
+
+
+def embed_view(
+    pano: str | None,
+    heading: float | None,
+    cam: tuple[str | None, float | None, float | None] | None,
+    lat: float,
+    lng: float,
+) -> tuple[str | None, tuple[float, float] | None, float | None]:
+    """What the bench page's Street View embed opens: (Google pano id or None,
+    camera position or None, heading).
+
+    Only Google panorama ids work in Google's embed; Apple, city and other
+    panoramas are passed as their camera position instead. With a camera
+    position the view looks from it straight at the bench.
+    """
+    if not pano:
+        return None, None, heading
+    source, plat, plng = cam or (None, None, None)
+    google = (
+        source in GOOGLE_SOURCES if source else bool(GOOGLE_PANO_ID.fullmatch(pano))
+    )
+    at = (
+        (round(plat, 6), round(plng, 6))
+        if plat is not None and plng is not None
+        else None
+    )
+    if at:
+        from bench_finder.core.pano_geometry import bearing_deg
+
+        heading = bearing_deg(at[0], at[1], lat, lng)
+    if google:
+        return pano, at, heading
+    return None, at, heading if at else None
+
+
 MODEL_PICKS = Path("data/hero_pick/picks.json")
 
 
@@ -788,6 +843,9 @@ def publish(
     from bench_finder.hero_fade import focus  # lazy: hero_fade imports recut
 
     masks_by_image: dict[int, list] | None = None
+    pano_pos: (
+        dict[tuple[int, str], tuple[str | None, float | None, float | None]] | None
+    ) = None
     for r in rows:
         tags = json.loads(r["tags"]) if r["tags"] else {}
         tag_deg = parse_direction(tags.get("direction"))
@@ -837,6 +895,11 @@ def publish(
             r["embed_heading_deg"]
             if r["embed_pano_id"]
             else (aimed["camera_bearing_deg"] if aimed else None)
+        )
+        if pano_pos is None:
+            pano_pos = _pano_positions(db_path)
+        pano, embed_at, pano_heading = embed_view(
+            pano, pano_heading, pano_pos.get((r["id"], pano)), r["lat"], r["lng"]
         )
         props = {
             "id": r["id"],
@@ -890,7 +953,12 @@ def publish(
                 },
                 "faces_text": r["faces_text"],
                 "gallery": [e for e, _, _ in entries],
+                # A Google panorama id when the view is Google's; otherwise the
+                # camera position, which the embed opens at the nearest Google
+                # panorama to (an Apple or city panorama id breaks the embed).
                 "embed_pano_id": pano,
+                "embed_lat": embed_at[0] if embed_at else None,
+                "embed_lng": embed_at[1] if embed_at else None,
                 "embed_heading_deg": round(pano_heading, 1)
                 if pano_heading is not None
                 else None,
