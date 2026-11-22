@@ -1,6 +1,6 @@
 """Keyboard page for judging the hero-pick pilot: current hero vs the model's pick.
 
-Served by the review server at /duel. Votes go to data/hero_pick/votes.json;
+Served by the review server at /duel; ``e`` opens the hero explorer for the bench. Votes go to data/hero_pick/votes.json;
 "the pick is better" (or a number key) also makes that photo the bench's hero,
 through the review feedback file, so the next publish uses it.
 """
@@ -77,7 +77,7 @@ footer{padding:6px 18px 12px;color:#aaa;font-size:13px;display:flex;gap:18px;fle
 <footer><span><kbd>←</kbd> current is better (stays the hero)</span>
 <span><kbd>↑</kbd><kbd>↓</kbd> / <kbd>1</kbd>–<kbd>6</kbd> / hover: show another photo on the right</span>
 <span><kbd>→</kbd> or click: use the photo on the right</span><span><kbd>s</kbd> about the same</span>
-<span><kbd>x</kbd> no photo shows a bench</span><span><kbd>⌫</kbd> back</span><span><kbd>n</kbd> next unvoted</span></footer>
+<span><kbd>x</kbd> no photo shows a bench</span><span><kbd>⌫</kbd> back</span><span><kbd>n</kbd> next unvoted</span><span><kbd>e</kbd> explore Google / Apple for a better photo</span></footer>
 <div id=toast></div>
 <div id=done><div>All done 🎉</div><div id=sum></div><div style="font-size:14px;color:#aaa">Votes are saved. <kbd>⌫</kbd> to go back.</div></div>
 <script>
@@ -123,6 +123,7 @@ document.onkeydown=e=>{
   else if((k==="ArrowRight"||k==="Enter")&&b)choose(view);
   else if((k==="ArrowDown"||k==="ArrowUp")&&b){view=(view+(k==="ArrowDown"?1:-1)+b.images.length)%b.images.length;show()}
   else if(/^[1-9]$/.test(k)&&b&&+k<=b.images.length){view=+k-1;show()}
+  else if(k==="e"&&b)window.open("/explore?id="+b.bench,"_blank");
   else if(k==="s")vote("same");else if(k==="x")vote("none");
   else if(k==="Backspace"||k==="u")go(i-1);
   else if(k==="n"){const j=items.findIndex(x=>!x.vote);go(j<0?items.length:j)}

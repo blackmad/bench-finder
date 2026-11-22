@@ -61,6 +61,7 @@ class ImageKind(StrEnum):
     """What an images row holds."""
 
     AIMED = "aimed"  # perspective view aimed at the bench
+    FRAMED = "framed"  # an aimed view framed by hand in the hero explorer
     PANO = "pano"  # raw panorama
     LEGACY = "legacy"  # pre-resurrection rows
 

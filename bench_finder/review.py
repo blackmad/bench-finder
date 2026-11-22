@@ -5,6 +5,8 @@
 
 Keys (each sets its mark and moves on; u clears): g good · p wrong photo (veto it, keep the bench) · x no bench here (hide)
 · w wrong spot · s bus/tram/train stop (hide) · ←/→ or j/k move · u undo.
+``e`` opens the hero explorer (``/explore?id=N``, bench_finder.explore) for the bench:
+every Google, Apple and city panorama nearby, aim and zoom, "use as hero".
 Marks go to ``data/feedback/review.json``: ``feedback`` {bench: [marks]} and
 ``wrong_photo`` [image ids], which ``publish`` reads (bench_finder.publish.exclude).
 """
@@ -19,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from bench_finder import duel
+from bench_finder import duel, explore
 from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
 from bench_finder.publish.images import render_source
 from bench_finder.whats_new import SNAPS, diff, load
@@ -85,7 +87,7 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
     want = set(ids)
     for iid, bid, fp, src, when in conn.execute(
         "SELECT id, bench_candidate_id, filepath, image_source, pano_date FROM images "
-        "WHERE kind = 'aimed' AND capture_success = 1 AND filepath IS NOT NULL ORDER BY id"
+        "WHERE kind IN ('aimed', 'framed') AND capture_success = 1 AND filepath IS NOT NULL ORDER BY id"
     ):
         if bid in want:
             views.setdefault(bid, []).append(
@@ -187,7 +189,7 @@ kbd{font:12px ui-monospace,monospace;border:1px solid #c9bea8;border-bottom-widt
 <kbd>g</kbd><span>right as shown (with no photo: I see no bench in any view)</span><kbd>p</kbd><span>wrong photo: veto it, keep the bench</span>
 <kbd>x</kbd><span>no bench here: hide it</span><kbd>w</kbd><span>wrong spot</span>
 <kbd>s</kbd><span>bus / tram / train stop: hide it</span><kbd>← →</kbd><span>previous / next</span>
-<kbd>↑ ↓</kbd><span>cycle this bench's views (or 1-9)</span><kbd>h</kbd><span>there is a bench: use the shown view as the photo</span><kbd>n</kbd><span>next unreviewed</span><kbd>u</kbd><span>undo this bench</span></div>
+<kbd>↑ ↓</kbd><span>cycle this bench's views (or 1-9)</span><kbd>h</kbd><span>there is a bench: use the shown view as the photo</span><kbd>n</kbd><span>next unreviewed</span><kbd>e</kbd><span>explore Google / Apple for a better photo</span><kbd>u</kbd><span>undo this bench</span></div>
 <div id=links></div><iframe id=map loading=lazy></iframe></aside></main>
 <script>
 const KEYS={g:"good",p:"wrong photo",x:"no bench",w:"wrong spot",s:"bus stop"},ADV=new Set("gpxs");
@@ -220,6 +222,7 @@ document.onkeydown=e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const b=Q[i],k=e
  else if(k==="ArrowRight"||k==="j"){i=Math.min(Q.length-1,i+1);show()}
  else if(k==="ArrowLeft"||k==="k"){i=Math.max(0,i-1);show()}
  else if(k==="n"){const j=Q.findIndex((x,n)=>n>i&&!S.feedback[x.id]);if(j>=0){i=j;show()}}
+ else if(k==="e"&&b){window.open("explore?id="+b.id,"_blank")}
  else if(k==="u"&&b){fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[],pick:null})}).then(r=>r.json()).then(x=>{S=x;show()})}
  else if(k==="h"&&b&&(sel=sel||b.hero_id||(b.views[0]||{}).id)){const m=new Set(S.feedback[b.id]||[]);m.delete("wrong photo");m.delete("no bench");m.add("good");
   fetch("mark",{method:"POST",body:JSON.stringify({id:b.id,marks:[...m],pick:sel})}).then(r=>r.json()).then(x=>{S=x;if(i<Q.length-1)i++;show()})}
@@ -233,6 +236,13 @@ boot();
 def serve(base: str | None, port: int) -> None:
     cache: dict[str, bytes] = {}
     lock = threading.Lock()
+    explorer: list[explore.Explorer] = []
+
+    def ex() -> explore.Explorer:
+        with lock:
+            if not explorer:
+                explorer.append(explore.Explorer())
+            return explorer[0]
 
     def queue_body(name: str) -> bytes:
         with lock:  # one build at a time; each reads the whole DB
@@ -264,6 +274,10 @@ def serve(base: str | None, port: int) -> None:
                 return self._send(duel.PAGE.encode(), "text/html; charset=utf-8")
             if path == "duel.json":
                 return self._send(json.dumps(duel.items()).encode(), "application/json")
+            if path == "explore":
+                return self._send(explore.PAGE.encode(), "text/html; charset=utf-8")
+            if path.startswith("explore/"):
+                return self._explore_get(path, parse_qs(urlparse(self.path).query))
             if path == "state":
                 return self._send(json.dumps(_state()).encode(), "application/json")
             for prefix, root in ROOTS.items():
@@ -280,9 +294,52 @@ def serve(base: str | None, port: int) -> None:
                     return self._send(f.read_bytes(), ctype)
             self.send_error(404)
 
+        def _explore_get(self, path: str, q: dict) -> None:
+            arg = lambda k, d=None: q.get(k, [d])[0]  # noqa: E731
+            try:
+                if path == "explore/bench":
+                    body = ex().bench(int(arg("id")), int(arg("r", "50")))
+                    return self._send(json.dumps(body).encode(), "application/json")
+                if path == "explore/view":
+                    jpg = ex().preview(
+                        int(arg("id")),
+                        arg("key"),
+                        float(arg("aim")),
+                        float(arg("fov")),
+                        float(arg("tilt", "0")),
+                    )
+                    return self._send(jpg, "image/jpeg")
+            except KeyError as e:
+                return self.send_error(404, f"unknown {e}")
+            except Exception as e:  # a failed download: say so on the page
+                return self.send_error(502, str(e)[:200])
+            self.send_error(404)
+
+        def _explore_save(self) -> None:
+            """Render the framed view, add it as an image, make it the bench's hero."""
+            req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            try:
+                image_id = ex().save(
+                    int(req["id"]),
+                    req["key"],
+                    float(req["aim"]),
+                    float(req["fov"]),
+                    float(req["tilt"]),
+                    str(ROOTS["images/"] / "images"),
+                )
+            except Exception as e:
+                return self.send_error(500, str(e)[:200])
+            s = _state()
+            s["hero_pick"][str(req["id"])] = image_id
+            OUT.parent.mkdir(parents=True, exist_ok=True)
+            OUT.write_text(json.dumps(s, indent=0))
+            self._send(json.dumps({"image_id": image_id}).encode(), "application/json")
+
         def do_POST(self):
             if self.path == "/duel":
                 return self._duel()
+            if self.path == "/explore/save":
+                return self._explore_save()
             if self.path != "/mark":
                 return self.send_error(404)
             req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))

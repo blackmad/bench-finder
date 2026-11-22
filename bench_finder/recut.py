@@ -95,7 +95,7 @@ class RecutJob:
 
 def job_from_row(row: dict[str, Any]) -> RecutJob:
     """Build a job from an ``images`` row; ``ValueError`` says why it cannot be re-cut."""
-    if row.get("kind") != "aimed":
+    if row.get("kind") not in ("aimed", "framed"):
         raise ValueError(f"kind is {row.get('kind')!r}, not an aimed view")
     source = SOURCES.get(row.get("image_source") or "")
     if source is None:
@@ -133,6 +133,8 @@ def job_from_row(row: dict[str, Any]) -> RecutJob:
         stored_heading=meta.get("panorama_heading"),
         stored_pitch=meta.get("pitch"),
         stored_roll=meta.get("roll"),
+        # The hero explorer saves a downward look as a negative view pitch.
+        tilt_deg=-float(row.get("pitch_deg") or 0.0),
     )
 
 
