@@ -42,6 +42,60 @@ const validationHook = (
 };
 
 const now = () => new Date().toISOString();
+
+/** Favourites in the user's order, then the unranked ones newest first. */
+const FAVORITE_ORDER = "fav_rank IS NULL, fav_rank, favorited_at DESC, updated_at DESC";
+
+interface ProfileRow {
+  slug: string;
+  handle: string | null;
+  display_name: string;
+  public: number;
+}
+
+const profileOut = (p: ProfileRow) => ({
+  slug: p.slug,
+  handle: p.handle,
+  displayName: p.display_name,
+  public: p.public === 1,
+});
+
+export type FeedItem =
+  | { kind: "note"; key: string; benchId: number; at: string; who: string; text: string }
+  | { kind: "rating"; key: string; benchId: number; at: string; rating: number }
+  | { kind: "fave"; key: string; benchId: number; at: string; who: string; page: string };
+
+/** Paths and words a handle may not take (it shares /u/ with share slugs). */
+const RESERVED_HANDLES = new Set([
+  "admin", "api", "me", "u", "bench", "benches", "about", "help", "settings", "login", "signin",
+  "signup", "logout", "moderate", "moderator", "support", "bench-finder", "benchfinder", "official",
+  "null", "undefined", "anonymous",
+]);
+
+/** Why a handle is not allowed, or null when it is fine. Handles are lowercase. */
+export function handleProblem(h: string): string | null {
+  if (!/^[a-z0-9][a-z0-9_-]{2,23}$/.test(h)) {
+    return "Use 3-24 letters, numbers, - or _ (starting with a letter or number)";
+  }
+  if (RESERVED_HANDLES.has(h)) return "That name is reserved";
+  return null;
+}
+
+/** First name only by default: the page is public. */
+export const defaultDisplayName = (name: string | null) =>
+  (name ?? "").trim().split(/\s+/)[0]?.slice(0, 40) || "A bench lover";
+
+const SLUG_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
+
+/** A random share id that is no one's slug or handle. */
+async function freshSlug(db: D1Database): Promise<string> {
+  for (;;) {
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    const slug = [...bytes].map((b) => SLUG_CHARS[b % SLUG_CHARS.length]).join("");
+    const clash = await db.prepare("SELECT 1 FROM profiles WHERE slug = ?1 OR handle = ?1").bind(slug).first();
+    if (!clash) return slug;
+  }
+}
 const ipOf = (c: C) => c.req.header("CF-Connecting-IP") ?? "unknown";
 
 function sniffImage(b: Uint8Array): { type: string; ext: string } | null {
@@ -219,10 +273,14 @@ export function createApp(deps: Deps = {}) {
         // Partial update: omitted fields keep their current value.
         const row = await c.env.DB
           .prepare(
-            `INSERT INTO user_status (bench_id, user_id, visited, favorite, want, created_at, updated_at)
-             VALUES (?1, ?2, COALESCE(?3, 0), COALESCE(?4, 0), COALESCE(?6, 0), ?5, ?5)
+            // favorited_at marks when a bench became a favourite (the feed);
+            // un-favouriting clears it and the bench's place in the order.
+            `INSERT INTO user_status (bench_id, user_id, visited, favorite, want, created_at, updated_at, favorited_at)
+             VALUES (?1, ?2, COALESCE(?3, 0), COALESCE(?4, 0), COALESCE(?6, 0), ?5, ?5, CASE WHEN ?4 = 1 THEN ?5 END)
              ON CONFLICT(bench_id, user_id) DO UPDATE SET
                visited = COALESCE(?3, visited), favorite = COALESCE(?4, favorite), want = COALESCE(?6, want),
+               favorited_at = CASE WHEN ?4 = 1 AND favorite = 0 THEN ?5 WHEN ?4 = 0 THEN NULL ELSE favorited_at END,
+               fav_rank = CASE WHEN ?4 = 0 THEN NULL ELSE fav_rank END,
                updated_at = excluded.updated_at
              RETURNING visited, favorite, want`,
           )
@@ -287,15 +345,19 @@ export function createApp(deps: Deps = {}) {
 
     .get("/api/me", async (c) => {
       const user = await requireUser(c);
-      const [ratings, statuses] = await c.env.DB.batch([
+      const [ratings, statuses, profile] = await c.env.DB.batch([
         c.env.DB.prepare("SELECT bench_id, rating, updated_at FROM ratings WHERE user_id = ?1 ORDER BY updated_at DESC").bind(user.uid),
         c.env.DB
           .prepare(
-            "SELECT bench_id, visited, favorite, want FROM user_status WHERE user_id = ?1 AND (visited = 1 OR favorite = 1 OR want = 1) ORDER BY updated_at DESC",
+            `SELECT bench_id, visited, favorite, want FROM user_status
+             WHERE user_id = ?1 AND (visited = 1 OR favorite = 1 OR want = 1)
+             ORDER BY ${FAVORITE_ORDER}`,
           )
           .bind(user.uid),
+        c.env.DB.prepare("SELECT slug, handle, display_name, public FROM profiles WHERE user_id = ?1").bind(user.uid),
       ]);
       const st = statuses.results as { bench_id: number; visited: number; favorite: number; want: number }[];
+      const p = profile.results[0] as ProfileRow | undefined;
       return c.json({
         uid: user.uid,
         isAdmin: csv(c.env.ADMIN_UIDS).includes(user.uid),
@@ -306,8 +368,156 @@ export function createApp(deps: Deps = {}) {
         visited: st.filter((r) => r.visited === 1).map((r) => r.bench_id),
         favorites: st.filter((r) => r.favorite === 1).map((r) => r.bench_id),
         want: st.filter((r) => r.want === 1).map((r) => r.bench_id),
+        profile: p ? profileOut(p) : null,
       });
     })
+
+    // ---- Public favourites pages ------------------------------------------------
+    .put(
+      "/api/me/profile",
+      zValidator(
+        "json",
+        z.object({
+          public: z.boolean().optional(),
+          // null clears the handle (the page falls back to its slug).
+          handle: z.string().trim().toLowerCase().nullable().optional(),
+          displayName: z.string().trim().min(1).max(40).optional(),
+        }),
+        validationHook,
+      ),
+      async (c) => {
+        const user = await requireUser(c);
+        const req = c.req.valid("json");
+        const t = now();
+        let row = await c.env.DB
+          .prepare("SELECT slug, handle, display_name, public FROM profiles WHERE user_id = ?1")
+          .bind(user.uid)
+          .first<ProfileRow>();
+        if (!row) {
+          const slug = await freshSlug(c.env.DB);
+          row = { slug, handle: null, display_name: defaultDisplayName(user.name), public: 0 };
+          await c.env.DB
+            .prepare(
+              "INSERT INTO profiles (user_id, slug, display_name, public, created_at, updated_at) VALUES (?1, ?2, ?3, 0, ?4, ?4)",
+            )
+            .bind(user.uid, slug, row.display_name, t)
+            .run();
+        }
+        if (req.handle !== undefined && req.handle !== row.handle) {
+          if (req.handle !== null) {
+            const problem = handleProblem(req.handle);
+            if (problem) throw new HTTPException(400, { message: problem });
+            const taken = await c.env.DB
+              .prepare("SELECT 1 FROM profiles WHERE (handle = ?1 OR slug = ?1) AND user_id != ?2")
+              .bind(req.handle, user.uid)
+              .first();
+            if (taken) throw new HTTPException(409, { message: "That name is taken" });
+          }
+          row.handle = req.handle;
+        }
+        if (req.displayName !== undefined) row.display_name = req.displayName;
+        if (req.public !== undefined) row.public = +req.public;
+        await c.env.DB
+          .prepare("UPDATE profiles SET handle = ?2, display_name = ?3, public = ?4, updated_at = ?5 WHERE user_id = ?1")
+          .bind(user.uid, row.handle, row.display_name, row.public, t)
+          .run();
+        return c.json(profileOut(row));
+      },
+    )
+
+    .put(
+      "/api/me/favorites/order",
+      zValidator("json", z.object({ ids: z.array(benchId).max(1000) }), validationHook),
+      async (c) => {
+        const user = await requireUser(c);
+        const { ids } = c.req.valid("json");
+        const t = now();
+        // Listed favourites take their position; any not listed lose their rank.
+        await c.env.DB.batch([
+          c.env.DB.prepare("UPDATE user_status SET fav_rank = NULL WHERE user_id = ?1 AND favorite = 1").bind(user.uid),
+          ...ids.map((id, i) =>
+            c.env.DB
+              .prepare("UPDATE user_status SET fav_rank = ?3, updated_at = ?4 WHERE user_id = ?1 AND bench_id = ?2 AND favorite = 1")
+              .bind(user.uid, id, i, t),
+          ),
+        ]);
+        return c.json({ ok: true });
+      },
+    )
+
+    .get("/api/u/:key", zValidator("param", z.object({ key: z.string().min(1).max(40) }), validationHook), async (c) => {
+      const key = c.req.valid("param").key.toLowerCase();
+      const p = await c.env.DB
+        .prepare("SELECT user_id, slug, handle, display_name FROM profiles WHERE public = 1 AND (slug = ?1 OR handle = ?1)")
+        .bind(key)
+        .first<{ user_id: string; slug: string; handle: string | null; display_name: string }>();
+      if (!p) throw new HTTPException(404, { message: "No public page here" });
+      const favs = await c.env.DB
+        .prepare(`SELECT bench_id FROM user_status WHERE user_id = ?1 AND favorite = 1 ORDER BY ${FAVORITE_ORDER}`)
+        .bind(p.user_id)
+        .all<{ bench_id: number }>();
+      c.header("Cache-Control", "public, max-age=60");
+      return c.json({
+        displayName: p.display_name,
+        handle: p.handle,
+        slug: p.slug,
+        favorites: favs.results.map((r) => r.bench_id),
+      });
+    })
+
+    // ---- Homepage feed: notes, ratings (anonymous), public favourites -----------
+    .get(
+      "/api/feed",
+      zValidator("query", z.object({ limit: z.coerce.number().int().min(1).max(50).optional() }), validationHook),
+      async (c) => {
+        const limit = c.req.valid("query").limit ?? 20;
+        const [notes, ratings, faves] = await c.env.DB.batch([
+          c.env.DB
+            .prepare(
+              `SELECT id, bench_id, display_name, body, created_at FROM comments
+               WHERE state = 'visible' AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?1`,
+            )
+            .bind(limit),
+          c.env.DB.prepare("SELECT bench_id, rating, updated_at FROM ratings ORDER BY updated_at DESC LIMIT ?1").bind(limit),
+          // Only from people who made their favourites public.
+          c.env.DB
+            .prepare(
+              `SELECT s.bench_id, s.favorited_at, p.display_name, COALESCE(p.handle, p.slug) AS page
+               FROM user_status s JOIN profiles p ON p.user_id = s.user_id AND p.public = 1
+               WHERE s.favorite = 1 AND s.favorited_at IS NOT NULL ORDER BY s.favorited_at DESC LIMIT ?1`,
+            )
+            .bind(limit),
+        ]);
+        const items: FeedItem[] = [
+          ...(notes.results as { id: number; bench_id: number; display_name: string; body: string; created_at: string }[]).map(
+            (r): FeedItem => ({
+              kind: "note",
+              key: `n${r.id}`,
+              benchId: r.bench_id,
+              at: r.created_at,
+              who: r.display_name,
+              text: r.body.length > 180 ? `${r.body.slice(0, 177)}...` : r.body,
+            }),
+          ),
+          ...(ratings.results as { bench_id: number; rating: number; updated_at: string }[]).map(
+            (r, i): FeedItem => ({ kind: "rating", key: `r${r.bench_id}-${i}`, benchId: r.bench_id, at: r.updated_at, rating: r.rating }),
+          ),
+          ...(faves.results as { bench_id: number; favorited_at: string; display_name: string; page: string }[]).map(
+            (r): FeedItem => ({
+              kind: "fave",
+              key: `f${r.page}-${r.bench_id}`,
+              benchId: r.bench_id,
+              at: r.favorited_at,
+              who: r.display_name,
+              page: r.page,
+            }),
+          ),
+        ];
+        items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+        c.header("Cache-Control", "public, max-age=60");
+        return c.json({ items: items.slice(0, limit) });
+      },
+    )
 
     // ---- Reports & uploads -------------------------------------------------------
     .post(

@@ -1385,3 +1385,50 @@ picture {
     translate: none;
   }
 }
+
+/* Homepage feed: recent notes, ratings and public favourites. */
+.feed {
+  margin: 8px 0 28px;
+  padding: 14px 18px 10px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-card-lifted);
+}
+.feed h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--color-ink-2);
+}
+.feed ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feed li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 7px 0;
+  border-top: 1px solid var(--color-rule, #e2d9c6);
+  font-size: 14px;
+}
+.feed li:first-child {
+  border-top: 0;
+}
+.feed p {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.feed .linkbtn {
+  font-weight: 600;
+  padding: 0;
+}
+.feed q {
+  color: var(--color-ink-2);
+}
+.feed time {
+  flex: none;
+  color: var(--color-ink-2);
+  font-size: 12.5px;
+}

@@ -27,6 +27,50 @@ export interface Me {
   visited: number[]
   favorites: number[]
   want: number[]
+  profile: Profile | null
+}
+export interface Profile {
+  slug: string
+  handle: string | null
+  displayName: string
+  public: boolean
+}
+export interface PublicPage {
+  displayName: string
+  handle: string | null
+  slug: string
+  favorites: number[]
+}
+export type FeedItem =
+  | {
+      kind: "note"
+      key: string
+      benchId: number
+      at: string
+      who: string
+      text: string
+    }
+  | { kind: "rating"; key: string; benchId: number; at: string; rating: number }
+  | {
+      kind: "fave"
+      key: string
+      benchId: number
+      at: string
+      who: string
+      page: string
+    }
+
+/** The public page's path: the handle once chosen, else the share slug. */
+export const pagePath = (p: Pick<Profile, "slug" | "handle">) =>
+  `/u/${p.handle ?? p.slug}`
+
+/** Moves `ids[i]` by `d` places (a no-op at the ends). */
+export function moved(ids: number[], i: number, d: -1 | 1): number[] {
+  const j = i + d
+  if (i < 0 || j < 0 || j >= ids.length) return ids
+  const out = [...ids]
+  ;[out[i], out[j]] = [out[j], out[i]]
+  return out
 }
 
 export function useSocial(benchId: number) {
@@ -163,5 +207,57 @@ export function useFlagComment() {
           param: { id: String(id) },
         })
       ),
+  })
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      json: Partial<Pick<Profile, "public" | "displayName">> & {
+        handle?: string | null
+      }
+    ) => unwrap<Profile>(await api.api.me.profile.$put({ json })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+  })
+}
+
+/** Saves the favourites' order; the cached list updates at once. */
+export function useReorderFavorites() {
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  const key = ["me", user?.uid ?? null]
+  return useMutation({
+    mutationFn: async (ids: number[]) =>
+      unwrap(await api.api.me.favorites.order.$put({ json: { ids } })),
+    onMutate: async (ids: number[]) => {
+      await qc.cancelQueries({ queryKey: key })
+      const prev = qc.getQueryData<Me>(key)
+      if (prev) qc.setQueryData<Me>(key, { ...prev, favorites: ids })
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev)
+    },
+  })
+}
+
+export function usePublicPage(key: string) {
+  return useQuery({
+    queryKey: ["u", key.toLowerCase()],
+    queryFn: async () =>
+      unwrap<PublicPage>(await api.api.u[":key"].$get({ param: { key } })),
+    retry: false,
+  })
+}
+
+export function useFeed() {
+  return useQuery({
+    queryKey: ["feed"],
+    queryFn: async () =>
+      unwrap<{ items: FeedItem[] }>(
+        await api.api.feed.$get({ query: { limit: "20" } })
+      ),
+    staleTime: 60_000,
   })
 }

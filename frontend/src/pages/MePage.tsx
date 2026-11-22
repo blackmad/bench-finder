@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom"
+import { PublicPageSettings } from "../components/account/PublicPageSettings"
 import { TopBar } from "../components/TopBar"
 import { useBenchIndex } from "../data/hooks"
-import { useMe } from "../data/social"
+import { moved, useMe, useReorderFavorites } from "../data/social"
 import type { BenchFeature } from "../data/types"
 import { useAuth } from "../lib/auth"
 
@@ -58,12 +59,8 @@ export default function MePage() {
               </p>
             ) : (
               <div className="me-lists">
-                <BenchList
-                  title="Favourites"
-                  empty="Tick Favourite on a bench page and it lands here."
-                  ids={me.favorites}
-                  byId={byId}
-                />
+                <PublicPageSettings profile={me.profile} />
+                <FavoritesList ids={me.favorites} byId={byId} />
                 <BenchList
                   title="Want to sit here"
                   empty="Tick Want to sit here on a bench page to save it for later."
@@ -91,6 +88,72 @@ export default function MePage() {
         )}
       </main>
     </>
+  )
+}
+
+/** Favourites in your order: the first three lead your public page. */
+function FavoritesList({
+  ids,
+  byId,
+}: {
+  ids: number[]
+  byId: Map<number, BenchFeature>
+}) {
+  const reorder = useReorderFavorites()
+  const move = (i: number, d: -1 | 1) => reorder.mutate(moved(ids, i, d))
+  return (
+    <section className="block" aria-label="Favourites">
+      <div className="blockhead">
+        <h2>Favourites</h2>
+        <p>{ids.length ? "Your top 3 lead your public page" : ""}</p>
+      </div>
+      {ids.length === 0 ? (
+        <p className="hint">
+          Tick Favourite on a bench page and it lands here.
+        </p>
+      ) : (
+        <ol className="me-list favs">
+          {ids.map((id, i) => {
+            const p = byId.get(id)?.properties
+            const label = p?.address ?? `bench ${id}`
+            return (
+              <li key={id} className={i < 3 ? "top" : undefined}>
+                <span className="rank num">{i + 1}</span>
+                <Link to={`/?bench=${id}`}>
+                  <span className="caps">{p?.address ?? "Unnamed path"}</span>
+                  <span className="serial">No.&nbsp;{id}</span>
+                </Link>
+                <span className="moves">
+                  <button
+                    type="button"
+                    className="linkbtn"
+                    disabled={i === 0}
+                    aria-label={`Move ${label} up`}
+                    onClick={() => move(i, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="linkbtn"
+                    disabled={i === ids.length - 1}
+                    aria-label={`Move ${label} down`}
+                    onClick={() => move(i, 1)}
+                  >
+                    ↓
+                  </button>
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      {reorder.error ? (
+        <p role="alert" className="form-error">
+          Could not save the order: {reorder.error.message}
+        </p>
+      ) : null}
+    </section>
   )
 }
 

@@ -1,4 +1,5 @@
 import {
+  Fragment,
   lazy,
   Suspense,
   useCallback,
@@ -10,6 +11,7 @@ import {
 import { useSearchParams } from "react-router-dom"
 import { MissingBenchDialog } from "../components/account/ReportDialogs"
 import { BenchPreview } from "../components/BenchPreview"
+import { Feed } from "../components/Feed"
 import { FiltersPanel } from "../components/FiltersPanel"
 import { RailRow } from "../components/RailRow"
 import { SiteFooter } from "../components/SiteFooter"
@@ -460,15 +462,18 @@ export default function HomePage() {
                     : "No benches in this part of the map yet. Zoom out or move the map."}
                 </p>
               ) : null}
-              {rows.map((r) => (
-                <RailRow
-                  grid
-                  key={r.key}
-                  row={r}
-                  selectedId={selectedId}
-                  onSelect={setHoverId}
-                  onOpen={openBench}
-                />
+              {rows.map((r, n) => (
+                <Fragment key={r.key}>
+                  <RailRow
+                    grid
+                    row={r}
+                    selectedId={selectedId}
+                    onSelect={setHoverId}
+                    onOpen={openBench}
+                  />
+                  {/* Photos lead; the feed follows the first row. */}
+                  {n === 0 ? <Feed onOpen={openBench} /> : null}
+                </Fragment>
               ))}
               {data ? (
                 <SiteFooter

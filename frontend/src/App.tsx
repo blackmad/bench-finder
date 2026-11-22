@@ -14,6 +14,7 @@ import "./styles/account.css"
 
 const HomePage = lazy(() => import("./pages/HomePage"))
 const MePage = lazy(() => import("./pages/MePage"))
+const PublicPage = lazy(() => import("./pages/PublicPage"))
 const AdminPage = lazy(() => import("./pages/AdminPage"))
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"))
 
@@ -73,6 +74,7 @@ export default function App() {
                 <Route path="/" element={<HomePage />} />
                 <Route path="/bench/:id" element={<BenchRedirect />} />
                 <Route path="/me" element={<MePage />} />
+                <Route path="/u/:key" element={<PublicPage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

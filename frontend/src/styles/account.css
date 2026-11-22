@@ -521,3 +521,127 @@
   font-size: 13px;
   color: var(--ink-2);
 }
+
+/* My benches: the public page settings span the row; favourites are ranked. */
+.me-lists .pubpage {
+  grid-column: 1 / -1;
+}
+.pubpage .check {
+  align-items: flex-start;
+  max-width: 64ch;
+}
+.publink {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  margin: 10px 0 0;
+  font-weight: 600;
+}
+.pubform {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: flex-end;
+  margin-top: 14px;
+}
+.pubform label {
+  display: grid;
+  gap: 4px;
+}
+.pubform input {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--rule, #c9bea8);
+  background: var(--card);
+  min-width: 0;
+  width: 16ch;
+}
+.pubform .handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink-2);
+}
+.me-list.favs .rank {
+  width: 1.6em;
+  color: var(--ink-2);
+  font-weight: 700;
+}
+.me-list.favs li.top .rank {
+  color: var(--airmail);
+}
+.me-list .moves {
+  display: inline-flex;
+  gap: 2px;
+}
+.me-list .moves button {
+  padding: 2px 6px;
+  font-size: 15px;
+}
+.me-list .moves button:disabled {
+  opacity: 0.3;
+}
+
+/* Public favourites page (/u/:key). */
+.pubtitle {
+  margin: 0 0 24px;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  line-height: 1.04;
+}
+.pubtop {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.pubtop a {
+  position: relative;
+  display: grid;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  text-decoration: none;
+}
+.pubtop img,
+.pubtop .pubnophoto {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: #e9e2d2;
+}
+.pubtop .pubrank {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  background: var(--ink);
+  color: var(--card);
+  font-weight: 800;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+}
+.pubtop .pubname {
+  padding: 12px 14px 14px;
+  font-weight: 700;
+  font-size: 17px;
+}
+.pubtop a:hover .pubname {
+  color: var(--airmail);
+}
+.pubrest {
+  margin-top: 28px;
+  max-width: 620px;
+}
+.pubfoot {
+  margin-top: 32px;
+  color: var(--ink-2);
+}
