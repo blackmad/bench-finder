@@ -92,8 +92,9 @@ export function roseSprite(
   return finish(cv, g)
 }
 
-/** What the signed-in user marked a bench as. */
-export type Mark = "fav" | "want" | "both"
+import type { Mark } from "./marks"
+
+export type { Mark }
 
 const heart = (g: CanvasRenderingContext2D, x: number, y: number) => {
   // An 9px heart centred on (x, y).

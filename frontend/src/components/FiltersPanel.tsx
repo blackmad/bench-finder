@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
 } from "react"
@@ -18,8 +17,6 @@ import {
   type Offered,
   type OptionCounts,
   SEAT_BUCKETS,
-  SECTOR_LONG,
-  SECTORS,
   type Tri,
   TYPES,
   toggled,
@@ -177,13 +174,7 @@ export function FiltersPanel(props: Props) {
   )
 }
 
-function FilterControls({
-  filters: f,
-  onChange,
-  coverage: c,
-  offered: o,
-  counts,
-}: Props) {
+function FilterControls({ filters: f, onChange, offered: o, counts }: Props) {
   const set = (patch: Partial<Filters>) => onChange({ ...f, ...patch })
   const missing = [
     !o.faces && "what it looks at",
@@ -196,7 +187,6 @@ function FilterControls({
 
   return (
     <div className="fbody">
-      {/* What the bench looks at leads; the compass is the secondary detail. */}
       {o.faces ? (
         <Checks
           label="Looks at"
@@ -208,62 +198,6 @@ function FilterControls({
           chips
         />
       ) : null}
-
-      <fieldset className="fgroup facinggroup">
-        <legend className="caps">Faces (compass)</legend>
-        {o.facing ? (
-          <>
-            <CompassPicker
-              selected={f.dirs}
-              counts={counts.dirs}
-              onToggle={(i) => set({ dirs: toggled(f.dirs, i) })}
-            />
-            <p className="fhint">
-              {f.dirs.size
-                ? `Facing ${[...f.dirs]
-                    .sort((a, b) => a - b)
-                    .map((i) => SECTORS[i])
-                    .join(" or ")}`
-                : "Any direction. Pick one or more."}
-              {f.dirs.size ? (
-                <button
-                  type="button"
-                  className="linkbtn"
-                  onClick={() => set({ dirs: new Set() })}
-                >
-                  Any direction
-                </button>
-              ) : null}
-            </p>
-            {o.facingSplit ? (
-              <Choice
-                label="How the facing is known"
-                value={f.facing}
-                onChange={(v) => set({ facing: v })}
-                options={[
-                  ["known", "Known", counts.facing.known],
-                  ["mapped", "Mapped", counts.facing.mapped],
-                  ["estimated", "≈ Estimated", counts.facing.estimated],
-                ]}
-              />
-            ) : (
-              <Check
-                checked={f.facing !== null}
-                onChange={(on) => set({ facing: on ? "known" : null })}
-                count={counts.facing.known}
-              >
-                Facing known
-              </Check>
-            )}
-            <p className="fnote">
-              {fmt(c.facing)} of {fmt(c.total)} benches have a facing
-              {c.estimated ? "; ≈ marks an estimate from street views" : ""}.
-            </p>
-          </>
-        ) : (
-          <p className="fnote">Not mapped yet.</p>
-        )}
-      </fieldset>
 
       {o.photo ? (
         <div className="fgroup">
@@ -473,180 +407,5 @@ function Checks<T extends string>({
         ))}
       </div>
     </fieldset>
-  )
-}
-
-/* The compass picker: the signature datum as a control. */
-
-const R_IN = 15
-const R_OUT = 44
-const polar = (deg: number, r: number) => {
-  const a = (deg * Math.PI) / 180
-  return [Math.sin(a) * r, -Math.cos(a) * r] as const
-}
-const wedge = (i: number) => {
-  const a0 = i * 45 - 22.5
-  const a1 = i * 45 + 22.5
-  const [x0, y0] = polar(a0, R_OUT)
-  const [x1, y1] = polar(a1, R_OUT)
-  const [x2, y2] = polar(a1, R_IN)
-  const [x3, y3] = polar(a0, R_IN)
-  return `M${x0} ${y0}A${R_OUT} ${R_OUT} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${R_IN} ${R_IN} 0 0 0 ${x3} ${y3}Z`
-}
-const TICKS16 = Array.from({ length: 16 }, (_, i) => {
-  const l = i % 2 ? 2 : 3.5
-  const [x1, y1] = polar(i * 22.5 + 11.25, R_OUT)
-  const [x2, y2] = polar(i * 22.5 + 11.25, R_OUT - l)
-  return { x1, y1, x2, y2, key: i }
-})
-// Label buttons sit just outside the ring; the SVG spans -60..60.
-const LABEL_R = 52.5
-const VIEW = 120
-
-/**
- * Eight toggle buttons around a postmark compass. Each wedge carries a petal
- * as long as the number of benches facing that way (sqrt-scaled), so the dial
- * shows where the data is before anything is picked. Arrow keys move around
- * the dial (one tab stop); Space or Enter toggles.
- */
-function CompassPicker({
-  selected,
-  counts,
-  onToggle,
-}: {
-  selected: ReadonlySet<number>
-  counts: number[]
-  onToggle: (i: number) => void
-}) {
-  const [focus, setFocus] = useState(0)
-  const [hover, setHover] = useState<number | null>(null)
-  const refs = useRef<(HTMLButtonElement | null)[]>([])
-  const max = Math.max(1, ...counts)
-  const petals = useMemo(
-    () =>
-      counts.map((n, i) => {
-        if (!n) return null
-        const len = 4 + (R_OUT - R_IN - 9) * Math.sqrt(n / max)
-        const [x1, y1] = polar(i * 45, R_IN + 2.5)
-        const [x2, y2] = polar(i * 45, R_IN + 2.5 + len)
-        return { x1, y1, x2, y2 }
-      }),
-    [counts, max]
-  )
-
-  const move = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
-    const step =
-      e.key === "ArrowRight" || e.key === "ArrowDown"
-        ? 1
-        : e.key === "ArrowLeft" || e.key === "ArrowUp"
-          ? -1
-          : 0
-    let next = i
-    if (step) next = (i + step + 8) % 8
-    else if (e.key === "Home") next = 0
-    else if (e.key === "End") next = 7
-    else return
-    e.preventDefault()
-    setFocus(next)
-    refs.current[next]?.focus()
-  }
-
-  return (
-    <div className="compass">
-      <svg viewBox="-60 -60 120 120" aria-hidden="true">
-        <circle r={R_OUT + 3} fill="var(--color-stamp-paper)" />
-        {SECTORS.map((s, i) => (
-          // biome-ignore lint/a11y/noStaticElementInteractions: pointer target only; the labelled button is the keyboard path
-          <path
-            key={s}
-            d={wedge(i)}
-            className={`wedge${selected.has(i) ? " on" : ""}${hover === i ? " hover" : ""}`}
-            onClick={() => {
-              setFocus(i)
-              onToggle(i)
-            }}
-            onPointerEnter={() => setHover(i)}
-            onPointerLeave={() => setHover(null)}
-          />
-        ))}
-        <circle
-          r={R_OUT}
-          fill="none"
-          stroke="var(--color-ink)"
-          strokeWidth=".9"
-        />
-        <g stroke="var(--color-ink)" strokeWidth=".7">
-          {TICKS16.map(({ key, ...t }) => (
-            <line key={key} {...t} />
-          ))}
-        </g>
-        <g strokeLinecap="round" strokeWidth="3.4">
-          {petals.map((p, i) =>
-            p ? (
-              <line
-                key={SECTORS[i]}
-                {...p}
-                stroke={
-                  selected.has(i) ? "var(--color-airmail)" : "var(--color-ink)"
-                }
-              />
-            ) : null
-          )}
-        </g>
-        <circle
-          r={R_IN}
-          fill="var(--color-card)"
-          stroke="var(--color-ink)"
-          strokeWidth=".9"
-        />
-        <text
-          y="4.6"
-          textAnchor="middle"
-          fontSize="12.5"
-          fontWeight="800"
-          fill="var(--color-ink)"
-          fontFamily="Archivo Variable, sans-serif"
-          style={{ fontVariationSettings: "'wdth' 112" }}
-        >
-          {fmt(
-            counts.reduce(
-              (a, n, i) => a + (!selected.size || selected.has(i) ? n : 0),
-              0
-            )
-          )}
-        </text>
-      </svg>
-      {SECTORS.map((s, i) => {
-        const [x, y] = polar(i * 45, LABEL_R)
-        const on = selected.has(i)
-        return (
-          <button
-            key={s}
-            ref={(el) => {
-              refs.current[i] = el
-            }}
-            type="button"
-            className="dir"
-            style={{
-              left: `${50 + (x / VIEW) * 100}%`,
-              top: `${50 + (y / VIEW) * 100}%`,
-            }}
-            tabIndex={i === focus ? 0 : -1}
-            aria-pressed={on}
-            aria-label={`${s}, facing ${SECTOR_LONG[i]}, ${counts[i]} ${counts[i] === 1 ? "bench" : "benches"}`}
-            onClick={() => {
-              setFocus(i)
-              onToggle(i)
-            }}
-            onKeyDown={(e) => move(e, i)}
-            onFocus={() => setFocus(i)}
-            onPointerEnter={() => setHover(i)}
-            onPointerLeave={() => setHover(null)}
-          >
-            {s}
-          </button>
-        )
-      })}
-    </div>
   )
 }

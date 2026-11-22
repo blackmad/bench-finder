@@ -12,6 +12,35 @@ import { CheckTick } from "../Icons"
 import { FlagIcon, StarIcon } from "./icons"
 import { ReportBenchDialog } from "./ReportDialogs"
 
+/** The public score under the bench's title: average rating, counts, and a
+ * link down to the notes. Quiet until someone has rated or written. */
+export function BenchScore({ benchId }: { benchId: number }) {
+  const { data } = useSocial(benchId)
+  if (!data) return <p className="score" />
+  const { count, average } = data.ratings
+  const notes = data.comments.length
+  return (
+    <p className="score">
+      {count > 0 && average != null ? (
+        <span className="score-avg">
+          <StarIcon />
+          <b>{average.toFixed(1)}</b>
+          <span>
+            {count} {count === 1 ? "rating" : "ratings"}
+          </span>
+        </span>
+      ) : (
+        <span>Not rated yet</span>
+      )}
+      <a href="#h-notes">
+        {notes === 0
+          ? "No notes yet"
+          : `${notes} ${notes === 1 ? "note" : "notes"}`}
+      </a>
+    </p>
+  )
+}
+
 /** Rating + visited/favourite, mounted inside the bench card. */
 export function BenchActions({ benchId }: { benchId: number }) {
   const { user, openSignIn } = useAuth()
@@ -50,12 +79,12 @@ export function BenchActions({ benchId }: { benchId: number }) {
           </label>
         ))}
         <span id="rating-summary" className="rating-summary">
+          <span>{mine ? `Your rating: ${mine}` : "Your rating"}</span>
           <span>
             {count > 0 && avg != null
-              ? `${avg.toFixed(1)} · ${count} ${count === 1 ? "rating" : "ratings"}`
+              ? `Average ${avg.toFixed(1)} from ${count}`
               : "No ratings yet"}
           </span>
-          {mine ? <span>Yours: {mine}</span> : null}
         </span>
       </fieldset>
       {rate.error ? (

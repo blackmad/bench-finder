@@ -244,7 +244,8 @@ h1[tabindex="-1"]:focus {
 .rail {
   --gutter: 32px;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* Vertical only: containing x too swallows the trackpad's swipe-back. */
+  overscroll-behavior-y: contain;
   padding: 22px var(--gutter) 64px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -391,6 +392,35 @@ h1[tabindex="-1"]:focus {
   font-size: 32px;
   grid-column: 1 / -1;
   margin: 2px 0 2px;
+}
+.score {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  min-height: 1.4em;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: 13.5px;
+  color: var(--color-ink-2);
+}
+.score-avg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.score-avg svg {
+  width: 15px;
+  height: 15px;
+  fill: var(--color-ink);
+  stroke: none;
+}
+.score-avg b {
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.score a {
+  color: inherit;
 }
 .titlecard .lede {
   margin: 0;
@@ -872,7 +902,7 @@ h1[tabindex="-1"]:focus {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   padding: 0 18px;
 }
 .fgroup {
@@ -917,62 +947,6 @@ h1[tabindex="-1"]:focus {
 .fmissing {
   margin: 0;
   padding: 14px 0 16px;
-}
-
-/* The compass picker */
-.compass {
-  position: relative;
-  width: 228px;
-  aspect-ratio: 1;
-  margin: 0 auto;
-}
-.compass svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.compass .wedge {
-  fill: transparent;
-  stroke: var(--color-rule);
-  stroke-width: 0.5;
-  cursor: pointer;
-  transition: fill 0.15s;
-}
-.compass .wedge.hover {
-  fill: var(--color-rack);
-}
-.compass .wedge.on {
-  fill: var(--color-airmail-wash);
-}
-.compass .dir {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--color-ink-2);
-  font-size: 11.5px;
-  font-weight: 700;
-  font-variation-settings: "wdth" 125;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-.compass .dir:hover {
-  color: var(--color-ink);
-  background: var(--color-rack);
-}
-.compass .dir[aria-pressed="true"] {
-  background: var(--color-ink);
-  color: var(--color-card);
-}
-
-/* In the panel the compass is secondary to "Looks at": a smaller dial. */
-.facinggroup .compass {
-  width: 184px;
 }
 
 /* "Looks at": the lead group, as toggle chips with counts. */
@@ -1103,11 +1077,6 @@ h1[tabindex="-1"]:focus {
 }
 .railcount .filtered b {
   color: var(--color-ink);
-}
-@media (prefers-reduced-motion: reduce) {
-  .compass .wedge {
-    transition: none;
-  }
 }
 
 /* Phone: the map on top, the rail flows below it with the page. */
@@ -1261,9 +1230,6 @@ h1[tabindex="-1"]:focus {
   .ffoot {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
-  .facinggroup .compass {
-    width: 200px;
-  }
 }
 
 /* <Photo> wraps the img in <picture>; keep existing img rules applying as before. */
@@ -1298,8 +1264,6 @@ picture {
   color: var(--cat);
   font-weight: 600;
 }
-
-
 
 .away {
   position: absolute;

@@ -38,7 +38,7 @@ import {
   viewportFromParams,
   viewportToParams,
 } from "../lib/viewport"
-import type { Mark } from "../map/sprites"
+import { marksFrom } from "../map/marks"
 import { type MapView, START_VIEW } from "../map/style"
 
 const BenchMap = lazy(() => import("../map/BenchMap"))
@@ -120,12 +120,7 @@ export default function HomePage() {
   // Only benches with a photo are shown; the rest stay in the data and the CSV.
   const benches = useMemo(() => (data ?? []).filter(hasPhoto), [data])
   const { data: me } = useMe()
-  const marks = useMemo(() => {
-    const m = new Map<number, Mark>()
-    for (const id of me?.favorites ?? []) m.set(id, "fav")
-    for (const id of me?.want ?? []) m.set(id, m.has(id) ? "both" : "want")
-    return m
-  }, [me])
+  const marks = useMemo(() => marksFrom(me), [me])
   const byId = useMemo(
     () => new Map(benches.map((b) => [b.properties.id, b])),
     [benches]

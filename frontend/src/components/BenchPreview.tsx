@@ -2,10 +2,16 @@ import { useEffect, useId, useRef, useState } from "react"
 import { focusStyle } from "../data/api"
 import { headline, heroImage, lede, monthYear } from "../data/describe"
 import { useBench } from "../data/hooks"
+import { streetViewTarget } from "../data/streetView"
 import type { BenchDetail, BenchProps } from "../data/types"
 import { useSwipe } from "../lib/useSwipe"
 import { Away } from "./Away"
-import { BenchActions, BenchNotes, ReportRow } from "./account/BenchSocial"
+import {
+  BenchActions,
+  BenchNotes,
+  BenchScore,
+  ReportRow,
+} from "./account/BenchSocial"
 import { Facts, ViewFromBench } from "./BenchDetails"
 import { PinIcon } from "./Icons"
 import { Lightbox } from "./Lightbox"
@@ -23,7 +29,7 @@ interface Props {
 
 /**
  * A bench opened in the rail: its photo large, the title card, its facts and
- * rating, the other views, Street View, notes and the report link. The map stays beside
+ * rating, the notes, the other views, Street View and the report link. The map stays beside
  * it with the bench marked in vermilion; the URL carries `?bench=ID`.
  */
 export function BenchPreview({ bench, id, onClose, onStep }: Props) {
@@ -96,6 +102,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         <h2 id={titleId} tabIndex={-1}>
           {name}
         </h2>
+        <BenchScore benchId={b.id} />
         <p className="lede">{detail ? lede(detail) : " "}</p>
         <div className="ctas">
           <a
@@ -110,6 +117,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         </div>
       </div>
       <FactsCard bench={detail} id={b.id} />
+      <BenchNotes benchId={b.id} />
       {views.length ? (
         <div className="pvviews">
           <div className="rowhead">
@@ -142,7 +150,6 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         </div>
       ) : null}
       <StreetView bench={detail} name={name} />
-      <BenchNotes benchId={b.id} />
       <div className="pvreport">
         <ReportRow benchId={b.id} />
       </div>
@@ -166,27 +173,9 @@ function FactsCard({ bench: d, id }: { bench?: BenchDetail; id: number }) {
 }
 
 function StreetView({ bench: d, name }: { bench?: BenchDetail; name: string }) {
-  if (!d) return null
-  const at: [number, number] | null =
-    d.embed_lat != null && d.embed_lng != null
-      ? [d.embed_lat, d.embed_lng]
-      : null
-  // Data published before embed_lat existed can still carry an Apple or city
-  // panorama id; only a Google-shaped id may reach Google's embed.
-  const pano =
-    d.embed_pano_id && /^[A-Za-z0-9_-]{22}$/.test(d.embed_pano_id)
-      ? d.embed_pano_id
-      : null
-  if (!pano && !at) return null
-  return (
-    <ViewFromBench
-      pano={pano}
-      at={at}
-      heading={d.embed_heading_deg ?? 0}
-      facing={d.facing}
-      street={name}
-    />
-  )
+  const target = d ? streetViewTarget(d) : null
+  if (!d || !target) return null
+  return <ViewFromBench target={target} facing={d.facing} street={name} />
 }
 
 /** The tab (and a shared link's title) names the open bench. */

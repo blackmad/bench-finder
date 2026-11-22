@@ -359,15 +359,13 @@ export function filtersFromParams(sp: URLSearchParams): Filters {
     new Set(allowed.filter((a) => list(k).includes(a.toLowerCase())))
   const one = <T extends string>(k: string, allowed: readonly T[]) =>
     allowed.find((a) => a === sp.get(k)?.toLowerCase()) ?? null
-  const dirs = new Set<number>()
-  for (const d of list("dir")) {
-    const i = SECTORS.findIndex((s) => s.toLowerCase() === d)
-    if (i >= 0) dirs.add(i)
-  }
+  // The facing filters (compass, how the facing is known) were removed from
+  // the panel; old links with `facing` / `dir` must not apply a filter that
+  // nobody can see or clear, so those keys are ignored (and dropped on write).
   return {
     photo: sp.get("photo") === "1",
-    facing: one("facing", FACING),
-    dirs,
+    facing: null,
+    dirs: new Set(),
     backrest: one("back", ["yes", "no"] as const),
     materials: pick("mat", MATERIALS),
     lit: one("lit", ["yes", "no"] as const),
@@ -386,14 +384,8 @@ export function filtersToParams(f: Filters, sp: URLSearchParams) {
   const csv = <T extends string>(all: readonly T[], s: ReadonlySet<T>) =>
     all.filter((v) => s.has(v)).join(",")
   set("photo", f.photo ? "1" : null)
-  set("facing", f.facing)
-  set(
-    "dir",
-    [...f.dirs]
-      .sort((a, b) => a - b)
-      .map((i) => SECTORS[i].toLowerCase())
-      .join(",")
-  )
+  // `facing` and `dir` are no longer written (the panel has no facing
+  // filters); PARAMS still lists them so old links get cleaned up.
   set("back", f.backrest)
   set("mat", csv(MATERIALS, f.materials))
   set("lit", f.lit)

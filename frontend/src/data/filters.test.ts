@@ -147,8 +147,6 @@ describe("URL round trip", () => {
   it("writes short keys and reads them back", () => {
     const f = with_({
       photo: true,
-      facing: "mapped",
-      dirs: new Set([2, 1]),
       backrest: "no",
       materials: new Set(["metal", "wood"]),
       seats: new Set(["5+"]),
@@ -157,23 +155,34 @@ describe("URL round trip", () => {
     const sp = new URLSearchParams("lat=52.1&z=12&dir=s")
     filtersToParams(f, sp)
     expect(sp.toString()).toBe(
-      "lat=52.1&z=12&photo=1&facing=mapped&dir=ne%2Ce&back=no&mat=wood%2Cmetal&seats=5%2B&faces=water"
+      "lat=52.1&z=12&photo=1&back=no&mat=wood%2Cmetal&seats=5%2B&faces=water"
     )
     expect(filtersFromParams(sp)).toEqual(f)
     expect(summary(f)).toBe(
-      "with a photo · facing NE or E · facing mapped · no backrest · wood or metal · seats 5+ · looks at water"
+      "with a photo · no backrest · wood or metal · seats 5+ · looks at water"
     )
   })
   it("drops unknown values and clears keys", () => {
     const f = filtersFromParams(
-      new URLSearchParams("dir=N,xx&back=maybe&mat=wood,gold&type=picnic")
+      new URLSearchParams("back=maybe&mat=wood,gold&type=picnic")
     )
-    expect([...f.dirs]).toEqual([0])
     expect(f.backrest).toBeNull()
     expect([...f.materials]).toEqual(["wood"])
     expect([...f.types]).toEqual(["picnic"])
     const sp = new URLSearchParams("dir=n&lat=1")
     filtersToParams(NO_FILTERS, sp)
     expect(sp.toString()).toBe("lat=1")
+  })
+  it("ignores the removed facing filters in old links, and drops them", () => {
+    // The compass and "how the facing is known" filters left the panel: an old
+    // shared link must not apply a filter nobody can see or clear.
+    const sp = new URLSearchParams("dir=n,sw&facing=known&mat=wood&lat=1")
+    const f = filtersFromParams(sp)
+    expect(f.dirs.size).toBe(0)
+    expect(f.facing).toBeNull()
+    expect([...f.materials]).toEqual(["wood"])
+    expect(activeCount(f)).toBe(1)
+    filtersToParams(f, sp)
+    expect(sp.toString()).toBe("lat=1&mat=wood")
   })
 })
