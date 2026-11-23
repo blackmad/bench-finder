@@ -723,3 +723,13 @@ def test_hero_outline_maps_into_the_frame_and_simplifies():
     assert out is not None and 3 <= len(out) <= OUTLINE_POINTS
     assert all(0 <= x <= 1 and 0 <= y <= 1 for x, y in out)
     assert hero_outline([[0.1, 0.1], [0.2, 0.2]]) is None
+
+
+def test_scenic_prefers_standing_back_along_the_facing():
+    from bench_finder.scenic import scenic_score
+
+    close_behind = scenic_score(10, 4.9, 2024)
+    back_along = scenic_score(20, 13.3, 2021)
+    assert back_along < close_behind
+    assert scenic_score(10, 15, 2025) < scenic_score(80, 15, 2025)
+    assert scenic_score(10, 15, 2025) < scenic_score(10, 60, 2025)

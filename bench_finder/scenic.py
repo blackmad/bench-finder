@@ -62,6 +62,19 @@ def scenic_aim(camera_to_bench: float, facing: float) -> float:
     return (camera_to_bench + turn) % 360.0
 
 
+NEAR_M, FAR_M = 8.0, 25.0  # closer looks down at the bench; farther loses it
+
+
+def scenic_score(off: float, dist: float | None, year: int, now: int = 2026) -> float:
+    """Lower is better. One point each: 30 degrees off the facing, 2 m closer
+    than NEAR_M (a camera right behind the bench sees paving, bench 5768),
+    10 m beyond FAR_M, 6 years of age."""
+    s = off / 30.0
+    if dist is not None:
+        s += max(0.0, NEAR_M - dist) / 2.0 + max(0.0, dist - FAR_M) / 10.0
+    return s + max(0, now - year) / 6.0 if year else s + 3.0
+
+
 @dataclass
 class Choice:
     bench_id: int
@@ -95,7 +108,9 @@ def choose(imgs: list[dict], facing: float | None, bench_id: int) -> Choice | No
         off = _angle(b, facing)
         if off > MAX_OFF_FACING_DEG:
             continue
-        rank = (round(off / 15), -int((i.get("pano_date") or "0")[:4] or 0), off)
+        rank = scenic_score(
+            off, i.get("camera_distance_m"), int((i.get("pano_date") or "0")[:4] or 0)
+        )
         if best is None or rank < best[0]:
             best = (rank, i, src, b)
     if best is None:
@@ -127,16 +142,19 @@ def plan(db: str, images_root: Path, only: set[int] | None = None) -> list[Choic
     rows, _, chosen = select_images(conn, images_root, True, bbox=AMSTERDAM_BBOX)
     facing = {r["id"]: _facing(r) for r in rows}
     source = dict(
-        conn.execute(
-            "SELECT id, image_source FROM images WHERE kind = 'aimed'"
-        ).fetchall()
+        (r[0], r[1:])
+        for r in conn.execute(
+            "SELECT id, image_source, camera_distance_m FROM images WHERE kind = 'aimed'"
+        )
     )
     out = []
     for bid, (imgs, _) in chosen.items():
         if only and bid not in only:
             continue
         for i in imgs:
-            i.setdefault("image_source", source.get(i["id"]))
+            src, dist = source.get(i["id"], (None, None))
+            i.setdefault("image_source", src)
+            i.setdefault("camera_distance_m", dist)
         c = choose(imgs, facing.get(bid), bid)
         if c:
             out.append(c)
