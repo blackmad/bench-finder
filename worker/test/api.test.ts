@@ -392,3 +392,17 @@ describe("AUTH_TEST_JWKS", () => {
     expect(bad.status).toBe(401);
   });
 });
+
+describe("ratings", () => {
+  it("can be cleared", async () => {
+    const api = makeClient();
+    const h = await bearer({ uid: "u1" });
+    expect((await api.json("PUT", "/api/bench/3/rating", { rating: 2 }, h)).status).toBe(200);
+    expect((await api.json("DELETE", "/api/bench/3/rating", undefined, h)).status).toBe(200);
+    const s = (await (await api.request("/api/bench/3/social", { headers: h })).json()) as {
+      ratings: { count: number };
+      me: { rating: number | null };
+    };
+    expect([s.ratings.count, s.me.rating]).toEqual([0, null]);
+  });
+});

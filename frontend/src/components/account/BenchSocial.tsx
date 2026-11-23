@@ -73,13 +73,29 @@ export function BenchActions({ benchId }: { benchId: number }) {
               value={n}
               checked={mine === n}
               onChange={() => (user ? rate.mutate(n) : openSignIn())}
+              // Clicking your current rating again clears it.
+              onClick={() => (mine === n ? rate.mutate(null) : undefined)}
             />
             <StarIcon />
             <span className="sr">{n === 1 ? "1 star" : `${n} stars`}</span>
           </label>
         ))}
         <span id="rating-summary" className="rating-summary">
-          <span>{mine ? `Your rating: ${mine}` : "Your rating"}</span>
+          <span>
+            {mine ? `Your rating: ${mine}` : "Your rating"}
+            {mine ? (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className="linkbtn"
+                  onClick={() => rate.mutate(null)}
+                >
+                  Clear
+                </button>
+              </>
+            ) : null}
+          </span>
           <span>
             {count > 0 && avg != null
               ? `Average ${avg.toFixed(1)} from ${count}`

@@ -329,6 +329,13 @@ export function createApp(deps: Deps = {}) {
       },
     )
 
+    .delete("/api/bench/:id/rating", zValidator("param", idParam, validationHook), async (c) => {
+      const user = await requireUser(c);
+      const { id } = c.req.valid("param");
+      await c.env.DB.prepare("DELETE FROM ratings WHERE bench_id = ?1 AND user_id = ?2").bind(id, user.uid).run();
+      return c.json({ benchId: id, rating: null });
+    })
+
     .put(
       "/api/bench/:id/status",
       zValidator("param", idParam, validationHook),

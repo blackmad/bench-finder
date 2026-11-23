@@ -127,23 +127,32 @@ function useSocialMutation<V>(
 }
 
 export function useRate(benchId: number) {
-  return useSocialMutation<number>(
+  // null clears your rating.
+  return useSocialMutation<number | null>(
     benchId,
     async (rating) =>
       unwrap(
-        await api.api.bench[":id"].rating.$put({
-          param: { id: String(benchId) },
-          json: { rating },
-        })
+        rating === null
+          ? await api.api.bench[":id"].rating.$delete({
+              param: { id: String(benchId) },
+            })
+          : await api.api.bench[":id"].rating.$put({
+              param: { id: String(benchId) },
+              json: { rating },
+            })
       ),
     (s, rating) => {
       const old = s.me?.rating ?? null
-      const count = s.ratings.count + (old === null ? 1 : 0)
+      const count =
+        s.ratings.count + (old === null ? 1 : 0) - (rating === null ? 1 : 0)
       const sum =
-        (s.ratings.average ?? 0) * s.ratings.count - (old ?? 0) + rating
+        (s.ratings.average ?? 0) * s.ratings.count - (old ?? 0) + (rating ?? 0)
       return {
         ...s,
-        ratings: { count, average: Math.round((sum / count) * 100) / 100 },
+        ratings: {
+          count,
+          average: count ? Math.round((sum / count) * 100) / 100 : null,
+        },
         me: { visited: false, favorite: false, want: false, ...s.me, rating },
       }
     }
