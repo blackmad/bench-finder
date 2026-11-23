@@ -16,6 +16,7 @@ import {
 import { FindView } from "./account/FindView"
 import { ClearHero, HeroButton } from "./account/HeroButton"
 import { Facts, ViewFromBench } from "./BenchDetails"
+import { BenchOutline } from "./BenchOutline"
 import { PinIcon } from "./Icons"
 import { Lightbox } from "./Lightbox"
 import { Photo } from "./Photo"
@@ -41,6 +42,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
   const b: BenchProps | null = detail ?? bench
   const titleId = useId()
   const ref = useRef<HTMLElement>(null)
+  const photo = useRef<HTMLDivElement>(null)
   const [viewing, setViewing] = useState<number | null>(null)
   const { data: picks } = useHeroPicks()
 
@@ -85,7 +87,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
   return (
     <section className="pv" ref={ref} aria-labelledby={titleId}>
       {back}
-      <div className="ph">
+      <div className="ph" ref={photo}>
         {b.hero_urls ? (
           <Photo
             urls={b.hero_urls}
@@ -100,6 +102,15 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
         ) : (
           <p className="nophoto">No street-level photo of this bench yet.</p>
         )}
+        {detail?.hero_outline && b.hero_urls ? (
+          <BenchOutline
+            box={photo}
+            outline={detail.hero_outline}
+            width={b.hero_width ?? 800}
+            height={b.hero_height ?? 800}
+            focus={b.hero_focus}
+          />
+        ) : null}
         <Away lat={b.lat} lng={b.lng} />
       </div>
       {picks?.[b.id] ? <ClearHero benchId={b.id} /> : null}

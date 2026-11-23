@@ -666,3 +666,16 @@ def test_view_suggestion_sql_quoting_and_render_args(monkeypatch):
     assert calls[1] == ("save", (1743, "google:PANO_ID_ABCDEFGHIJKL", 169.0, 75.0, 4.0, "images"), {"kind": "suggested"})
     with pytest.raises(ValueError, match="not within"):
         vs.render_one(Ex(), {**row, "pano_id": "elsewhere"}, "images")
+
+
+def test_hero_outline_maps_into_the_frame_and_simplifies():
+    from bench_finder.publish.build import OUTLINE_POINTS, hero_outline
+
+    # A dense ring around a bench in the middle of the frame.
+    import math
+
+    ring = [[0.5 + 0.2 * math.cos(t / 100 * 2 * math.pi), 0.6 + 0.1 * math.sin(t / 100 * 2 * math.pi)] for t in range(400)]
+    out = hero_outline(ring)
+    assert out is not None and 3 <= len(out) <= OUTLINE_POINTS
+    assert all(0 <= x <= 1 and 0 <= y <= 1 for x, y in out)
+    assert hero_outline([[0.1, 0.1], [0.2, 0.2]]) is None

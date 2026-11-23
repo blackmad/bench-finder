@@ -783,6 +783,50 @@ _MEMBER_KEYS = (
 )
 
 
+OUTLINE_POINTS = 48
+
+
+def hero_outline(poly: list, recut: bool = False) -> list[list[float]] | None:
+    """The SAM 3 mask polygon mapped into the published hero (the ``frame``
+    square crop when there is one, as ``focus`` does), simplified to at most
+    OUTLINE_POINTS points, 3 decimals. None when too little of it is in frame."""
+    from bench_finder.hero_fade import frame_box
+
+    fb = frame_box(poly, recut)
+    if fb is None:
+        pts = [(float(x), float(y)) for x, y in poly]
+    else:
+        cx, cy, side = fb
+        pts = [((x - cx) / side + 0.5, (y - cy) / side + 0.5) for x, y in poly]
+    pts = [(min(1.0, max(0.0, x)), min(1.0, max(0.0, y))) for x, y in pts]
+    if len(pts) < 3:
+        return None
+    tol = 0.002
+    out = _simplify(pts, tol)
+    while len(out) > OUTLINE_POINTS:
+        tol *= 1.6
+        out = _simplify(pts, tol)
+    return [[round(x, 3), round(y, 3)] for x, y in out] if len(out) >= 3 else None
+
+
+def _simplify(pts: list[tuple[float, float]], tol: float) -> list[tuple[float, float]]:
+    """Douglas-Peucker on an open polyline (the ring's first point repeats implicitly)."""
+    if len(pts) < 3:
+        return pts
+    (x1, y1), (x2, y2) = pts[0], pts[-1]
+    dx, dy = x2 - x1, y2 - y1
+    norm = (dx * dx + dy * dy) ** 0.5 or 1e-9
+    far, idx = -1.0, 0
+    for i in range(1, len(pts) - 1):
+        x, y = pts[i]
+        d = abs(dy * x - dx * y + x2 * y1 - y2 * x1) / norm
+        if d > far:
+            far, idx = d, i
+    if far <= tol:
+        return [pts[0], pts[-1]]
+    return _simplify(pts[: idx + 1], tol)[:-1] + _simplify(pts[idx:], tol)
+
+
 def _hero_masks(db_path) -> dict[int, list]:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
@@ -966,6 +1010,8 @@ def publish(
             "hero_height": hero["height"] if hero else None,
             # Where the bench sits in the hero (0..1): the page's crops keep it in view.
             "hero_focus": list(focus(*hero_poly)) if hero_poly else None,
+            # The bench's outline in the hero (0..1 of its width/height), drawn on hover.
+            "hero_outline": hero_outline(*hero_poly) if hero_poly else None,
             "address": short,
         }
         if isinstance(props["backrest"], int):

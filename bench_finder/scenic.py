@@ -23,9 +23,13 @@ import logging
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import numpy as np
 from PIL import Image
+
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 log = logging.getLogger(__name__)
@@ -114,16 +118,6 @@ def to_43(view: np.ndarray, width: int) -> Image.Image:
     return im.resize((width, width * 3 // 4), Image.LANCZOS) if w != width else im
 
 
-def tone(im: Image.Image) -> Image.Image:
-    """A gentle highlight roll-off: city panoramas blow out the sky. A clipped
-    sky stays clipped; this only keeps near-white cloud from reading as paper."""
-    a = np.asarray(im).astype(np.float32) / 255.0
-    knee = 0.82
-    hi = a > knee
-    a[hi] = knee + (a[hi] - knee) * 0.75
-    return Image.fromarray((a * 255 + 0.5).astype(np.uint8))
-
-
 def plan(db: str, images_root: Path, only: set[int] | None = None) -> list[Choice]:
     """A scenic camera for every published bench that has one."""
     from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
@@ -165,7 +159,7 @@ async def render(ex, c: Choice, images_dir: Path) -> int:
     bench, cand = ex._cand(c.bench_id, c.key)
     p = await ex._pano(cand, _needed_width(FOV_DEG, HIRES_W))
     view = await asyncio.to_thread(ex._render, p, c.aim, FOV_DEG, TILT_DEG, HIRES_W)
-    hires = await asyncio.to_thread(lambda: tone(to_43(view, HIRES_W)))
+    hires = await asyncio.to_thread(to_43, view, HIRES_W)  # raw: no tone treatment
     name = f"scenic_{c.bench_id}_{_safe_name(cand.pano_id)}.jpg"
     path = images_dir / name
     hp = hires_path(path)

@@ -1436,3 +1436,27 @@ picture {
   margin-top: 4px;
   font-size: 13px;
 }
+
+/* Hover the bench photo to see the bench outlined. */
+.pv .ph .outline {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  overflow: visible;
+}
+.pv .ph .outline polygon {
+  fill: rgb(255 255 255 / 0.12);
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.6));
+}
+.pv .ph:hover .outline {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv .ph .outline {
+    transition: none;
+  }
+}

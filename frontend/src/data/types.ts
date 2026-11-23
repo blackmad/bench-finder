@@ -132,6 +132,8 @@ export interface GalleryImage {
 }
 
 export interface BenchDetail extends BenchProps {
+  /** The bench's outline in the hero photo (0..1), drawn on hover. */
+  hero_outline?: [number, number][] | null
   /** Raw OpenStreetMap tags, when the bench came from OSM. */
   tags?: Record<string, string>
   /** Free text on what the bench looks at, e.g. "canal and houseboats". */
