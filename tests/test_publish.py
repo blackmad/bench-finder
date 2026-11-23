@@ -608,3 +608,61 @@ def test_site_picks_parse_and_fallback(tmp_path):
     # wrangler missing: the last synced file stands.
     assert site_picks.sync(path, worker_dir=tmp_path / "nowhere") is None
     assert json.loads(path.read_text()) == {"hero_pick": {"1": 2}}
+
+
+def test_suggested_view_takes_second_slot_and_leads_only_when_picked(tmp_path):
+    from bench_finder.publish.build import _order_images
+
+    def img(iid, kind, bearing, **kw):
+        name = f"{kind}_{iid}.jpg"
+        Image.new("RGB", (64, 48)).save(tmp_path / name)
+        return {**_img(iid, bearing, **kw), "kind": kind, "filename": name, "filepath": name}
+
+    lead = img(1, "aimed", 180.0, sam3=0.9, box=BOX)
+    other = img(2, "aimed", 90.0, sam3=0.9, box=BOX)
+    scenic = img(3, "suggested", 190.0)
+    out, has_hero = _order_images([other, scenic, lead], None, 4, tmp_path, 180.0)
+    assert has_hero and [i["id"] for i in out] == [1, 3, 2]
+    # Scenic views stay out of the gallery until vetted.
+    unvetted = img(4, "scenic", 185.0)
+    out, _ = _order_images([other, unvetted, lead], None, 4, tmp_path, 180.0)
+    assert [i["id"] for i in out] == [1, 2]
+    scenic["picked"] = True  # chosen on the site
+    out, _ = _order_images([other, scenic, lead], None, 4, tmp_path, 180.0)
+    assert [i["id"] for i in out] == [3, 1, 2]
+
+
+def test_scenic_aim_turns_toward_the_facing():
+    from bench_finder.scenic import scenic_aim
+
+    assert scenic_aim(54.0, 109.0) == 79.0  # bench 1743: capped at 25 degrees
+    assert scenic_aim(100.0, 109.0) == 109.0  # already close: look along the facing
+    assert scenic_aim(350.0, 20.0) == 15.0  # across north
+
+
+def test_view_suggestion_sql_quoting_and_render_args(monkeypatch):
+    from bench_finder import view_suggestions as vs
+
+    assert vs.sql_text("it's") == "'it''s'"
+    calls = []
+
+    class Ex:
+        def bench(self, bid, r):
+            calls.append(("bench", bid, r))
+
+        def _cand(self, bid, key):
+            if key != "google:PANO_ID_ABCDEFGHIJKL":
+                raise KeyError(key)
+
+        def _save(self, *a, **kw):
+            calls.append(("save", a, kw))
+            return a
+
+        def run(self, x):
+            return 7
+
+    row = {"bench_id": 1743, "pano_id": "PANO_ID_ABCDEFGHIJKL", "heading": 169.0, "pitch": -4.0, "fov": 75.0}
+    assert vs.render_one(Ex(), row, "images") == 7
+    assert calls[1] == ("save", (1743, "google:PANO_ID_ABCDEFGHIJKL", 169.0, 75.0, 4.0, "images"), {"kind": "suggested"})
+    with pytest.raises(ValueError, match="not within"):
+        vs.render_one(Ex(), {**row, "pano_id": "elsewhere"}, "images")

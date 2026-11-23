@@ -375,7 +375,14 @@ class Explorer:
         return self.run(self._save(bid, key, aim, fov, tilt, images_dir))
 
     async def _save(
-        self, bid: int, key: str, aim: float, fov: float, tilt: float, images_dir: str
+        self,
+        bid: int,
+        key: str,
+        aim: float,
+        fov: float,
+        tilt: float,
+        images_dir: str,
+        kind: str = "framed",
     ) -> int:
         from bench_finder.core.streetview import _safe_name
         from bench_finder.models.enums import ImageKind, ImageSource
@@ -389,8 +396,9 @@ class Explorer:
         bench, c = self._cand(bid, key)
         client, _ = await self._ready()
         p = await self._pano(c, _needed_width(fov, HIRES_PX))
+        prefix = "aimed" if kind == "framed" else kind
         name = (
-            f"aimed_{bid}_{_safe_name(c.pano_id)}_x{round(aim) % 360}"
+            f"{prefix}_{bid}_{_safe_name(c.pano_id)}_x{round(aim) % 360}"
             f"f{round(fov)}t{round(tilt)}.jpg"
         )
         path = Path(images_dir) / name
@@ -414,7 +422,7 @@ class Explorer:
             camera_bearing_deg=aim % 360,
             camera_distance_m=haversine_m(c.lat, c.lon, bench.lat, bench.lng),
             pitch_deg=-tilt,
-            kind=ImageKind.FRAMED.value,
+            kind=ImageKind(kind).value,
         )
         if c.source == "google":
             common["panorama_metadata"] = PanoramaMetadata.from_streetview_pano(c.raw)

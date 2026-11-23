@@ -13,6 +13,7 @@ import {
   BenchScore,
   ReportRow,
 } from "./account/BenchSocial"
+import { FindView } from "./account/FindView"
 import { ClearHero, HeroButton } from "./account/HeroButton"
 import { Facts, ViewFromBench } from "./BenchDetails"
 import { PinIcon } from "./Icons"
@@ -178,9 +179,30 @@ function FactsCard({ bench: d, id }: { bench?: BenchDetail; id: number }) {
 }
 
 function StreetView({ bench: d, name }: { bench?: BenchDetail; name: string }) {
+  const [finding, setFinding] = useState(false)
   const target = d ? streetViewTarget(d) : null
   if (!d || !target) return null
-  return <ViewFromBench target={target} facing={d.facing} street={name} />
+  return (
+    <>
+      <ViewFromBench target={target} facing={d.facing} street={name} />
+      <p className="findviewbtn">
+        <button
+          type="button"
+          className="linkbtn"
+          onClick={() => setFinding(true)}
+        >
+          Find a better view of this bench in Street View
+        </button>
+      </p>
+      {finding ? (
+        <FindView
+          benchId={d.id}
+          target={target}
+          onClose={() => setFinding(false)}
+        />
+      ) : null}
+    </>
+  )
 }
 
 /** The tab (and a shared link's title) names the open bench. */

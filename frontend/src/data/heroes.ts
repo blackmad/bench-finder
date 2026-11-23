@@ -128,3 +128,57 @@ export function useResolveSuggestion() {
     },
   })
 }
+
+export function useSuggestView(benchId: number) {
+  return useMutation({
+    mutationFn: async (json: {
+      panoId: string
+      heading: number
+      pitch: number
+      fov: number
+    }) =>
+      unwrap(
+        await api.api.bench[":id"]["view-suggestions"].$post({
+          param: { id: String(benchId) },
+          json,
+        })
+      ),
+  })
+}
+
+export interface ViewSuggestion {
+  id: number
+  benchId: number
+  panoId: string
+  heading: number
+  pitch: number
+  fov: number
+  who: string
+  state: "pending" | "rendered" | "failed"
+  imageId: number | null
+  error: string | null
+  createdAt: string
+}
+
+export function useViewSuggestions() {
+  return useQuery({
+    queryKey: ["admin", "view-suggestions"],
+    queryFn: async () =>
+      unwrap<{ views: ViewSuggestion[] }>(
+        await api.api.admin["view-suggestions"].$get()
+      ),
+  })
+}
+
+export function useDismissView() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) =>
+      unwrap(
+        await api.api.admin["view-suggestions"][":id"].dismiss.$post({
+          param: { id: String(id) },
+        })
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin"] }),
+  })
+}

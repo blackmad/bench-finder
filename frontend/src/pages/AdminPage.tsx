@@ -3,7 +3,12 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Photo } from "../components/Photo"
 import { TopBar } from "../components/TopBar"
-import { useHeroSuggestions, useResolveSuggestion } from "../data/heroes"
+import {
+  useDismissView,
+  useHeroSuggestions,
+  useResolveSuggestion,
+  useViewSuggestions,
+} from "../data/heroes"
 import { useBenchIndex } from "../data/hooks"
 import { useMe } from "../data/social"
 import { adminPhotoUrl, api, unwrap } from "../lib/api"
@@ -324,6 +329,7 @@ function Queue() {
       </section>
 
       <HeroSuggestions />
+      <ViewSuggestions />
     </div>
   )
 }
@@ -414,6 +420,76 @@ function HeroSuggestions() {
             </li>
           )
         })}
+      </ul>
+    </section>
+  )
+}
+
+/** Street View cameras people framed; `bench_finder.view_suggestions` renders them. */
+function ViewSuggestions() {
+  const { data, error } = useViewSuggestions()
+  const dismiss = useDismissView()
+  const views = data?.views ?? []
+  const open = views.filter((v) => v.state === "pending").length
+  return (
+    <section className="block" aria-labelledby="q-views">
+      <div className="blockhead">
+        <h2 id="q-views">Suggested Street View cameras</h2>
+        <p>{open} to render</p>
+      </div>
+      <p className="hint">
+        Render pending ones with{" "}
+        <code>python -m bench_finder.view_suggestions</code>; after the next
+        publish they appear in the bench's photos, where you can make one the
+        lead.
+      </p>
+      {error || dismiss.error ? (
+        <p role="alert" className="form-error">
+          {(error ?? dismiss.error)?.message}
+        </p>
+      ) : null}
+      <ul className="qlist">
+        {data && views.length === 0 ? (
+          <li className="hint">No suggested views.</li>
+        ) : null}
+        {views.map((v) => (
+          <li key={v.id} className="qitem">
+            <div>
+              <p>
+                <b>
+                  {v.state === "pending"
+                    ? "To render"
+                    : v.state === "rendered"
+                      ? "Rendered"
+                      : "Failed"}
+                </b>{" "}
+                · looking {Math.round(v.heading)}°, {Math.round(v.fov)}° wide
+                {v.error ? ` · ${v.error}` : ""}
+              </p>
+              <p className="cmeta">
+                {v.who} on{" "}
+                <Link to={`/?bench=${v.benchId}`}>bench No. {v.benchId}</Link> ·{" "}
+                <a
+                  href={`https://www.google.com/maps/@?api=1&map_action=pano&pano=${encodeURIComponent(v.panoId)}&heading=${Math.round(v.heading)}&pitch=${Math.round(v.pitch)}&fov=${Math.round(v.fov)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in Street View
+                </a>
+              </p>
+            </div>
+            <div className="row">
+              <button
+                type="button"
+                className="btn"
+                disabled={dismiss.isPending}
+                onClick={() => dismiss.mutate(v.id)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </li>
+        ))}
       </ul>
     </section>
   )

@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_TURNSTILE_SITE_KEY?: string
   /** Maps Embed API key (free, referrer-restricted) for the bench Street View. */
   readonly VITE_GOOGLE_MAPS_EMBED_KEY?: string
+  /** Optional key with the Maps JavaScript API (Find a better view); else the embed key. */
+  readonly VITE_GOOGLE_MAPS_JS_KEY?: string
 }
 
 interface ImportMeta {

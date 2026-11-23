@@ -640,17 +640,36 @@ def _order_images(
         )
     if hero is None and ranked and target_gate(ranked[0])[0] < 1.5:
         hero = ranked[0]
-    rest = [i for i in ranked if i is not hero]
+    # Scenic views (bench_finder.scenic) and views visitors framed on the site
+    # (bench_finder.view_suggestions) have no detection of their own, so they
+    # never rank: one of each takes the slots after the lead, newest first, and
+    # leads only when picked.
+    scenic = [
+        next(
+            (i for i in reversed(ranked) if i.get("kind") == k and i is not hero), None
+        )
+        for k in HAND_KINDS
+    ]
+    scenic = [i for i in scenic if i is not None]
+    rest = [
+        i
+        for i in ranked
+        if i is not hero and i.get("kind") not in (*HAND_KINDS, *HELD_KINDS)
+    ]
     if hero is not None and (hy := _year(hero)):
         # Benches get replaced: a view years older than the hero may show the
         # old one (Museumplein: red metal in 2021, wood since 2022).
         rest = [
             i for i in rest if (y := _year(i)) is None or y >= hy - MAX_GALLERY_AGE_Y
         ]
-    return (([hero] if hero else []) + rest)[:n], hero is not None
+    return (([hero] if hero else []) + scenic + rest)[:n], hero is not None
 
 
 MAX_GALLERY_AGE_Y = 3
+# Scenic views stay out until they are vetted: in a 37-bench sample (2026-11)
+# about 15 beat the lead, the rest lost the bench among cars and streets.
+HAND_KINDS = ("suggested",)
+HELD_KINDS = ("scenic",)  # shown only when picked
 
 
 def _year(img: dict) -> int | None:

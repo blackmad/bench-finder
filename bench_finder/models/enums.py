@@ -62,6 +62,8 @@ class ImageKind(StrEnum):
 
     AIMED = "aimed"  # perspective view aimed at the bench
     FRAMED = "framed"  # an aimed view framed by hand in the hero explorer
+    SUGGESTED = "suggested"  # a Street View camera a visitor framed on the site
+    SCENIC = "scenic"  # a wide 4:3 view toward what the bench faces (bench_finder.scenic)
     PANO = "pano"  # raw panorama
     LEGACY = "legacy"  # pre-resurrection rows
 

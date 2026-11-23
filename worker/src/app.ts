@@ -864,6 +864,91 @@ export function createApp(deps: Deps = {}) {
       },
     )
 
+    // "Find a better view": a Street View camera to render offline.
+    .post(
+      "/api/bench/:id/view-suggestions",
+      zValidator("param", idParam, validationHook),
+      zValidator(
+        "json",
+        z.object({
+          // Google panorama ids: 22 url-safe base64 characters (longer for some).
+          panoId: z.string().regex(/^[A-Za-z0-9_-]{16,80}$/),
+          heading: z.number().min(-720).max(720),
+          pitch: z.number().min(-90).max(90),
+          fov: z.number().min(10).max(120),
+        }),
+        validationHook,
+      ),
+      async (c) => {
+        const user = await requireUser(c);
+        const { id } = c.req.valid("param");
+        const v = c.req.valid("json");
+        const { allowed } = await hit(c.env.DB, "view", user.uid, 30);
+        if (!allowed) throw new HTTPException(429, { message: "Too many suggestions, try again later" });
+        const heading = ((v.heading % 360) + 360) % 360;
+        await c.env.DB
+          .prepare(
+            `INSERT INTO view_suggestions (bench_id, pano_id, heading, pitch, fov, user_id, display_name, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+          )
+          .bind(id, v.panoId, heading, v.pitch, v.fov, user.uid, user.name?.trim() || "Anonymous", now())
+          .run();
+        return c.json({ ok: true }, 201);
+      },
+    )
+
+    .get("/api/admin/view-suggestions", async (c) => {
+      await requireAdmin(c);
+      const rows = await c.env.DB
+        .prepare(
+          `SELECT id, bench_id, pano_id, heading, pitch, fov, display_name, state, image_id, error, created_at
+           FROM view_suggestions WHERE state IN ('pending', 'rendered', 'failed') ORDER BY created_at DESC LIMIT 200`,
+        )
+        .all<{
+          id: number;
+          bench_id: number;
+          pano_id: string;
+          heading: number;
+          pitch: number;
+          fov: number;
+          display_name: string;
+          state: "pending" | "rendered" | "failed";
+          image_id: number | null;
+          error: string | null;
+          created_at: string;
+        }>();
+      return c.json({
+        views: rows.results.map((r) => ({
+          id: r.id,
+          benchId: r.bench_id,
+          panoId: r.pano_id,
+          heading: r.heading,
+          pitch: r.pitch,
+          fov: r.fov,
+          who: r.display_name,
+          state: r.state,
+          imageId: r.image_id,
+          error: r.error,
+          createdAt: r.created_at,
+        })),
+      });
+    })
+
+    .post(
+      "/api/admin/view-suggestions/:id/dismiss",
+      zValidator("param", commentIdParam, validationHook),
+      async (c) => {
+        await requireAdmin(c);
+        const { id } = c.req.valid("param");
+        const r = await c.env.DB
+          .prepare("UPDATE view_suggestions SET state = 'dismissed', resolved_at = ?2 WHERE id = ?1")
+          .bind(id, now())
+          .run();
+        if (!r.meta.changes) throw new HTTPException(404, { message: "Suggestion not found" });
+        return c.json({ id, state: "dismissed" });
+      },
+    )
+
     .get("/api/admin/hero-suggestions", async (c) => {
       await requireAdmin(c);
       const rows = await c.env.DB
