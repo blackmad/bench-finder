@@ -74,7 +74,12 @@ def render_one(ex, row: dict, images_dir: str) -> int:
     try:
         ex._cand(bid, key)
     except KeyError:
-        raise ValueError(f"panorama not within {SEARCH_M} m of the bench") from None
+        # Street View can open panoramas the coverage search skipped: fetch it by id.
+        c = ex.run(ex._add_google(bid, str(row["pano_id"])))
+        if c.distance_m > SEARCH_M:
+            raise ValueError(
+                f"panorama {c.distance_m:.0f} m from the bench (max {SEARCH_M})"
+            ) from None
     # Street View's pitch is up-positive; the renderer's tilt is down-positive.
     return ex.run(
         ex._save(

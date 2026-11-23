@@ -258,6 +258,35 @@ class Explorer:
         out.sort(key=lambda o: (o["score"] is None, -(o["score"] or 0), o["dist"]))
         return {**info, "panos": out, "errors": errors[:5]}
 
+    async def _add_google(self, bid: int, pano_id: str) -> PanoCandidate:
+        """A Google panorama by id (one someone chose in Street View that the
+        coverage search missed), added to the bench's candidates."""
+        from bench_finder.core.pano_geometry import bearing_deg, haversine_m
+
+        entry = next((v for (b, _), v in self.cands.items() if b == bid), None)
+        if entry is None:
+            raise KeyError(bid)
+        bench, _, cands = entry
+        client, session = await self._ready()
+        meta = await client._google_meta(pano_id, session)
+        if meta is None:
+            raise ValueError(f"Google has no panorama {pano_id}")
+        date = meta.date
+        c = PanoCandidate(
+            pano_id=str(meta.id),
+            lat=meta.lat,
+            lon=meta.lon,
+            distance_m=haversine_m(meta.lat, meta.lon, bench.lat, bench.lng),
+            bearing_deg=bearing_deg(meta.lat, meta.lon, bench.lat, bench.lng),
+            source="google",
+            year=getattr(date, "year", None),
+            month=getattr(date, "month", None),
+            date_str=str(date) if date else None,
+            raw=meta,
+        )
+        cands.append(c)
+        return c
+
     def _cand(self, bid: int, key: str) -> tuple[Bench, PanoCandidate]:
         for (b, _), (bench, _, cands) in self.cands.items():
             if b == bid:
