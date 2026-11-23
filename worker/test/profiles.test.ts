@@ -101,13 +101,13 @@ describe("homepage feed", () => {
     ]);
     expect(items.find((i) => i.kind === "fave")).toMatchObject({ who: "Pia", page: "pia" });
     const rating = items.find((i) => i.kind === "rating");
-    expect(rating).not.toHaveProperty("who"); // ratings are anonymous
+    expect(rating).toMatchObject({ who: "patp" }); // the rater's username
     expect(JSON.stringify(items)).not.toContain("priv");
     const ats = items.map((i) => i.at as string);
     expect([...ats].sort().reverse()).toEqual(ats);
   });
 
-  it("a note posted with stars is one line; a rating on its own stays anonymous", async () => {
+  it("a note posted with stars is one line; a rating on its own is its own line", async () => {
     const api = makeClient();
     await named(["sam", "sam"], ["ann", "ann"]);
     const sam = await bearer({ uid: "sam", name: "Sam" });

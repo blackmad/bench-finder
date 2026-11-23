@@ -79,7 +79,13 @@ function FeedLine({
   if (i.kind === "rating") {
     return (
       <p>
-        {bench} got{" "}
+        {i.who ? (
+          <>
+            <b>{i.who}</b> gave {bench}{" "}
+          </>
+        ) : (
+          <>{bench} got </>
+        )}
         <span role="img" aria-label={`${i.rating} of 5 stars`}>
           {"★".repeat(i.rating)}
         </span>

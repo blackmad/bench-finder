@@ -54,7 +54,14 @@ export type FeedItem =
       text: string
       rating: number | null
     }
-  | { kind: "rating"; key: string; benchId: number; at: string; rating: number }
+  | {
+      kind: "rating"
+      key: string
+      benchId: number
+      at: string
+      rating: number
+      who?: string | null
+    }
   | {
       kind: "fave"
       key: string

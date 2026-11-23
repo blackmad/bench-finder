@@ -126,7 +126,7 @@ const NOTE_RATING_MS = 60 * 60 * 1000;
 
 export type FeedItem =
   | { kind: "note"; key: string; benchId: number; at: string; who: string; text: string; rating: number | null }
-  | { kind: "rating"; key: string; benchId: number; at: string; rating: number }
+  | { kind: "rating"; key: string; benchId: number; at: string; rating: number; who: string | null }
   | { kind: "fave"; key: string; benchId: number; at: string; who: string; page: string };
 
 /** Paths and words a handle may not take (it shares /u/ with share slugs). */
@@ -580,7 +580,10 @@ export function createApp(deps: Deps = {}) {
             )
             .bind(limit),
           c.env.DB
-            .prepare("SELECT bench_id, user_id, rating, updated_at FROM ratings ORDER BY updated_at DESC LIMIT ?1")
+            .prepare(
+              `SELECT r.bench_id, r.user_id, r.rating, r.updated_at, p.handle FROM ratings r
+               LEFT JOIN profiles p ON p.user_id = r.user_id ORDER BY r.updated_at DESC LIMIT ?1`,
+            )
             .bind(limit),
           // Only from people who made their favourites public.
           c.env.DB
@@ -622,7 +625,15 @@ export function createApp(deps: Deps = {}) {
               rating: r.rating,
             }),
           ),
-          ...(ratings.results as { bench_id: number; user_id: string; rating: number; updated_at: string }[])
+          ...(
+            ratings.results as {
+              bench_id: number;
+              user_id: string;
+              rating: number;
+              updated_at: string;
+              handle: string | null;
+            }[]
+          )
             .filter((r) => !withNote(r))
             .map(
               (r, i): FeedItem => ({
@@ -631,6 +642,8 @@ export function createApp(deps: Deps = {}) {
                 benchId: r.bench_id,
                 at: r.updated_at,
                 rating: r.rating,
+                // The rater's username; null if they haven't chosen one.
+                who: r.handle,
               }),
             ),
           ...(faves.results as { bench_id: number; favorited_at: string; display_name: string; page: string }[]).map(
