@@ -1,5 +1,6 @@
 import gzip
 import json
+import types
 import sqlite3
 from pathlib import Path
 
@@ -686,8 +687,11 @@ def test_view_suggestion_sql_quoting_and_render_args(monkeypatch):
             calls.append(("save", a, kw))
             return a
 
+        def _add_google(self, bid, pano_id):  # fetched by id: 500 m away
+            return types.SimpleNamespace(distance_m=500.0)
+
         def run(self, x):
-            return 7
+            return x if isinstance(x, types.SimpleNamespace) else 7
 
     row = {
         "bench_id": 1743,
@@ -702,7 +706,7 @@ def test_view_suggestion_sql_quoting_and_render_args(monkeypatch):
         (1743, "google:PANO_ID_ABCDEFGHIJKL", 169.0, 75.0, 4.0, "images"),
         {"kind": "suggested"},
     )
-    with pytest.raises(ValueError, match="not within"):
+    with pytest.raises(ValueError, match="500 m from the bench"):
         vs.render_one(Ex(), {**row, "pano_id": "elsewhere"}, "images")
 
 
