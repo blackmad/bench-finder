@@ -145,17 +145,19 @@ function StarPicker({
   onChange,
   legend,
   name,
+  hideLegend = false,
 }: {
   value: number | null
   onChange: (n: number | null) => void
   legend: string
   name: string
+  hideLegend?: boolean
 }) {
   const [hover, setHover] = useState<number | null>(null)
   const shown = hover ?? value ?? 0
   return (
     <fieldset className="stars small" onMouseLeave={() => setHover(null)}>
-      <legend className="caps">{legend}</legend>
+      <legend className={hideLegend ? "sr" : "caps"}>{legend}</legend>
       {[1, 2, 3, 4, 5].map((n) => (
         <label
           key={n}
@@ -218,17 +220,14 @@ export function BenchNotes({ benchId }: { benchId: number }) {
         <h2 id="h-notes">Notes</h2>
         <p>Public notes from people who sat here</p>
       </div>
-      <div className="notes">
+      <div className={comments.length ? "notes" : "notes empty"}>
         <div>
           {isPending ? (
             <p>Loading notes...</p>
           ) : error ? (
             <p className="hint">Notes are unavailable right now.</p>
           ) : comments.length === 0 ? (
-            <p>
-              <strong>No notes yet.</strong>
-              Sat here? Say what the light is like, or when it's quiet.
-            </p>
+            <p className="hint">No notes yet. Be the first.</p>
           ) : (
             <ul className="comments">
               {comments.map((c) => (
@@ -270,29 +269,33 @@ export function BenchNotes({ benchId }: { benchId: number }) {
         </div>
         {user ? (
           <form className="stack notes-form" onSubmit={submit}>
-            <label htmlFor="note-body" className="caps">
+            <label htmlFor="note-body" className="sr">
               Add a note
             </label>
             <textarea
               id="note-body"
-              rows={3}
+              rows={2}
               maxLength={2000}
+              placeholder="Sat here? What's the light like, when is it quiet?"
               value={body}
               onChange={(e) => setBody(e.target.value)}
             />
-            <StarPicker
-              value={stars}
-              onChange={setStars}
-              legend="Stars (optional, shown with your note)"
-              name={`note-stars-${benchId}`}
-            />
-            <button
-              type="submit"
-              className="btn primary"
-              disabled={add.isPending || !body.trim()}
-            >
-              {add.isPending ? "Posting..." : "Post note"}
-            </button>
+            <div className="notes-send">
+              <StarPicker
+                value={stars}
+                onChange={setStars}
+                legend="Stars, optional, shown with your note"
+                name={`note-stars-${benchId}`}
+                hideLegend
+              />
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={add.isPending || !body.trim()}
+              >
+                {add.isPending ? "Posting..." : "Post note"}
+              </button>
+            </div>
             {add.error ? (
               <p role="alert" className="form-error">
                 {add.error.message}

@@ -133,11 +133,33 @@
 .notes {
   background: var(--card);
   box-shadow: var(--shadow);
-  padding: 28px;
+  padding: 20px 24px;
   display: grid;
   grid-template-columns: 1fr minmax(260px, 340px);
-  gap: 24px;
+  gap: 16px 24px;
   align-items: start;
+}
+/* No notes yet: one column, the form first. */
+.notes.empty {
+  grid-template-columns: 1fr;
+}
+.notes.empty > :first-child {
+  order: 1;
+}
+.notes-send {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.notes-send .btn {
+  width: auto;
+  padding-inline: 18px;
+}
+.notes-send .stars .icon {
+  width: 20px;
+  height: 20px;
 }
 .notes p {
   margin: 0;
