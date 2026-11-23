@@ -991,7 +991,13 @@ export function createApp(deps: Deps = {}) {
     .delete("/api/admin/bench/:id/hero", zValidator("param", idParam, validationHook), async (c) => {
       await requireAdmin(c);
       const { id } = c.req.valid("param");
-      await c.env.DB.prepare("DELETE FROM hero_picks WHERE bench_id = ?1").bind(id).run();
+      // A moderator's rendered Street View suggestion counts as a pick too (site_picks.py).
+      await c.env.DB.batch([
+        c.env.DB.prepare("DELETE FROM hero_picks WHERE bench_id = ?1").bind(id),
+        c.env.DB.prepare(
+          "UPDATE view_suggestions SET state = 'dismissed' WHERE bench_id = ?1 AND state = 'rendered'",
+        ).bind(id),
+      ]);
       return c.json({ benchId: id });
     })
 

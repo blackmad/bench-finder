@@ -598,6 +598,29 @@ def test_picked_images_one_per_bench_site_wins(tmp_path):
     assert picked_images(tmp_path) == {54438, 70}
 
 
+def test_site_picks_latest_wins_and_moderator_views_count(tmp_path):
+    from bench_finder.publish import site_picks
+
+    out = json.dumps(
+        [
+            {
+                "results": [
+                    {"bench_id": 1356, "image_id": 10, "t": "2026-11-20T10:00:00Z"},
+                    {"bench_id": 1356, "image_id": 99, "t": "2026-11-23T09:00:00Z"},
+                    {"bench_id": 7, "image_id": 5, "t": None},
+                ]
+            }
+        ]
+    )
+    assert site_picks.parse(out) == {"1356": 99, "7": 5}
+    cfg = tmp_path / "wrangler.jsonc"
+    cfg.write_text('{ "vars": { "ADMIN_UIDS": "abc, d\'e" } }')
+    assert site_picks.admin_uids(cfg) == ["abc", "d'e"]
+    q = site_picks.query(["abc", "d'e"])
+    assert "view_suggestions" in q and "'d''e'" in q
+    assert "view_suggestions" not in site_picks.query([])
+
+
 def test_site_picks_parse_and_fallback(tmp_path):
     from bench_finder.publish import site_picks
 
@@ -616,7 +639,12 @@ def test_suggested_view_takes_second_slot_and_leads_only_when_picked(tmp_path):
     def img(iid, kind, bearing, **kw):
         name = f"{kind}_{iid}.jpg"
         Image.new("RGB", (64, 48)).save(tmp_path / name)
-        return {**_img(iid, bearing, **kw), "kind": kind, "filename": name, "filepath": name}
+        return {
+            **_img(iid, bearing, **kw),
+            "kind": kind,
+            "filename": name,
+            "filepath": name,
+        }
 
     lead = img(1, "aimed", 180.0, sam3=0.9, box=BOX)
     other = img(2, "aimed", 90.0, sam3=0.9, box=BOX)
@@ -661,20 +689,36 @@ def test_view_suggestion_sql_quoting_and_render_args(monkeypatch):
         def run(self, x):
             return 7
 
-    row = {"bench_id": 1743, "pano_id": "PANO_ID_ABCDEFGHIJKL", "heading": 169.0, "pitch": -4.0, "fov": 75.0}
+    row = {
+        "bench_id": 1743,
+        "pano_id": "PANO_ID_ABCDEFGHIJKL",
+        "heading": 169.0,
+        "pitch": -4.0,
+        "fov": 75.0,
+    }
     assert vs.render_one(Ex(), row, "images") == 7
-    assert calls[1] == ("save", (1743, "google:PANO_ID_ABCDEFGHIJKL", 169.0, 75.0, 4.0, "images"), {"kind": "suggested"})
+    assert calls[1] == (
+        "save",
+        (1743, "google:PANO_ID_ABCDEFGHIJKL", 169.0, 75.0, 4.0, "images"),
+        {"kind": "suggested"},
+    )
     with pytest.raises(ValueError, match="not within"):
         vs.render_one(Ex(), {**row, "pano_id": "elsewhere"}, "images")
 
 
 def test_hero_outline_maps_into_the_frame_and_simplifies():
-    from bench_finder.publish.build import OUTLINE_POINTS, hero_outline
-
     # A dense ring around a bench in the middle of the frame.
     import math
 
-    ring = [[0.5 + 0.2 * math.cos(t / 100 * 2 * math.pi), 0.6 + 0.1 * math.sin(t / 100 * 2 * math.pi)] for t in range(400)]
+    from bench_finder.publish.build import OUTLINE_POINTS, hero_outline
+
+    ring = [
+        [
+            0.5 + 0.2 * math.cos(t / 100 * 2 * math.pi),
+            0.6 + 0.1 * math.sin(t / 100 * 2 * math.pi),
+        ]
+        for t in range(400)
+    ]
     out = hero_outline(ring)
     assert out is not None and 3 <= len(out) <= OUTLINE_POINTS
     assert all(0 <= x <= 1 and 0 <= y <= 1 for x, y in out)

@@ -3094,6 +3094,12 @@ def publish_command(
 
     wait_for_uploads()  # a background upload still reads the output directory
     from bench_finder.publish.site_picks import sync as sync_site_picks
+    from bench_finder.view_suggestions import render_pending
+
+    try:  # Street View cameras suggested on the site
+        console.print(f"Suggested views rendered: {render_pending()}")
+    except Exception as e:  # never blocks a publish
+        console.print(f"[yellow]Suggested views not rendered: {e}[/yellow]")
 
     synced = sync_site_picks()  # lead photos moderators picked on the site
     console.print(

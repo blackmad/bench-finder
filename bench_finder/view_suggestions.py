@@ -97,23 +97,35 @@ def main() -> None:
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-    rows = d1(
+    if args.dry_run:
+        for r in pending():
+            log.info("%s", r)
+        return
+    render_pending(args.db, args.images)
+
+
+def pending() -> list[dict]:
+    return d1(
         "SELECT id, bench_id, pano_id, heading, pitch, fov FROM view_suggestions "
         "WHERE state = 'pending' ORDER BY created_at"
     )
-    log.info("pending suggested views: %d", len(rows))
-    if args.dry_run:
-        for r in rows:
-            log.info("%s", r)
-        return
 
+
+def render_pending(db: str = "data/benches.db", images: str = "images") -> int:
+    """Render every pending suggestion (publish runs this first); how many rendered."""
+    rows = pending()
+    log.info("pending suggested views: %d", len(rows))
+    if not rows:
+        return 0
     from bench_finder.explore import Explorer
 
-    ex = Explorer(args.db)
+    ex = Explorer(db)
+    done = 0
     for r in rows:
         try:
-            image_id = render_one(ex, r, args.images)
+            image_id = render_one(ex, r, images)
             mark(r["id"], image_id=image_id)
+            done += 1
             log.info(
                 "suggestion %s (bench %s) -> image %d", r["id"], r["bench_id"], image_id
             )
@@ -124,6 +136,7 @@ def main() -> None:
             mark(r["id"], error=str(e))
         finally:
             ex.cands.clear()
+    return done
 
 
 if __name__ == "__main__":

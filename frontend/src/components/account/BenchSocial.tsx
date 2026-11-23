@@ -140,45 +140,6 @@ export function Stars({ n }: { n: number }) {
 }
 
 /** Five star radios that can be cleared again (clicking the chosen star). */
-function StarPicker({
-  value,
-  onChange,
-  legend,
-  name,
-  hideLegend = false,
-}: {
-  value: number | null
-  onChange: (n: number | null) => void
-  legend: string
-  name: string
-  hideLegend?: boolean
-}) {
-  const [hover, setHover] = useState<number | null>(null)
-  const shown = hover ?? value ?? 0
-  return (
-    <fieldset className="stars small" onMouseLeave={() => setHover(null)}>
-      <legend className={hideLegend ? "sr" : "caps"}>{legend}</legend>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <label
-          key={n}
-          className={n <= shown ? "on" : undefined}
-          onMouseEnter={() => setHover(n)}
-        >
-          <input
-            type="radio"
-            name={name}
-            value={n}
-            checked={value === n}
-            onChange={() => onChange(n)}
-            onClick={() => (value === n ? onChange(null) : undefined)}
-          />
-          <StarIcon />
-          <span className="sr">{n === 1 ? "1 star" : `${n} stars`}</span>
-        </label>
-      ))}
-    </fieldset>
-  )
-}
 
 const when = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, {
@@ -195,7 +156,7 @@ export function BenchNotes({ benchId }: { benchId: number }) {
   const del = useDeleteComment(benchId)
   const flag = useFlagComment()
   const [body, setBody] = useState("")
-  const [stars, setStars] = useState<number | null>(null)
+  const myRating = data?.me?.rating ?? null
   const [flagged, setFlagged] = useState<number[]>([])
   const comments = data?.comments ?? []
 
@@ -204,13 +165,8 @@ export function BenchNotes({ benchId }: { benchId: number }) {
     const text = body.trim()
     if (!text) return
     add.mutate(
-      { body: text, ...(stars ? { rating: stars } : {}) },
-      {
-        onSuccess: () => {
-          setBody("")
-          setStars(null)
-        },
-      }
+      { body: text, ...(myRating ? { rating: myRating } : {}) },
+      { onSuccess: () => setBody("") }
     )
   }
 
@@ -281,13 +237,11 @@ export function BenchNotes({ benchId }: { benchId: number }) {
               onChange={(e) => setBody(e.target.value)}
             />
             <div className="notes-send">
-              <StarPicker
-                value={stars}
-                onChange={setStars}
-                legend="Stars, optional, shown with your note"
-                name={`note-stars-${benchId}`}
-                hideLegend
-              />
+              <span className="hint">
+                {myRating
+                  ? "Your stars above show with your note."
+                  : "Rate it above to show stars with your note."}
+              </span>
               <button
                 type="submit"
                 className="btn primary"
