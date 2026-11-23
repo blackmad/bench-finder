@@ -63,6 +63,37 @@ export async function uploadPhoto(
   return (await unwrap<{ key: string }>(res)).key
 }
 
+/** POST a visitor's photo of a bench (pending until a moderator approves it). */
+export async function postBenchPhoto(
+  benchId: number,
+  blob: Blob,
+  width: number,
+  height: number
+): Promise<{ id: number }> {
+  const token = await tokenProvider()
+  const headers: Record<string, string> = {
+    "Content-Type": blob.type || "image/jpeg",
+  }
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(
+    `${BASE}/api/bench/${benchId}/photos?w=${width}&h=${height}`,
+    { method: "POST", headers, body: blob }
+  )
+  return unwrap<{ id: number }>(res)
+}
+
+/** The URL of a visitor photo; pending ones need the viewer's token, so they come as blob URLs. */
+export const benchPhotoSrc = (path: string) => `${BASE}${path}`
+
+export async function privatePhotoUrl(path: string): Promise<string> {
+  const token = await tokenProvider()
+  const res = await fetch(benchPhotoSrc(path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new ApiError("Photo unavailable", res.status)
+  return URL.createObjectURL(await res.blob())
+}
+
 /** Fetch a moderator-only report photo as a blob URL. */
 export async function adminPhotoUrl(key: string): Promise<string> {
   const token = await tokenProvider()

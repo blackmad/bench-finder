@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api, unwrap } from "../lib/api"
+import { withUsername } from "../lib/username"
 import type { BenchProps, GalleryImage, ImageUrls } from "./types"
 
 /** A lead photo a moderator chose on the site (before a publish bakes it in). */
@@ -94,11 +95,13 @@ export function useClearHero(benchId: number) {
 export function useSuggestHero(benchId: number) {
   return useMutation({
     mutationFn: async (g: GalleryImage & { id: number }) =>
-      unwrap(
-        await api.api.bench[":id"]["hero-suggestions"].$post({
-          param: { id: String(benchId) },
-          json: pickBody(g),
-        })
+      withUsername(async () =>
+        unwrap(
+          await api.api.bench[":id"]["hero-suggestions"].$post({
+            param: { id: String(benchId) },
+            json: pickBody(g),
+          })
+        )
       ),
   })
 }
@@ -137,11 +140,13 @@ export function useSuggestView(benchId: number) {
       pitch: number
       fov: number
     }) =>
-      unwrap(
-        await api.api.bench[":id"]["view-suggestions"].$post({
-          param: { id: String(benchId) },
-          json,
-        })
+      withUsername(async () =>
+        unwrap(
+          await api.api.bench[":id"]["view-suggestions"].$post({
+            param: { id: String(benchId) },
+            json,
+          })
+        )
       ),
   })
 }

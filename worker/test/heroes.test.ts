@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ADMIN_UID, bearer, makeClient, resetDb } from "./helpers";
+import { ADMIN_UID, bearer, named, makeClient, resetDb } from "./helpers";
 
 beforeEach(resetDb);
 
@@ -54,6 +54,7 @@ describe("suggestions", () => {
     const api = makeClient();
     const u1 = await bearer({ uid: "u1", name: "Uma" });
     const u2 = await bearer({ uid: "u2", name: "Ugo" });
+    await named(["u1", "uma"], ["u2", "ugo"]);
     const admin = await bearer({ uid: ADMIN_UID });
     expect((await api.json("POST", "/api/bench/2160/hero-suggestions", { imageId: 54438, photo: photo(A) })).status).toBe(401);
     expect((await api.json("POST", "/api/bench/2160/hero-suggestions", { imageId: 54438, photo: photo(A) }, u1)).status).toBe(201);
@@ -66,7 +67,7 @@ describe("suggestions", () => {
     type S = { suggestions: { id: number; benchId: number; imageId: number; who: string }[] };
     let { suggestions } = (await (await api.request("/api/admin/hero-suggestions", { headers: admin })).json()) as S;
     expect(suggestions).toHaveLength(3);
-    const uma = suggestions.find((s) => s.who === "Uma");
+    const uma = suggestions.find((s) => s.who === "uma");
     expect((await api.request(`/api/admin/hero-suggestions/${uma?.id}/accept`, { method: "POST", headers: admin })).status).toBe(200);
 
     ({ suggestions } = (await (await api.request("/api/admin/hero-suggestions", { headers: admin })).json()) as S);
@@ -85,6 +86,7 @@ describe("view suggestions", () => {
   it("signed-in people suggest a Street View camera; moderators list and dismiss", async () => {
     const api = makeClient();
     const u = await bearer({ uid: "u1", name: "Uma" });
+    await named(["u1", "uma"]);
     const admin = await bearer({ uid: ADMIN_UID });
     const view = { panoId: "_p0Cvw_lTj8_9BX1KvXN_Q", heading: -191, pitch: -4, fov: 75 };
     expect((await api.json("POST", "/api/bench/1743/view-suggestions", view)).status).toBe(401);
@@ -95,7 +97,7 @@ describe("view suggestions", () => {
     expect((await api.request("/api/admin/view-suggestions", { headers: u })).status).toBe(403);
     type V = { views: { id: number; benchId: number; heading: number; who: string; state: string }[] };
     let { views } = (await (await api.request("/api/admin/view-suggestions", { headers: admin })).json()) as V;
-    expect(views).toEqual([expect.objectContaining({ benchId: 1743, heading: 169, who: "Uma", state: "pending" })]);
+    expect(views).toEqual([expect.objectContaining({ benchId: 1743, heading: 169, who: "uma", state: "pending" })]);
     await api.request(`/api/admin/view-suggestions/${views[0].id}/dismiss`, { method: "POST", headers: admin });
     ({ views } = (await (await api.request("/api/admin/view-suggestions", { headers: admin })).json()) as V);
     expect(views).toEqual([]);

@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createVerifier } from "../src/auth";
 import { verifyTurnstile } from "../src/turnstile";
-import { ADMIN_UID, bearer, makeClient, makeToken, PNG, PROJECT, resetDb, testJwks, testJwksJson } from "./helpers";
+import { ADMIN_UID, bearer, named, makeClient, makeToken, PNG, PROJECT, resetDb, testJwks, testJwksJson } from "./helpers";
 
 beforeEach(resetDb);
 
@@ -110,6 +110,7 @@ describe("ratings and status", () => {
 describe("comments", () => {
   it("creates, lists, and lets the author delete (soft)", async () => {
     const api = makeClient();
+    await named(["u1", "ann"]);
     const h = await bearer({ uid: "u1", name: "Ann" });
     const created = await api.json("POST", "/api/bench/1/comments", { body: "  Nice view  " }, h);
     expect(created.status).toBe(201);
@@ -118,7 +119,7 @@ describe("comments", () => {
     const list = (await (await api.request("/api/bench/1/social", { headers: h })).json()) as {
       comments: { id: number; body: string; displayName: string; mine: boolean }[];
     };
-    expect(list.comments).toMatchObject([{ id, body: "Nice view", displayName: "Ann", mine: true }]);
+    expect(list.comments).toMatchObject([{ id, body: "Nice view", displayName: "ann", mine: true }]);
 
     const anon = (await (await api.request("/api/bench/1/social")).json()) as { comments: { mine: boolean }[] };
     expect(anon.comments[0].mine).toBe(false);
@@ -133,6 +134,7 @@ describe("comments", () => {
 
   it("cannot delete someone else's comment", async () => {
     const api = makeClient();
+    await named("u1");
     const c = await api.json("POST", "/api/bench/1/comments", { body: "mine" }, await bearer({ uid: "u1" }));
     const { id } = (await c.json()) as { id: number };
     const res = await api.json("DELETE", `/api/comments/${id}`, undefined, await bearer({ uid: "u2" }));
@@ -152,6 +154,7 @@ describe("comments", () => {
 
   it("rate limits comments per user", async () => {
     const api = makeClient({}, { RATE_LIMIT_COMMENTS_PER_HOUR: "2" });
+    await named("spammer");
     const h = await bearer({ uid: "spammer" });
     const codes = [];
     for (let i = 0; i < 3; i++) codes.push((await api.json("POST", "/api/bench/1/comments", { body: `c${i}` }, h)).status);

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultDisplayName, handleProblem } from "../src/app";
-import { bearer, makeClient, resetDb } from "./helpers";
+import { bearer, named, makeClient, resetDb } from "./helpers";
 
 beforeEach(resetDb);
 
@@ -84,6 +84,7 @@ describe("homepage feed", () => {
     const api = makeClient();
     const pub = await bearer({ uid: "pub", name: "Pia" });
     const priv = await bearer({ uid: "priv", name: "Pat Private" });
+    await named(["priv", "patp"]);
     await api.json("PUT", "/api/me/profile", { public: true, handle: "pia" }, pub);
     await fave(api, pub, 10);
     await fave(api, priv, 11); // private: never in the feed
@@ -108,13 +109,14 @@ describe("homepage feed", () => {
 
   it("a note posted with stars is one line; a rating on its own stays anonymous", async () => {
     const api = makeClient();
+    await named(["sam", "sam"], ["ann", "ann"]);
     const sam = await bearer({ uid: "sam", name: "Sam" });
     const ann = await bearer({ uid: "ann", name: "Ann" });
     expect((await api.json("POST", "/api/bench/5/comments", { body: "Quiet after 8", rating: 4 }, sam)).status).toBe(201);
     await api.json("POST", "/api/bench/6/comments", { body: "No stars here" }, ann);
     await api.json("PUT", "/api/bench/6/rating", { rating: 2 }, ann); // rated separately: not tied to her note
     const { items } = (await (await api.request("/api/feed")).json()) as { items: Record<string, unknown>[] };
-    expect(items.filter((i) => i.benchId === 5)).toEqual([expect.objectContaining({ kind: "note", who: "Sam", rating: 4 })]);
+    expect(items.filter((i) => i.benchId === 5)).toEqual([expect.objectContaining({ kind: "note", who: "sam", rating: 4 })]);
     expect(items.filter((i) => i.benchId === 6).map((i) => [i.kind, i.rating]).sort()).toEqual([
       ["note", null],
       ["rating", 2],

@@ -710,3 +710,12 @@
 .findviewbtn {
   margin: 8px 0 0;
 }
+
+.qphoto img {
+  width: 320px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}

@@ -61,7 +61,7 @@ export function makeClient(deps: Deps = {}, envOverrides: Partial<Env> = {}) {
 }
 
 export async function resetDb() {
-  for (const t of ["ratings", "user_status", "profiles", "hero_picks", "hero_suggestions", "view_suggestions", "comments", "bench_reports", "missing_bench_reports", "rate_limits"]) {
+  for (const t of ["ratings", "user_status", "profiles", "hero_picks", "hero_suggestions", "view_suggestions", "bench_photos", "comments", "bench_reports", "missing_bench_reports", "rate_limits"]) {
     await env.DB.prepare(`DELETE FROM ${t}`).run();
   }
 }
@@ -70,3 +70,15 @@ export const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 
 /** The public half of the test signing key, as the JSON string AUTH_TEST_JWKS expects. */
 export const testJwksJson = JSON.stringify({ keys: [pub] });
+
+/** Give users a username (posting needs one): handle = the given name, else the uid. */
+export async function named(...users: (string | [string, string])[]) {
+  for (const u of users) {
+    const [uid, handle] = typeof u === "string" ? [u, u] : u;
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO profiles (user_id, slug, handle, display_name, public, created_at, updated_at) VALUES (?1, ?2, ?3, ?3, 0, '2026-01-01', '2026-01-01')",
+    )
+      .bind(uid, `s-${uid}`, handle)
+      .run();
+  }
+}

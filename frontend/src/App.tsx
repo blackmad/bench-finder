@@ -8,6 +8,7 @@ import {
   useLocation,
   useParams,
 } from "react-router-dom"
+import { UsernameDialog } from "./components/account/UsernameDialog"
 import { ErrorBoundary } from "./components/ErrorBoundary"
 import { AuthProvider } from "./lib/auth"
 import "./styles/account.css"
@@ -69,6 +70,7 @@ export default function App() {
         <AuthProvider>
           <BrowserRouter>
             <RouteFocus />
+            <UsernameDialog />
             <Suspense fallback={null}>
               <Routes>
                 <Route path="/" element={<HomePage />} />

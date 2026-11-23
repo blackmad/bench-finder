@@ -21,6 +21,30 @@ type C = Context<{ Bindings: Env }>;
 const DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"];
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const PHOTO_KEY_RE = /^reports\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
+const BENCH_PHOTO_RE = /^photos\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
+
+interface PhotoRow {
+  id: number;
+  user_id: string;
+  display_name: string;
+  photo_key: string;
+  width: number;
+  height: number;
+  state: "pending" | "visible" | "hidden";
+  created_at: string;
+}
+
+const photoOut = (r: PhotoRow, uid: string | null) => ({
+  id: r.id,
+  // Served by GET /api/photos/:name.
+  path: `/api/${r.photo_key.replace(/^photos\//, "photos/")}`,
+  width: r.width,
+  height: r.height,
+  who: r.display_name,
+  state: r.state,
+  createdAt: r.created_at,
+  mine: uid !== null && r.user_id === uid,
+});
 
 const benchId = z.coerce.number().int().positive().max(2_147_483_647);
 const idParam = z.object({ id: benchId });
@@ -168,6 +192,17 @@ export function createApp(deps: Deps = {}) {
     const user = await optionalUser(c);
     if (!user) throw new HTTPException(401, { message: "Sign in required" });
     return user;
+  }
+
+  /** A signed-in user who has chosen a username: what their posts are signed with. */
+  async function requireUsername(c: C): Promise<{ user: AuthUser; username: string }> {
+    const user = await requireUser(c);
+    const p = await c.env.DB.prepare("SELECT handle FROM profiles WHERE user_id = ?1")
+      .bind(user.uid)
+      .first<{ handle: string | null }>();
+    // 428: the site asks for a username, then sends the post again.
+    if (!p?.handle) throw new HTTPException(428, { message: "Choose a username first" });
+    return { user, username: p.handle };
   }
 
   async function requireAdmin(c: C): Promise<AuthUser> {
@@ -349,13 +384,13 @@ export function createApp(deps: Deps = {}) {
         validationHook,
       ),
       async (c) => {
-        const user = await requireUser(c);
+        const { user, username } = await requireUsername(c);
         const { id } = c.req.valid("param");
         const { body, rating } = c.req.valid("json");
         const { allowed } = await hit(c.env.DB, "comment", user.uid, num(c.env.RATE_LIMIT_COMMENTS_PER_HOUR, 20));
         if (!allowed) throw new HTTPException(429, { message: "Too many comments, try again later" });
         const t = now();
-        const displayName = user.name?.trim() || "Anonymous";
+        const displayName = username;
         const [inserted] = await c.env.DB.batch([
           c.env.DB
             .prepare(
@@ -725,6 +760,126 @@ export function createApp(deps: Deps = {}) {
       return c.json({ key, size: bytes.length, contentType: sniffed.type }, 201);
     })
 
+    // ---- Visitors' bench photos ------------------------------------------------------
+    // Raw JPEG/PNG/WebP body (the site downsizes to 2048 px JPEG first, which also
+    // drops location metadata); ?w=&h= give its size. Pending until approved.
+    .post(
+      "/api/bench/:id/photos",
+      zValidator("param", idParam, validationHook),
+      zValidator(
+        "query",
+        z.object({ w: z.coerce.number().int().min(64).max(8192), h: z.coerce.number().int().min(64).max(8192) }),
+        validationHook,
+      ),
+      async (c) => {
+        const { user, username } = await requireUsername(c);
+        const { id } = c.req.valid("param");
+        const { w, h } = c.req.valid("query");
+        const { allowed } = await hit(c.env.DB, "photo", user.uid, num(c.env.RATE_LIMIT_UPLOADS_PER_HOUR, 10) * 2);
+        if (!allowed) throw new HTTPException(429, { message: "Too many photos, try again later" });
+        const declared = Number(c.req.header("Content-Length") ?? "0");
+        if (declared > MAX_UPLOAD_BYTES) throw new HTTPException(413, { message: "Image too large (max 5 MB)" });
+        const bytes = new Uint8Array(await c.req.arrayBuffer());
+        if (bytes.length === 0) throw new HTTPException(400, { message: "Empty body" });
+        if (bytes.length > MAX_UPLOAD_BYTES) throw new HTTPException(413, { message: "Image too large (max 5 MB)" });
+        const sniffed = sniffImage(bytes);
+        const declaredType = (c.req.header("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
+        if (!sniffed || sniffed.type !== declaredType) {
+          throw new HTTPException(415, { message: "Only JPEG, PNG or WebP images are accepted" });
+        }
+        const key = `photos/${crypto.randomUUID()}.${sniffed.ext}`;
+        await c.env.UPLOADS.put(key, bytes, {
+          httpMetadata: { contentType: sniffed.type },
+          customMetadata: { uploader: user.uid, bench: String(id) },
+        });
+        const row = await c.env.DB
+          .prepare(
+            `INSERT INTO bench_photos (bench_id, user_id, display_name, photo_key, width, height, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id`,
+          )
+          .bind(id, user.uid, username, key, w, h, now())
+          .first<{ id: number }>();
+        return c.json({ id: row?.id ?? 0, state: "pending" as const }, 201);
+      },
+    )
+
+    .get("/api/bench/:id/photos", zValidator("param", idParam, validationHook), async (c) => {
+      const { id } = c.req.valid("param");
+      const user = await optionalUser(c);
+      const rows = await c.env.DB
+        .prepare(
+          `SELECT id, user_id, display_name, photo_key, width, height, state, created_at FROM bench_photos
+           WHERE bench_id = ?1 AND deleted_at IS NULL AND (state = 'visible' OR (state = 'pending' AND user_id = ?2))
+           ORDER BY created_at DESC LIMIT 100`,
+        )
+        .bind(id, user?.uid ?? "")
+        .all<PhotoRow>();
+      if (!user) c.header("Cache-Control", "public, max-age=60");
+      return c.json({ photos: rows.results.map((r) => photoOut(r, user?.uid ?? null)) });
+    })
+
+    // Approved photos, publicly; pending ones only to their uploader and moderators.
+    .get("/api/photos/:name", async (c) => {
+      const key = `photos/${c.req.param("name")}`;
+      if (!BENCH_PHOTO_RE.test(key)) throw new HTTPException(400, { message: "Bad photo name" });
+      const row = await c.env.DB
+        .prepare("SELECT user_id, state FROM bench_photos WHERE photo_key = ?1 AND deleted_at IS NULL")
+        .bind(key)
+        .first<{ user_id: string; state: string }>();
+      if (!row || row.state === "hidden") throw new HTTPException(404, { message: "Photo not found" });
+      if (row.state !== "visible") {
+        const user = await optionalUser(c);
+        const admin = user && csv(c.env.ADMIN_UIDS).includes(user.uid);
+        if (!user || (user.uid !== row.user_id && !admin)) throw new HTTPException(404, { message: "Photo not found" });
+      }
+      const obj = await c.env.UPLOADS.get(key);
+      if (!obj) throw new HTTPException(404, { message: "Photo not found" });
+      return new Response(obj.body, {
+        headers: {
+          "Content-Type": obj.httpMetadata?.contentType ?? "image/jpeg",
+          "Cache-Control": row.state === "visible" ? "public, max-age=86400" : "private, max-age=300",
+        },
+      });
+    })
+
+    .delete("/api/bench-photos/:id", zValidator("param", commentIdParam, validationHook), async (c) => {
+      const user = await requireUser(c);
+      const { id } = c.req.valid("param");
+      const r = await c.env.DB
+        .prepare("UPDATE bench_photos SET deleted_at = ?3 WHERE id = ?1 AND user_id = ?2 AND deleted_at IS NULL")
+        .bind(id, user.uid, now())
+        .run();
+      if (!r.meta.changes) throw new HTTPException(404, { message: "Photo not found" });
+      return c.json({ id });
+    })
+
+    .get("/api/admin/bench-photos", async (c) => {
+      await requireAdmin(c);
+      const rows = await c.env.DB
+        .prepare(
+          `SELECT id, bench_id, user_id, display_name, photo_key, width, height, state, created_at FROM bench_photos
+           WHERE state = 'pending' AND deleted_at IS NULL ORDER BY created_at LIMIT 200`,
+        )
+        .all<PhotoRow & { bench_id: number }>();
+      return c.json({ photos: rows.results.map((r) => ({ ...photoOut(r, null), benchId: r.bench_id })) });
+    })
+
+    .post(
+      "/api/admin/bench-photos/:id/:action",
+      zValidator("param", commentIdParam.extend({ action: z.enum(["approve", "hide"]) }), validationHook),
+      async (c) => {
+        const admin = await requireAdmin(c);
+        const { id, action } = c.req.valid("param");
+        const state = action === "approve" ? "visible" : "hidden";
+        const r = await c.env.DB
+          .prepare("UPDATE bench_photos SET state = ?2, moderated_by = ?3, moderated_at = ?4 WHERE id = ?1")
+          .bind(id, state, admin.uid, now())
+          .run();
+        if (!r.meta.changes) throw new HTTPException(404, { message: "Photo not found" });
+        return c.json({ id, state });
+      },
+    )
+
     // ---- Admin (uid allowlist) -----------------------------------------------------
     .get(
       "/api/admin/reports",
@@ -845,7 +1000,7 @@ export function createApp(deps: Deps = {}) {
       zValidator("param", idParam, validationHook),
       zValidator("json", heroBody, validationHook),
       async (c) => {
-        const user = await requireUser(c);
+        const { user, username } = await requireUsername(c);
         const { id } = c.req.valid("param");
         const { imageId, photo } = c.req.valid("json");
         const { allowed } = await hit(c.env.DB, "hero", user.uid, 30);
@@ -858,7 +1013,7 @@ export function createApp(deps: Deps = {}) {
              ON CONFLICT (bench_id, image_id, user_id) DO UPDATE SET
                state = 'pending', created_at = excluded.created_at, resolved_at = NULL, resolved_by = NULL`,
           )
-          .bind(id, imageId, heroKey(photo), JSON.stringify(photo), user.uid, user.name?.trim() || "Anonymous", now())
+          .bind(id, imageId, heroKey(photo), JSON.stringify(photo), user.uid, username, now())
           .run();
         return c.json({ ok: true }, 201);
       },
@@ -880,7 +1035,7 @@ export function createApp(deps: Deps = {}) {
         validationHook,
       ),
       async (c) => {
-        const user = await requireUser(c);
+        const { user, username } = await requireUsername(c);
         const { id } = c.req.valid("param");
         const v = c.req.valid("json");
         const { allowed } = await hit(c.env.DB, "view", user.uid, 30);
@@ -891,7 +1046,7 @@ export function createApp(deps: Deps = {}) {
             `INSERT INTO view_suggestions (bench_id, pano_id, heading, pitch, fov, user_id, display_name, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
           )
-          .bind(id, v.panoId, heading, v.pitch, v.fov, user.uid, user.name?.trim() || "Anonymous", now())
+          .bind(id, v.panoId, heading, v.pitch, v.fov, user.uid, username, now())
           .run();
         return c.json({ ok: true }, 201);
       },

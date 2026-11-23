@@ -10,6 +10,12 @@ import {
   useViewSuggestions,
 } from "../data/heroes"
 import { useBenchIndex } from "../data/hooks"
+import {
+  type BenchPhoto,
+  useModeratePhoto,
+  usePendingPhotos,
+  usePhotoSrc,
+} from "../data/photos"
 import { useMe } from "../data/social"
 import { adminPhotoUrl, api, unwrap } from "../lib/api"
 import { useAuth } from "../lib/auth"
@@ -328,6 +334,7 @@ function Queue() {
         </ul>
       </section>
 
+      <PendingPhotos />
       <HeroSuggestions />
       <ViewSuggestions />
     </div>
@@ -335,6 +342,72 @@ function Queue() {
 }
 
 /** Visitors' lead photo suggestions: the current lead beside the suggested one. */
+function PendingPhotos() {
+  const { data, error } = usePendingPhotos(true)
+  const moderate = useModeratePhoto()
+  const byId = useBenchIndex()
+  const list = data?.photos ?? []
+  return (
+    <section className="block" aria-labelledby="q-photos">
+      <div className="blockhead">
+        <h2 id="q-photos">Visitors' photos</h2>
+        <p>{list.length} to check</p>
+      </div>
+      {error || moderate.error ? (
+        <p role="alert" className="form-error">
+          {(error ?? moderate.error)?.message}
+        </p>
+      ) : null}
+      <ul className="qlist">
+        {data && list.length === 0 ? (
+          <li className="hint">No photos waiting.</li>
+        ) : null}
+        {list.map((p) => (
+          <li key={p.id} className="qitem">
+            <div>
+              <PendingPhoto photo={p} />
+              <p className="cmeta">
+                {p.who} on{" "}
+                <Link to={`/?bench=${p.benchId}`}>
+                  {byId.get(p.benchId ?? 0)?.properties.address ?? "bench"} No.{" "}
+                  {p.benchId}
+                </Link>
+              </p>
+            </div>
+            <div className="row">
+              <button
+                type="button"
+                className="btn"
+                disabled={moderate.isPending}
+                onClick={() => moderate.mutate({ id: p.id, action: "approve" })}
+              >
+                Show it
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={moderate.isPending}
+                onClick={() => moderate.mutate({ id: p.id, action: "hide" })}
+              >
+                Hide
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function PendingPhoto({ photo }: { photo: BenchPhoto }) {
+  const src = usePhotoSrc(photo)
+  return src ? (
+    <a href={src} target="_blank" rel="noreferrer" className="qphoto">
+      <img src={src} alt={`Photo by ${photo.who}`} width={320} height={240} />
+    </a>
+  ) : null
+}
+
 function HeroSuggestions() {
   const { data, error } = useHeroSuggestions()
   const resolve = useResolveSuggestion()

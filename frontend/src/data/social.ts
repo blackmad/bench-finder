@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { api, unwrap } from "../lib/api"
 import { useAuth } from "../lib/auth"
+import { withUsername } from "../lib/username"
 
 export interface Comment {
   id: number
@@ -180,12 +181,14 @@ export function useSetStatus(benchId: number) {
 export function useAddComment(benchId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: { body: string; rating?: number }) =>
-      unwrap<Comment>(
-        await api.api.bench[":id"].comments.$post({
-          param: { id: String(benchId) },
-          json: v,
-        })
+    mutationFn: (v: { body: string; rating?: number }) =>
+      withUsername(async () =>
+        unwrap<Comment>(
+          await api.api.bench[":id"].comments.$post({
+            param: { id: String(benchId) },
+            json: v,
+          })
+        )
       ),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["social", benchId] })

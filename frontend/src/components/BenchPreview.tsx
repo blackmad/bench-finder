@@ -15,6 +15,7 @@ import {
 } from "./account/BenchSocial"
 import { FindView } from "./account/FindView"
 import { ClearHero, HeroButton } from "./account/HeroButton"
+import { VisitorPhotos } from "./account/VisitorPhotos"
 import { Facts, ViewFromBench } from "./BenchDetails"
 import { BenchOutline } from "./BenchOutline"
 import { PinIcon } from "./Icons"
@@ -166,6 +167,7 @@ export function BenchPreview({ bench, id, onClose, onStep }: Props) {
           ) : null}
         </div>
       ) : null}
+      <VisitorPhotos benchId={b.id} />
       <StreetView bench={detail} name={name} />
       <div className="pvreport">
         <ReportRow benchId={b.id} />

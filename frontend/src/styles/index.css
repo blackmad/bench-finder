@@ -1460,3 +1460,31 @@ picture {
     transition: none;
   }
 }
+
+/* Visitors' photos on the bench page. */
+.pvphotos .rowhead .linkbtn {
+  margin-left: auto;
+}
+.vphoto {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  flex: 0 0 auto;
+  width: 220px;
+  max-width: 60vw;
+}
+.vphoto img,
+.vphoto-empty {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--color-photo-empty);
+}
+.vphoto figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
