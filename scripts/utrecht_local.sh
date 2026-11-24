@@ -115,6 +115,16 @@ step yolo2        uv run python -m bench_finder.detect_aimed --bbox utrecht
 step sam3_2       uv run --group detect-extra python -m bench_finder.detect_aimed --bbox utrecht --model sam3
 step sam3_verify2 uv run --group detect-extra python -m bench_finder.detect_aimed --bbox utrecht --verify-only
 
+# --- far round: benches still without a photo, panoramas up to 80 m ------------------
+# Park and canal-bank benches are often 30-80 m from the nearest street panorama
+# (all 5 photo-less benches of the 15-bench trial). A draft publish tells
+# vantage --photoless which benches those are.
+step draft_publish uv run bench-finder publish --bbox utrecht --include-unclassified --out "$OUT"
+step vantage_far  uv run python -m bench_finder.vantage run --photoless --far 80
+step yolo3        uv run python -m bench_finder.detect_aimed --bbox utrecht
+step sam3_3       uv run --group detect-extra python -m bench_finder.detect_aimed --bbox utrecht --model sam3
+step sam3_verify3 uv run --group detect-extra python -m bench_finder.detect_aimed --bbox utrecht --verify-only
+
 # --- heroes ----------------------------------------------------------------------
 step recentre     uv run python -m bench_finder.recentre run
 step recut        uv run python -m bench_finder.recut --heroes --bbox utrecht --include-unclassified
