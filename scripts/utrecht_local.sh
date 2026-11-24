@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Utrecht, entirely local and free: no LLM (Claude, Gemini), no paid API (no
-# Google geocoding or Static API). Run it from a fresh clone on a machine that
-# has NOT got the Amsterdam database in data/: ids, caches and images are keyed
-# by bench id, so the two cities must not share a data/ directory.
+# Google geocoding or Static API). Runs in the Amsterdam database (data/benches.db):
+# Utrecht benches continue Amsterdam's ids, and every step is scoped to the
+# Utrecht box (BENCH_CITY=utrecht), so Amsterdam rows are left alone. Only one
+# job may write to SQLite at a time: the script waits for other pipeline jobs.
 #
 #   scripts/utrecht_local.sh                 # the whole city (resumes where it stopped)
 #   scripts/utrecht_local.sh --limit 30      # a trial on the 30 benches nearest the centre
@@ -13,10 +14,11 @@
 # endpoints the Amsterdam run used), YOLO + SAM 3 on this machine, and an
 # optional local Ollama model for the occlusion check.
 #
-# Needs: uv, ~10 GB disk per 1,000 benches, models/sam3.pt (gated on Hugging Face:
-# request access at https://huggingface.co/facebook/sam3, download sam3.pt into
-# models/). Output: data/benches.db, images/, and the publishable site data in
-# dist-data-utrecht/ (not uploaded: an upload would replace Amsterdam's live data).
+# Needs: uv, models/sam3.pt (gated on Hugging Face: request access at
+# https://huggingface.co/facebook/sam3), ~10 GB disk per 1,000 benches.
+# Output: Utrecht rows in data/benches.db, images in images/, and Utrecht's site
+# data in dist-data-utrecht/ (not uploaded: an upload would replace Amsterdam's
+# live data). The db is backed up to ~/bench_finder_backups first.
 #
 # Each step leaves data/utrecht_steps/<step>.done; a re-run skips finished steps.
 # Log: data/utrecht.log.
@@ -76,21 +78,17 @@ fi
 export TORCH_DEVICE
 echo "torch device: $TORCH_DEVICE"
 
-# Refuse to mix cities in one database (see the top of this file).
-if [ -f "$DATABASE_PATH" ]; then
-  other=$(uv run python - <<'EOF' 2>/dev/null | tail -n 1
-import sqlite3
-c = sqlite3.connect("data/benches.db")
-try:
-    print(c.execute("SELECT count(*) FROM searches WHERE query <> 'utrecht'").fetchone()[0])
-except sqlite3.OperationalError:
-    print(0)
-EOF
-)
-  if [ "${other:-0}" != 0 ]; then
-    echo "data/benches.db holds other searches (Amsterdam?). Run this in a separate clone." >&2
-    exit 1
-  fi
+# One SQLite writer at a time: wait for other pipeline jobs to finish.
+busy='bench-finder publish|bench_finder\.(detect_aimed|vantage|recut|recentre|hero_fade|label_views|local_occlusion|triangulate|wide_views|close_wide|sweep|import_)'
+while pgrep -f "$busy" | grep -v "^$$\$" >/dev/null; do
+  echo "waiting for another pipeline job: $(pgrep -fl "$busy" | head -n 1)"; sleep 60
+done
+
+if [ ! -f "$STEPS/backup.done" ] && [ -f "$DATABASE_PATH" ]; then
+  mkdir -p ~/bench_finder_backups
+  cp "$DATABASE_PATH" ~/bench_finder_backups/benches_$(date +%F)_pre_utrecht.db
+  echo "== backup: ~/bench_finder_backups/benches_$(date +%F)_pre_utrecht.db"
+  touch "$STEPS/backup.done"
 fi
 
 # --- candidates ------------------------------------------------------------------
@@ -98,7 +96,10 @@ step migrate      uv run python -m bench_finder.migrate
 step import_osm   uv run python -m bench_finder.import_osm ${LIMIT:+--limit "$LIMIT"}
 
 # --- photos and detection ------------------------------------------------------------
-step fetch_images uv run bench-finder fetch-images
+# Only Utrecht's search: Amsterdam has pending candidates of its own (BGT).
+SEARCH_ID=$(uv run python -c "import sqlite3; print(sqlite3.connect('$DATABASE_PATH').execute(\"SELECT min(id) FROM searches WHERE query='utrecht'\").fetchone()[0])" | tail -n 1)
+echo "Utrecht search id: $SEARCH_ID"
+step fetch_images uv run bench-finder fetch-images --search-id "$SEARCH_ID"
 step yolo         uv run python -m bench_finder.detect_aimed --bbox utrecht
 step sam3         uv run --group detect-extra python -m bench_finder.detect_aimed --bbox utrecht --model sam3
 step sam3_verify  uv run --group detect-extra python -m bench_finder.detect_aimed --bbox utrecht --verify-only
@@ -151,4 +152,4 @@ import json
 m = json.load(open("dist-data-utrecht/manifest.json"))
 print("published:", m.get("counts"))
 EOF
-echo "==== done $(date '+%F %T'). Bring back: data/benches.db, images/, $OUT/"
+echo "==== done $(date '+%F %T'). Utrecht site data: $OUT/"

@@ -25,6 +25,7 @@ import shutil
 from pathlib import Path
 
 from bench_finder import recut
+from bench_finder.coverage import COVERAGE_BBOX
 from bench_finder.publish.images import CENTRED_DIRNAME
 
 
@@ -111,7 +112,9 @@ def _hero_jobs(
     db: str, images_root: Path, min_conf: float = 0.0
 ) -> tuple[list[recut.RecutJob], dict[int, dict]]:
     conn = recut.connect_ro(db)
-    heroes = recut.hero_image_ids(conn, images_root, include_unclassified=True)
+    heroes = recut.hero_image_ids(
+        conn, images_root, include_unclassified=True, bbox=COVERAGE_BBOX
+    )
     boxes = target_boxes(conn, heroes, min_conf)
     jobs = []
     for row in recut.load_rows(conn, [i for i in heroes if i in boxes]):

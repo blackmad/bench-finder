@@ -24,6 +24,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 
 from bench_finder import recut
+from bench_finder.coverage import COVERAGE_BBOX
 from bench_finder.publish.images import FADED_DIRNAME, FRAMED_DIRNAME, render_source
 
 
@@ -58,7 +59,9 @@ def pick(dets) -> object | None:
 
 def _heroes(db: str, images_root: Path) -> list[tuple[int, Path]]:
     conn = recut.connect_ro(db)
-    ids = recut.hero_image_ids(conn, images_root, include_unclassified=True)
+    ids = recut.hero_image_ids(
+        conn, images_root, include_unclassified=True, bbox=COVERAGE_BBOX
+    )
     rows = recut.load_rows(conn, ids)
     conn.close()  # an open read transaction would block this job's own writes
     out = []
