@@ -17,10 +17,12 @@ import re
 import subprocess
 from pathlib import Path
 
+from bench_finder.publish.exclude import FEEDBACK
+
 
 log = logging.getLogger(__name__)
 
-SITE_FILE = Path("data/feedback/site.json")
+SITE_FILE = FEEDBACK / "site.json"
 WORKER_DIR = Path("worker")
 WRANGLER = WORKER_DIR / "wrangler.jsonc"
 

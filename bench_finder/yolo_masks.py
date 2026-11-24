@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -42,7 +43,7 @@ def main() -> None:
     ap.add_argument("--images-root", type=Path, default=Path("images"))
     ap.add_argument("--weights", default="models/yolo11x-seg.pt")
     ap.add_argument("--batch", type=int, default=16)
-    ap.add_argument("--device", default="mps")
+    ap.add_argument("--device", default=os.getenv("TORCH_DEVICE", "mps"))
     ap.add_argument("--limit", type=int)
     a = ap.parse_args()
     conn = sqlite3.connect(a.db, timeout=120)

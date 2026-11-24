@@ -25,6 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from bench_finder.clients.view_classifier import PRICES, prepare_image
+from bench_finder.publish.exclude import FEEDBACK
 
 
 MODEL = "claude-haiku-5-5"
@@ -184,7 +185,7 @@ def pilot(n: int, seed: int, max_usd: float, workers: int = 8) -> dict:
 def owner_picks() -> dict[int, int]:
     """{bench id: image id} the owner chose as hero in the review page."""
     out: dict[int, int] = {}
-    for f in sorted(Path("data/feedback").glob("*.json")):
+    for f in sorted(FEEDBACK.glob("*.json")):
         out |= {
             int(b): int(i)
             for b, i in json.loads(f.read_text()).get("hero_pick", {}).items()

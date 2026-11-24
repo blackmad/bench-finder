@@ -53,6 +53,25 @@ def post_overpass_query(url: str, query: str, timeout: float) -> dict:
     return response.json()
 
 
+OVERPASS_MIRRORS = (
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+)
+
+
+def post_with_mirrors(query: str, timeout: float = 210) -> dict:
+    """``post_overpass_query`` on each public mirror in turn until one answers."""
+    err: Exception | None = None
+    for url in OVERPASS_MIRRORS:
+        try:
+            return post_overpass_query(url, query, timeout)
+        except Exception as ex:
+            logger.warning("Overpass %s failed: %s", url, ex)
+            err = ex
+    raise RuntimeError(f"every Overpass mirror failed: {err}")
+
+
 class OverpassClient(BaseLocationClient):
     """Client for querying OpenStreetMap data via Overpass API."""
 

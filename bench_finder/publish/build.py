@@ -24,6 +24,12 @@ from typing import TYPE_CHECKING, Any
 
 from PIL import Image
 
+from bench_finder.coverage import (  # noqa: F401
+    CITIES,
+    COVERAGE_BBOX,
+    city_cache,
+    parse_bbox,
+)
 from bench_finder.publish.exclude import (
     excluded,
     picked_images,
@@ -142,13 +148,9 @@ def check_capacity(
 # --------------------------------------------------------------------------- selection
 
 
-# Launch coverage (owner decision 2026-11-14): Amsterdam only. (west, south, east, north)
-AMSTERDAM_BBOX = (
-    4.62,
-    52.26,
-    5.15,
-    52.53,
-)  # the municipality, incl. Weesp, Noord, the port
+# Launch coverage (owner decision 2026-11-14): Amsterdam. Other cities: BENCH_CITY
+# (bench_finder.coverage). (west, south, east, north)
+AMSTERDAM_BBOX = CITIES["amsterdam"]
 
 
 MOVE_MIN_RAYS = 3  # a triangulated pin needs this many agreeing panoramas
@@ -387,7 +389,7 @@ def embed_view(
     return None, at, heading if at else None
 
 
-MODEL_PICKS = Path("data/hero_pick/picks.json")
+MODEL_PICKS = city_cache("data/hero_pick/picks.json")
 
 
 def model_picks(path: Path = MODEL_PICKS) -> set[int]:

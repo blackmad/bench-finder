@@ -17,16 +17,24 @@ from __future__ import annotations
 import json
 import math
 import sys
-import urllib.parse
-import urllib.request
 from itertools import pairwise
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+from bench_finder.coverage import CITY, COVERAGE_BBOX, city_cache
 
 
-STOPS = Path("data/osm/stops.json")
-FEEDBACK = Path("data/feedback")
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+STOPS = city_cache("data/osm/stops.json")
+FEEDBACK = city_cache("data/feedback")  # marks are keyed by bench id
 STOP_M = 10.0
-_BBOX = "52.27,4.72,52.44,5.08"
+_BBOX = (
+    "52.27,4.72,52.44,5.08"  # the original Amsterdam stops fetch
+    if CITY == "amsterdam"
+    else "{1},{0},{3},{2}".format(*COVERAGE_BBOX)
+)
 _QUERY = (
     f'[out:json][timeout:120];(nwr["highway"="bus_stop"]({_BBOX});'
     f'nwr["public_transport"="platform"]({_BBOX});nwr["railway"="tram_stop"]({_BBOX});'
@@ -78,7 +86,7 @@ def feedback(folder: Path = FEEDBACK) -> dict[int, list[str]]:
 
 
 HIDE = ("no bench", "bus stop", "train station")
-PLATFORMS = Path(
+PLATFORMS = city_cache(
     "data/osm/rail_platforms.json"
 )  # railway=platform, train/subway platforms
 PLATFORM_M = 8.0
@@ -248,21 +256,24 @@ def mark_stops(db: str = "data/benches.db") -> dict[str, int]:
     return n
 
 
-def fetch(path: Path = STOPS) -> int:
-    req = urllib.request.Request(
-        "https://overpass-api.de/api/interpreter",
-        data=urllib.parse.urlencode({"data": _QUERY}).encode(),
-        headers={"User-Agent": "bench-finder"},
-    )
-    with urllib.request.urlopen(req, timeout=200) as r:
-        body = r.read()
+_PLATFORM_QUERY = (
+    f'[out:json][timeout:120];nwr["railway"="platform"]({_BBOX});out geom tags;'
+)
+
+
+def fetch(path: Path = STOPS, query: str = _QUERY) -> int:
+    from bench_finder.clients.overpass_client import post_with_mirrors
+
+    data = post_with_mirrors(query)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(body)
-    return len(json.loads(body)["elements"])
+    path.write_text(json.dumps(data))
+    return len(data["elements"])
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["fetch"]:
         print(fetch())
+    elif sys.argv[1:] == ["fetch-platforms"]:
+        print(fetch(PLATFORMS, _PLATFORM_QUERY))
     elif sys.argv[1:] == ["mark-stops"]:
         print(mark_stops())

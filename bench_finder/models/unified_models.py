@@ -389,6 +389,9 @@ class Detection(SQLModel, table=True):
     has_bench: bool = Field(nullable=False)
     bench_count: int = Field(default=0)
     max_confidence: float = Field(default=0.0)
+    # Every box of an aimed-view run ([{"conf", "xyxy"}], bench_finder.detect_aimed).
+    # Added by hand to the Amsterdam db; here so a fresh db has it too.
+    detections: list | None = Field(default=None, sa_column=Column(JSON))
     detection_success: bool = Field(nullable=False)
     detection_error: str | None = Field(default=None)
     model_id: str = Field(nullable=False)

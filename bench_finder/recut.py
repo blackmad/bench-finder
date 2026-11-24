@@ -465,14 +465,9 @@ async def run(
 
 
 def _parse_bbox(value: str) -> tuple[float, float, float, float] | None:
-    from bench_finder.publish.build import AMSTERDAM_BBOX
+    from bench_finder.coverage import parse_bbox
 
-    if value == "amsterdam":
-        return AMSTERDAM_BBOX
-    if value == "all":
-        return None
-    w, s, e, n = (float(x) for x in value.split(","))
-    return (w, s, e, n)
+    return parse_bbox(value)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -225,10 +225,10 @@ async def render_amsterdam(
 
 def load_benches(db: str, limit: int | None = None) -> list[Bench]:
     """Amsterdam benches with their facing (VLM/human, else OSM ``direction``, else None)."""
-    from bench_finder.publish.build import AMSTERDAM_BBOX, parse_direction
+    from bench_finder.publish.build import COVERAGE_BBOX, parse_direction
 
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-    w, s, e, n = AMSTERDAM_BBOX
+    w, s, e, n = COVERAGE_BBOX
     rows = conn.execute(
         "SELECT c.id, c.lat, c.lng, c.tags, a.facing_deg, a.faces_category, a.facing_method "
         "FROM bench_candidates c LEFT JOIN bench_attributes a "
@@ -268,8 +268,14 @@ async def candidates_for(
     g, e1 = await client.enumerate_google_panoramas(b.lat, b.lng, session, max_m=max_m)
     a, e2 = await client.enumerate_apple_panoramas(b.lat, b.lng, session, max_m=max_m)
     errors += e1 + e2
-    try:
-        ams = await amsterdam_candidates(b.lat, b.lng, max_m, session)
+    from bench_finder.coverage import CITY
+
+    try:  # the City of Amsterdam's own panoramas cover Amsterdam only
+        ams = (
+            await amsterdam_candidates(b.lat, b.lng, max_m, session)
+            if CITY == "amsterdam"
+            else []
+        )
     except Exception as e:
         ams, errors = [], [*errors, f"amsterdam: {e}"]
     return [c for c in g if not c.is_third_party] + a + ams, errors
@@ -296,8 +302,11 @@ def across_water(
     return best[1] if best else None
 
 
-def photoless_ids(snapshots: Path = Path("data/snapshots")) -> set[int]:
+def photoless_ids(snapshots: Path | None = None) -> set[int]:
     """Benches the latest publish shows without a photo."""
+    from bench_finder.whats_new import SNAPS
+
+    snapshots = snapshots or SNAPS
     snap = sorted(p for p in snapshots.iterdir() if p.is_dir())[-1]
     out = set()
     for f in (snap / "data" / "bench").glob("*.json"):

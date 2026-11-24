@@ -135,11 +135,11 @@ def to_43(view: np.ndarray, width: int) -> Image.Image:
 
 def plan(db: str, images_root: Path, only: set[int] | None = None) -> list[Choice]:
     """A scenic camera for every published bench that has one."""
-    from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
+    from bench_finder.publish.build import COVERAGE_BBOX, select_images
 
     conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
-    rows, _, chosen = select_images(conn, images_root, True, bbox=AMSTERDAM_BBOX)
+    rows, _, chosen = select_images(conn, images_root, True, bbox=COVERAGE_BBOX)
     facing = {r["id"]: _facing(r) for r in rows}
     source = dict(
         (r[0], r[1:])

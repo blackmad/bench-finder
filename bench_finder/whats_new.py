@@ -19,8 +19,10 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+from bench_finder.coverage import city_cache
 
-SNAPS = Path("data/snapshots")
+
+SNAPS = city_cache("data/snapshots")
 OUT = Path("data/whats_new")
 DIST = Path("dist-data")
 SITE = "https://bench.blackmad.com/bench/"

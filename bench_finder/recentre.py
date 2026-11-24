@@ -19,6 +19,7 @@ import dataclasses
 import json
 import logging
 import math
+import os
 import random
 import shutil
 from pathlib import Path
@@ -150,7 +151,7 @@ def run_all(
 
 def _target_in(path: Path, yolo) -> dict | None:
     """The bench nearest the centre column of a rendered hero, by YOLO."""
-    res = yolo.predict(str(path), conf=0.25, classes=[13], device="mps", verbose=False)[
+    res = yolo.predict(str(path), conf=0.25, classes=[13], device=os.getenv("TORCH_DEVICE", "mps"), verbose=False)[
         0
     ]
     w = res.orig_shape[1]

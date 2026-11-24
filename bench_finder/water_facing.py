@@ -20,18 +20,23 @@ import sqlite3
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from shapely.geometry import Point, Polygon
 from shapely.ops import nearest_points
 from shapely.strtree import STRtree
 
-from bench_finder.publish.build import AMSTERDAM_BBOX
+from bench_finder.coverage import city_cache
+from bench_finder.publish.build import COVERAGE_BBOX
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 NEAR_M = 20.0
 ROUGHLY_DEG = 100.0  # a non-water bench is snapped only if it already faces this close
-CACHE = Path("data/osm_water.json")
+CACHE = city_cache("data/osm_water.json")
 OVERPASS = (
     "https://overpass-api.de/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
@@ -41,7 +46,7 @@ M_PER_DEG_LAT = 111_320.0
 
 
 def fetch(cache: Path = CACHE) -> dict:
-    w, s, e, n = AMSTERDAM_BBOX
+    w, s, e, n = COVERAGE_BBOX
     q = f"""[out:json][timeout:180];
 (
   way["natural"="water"]({s},{w},{n},{e});
@@ -112,7 +117,7 @@ def into_water(edge, poly, q, step: float = 1.5) -> float | None:
 
 
 def apply(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
-    lat0 = (AMSTERDAM_BBOX[1] + AMSTERDAM_BBOX[3]) / 2
+    lat0 = (COVERAGE_BBOX[1] + COVERAGE_BBOX[3]) / 2
     to = _local(lat0)
     shapes, polys = [], []
     for ring in json.loads(cache.read_text()):
@@ -195,7 +200,7 @@ def apply_unfaced(db: str, dry_run: bool, cache: Path = CACHE) -> dict:
     """Benches with no facing at all (no estimate, no OSM ``direction``) within
     ``QUAY_M`` of a water edge: face the water, as an estimate (method
     ``water_edge``, confidence 0.5). Recorded in ``water_facing`` with no old value."""
-    w, s_, e, n = AMSTERDAM_BBOX
+    w, s_, e, n = COVERAGE_BBOX
     to = _local((s_ + n) / 2)
     shapes = []
     for ring in json.loads(cache.read_text()):

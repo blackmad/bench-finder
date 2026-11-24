@@ -26,7 +26,7 @@ import aiohttp
 
 from bench_finder.core.pano_geometry import haversine_m, render_aimed_view
 from bench_finder.models.enums import ImageSource
-from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
+from bench_finder.publish.build import COVERAGE_BBOX, select_images
 from bench_finder.vantage import SPREAD_M, amsterdam_candidates, amsterdam_equirect
 
 
@@ -42,7 +42,7 @@ def benches_without_hero(db: str, images_root: Path) -> list[tuple[int, float, f
     conn.row_factory = sqlite3.Row
     try:
         rows, _, chosen = select_images(
-            conn, images_root, include_unclassified=True, bbox=AMSTERDAM_BBOX
+            conn, images_root, include_unclassified=True, bbox=COVERAGE_BBOX
         )
         return [(r["id"], r["lat"], r["lng"]) for r in rows if not chosen[r["id"]][1]]
     finally:

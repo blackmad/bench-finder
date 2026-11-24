@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from bench_finder.publish.build import AMSTERDAM_BBOX
+from bench_finder.coverage import CITY, parse_bbox
 
 
 MODEL_ID = "yolo11x-seg"
@@ -114,10 +115,10 @@ def main() -> None:
     ap.add_argument("--db", default="data/benches.db")
     ap.add_argument("--images-root", type=Path, default=Path("images"))
     ap.add_argument("--weights", default="models/yolo11x-seg.pt")
-    ap.add_argument("--bbox", default="amsterdam")
+    ap.add_argument("--bbox", default=CITY)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--batch", type=int, default=16)
-    ap.add_argument("--device", default="mps")
+    ap.add_argument("--device", default=os.getenv("TORCH_DEVICE", "mps"))
     ap.add_argument("--model", choices=sorted(THRESHOLDS), default=MODEL_ID)
     ap.add_argument(
         "--verify-only",
@@ -127,7 +128,7 @@ def main() -> None:
     a = ap.parse_args()
 
     model_id = a.model
-    bbox = AMSTERDAM_BBOX if a.bbox == "amsterdam" else None
+    bbox = parse_bbox(a.bbox)
     conn = sqlite3.connect(a.db, timeout=120)  # other jobs write too
     if a.verify_only:
         a.model = "sam3"

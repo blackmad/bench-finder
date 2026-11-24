@@ -22,7 +22,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from bench_finder.publish.build import (
-    AMSTERDAM_BBOX,
+    COVERAGE_BBOX,
     _resolve,
     select_images,
     target_gate,
@@ -46,7 +46,7 @@ def collect(db: str, images_root: Path) -> dict[str, list[dict]]:
         conn,
         images_root,
         include_unclassified=True,
-        bbox=AMSTERDAM_BBOX,
+        bbox=COVERAGE_BBOX,
         gallery_size=99,
     )
     osm = {

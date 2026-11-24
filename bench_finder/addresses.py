@@ -19,8 +19,10 @@ from pathlib import Path
 
 import aiohttp
 
+from bench_finder.coverage import city_cache
 
-CACHE = Path("data/pdok_addresses.jsonl")
+
+CACHE = city_cache("data/pdok_addresses.jsonl")  # keyed by bench id
 API = "https://api.pdok.nl/bzk/locatieserver/search/v3_1/reverse"
 NUMBER_MAX_M = 40.0  # farther than this, name the street only ("Vondelpark" paths)
 

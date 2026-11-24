@@ -22,12 +22,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from bench_finder import duel, explore
-from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
+from bench_finder.publish.build import COVERAGE_BBOX, select_images
+from bench_finder.publish.exclude import FEEDBACK
 from bench_finder.publish.images import render_source
 from bench_finder.whats_new import SNAPS, diff, load
 
 
-OUT = Path("data/feedback/review.json")
+OUT = FEEDBACK / "review.json"
 ROOTS = {"img/": Path("dist-data"), "images/": Path(".")}
 QUEUES = {
     "new": ("new_bench",),
@@ -73,7 +74,7 @@ def build_queue(queue: str, base: str | None) -> list[dict]:
         ids = sorted(new)
     conn = sqlite3.connect("file:data/benches.db?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
-    _, _, chosen = select_images(conn, Path("images"), True, bbox=AMSTERDAM_BBOX)
+    _, _, chosen = select_images(conn, Path("images"), True, bbox=COVERAGE_BBOX)
     if queue in ("vetoed", "borderline", "nearmiss"):
         ids = [i for i in sorted(new) if _in_band(queue, *chosen.get(i, ([], False)))]
     score = dict(

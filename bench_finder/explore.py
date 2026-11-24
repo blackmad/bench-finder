@@ -32,6 +32,7 @@ from bench_finder.core.pano_geometry import (
     haversine_m,
     render_aimed_view,
 )
+from bench_finder.coverage import city_cache
 
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ from bench_finder.vantage import (
 
 
 DB = "data/benches.db"
-SNAPS = Path("data/snapshots")
+SNAPS = city_cache("data/snapshots")
 PREVIEW_PX = 640
 SAVE_PX, HIRES_PX = 1024, 2048
 KEEP_PANOS = 4  # equirects held in memory (an Apple one is ~60 MB)

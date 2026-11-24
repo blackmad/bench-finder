@@ -32,7 +32,7 @@ from pathlib import Path
 
 from bench_finder.best_view import LETTERS, MAX_VIEWS, sheet
 from bench_finder.clients.view_classifier import Usage
-from bench_finder.publish.build import AMSTERDAM_BBOX, select_images, target_gate
+from bench_finder.publish.build import COVERAGE_BBOX, select_images, target_gate
 
 
 CACHE = Path("data/water_back.jsonl")
@@ -76,7 +76,7 @@ def views_for(db: str, images_root: Path, ids: set[int]) -> dict[int, list]:
     conn.row_factory = sqlite3.Row
     try:
         _, _, chosen = select_images(
-            conn, images_root, include_unclassified=True, bbox=AMSTERDAM_BBOX
+            conn, images_root, include_unclassified=True, bbox=COVERAGE_BBOX
         )
         paths = dict(conn.execute("SELECT id, filepath FROM images"))
     finally:

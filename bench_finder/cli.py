@@ -3055,7 +3055,7 @@ def publish_command(
     bbox: str = typer.Option(
         "amsterdam",
         "--bbox",
-        help="Coverage: 'amsterdam' (launch default), 'all', or west,south,east,north",
+        help="Coverage: a city ('amsterdam', the launch default; 'utrecht'), 'all', or west,south,east,north",
     ),
     gallery_size: int = typer.Option(4, "--gallery-size", help="Max images per bench"),
     workers: int | None = typer.Option(
@@ -3076,16 +3076,10 @@ def publish_command(
     """Build the static data set (AVIF/WebP images, GeoJSON, per-bench JSON, manifest)."""
     from rich.table import Table
 
+    from bench_finder.coverage import parse_bbox
     from bench_finder.publish import CapacityError, publish, upload_dir
-    from bench_finder.publish.build import AMSTERDAM_BBOX
 
-    if bbox == "amsterdam":
-        box: tuple[float, float, float, float] | None = AMSTERDAM_BBOX
-    elif bbox == "all":
-        box = None
-    else:
-        w, s, e, n = (float(x) for x in bbox.split(","))
-        box = (w, s, e, n)
+    box = parse_bbox(bbox)
 
     def fmt(n: float) -> str:
         return f"{n / 1e6:.2f} MB" if n >= 1e5 else f"{n / 1e3:.1f} kB"
@@ -3093,19 +3087,23 @@ def publish_command(
     from bench_finder.publish.upload import wait_for_uploads
 
     wait_for_uploads()  # a background upload still reads the output directory
+    from bench_finder.coverage import CITY
     from bench_finder.publish.site_picks import sync as sync_site_picks
     from bench_finder.view_suggestions import render_pending
 
-    try:  # Street View cameras suggested on the site
-        console.print(f"Suggested views rendered: {render_pending()}")
-    except Exception as e:  # never blocks a publish
-        console.print(f"[yellow]Suggested views not rendered: {e}[/yellow]")
+    # The live site (D1) is Amsterdam's: its suggestions and picks are keyed by
+    # Amsterdam bench ids, so another city's db must not take them.
+    if CITY == "amsterdam":
+        try:  # Street View cameras suggested on the site
+            console.print(f"Suggested views rendered: {render_pending()}")
+        except Exception as e:  # never blocks a publish
+            console.print(f"[yellow]Suggested views not rendered: {e}[/yellow]")
 
-    synced = sync_site_picks()  # lead photos moderators picked on the site
-    console.print(
-        "Site lead photo picks: "
-        + ("not synced (using the last file)" if synced is None else str(synced))
-    )
+        synced = sync_site_picks()  # lead photos moderators picked on the site
+        console.print(
+            "Site lead photo picks: "
+            + ("not synced (using the last file)" if synced is None else str(synced))
+        )
     try:
         result = publish(
             db,

@@ -44,7 +44,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from bench_finder.clients.view_classifier import Usage
-from bench_finder.publish.build import AMSTERDAM_BBOX, select_images
+from bench_finder.publish.build import COVERAGE_BBOX, select_images
 
 
 MODEL = "gemini-3.1-flash-lite"
@@ -209,7 +209,7 @@ def heroes(db: str, images_root: Path) -> list[tuple[int, int, Path, dict]]:
             conn,
             images_root,
             include_unclassified=True,
-            bbox=AMSTERDAM_BBOX,
+            bbox=COVERAGE_BBOX,
             gallery_size=1,
         )
         paths = dict(

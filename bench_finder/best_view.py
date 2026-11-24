@@ -25,7 +25,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from bench_finder.publish.build import AMSTERDAM_BBOX, select_images, target_gate
+from bench_finder.publish.build import COVERAGE_BBOX, select_images, target_gate
 from bench_finder.vet_targets import Usage
 
 
@@ -60,7 +60,7 @@ def candidates(db: str, images_root: Path) -> dict[int, list[tuple[int, Path, di
     conn.row_factory = sqlite3.Row
     try:
         _, _, chosen = select_images(
-            conn, images_root, include_unclassified=True, bbox=AMSTERDAM_BBOX
+            conn, images_root, include_unclassified=True, bbox=COVERAGE_BBOX
         )
         paths = dict(conn.execute("SELECT id, filepath FROM images"))
     finally:

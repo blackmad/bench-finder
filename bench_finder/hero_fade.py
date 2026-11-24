@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -98,7 +99,7 @@ def masks(db: str, images_root: Path, limit: int | None) -> dict:
 
     def yolo_dets(src: Path) -> list:
         res = yolo.predict(
-            str(src), conf=0.05, classes=[13], device="mps", verbose=False
+            str(src), conf=0.05, classes=[13], device=os.getenv("TORCH_DEVICE", "mps"), verbose=False
         )[0]
         if res.masks is None:
             return []
@@ -115,7 +116,7 @@ def masks(db: str, images_root: Path, limit: int | None) -> dict:
         if d is None:
             if sam is None:
                 sam = MODELS["sam3"]
-                sam.load(Path("models"), "mps")
+                sam.load(Path("models"), os.getenv("TORCH_DEVICE", "mps"))
             d = pick(sam.detect(src))
             by_sam += d is not None
         if d is not None:

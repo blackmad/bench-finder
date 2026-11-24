@@ -247,6 +247,7 @@ frontend/design-reference/img/
 .impeccable/config.local.json
 .impeccable/questions/
 dist-data/
+dist-data-*/
 models/*.pt
 models/*.ts
 data/bakeoff_cache/
