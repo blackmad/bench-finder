@@ -1,8 +1,9 @@
 import gzip
 import json
-import types
 import sqlite3
+import types
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from PIL import Image
@@ -494,7 +495,7 @@ def test_prune_remote_deletes_only_unused():
     from bench_finder.publish.upload import prune_remote
 
     class S3:
-        deleted: list[str] = []
+        deleted: ClassVar[list[str]] = []
 
         def delete_objects(self, Bucket, Delete):
             self.deleted += [o["Key"] for o in Delete["Objects"]]

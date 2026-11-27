@@ -403,7 +403,7 @@ function PendingPhoto({ photo }: { photo: BenchPhoto }) {
   const src = usePhotoSrc(photo)
   return src ? (
     <a href={src} target="_blank" rel="noreferrer" className="qphoto">
-      <img src={src} alt={`Photo by ${photo.who}`} width={320} height={240} />
+      <img src={src} alt={`Shared by ${photo.who}`} width={320} height={240} />
     </a>
   ) : null
 }

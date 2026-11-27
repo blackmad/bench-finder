@@ -86,7 +86,7 @@ function VisitorPhoto({
         <a href={src} target="_blank" rel="noreferrer">
           <img
             src={src}
-            alt={`Photo by ${p.who}`}
+            alt={`Shared by ${p.who}`}
             width={p.width}
             height={p.height}
             loading="lazy"
