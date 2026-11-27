@@ -94,7 +94,7 @@ function show(){
   $("done").style.display="none";
   const b=items[i];if(view<0)view=b.pick;
   $("n").textContent=`${i+1} / ${items.length} · bench ${b.bench}`;
-  $("live").href="https://bench.blackmad.com/?bench="+b.bench;
+  $("live").href="https://benchfinder.nl/?bench="+b.bench;
   $("why").innerHTML=(b.lead_ok?"":"<b>model: no photo good enough · </b>")+"model says: "+b.why.replace(/</g,"&lt;");
   $("L").querySelector("img").src=b.images[0].src;$("R").querySelector("img").src=b.images[view].src;
   $("rcap").innerHTML=(view===b.pick?"model's pick":view===0?"photo 1 (the current hero)":"photo "+(view+1))+

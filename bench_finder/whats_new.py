@@ -25,7 +25,7 @@ from bench_finder.coverage import city_cache
 SNAPS = city_cache("data/snapshots")
 OUT = Path("data/whats_new")
 DIST = Path("dist-data")
-SITE = "https://bench.blackmad.com/bench/"
+SITE = "https://benchfinder.nl/bench/"
 FACING_MOVE = 30.0  # degrees
 
 

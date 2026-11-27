@@ -564,7 +564,7 @@ async function load(){const id=+$("bid").value;if(!id)return;busy("finding panor
 function draw(){const on=new Set([...document.querySelectorAll("#srcs input:checked")].map(x=>x.value));
  P=B.panos.filter(p=>on.has(p.source));cur=-1;
  $("addr").textContent=`#${B.id} ${B.address}`+(B.facing==null?" · facing unknown":` · faces ${Math.round(B.facing)}°`)+` · ${P.length} of ${B.panos.length} panoramas`+(B.errors.length?` · ${B.errors.length} errors`:"");
- $("links").innerHTML=`<a target=_blank href="https://bench.blackmad.com/bench/${B.id}">live</a> · <a target=_blank href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${B.lat},${B.lng}">google</a> · <a target=_blank href="https://maps.apple.com/?ll=${B.lat},${B.lng}&z=19">apple</a>`;
+ $("links").innerHTML=`<a target=_blank href="https://benchfinder.nl/bench/${B.id}">live</a> · <a target=_blank href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${B.lat},${B.lng}">google</a> · <a target=_blank href="https://maps.apple.com/?ll=${B.lat},${B.lng}&z=19">apple</a>`;
  $("hero").innerHTML=B.hero?`<img src="${esc(B.hero)}">`:"<p>none</p>";
  $("views").innerHTML=B.views.map(v=>`<img title="${esc(v.source)} ${esc(v.when)}" src="${esc(v.src)}">`).join("")||"<p>none</p>";
  layer.clearLayers();map.setView([B.lat,B.lng],19);

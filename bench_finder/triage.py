@@ -36,7 +36,7 @@ REASONS = {
     "vlm_absent": "The VLM says the bench isn't in any view",
     "missed": "Views exist, detectors didn't find the bench",
 }
-SITE = "https://bench.blackmad.com/bench/"
+SITE = "https://benchfinder.nl/bench/"
 
 
 def collect(db: str, images_root: Path) -> dict[str, list[dict]]:
