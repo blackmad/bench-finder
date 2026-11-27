@@ -12,7 +12,6 @@
     "not_found_handling": "single-page-application"
   },
   "routes": [
-    { "pattern": "benchfinder.nl", "custom_domain": true },
-    { "pattern": "bench.blackmad.com", "custom_domain": true }
+    { "pattern": "benchfinder.nl", "custom_domain": true }
   ]
 }

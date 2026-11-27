@@ -5,6 +5,7 @@
   "main": "index.js",
   "compatibility_date": "2026-11-01",
   "routes": [
-    { "pattern": "www.benchfinder.nl", "custom_domain": true }
+    { "pattern": "www.benchfinder.nl", "custom_domain": true },
+    { "pattern": "bench.blackmad.com", "custom_domain": true }
   ]
 }
