@@ -1,10 +1,15 @@
 // Static site: the built frontend served as Workers static assets (Cloudflare's current Pages).
 // Build with the VITE_* vars (see .github/workflows/ci.yml), drop the dev fixture (dist/data), then `wrangler deploy`.
+// The old host (bench.blackmad.com) and www.benchfinder.nl 301 here via ../redirect.
 {
   "name": "bench-finder",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
-  }
+  },
+  "routes": [
+    { "pattern": "benchfinder.nl", "custom_domain": true },
+    { "pattern": "bench.blackmad.com", "custom_domain": true }
+  ]
 }
